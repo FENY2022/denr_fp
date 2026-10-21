@@ -45,7 +45,7 @@ if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    header('Permissions-Policy: geolocation=(), microphone=(), camera=(self)');
     header('Content-Security-Policy: default-src \'self\'; connect-src \'self\' https://cdn.jsdelivr.net; style-src \'self\' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src \'self\' https://cdn.jsdelivr.net; img-src \'self\' data:; font-src \'self\' https://cdn.jsdelivr.net https://fonts.gstatic.com; object-src \'none\'; base-uri \'self\'; frame-ancestors \'none\'; form-action \'self\'');
     header('Cache-Control: no-store, private');
 }
