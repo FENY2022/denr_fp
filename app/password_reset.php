@@ -13,29 +13,28 @@ function password_reset_url(string $token): string
 
 function send_password_reset_email(array $user, string $resetUrl): bool
 {
-    if (strtolower(env_value('MAIL_ENABLED', 'false')) !== 'true') {
-        return false;
-    }
+    $name = trim((string)($user['name'] ?? 'FP-OMS User'));
+    $safeName = htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $safeUrl = htmlspecialchars($resetUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-    $from = trim(env_value('MAIL_FROM_ADDRESS'));
-    if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
-        return false;
-    }
-
-    $name = trim(env_value('MAIL_FROM_NAME', 'DENR FP-OMS'));
-    $safeName = str_replace(["\r", "\n"], '', $name);
     $subject = 'DENR FP-OMS Password Reset';
-    $body = "A password reset was requested for your DENR FP-OMS account.\n\n"
-        . "Reset your password using this link:\n" . $resetUrl . "\n\n"
-        . "This link expires in 30 minutes and can only be used once.\n"
-        . "If you did not request this reset, you may ignore this message.\n";
-    $headers = [
-        'From: ' . $safeName . ' <' . $from . '>',
-        'Content-Type: text/plain; charset=UTF-8',
-        'X-Mailer: DENR FP-OMS'
-    ];
+    $html = '<!doctype html><html><body style="margin:0;padding:0;background:#f4f7f5;font-family:Arial,sans-serif;color:#17352a">'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7f5;padding:28px 12px"><tr><td align="center">'
+        . '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #dbe7e0">'
+        . '<tr><td style="background:#08783f;padding:22px 28px;color:#ffffff"><div style="font-size:20px;font-weight:700">DENR FP-OMS</div>'
+        . '<div style="font-size:13px;opacity:.9;margin-top:3px">Feasibility Permit Online Management System · Caraga Region XIII</div></td></tr>'
+        . '<tr><td style="padding:30px 28px"><h1 style="font-size:22px;margin:0 0 16px;color:#075c32">Reset your password</h1>'
+        . '<p style="line-height:1.6;margin:0 0 14px">Hello ' . $safeName . ',</p>'
+        . '<p style="line-height:1.6;margin:0 0 22px">A password reset was requested for your DENR FP-OMS account. Use the secure button below to set a new password.</p>'
+        . '<p style="margin:0 0 24px"><a href="' . $safeUrl . '" style="display:inline-block;background:#08783f;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:8px">Reset Password</a></p>'
+        . '<p style="font-size:13px;line-height:1.6;color:#5d6f67;margin:0 0 8px"><strong>This link expires in 30 minutes and can only be used once.</strong></p>'
+        . '<p style="font-size:13px;line-height:1.6;color:#5d6f67;margin:0 0 18px">If you did not request this reset, you can safely ignore this email.</p>'
+        . '<p style="font-size:12px;line-height:1.5;color:#75857d;margin:0">If the button does not work, copy and paste this address into your browser:<br>'
+        . '<span style="word-break:break-all">' . $safeUrl . '</span></p></td></tr>'
+        . '<tr><td style="padding:16px 28px;background:#f0f6f2;color:#64766d;font-size:11px">Automated security message from DENR FP-OMS. Do not reply with your password.</td></tr>'
+        . '</table></td></tr></table></body></html>';
 
-    return @mail((string)$user['email'], $subject, $body, implode("\r\n", $headers));
+    return smtp_send_html((string)$user['email'], $subject, $html);
 }
 
 function request_password_reset(string $email): void
@@ -75,7 +74,7 @@ function request_password_reset(string $email): void
 
     $sent = send_password_reset_email($user, password_reset_url($token));
     audit((int)$user['id'], 'auth.password_reset_requested', 'user', (int)$user['id'], [
-        'delivery' => $sent ? 'mail' : 'not_sent'
+        'delivery' => $sent ? 'smtp' : 'not_sent'
     ]);
 }
 
