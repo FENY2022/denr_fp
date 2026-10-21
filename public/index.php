@@ -27,6 +27,20 @@ try {
         case 'landing':
             view_landing();
             break;
+        case 'setup_admin':
+            if ($post) {
+                check_csrf();
+                $errors = create_initial_super_admin($_POST);
+                if ($errors) {
+                    view_initial_admin_setup($errors);
+                } else {
+                    flash('success', 'RICTU Super Administrator created. Sign in with the new account; a password change is required on first login.');
+                    go('login');
+                }
+            } else {
+                view_initial_admin_setup();
+            }
+            break;
         case 'login':
             if ($post) {
                 check_csrf();
