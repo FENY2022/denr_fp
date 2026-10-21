@@ -15,6 +15,7 @@
 - LPDD-FUS review queue and individual review details: approve/activate, or return with mandatory correction remarks.
 - Applicant sees registration status, deficiencies, latest attachments; can edit and resubmit while corrections are required.
 - Audit log of registration submission, resubmission, review, login and staff provisioning.
+- Clickable user Profile page plus a topbar notification bell with unread count, unread-first latest items, mark-all-read, and View All Notifications.
 - Permission checks on each protected route; Bootstrap 5 responsive UI.
 
 **Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, and general SMS/email notifications. Password-reset email is supported when server mail delivery is configured. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
@@ -61,6 +62,8 @@ mysql -u root -p denr_fp_oms < database/001_core.sql
 mysql -u root -p denr_fp_oms < database/002_future_workflow.sql
 # Required for Forgot Password / Reset Password:
 mysql -u root -p denr_fp_oms < database/004_password_reset.sql
+# Required for the bell notification center:
+mysql -u root -p denr_fp_oms < database/005_notifications.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -124,6 +127,25 @@ FPOMS_SETUP_KEY=use_a_long_random_one_time_secret_here
 The setup form requires the RICTU administrator's full name, official/work email, the setup key, and an initial password. On successful submission the system creates the actual `users` and `user_roles` records, writes an audit event, and forces a password change on first login. Once a Super Administrator exists, `/setup-admin` returns an access notice and can no longer create another bootstrap administrator.
 
 After bootstrap, remove or rotate `FPOMS_SETUP_KEY` in the server environment.
+
+## Profile and notification bell
+
+The authenticated top-right user card and the sidebar user card open the clean route `/profile`. The Profile page displays the fields already stored by FP-OMS, including name, email, account type, role, status, account ID, last login and activation date. Applicant accounts also show their company/proponent and contact details.
+
+The topbar bell shows unread count and the latest five notifications with unread items first. It supports **Mark all read** and **View All Notifications**. Phase 1 currently creates notifications for:
+
+- new applicant registration → LPDD-FUS;
+- applicant registration resubmission → LPDD-FUS;
+- LPDD-FUS approval or return-for-correction → applicant;
+- creation of a DENR internal account → the new user.
+
+Import the notification table once:
+
+```bash
+mysql -u root -p denr_fp_oms < database/005_notifications.sql
+```
+
+The shell is migration-safe: before the table is imported, the rest of FP-OMS continues to load and the bell simply shows no stored items.
 
 ## Password recovery
 
@@ -235,10 +257,14 @@ denr-fp-oms/
 │   ├── domain.php               # status, validators, role definitions
 │   ├── registration.php         # applicant submission/review/uploads
 │   ├── staff.php                # RICTU provisioning
+│   ├── notifications.php        # bell notification center
+│   ├── profile.php              # authenticated user profile
 │   └── views.php                # HTML views
 ├── database/
 │   ├── 001_core.sql             # Phase 1 schema
-│   └── 002_future_workflow.sql  # tables only (Steps 2–11 later)
+│   ├── 002_future_workflow.sql  # tables only (Steps 2–11 later)
+│   ├── 004_password_reset.sql   # password reset token storage
+│   └── 005_notifications.sql    # bell notification storage
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
