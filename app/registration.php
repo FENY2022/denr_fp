@@ -82,6 +82,7 @@ function register_applicant(array $values, string $email, string $password, stri
         $stmt = $pdo->prepare("INSERT INTO users (name,email,password_hash,user_kind,status) VALUES (?,?,?,'applicant','pending_review')");
         $stmt->execute([$values['representative_name'],strtolower(trim($email)),password_hash($password, PASSWORD_DEFAULT)]);
         $uid = (int)$pdo->lastInsertId();
+        initialize_profile_account_fields($uid, 'applicant');
         $role = query_one('SELECT id FROM roles WHERE code=?', ['applicant']);
         if (!$role) throw new RuntimeException('Roles have not been seeded.');
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$uid,(int)$role['id']]);
