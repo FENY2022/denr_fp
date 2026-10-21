@@ -148,9 +148,14 @@ function view_forgot_password(): void
     $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel">'
         . '<div class="d-flex align-items-center gap-3 mb-3"><span class="install-icon"><i class="bi bi-key"></i></span>'
         . '<div><h2 class="h5 mb-1">Forgot Password</h2><p class="text-secondary small mb-0">Request a secure password reset link.</p></div></div>'
-        . '<form method="post" action="' . url('forgot_password') . '">' . csrf_field()
+        . '<form id="forgotPasswordForm" class="forgot-password-form" data-inline-submit-loading method="post" action="' . url('forgot_password') . '">' . csrf_field()
         . field('email','Account email',form_value('email'),'email',true,'autocomplete="email" maxlength="190"')
-        . '<button class="btn btn-primary w-100" type="submit">Send Reset Link</button></form>'
+        . '<button id="forgotPasswordSubmit" class="btn btn-primary w-100" type="submit">'
+        . '<span class="spinner-border spinner-border-sm me-2 d-none" id="forgotPasswordSpinner" aria-hidden="true"></span>'
+        . '<span id="forgotPasswordButtonText">Send Reset Link</span></button>'
+        . '<div id="forgotPasswordSendingStatus" class="forgot-password-sending-status d-none" role="status" aria-live="polite">'
+        . '<i class="bi bi-envelope-arrow-up me-1" aria-hidden="true"></i>Sending your password reset request. Please wait for confirmation…'
+        . '</div></form>'
         . '<p class="small text-secondary mt-3 mb-0">For security, the system will show the same confirmation whether or not the email is registered.</p>'
         . '<hr><a class="small" href="' . url('login') . '">← Back to Sign In</a>'
         . '</div></div></div>';
