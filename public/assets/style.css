@@ -1,0 +1,23 @@
+:root {--denr-blue:#0e3960;--denr-green:#167b56;--denr-bg:#f4f7fb}
+* {box-sizing:border-box}
+body {background:var(--denr-bg);color:#152941;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column}
+a {color:#075f9f;text-decoration:none} a:hover{text-decoration:underline}
+.topbar {background:linear-gradient(110deg,#0a3155,#104872);color:white;box-shadow:0 3px 15px rgba(0,0,0,.12);padding:14px 0}
+.brand {display:flex;align-items:center;gap:12px;color:white;text-decoration:none}.brand:hover{color:white;text-decoration:none}
+.brand-mark {display:grid;place-items:center;height:45px;width:45px;border:2px solid #c9e7d7;border-radius:50%;color:white;background:#19764d;font-size:12px;font-weight:800;letter-spacing:.5px}
+.brand strong {display:block;font-size:20px;letter-spacing:.3px;line-height:1.12}.brand small{display:block;color:#c2d9ed;font-size:11px}
+.navlink{color:#eff8ff;font-size:14px}.navlink:hover{color:white}
+.user-display {opacity:.78}.eyebrow{font-size:11px;color:#197958;font-weight:800;letter-spacing:1.6px}
+.page-title{font-weight:800;font-size:clamp(1.5rem,3.1vw,2rem);margin-top:5px}
+.panel {background:#fff;border:1px solid #e3e9f1;border-radius:16px;padding:clamp(18px,3vw,29px);box-shadow:0 10px 30px rgba(17,51,86,.05)}
+.panel.soft{background:#f2f8ff;border-color:#d7e7f5}
+.form-control:focus,.form-select:focus{border-color:#2583bb;box-shadow:0 0 0 .2rem rgba(37,131,187,.14)}
+.form-label{font-weight:650;font-size:14px;color:#253c55}
+.btn-primary{background:#0a578d;border-color:#0a578d}.btn-primary:hover{background:#074674;border-color:#074674}
+.btn-success{background:var(--denr-green);border-color:var(--denr-green)}
+.details dt{color:#5d7186;font-weight:600}.details dd{overflow-wrap:anywhere}
+.history{padding:12px 0;border-bottom:1px solid #e4eaf0}.history:last-child{border-bottom:0}
+.quick-action {display:flex;flex-direction:column;gap:8px;border:1px solid #d9e7f3;border-radius:12px;background:#f5faff;padding:20px;text-decoration:none;color:#143a5d;height:100%}
+.quick-action:hover{text-decoration:none;background:#e9f4fc}.quick-action .metric{font-weight:800;font-size:28px}.quick-action small{color:#657f96}
+.footer {padding:23px 0;color:#718197;font-size:12px;border-top:1px solid #e4ebf2;margin-top:auto}
+@media(max-width:650px){.topbar{padding:12px 0}.topbar .user-display{display:none}.panel{border-radius:12px}}

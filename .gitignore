@@ -1,0 +1,5 @@
+.env
+/storage/*
+!/storage/.gitkeep
+/vendor/
+/.idea/
