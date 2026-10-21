@@ -7,13 +7,13 @@ try {
     $requestPath = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
     if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)
         && str_ends_with($requestPath, '/index.php')) {
-        $legacyPage = (string)($_GET['page'] ?? 'dashboard');
+        $legacyPage = (string)($_GET['page'] ?? 'landing');
         $legacyParams = $_GET;
         unset($legacyParams['page']);
         header('Location: ' . url(str_replace('-', '_', $legacyPage), $legacyParams), true, 302);
         exit;
     }
-    $page = str_replace('-', '_', (string)($_GET['page'] ?? 'dashboard'));
+    $page = str_replace('-', '_', (string)($_GET['page'] ?? 'landing'));
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $post = $method === 'POST';
     $loggedIn = current_user();
@@ -24,6 +24,9 @@ try {
     }
 
     switch ($page) {
+        case 'landing':
+            view_landing();
+            break;
         case 'login':
             if ($post) {
                 check_csrf();
