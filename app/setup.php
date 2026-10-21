@@ -88,6 +88,7 @@ function create_initial_super_admin(array $input): array
         )->execute([$name, $email, password_hash($password, PASSWORD_DEFAULT)]);
 
         $userId = (int)$pdo->lastInsertId();
+        initialize_profile_account_fields($userId, 'internal');
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')
             ->execute([$userId, (int)$role['id']]);
 
