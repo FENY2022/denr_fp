@@ -52,10 +52,12 @@ if (!headers_sent()) {
 require_once __DIR__ . '/domain.php';
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/smtp.php';
 require_once __DIR__ . '/password_reset.php';
 require_once __DIR__ . '/registration.php';
 require_once __DIR__ . '/staff.php';
+require_once __DIR__ . '/profile.php';
 require_once __DIR__ . '/views.php';
 require_once __DIR__ . '/setup.php';
 require_once __DIR__ . '/landing.php';
