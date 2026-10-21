@@ -19,6 +19,13 @@
 
 **Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, SMS/email messages. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
 
+## Public Landing Page
+
+- The site root `/` now opens a public DENR FP-OMS landing page instead of the authenticated dashboard.
+- Landing sections cover the system overview, permit process, core application preparation, system user groups, contact information, and calls to register/sign in.
+- Logged-in users see a direct **Go to Dashboard** action; applicants can also jump to **My Registration**.
+- The landing page reuses the existing PWA installer, DENR/AMSOS-inspired green theme, Bootstrap 5, and clean URLs without `.php`.
+
 ## UI and Install App (AMSOS V2-inspired)
 
 - Adapted the visual shell from **ICT-AMSOS V2** for FP-OMS: Inter typography, #08783f DENR green, deep-green gradient left sidebar, white cards, blue accent and Bootstrap 5.3 icons.
