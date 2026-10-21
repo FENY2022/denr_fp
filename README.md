@@ -130,7 +130,7 @@ After bootstrap, remove or rotate `FPOMS_SETUP_KEY` in the server environment.
 
 ## Profile and notification bell
 
-The authenticated top-right user card and the sidebar user card open the clean route `/profile`. The Profile page displays the fields already stored by FP-OMS, including name, email, account type, role, status, account ID, last login and activation date. Applicant accounts also show their company/proponent and contact details.
+The authenticated top-right user card and the sidebar user card open the clean route `/profile`. The Profile area now has **View Profile / Edit Profile** tabs. `/profile` is read-only, while `/edit-profile` allows the signed-in user to update Full Name and Email Address. Role, account type, status and account ID remain read-only. Email changes reject duplicates, updates are audited, and applicant full-name changes are synchronized to the registration representative name. Applicant accounts also show their company/proponent and contact details.
 
 The topbar bell shows unread count and the latest five notifications with unread items first. It supports **Mark all read** and **View All Notifications**. Phase 1 currently creates notifications for:
 
