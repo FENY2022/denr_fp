@@ -47,3 +47,19 @@ a{text-decoration:none;color:var(--amsos-blue)}a:hover{color:var(--amsos-green-d
 @media(min-width:992px){.mobile-nav{display:none!important}}
 @media(max-width:991.98px){.app-sidebar{display:none}.app-main,.sidebar-collapsed .app-main{margin-left:0}.mobile-menu-btn{display:inline-grid;place-items:center}.app-content{padding-top:1.4rem}.topbar-user-mini{max-width:135px}}
 @media(max-width:575.98px){.topbar-mini-name,.topbar-mini-role{display:none}.topbar-user-mini{padding:.32rem}.topbar-actions{gap:.3rem}.text-size-select{min-width:105px;font-size:.66rem}.app-topbar-inner{min-height:62px}.public-links{gap:.5rem;font-size:.72rem}.public-content{padding-top:1.5rem}.panel{border-radius:14px}.install-app-card{align-items:flex-start;flex-direction:column}}
+
+
+/* FP-OMS global page loader */
+body.page-loading{overflow:hidden}
+.page-loader{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:1.5rem;background:rgba(248,252,250,.9);backdrop-filter:blur(10px) saturate(115%);-webkit-backdrop-filter:blur(10px) saturate(115%);opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,visibility .2s ease}
+.page-loader.is-visible{opacity:1;visibility:visible;pointer-events:auto}
+.page-loader-panel{width:min(92vw,520px);text-align:center;padding:2.1rem 1.4rem;color:var(--amsos-ink)}
+.page-loader-logo{width:82px;height:82px;object-fit:contain;filter:drop-shadow(0 10px 20px rgba(4,90,46,.12))}
+.page-loader-brand{margin-top:.9rem;color:var(--amsos-green-dark);font-size:clamp(1.55rem,4vw,2rem);font-weight:800;letter-spacing:-.035em}
+.page-loader-subtitle{margin:.22rem auto 1.5rem;max-width:410px;color:#276747;font-size:.69rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase}
+.page-loader-spinner{display:block;width:64px;height:64px;margin:0 auto 1.2rem;border:7px solid #dceee4;border-top-color:var(--amsos-green);border-right-color:#4bae76;border-radius:50%;animation:fpoms-loader-spin .82s linear infinite;box-shadow:0 7px 22px rgba(8,120,63,.08)}
+.page-loader-message{color:var(--amsos-green-dark);font-size:1.02rem;font-weight:800;letter-spacing:-.015em}
+.page-loader-help{margin-top:.28rem;color:var(--amsos-muted);font-size:.78rem}
+@keyframes fpoms-loader-spin{to{transform:rotate(360deg)}}
+@media(max-width:575.98px){.page-loader-panel{padding:1.6rem 1rem}.page-loader-logo{width:70px;height:70px}.page-loader-spinner{width:56px;height:56px;border-width:6px}.page-loader-subtitle{font-size:.61rem;letter-spacing:.12em}}
+@media(prefers-reduced-motion:reduce){.page-loader{transition:none}.page-loader-spinner{animation-duration:1.6s}}
