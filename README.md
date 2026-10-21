@@ -89,7 +89,21 @@ php scripts/seed_roles.php
 php scripts/create_admin.php
 ```
 
-The script prompts for full name, email and an initial 12+ character password. On first sign-in the administrator must change it. Do **not** store bootstrap passwords in source files.
+The provisioning script creates an **active internal** account with the `super_admin` role and forces a password change on first sign-in. It rejects duplicate email addresses and records the bootstrap action in the audit log.
+
+By default it securely prompts for full name, work email and an initial 12+ character password. For controlled deployment automation, the same values may be supplied at runtime through `FPOMS_ADMIN_NAME`, `FPOMS_ADMIN_EMAIL`, and `FPOMS_ADMIN_PASSWORD`. These values are read from the process environment only and are **not** stored in GitHub source files.
+
+Example for PowerShell:
+
+```powershell
+$env:FPOMS_ADMIN_NAME="RICTU Super Administrator"
+$env:FPOMS_ADMIN_EMAIL="authorized.admin@agency.gov.ph"
+$env:FPOMS_ADMIN_PASSWORD="<temporary strong password>"
+php scripts/create_admin.php
+Remove-Item Env:FPOMS_ADMIN_NAME,Env:FPOMS_ADMIN_EMAIL,Env:FPOMS_ADMIN_PASSWORD
+```
+
+Use the actual authorized DENR administrator name/email at deployment time. Do **not** commit, paste into source code, or retain the temporary bootstrap password in scripts or documentation. On first sign-in the administrator must change it.
 
 ## 5. Run locally
 
