@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../app/core.php';
 $assertions = [
+    ['landing', './'],
     ['login', 'login'],
     ['register', 'register'],
     ['my_registration', 'my-registration'],
