@@ -37,7 +37,7 @@
 
 ## 1. Requirements
 
-- PHP 8.2 or newer with extensions `pdo_mysql`, `fileinfo`, and `mbstring` (PDO MySQL is mandatory).
+- PHP 8.2 or newer with extensions `pdo_mysql`, `fileinfo`, `mbstring`, and `openssl` (PDO MySQL is mandatory; OpenSSL is required for Gmail STARTTLS).
 - MySQL 8.0+ or MariaDB 10.5+ with InnoDB and utf8mb4 support.
 - Apache 2.4 or another server configured so **only `/public` is web-accessible**, ideally HTTPS.
 - `storage` writable by the PHP process, not publicly web-accessible.
@@ -135,26 +135,27 @@ Import the password-reset migration before using the feature:
 mysql -u root -p denr_fp_oms < database/004_password_reset.sql
 ```
 
-To enable password-reset email delivery, configure an authenticated SMTP account in the server `.env`. FP-OMS connects directly to SMTP and does not depend on PHP `mail()`:
+Password-reset email now uses **PHPMailer 6.9.1**, matching the PNPKI/D-Sign mail transport pattern. PHPMailer is bundled under `lib/phpmailer/`, so no Composer installation is required. Configure Gmail SMTP in the server `.env`:
 
 ```env
 APP_URL=https://your-fpoms-host.example
 
 MAIL_ENABLED=true
-MAIL_HOST=smtp.your-approved-provider.example
+MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_ENCRYPTION=tls
-MAIL_USERNAME=your-smtp-account@example.gov.ph
-MAIL_PASSWORD=your-smtp-password-or-app-password
+MAIL_USERNAME=your-gmail-account@gmail.com
+MAIL_PASSWORD=your-gmail-app-password
 MAIL_FROM_NAME="DENR FP-OMS"
-MAIL_FROM_ADDRESS=your-smtp-account@example.gov.ph
+MAIL_FROM_ADDRESS=your-gmail-account@gmail.com
 MAIL_VERIFY_PEER=true
-MAIL_TIMEOUT=15
+MAIL_TIMEOUT=20
+MAIL_DEBUG=false
 ```
 
-`APP_URL` must be the real URL users can open because it is used to build the password-reset link. SMTP supports `tls` (STARTTLS, commonly port 587), `ssl` (implicit TLS, commonly port 465), or `none` only for a trusted/internal SMTP relay. Keep `MAIL_VERIFY_PEER=true` for production.
+`APP_URL` must be the real URL users can open because it is used to build the password-reset link. For the PNPKI-style Gmail setup, use STARTTLS (`tls`) on port 587 and keep `MAIL_VERIFY_PEER=true`. A Gmail account with 2-Step Verification normally needs an App Password rather than the ordinary account password.
 
-The SMTP password is a deployment secret. Keep it only in `.env` or the server environment; never commit the actual credential to GitHub. If ICT-AMSOS V2 uses the same authorized SMTP account, copy the **server-side** host, port, encryption, username, password, and sender values into the FP-OMS `.env`. Those secret values are not present in the AMSOS V2 GitHub `main` branch.
+The Gmail App Password is a deployment secret. The PNPKI/D-Sign source contains an older hardcoded Gmail credential, but FP-OMS deliberately does **not** copy or commit that secret. Put the authorized Gmail account and its current App Password only in the FP-OMS server `.env`. For Gmail, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, and `MAIL_ENCRYPTION=tls` match the PNPKI transport. `MAIL_FROM_ADDRESS` should normally match the authenticated Gmail account.
 
 Test SMTP delivery from the FP-OMS application directory:
 
@@ -221,7 +222,7 @@ denr-fp-oms/
 │   ├── bootstrap.php            # environment + security headers/session
 │   ├── core.php                 # PDO, CSRF, authorization, audit, helpers
 │   ├── auth.php                 # login, logout, password change
-│   ├── smtp.php                 # authenticated SMTP transport
+│   ├── smtp.php                 # PHPMailer SMTP wrapper
 │   ├── password_reset.php       # forgot/reset password workflow
 │   ├── domain.php               # status, validators, role definitions
 │   ├── registration.php         # applicant submission/review/uploads
