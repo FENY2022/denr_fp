@@ -135,14 +135,34 @@ Import the password-reset migration before using the feature:
 mysql -u root -p denr_fp_oms < database/004_password_reset.sql
 ```
 
-To enable email delivery, configure the server's PHP `mail()` transport and set:
+To enable password-reset email delivery, configure an authenticated SMTP account in the server `.env`. FP-OMS connects directly to SMTP and does not depend on PHP `mail()`:
 
 ```env
 APP_URL=https://your-fpoms-host.example
+
 MAIL_ENABLED=true
+MAIL_HOST=smtp.your-approved-provider.example
+MAIL_PORT=587
+MAIL_ENCRYPTION=tls
+MAIL_USERNAME=your-smtp-account@example.gov.ph
+MAIL_PASSWORD=your-smtp-password-or-app-password
 MAIL_FROM_NAME="DENR FP-OMS"
-MAIL_FROM_ADDRESS=no-reply@your-approved-domain.example
+MAIL_FROM_ADDRESS=your-smtp-account@example.gov.ph
+MAIL_VERIFY_PEER=true
+MAIL_TIMEOUT=15
 ```
+
+`APP_URL` must be the real URL users can open because it is used to build the password-reset link. SMTP supports `tls` (STARTTLS, commonly port 587), `ssl` (implicit TLS, commonly port 465), or `none` only for a trusted/internal SMTP relay. Keep `MAIL_VERIFY_PEER=true` for production.
+
+The SMTP password is a deployment secret. Keep it only in `.env` or the server environment; never commit the actual credential to GitHub. If ICT-AMSOS V2 uses the same authorized SMTP account, copy the **server-side** host, port, encryption, username, password, and sender values into the FP-OMS `.env`. Those secret values are not present in the AMSOS V2 GitHub `main` branch.
+
+Test SMTP delivery from the FP-OMS application directory:
+
+```bash
+php scripts/test_smtp.php
+```
+
+The command prompts for a recipient email and sends a DENR FP-OMS test message. On failure, it writes a non-secret SMTP diagnostic to the PHP error log.
 
 `APP_URL` must be the real URL users can open because it is used to build the password-reset link. The public form returns a generic confirmation whether or not an email exists, limits reset requests per account and IP address, and does not store raw reset tokens.
 
@@ -201,6 +221,7 @@ denr-fp-oms/
 │   ├── bootstrap.php            # environment + security headers/session
 │   ├── core.php                 # PDO, CSRF, authorization, audit, helpers
 │   ├── auth.php                 # login, logout, password change
+│   ├── smtp.php                 # authenticated SMTP transport
 │   ├── password_reset.php       # forgot/reset password workflow
 │   ├── domain.php               # status, validators, role definitions
 │   ├── registration.php         # applicant submission/review/uploads
@@ -219,7 +240,8 @@ denr-fp-oms/
 ├── scripts/
 │   ├── seed_roles.php
 │   ├── create_admin.php
-│   └── reset_password.php
+│   ├── reset_password.php
+│   └── test_smtp.php
 ├── storage/                    # PRIVATE uploaded documents
 ├── tests/domain_test.php
 └── docs/ARCHITECTURE.md
