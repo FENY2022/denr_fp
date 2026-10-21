@@ -13,6 +13,18 @@ function profile_display_date(?string $value): string
     }
 }
 
+function profile_status_badge(string $status): string
+{
+    $labels = [
+        'active' => ['success', 'Active'],
+        'pending_review' => ['warning', 'Pending Review'],
+        'needs_correction' => ['danger', 'Corrections Required'],
+        'suspended' => ['secondary', 'Suspended'],
+    ];
+    [$color, $label] = $labels[$status] ?? ['secondary', ucwords(str_replace('_', ' ', $status))];
+    return '<span class="badge text-bg-' . e($color) . '">' . e($label) . '</span>';
+}
+
 function view_profile(): void
 {
     $user = require_user();
@@ -42,7 +54,7 @@ function view_profile(): void
         . '<div class="profile-info-item"><span class="profile-info-label">Email Address</span><div class="profile-info-value">' . e((string)$user['email']) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Account Type</span><div class="profile-info-value">' . e($accountType) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Role</span><div class="profile-info-value">' . e($roleText) . '</div></div>'
-        . '<div class="profile-info-item"><span class="profile-info-label">Account Status</span><div class="profile-info-value">' . status_badge((string)$user['status']) . '</div></div>'
+        . '<div class="profile-info-item"><span class="profile-info-label">Account Status</span><div class="profile-info-value">' . profile_status_badge((string)$user['status']) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Account ID</span><div class="profile-info-value">#' . (int)$user['id'] . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Last Login</span><div class="profile-info-value">' . e(profile_display_date($user['last_login_at'] ?? null)) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Activated</span><div class="profile-info-value">' . e(profile_display_date($user['activated_at'] ?? null)) . '</div></div>';
