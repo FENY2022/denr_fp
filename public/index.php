@@ -98,6 +98,21 @@ try {
         case 'profile':
             view_profile();
             break;
+        case 'edit_profile':
+            $user = require_user();
+            if ($post) {
+                check_csrf();
+                $errors = update_profile($user, $_POST);
+                if ($errors) {
+                    view_edit_profile($errors);
+                } else {
+                    flash('success', 'Profile updated successfully.');
+                    go('profile');
+                }
+            } else {
+                view_edit_profile();
+            }
+            break;
         case 'notifications':
             view_notifications();
             break;
