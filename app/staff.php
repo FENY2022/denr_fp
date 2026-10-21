@@ -21,6 +21,7 @@ function create_internal_user(array $admin, array $data): array
         $stmt = $pdo->prepare("INSERT INTO users (name,email,password_hash,user_kind,status,must_change_password,activated_at) VALUES (?,?,?,'internal','active',1,NOW())");
         $stmt->execute([$name,$email,password_hash($password,PASSWORD_DEFAULT)]);
         $uid = (int)$pdo->lastInsertId();
+        initialize_profile_account_fields($uid, 'internal');
         $row = query_one('SELECT id FROM roles WHERE code=?',[$role]);
         if (!$row) throw new RuntimeException('Role not installed: ' . $role);
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$uid,(int)$row['id']]);
