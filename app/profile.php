@@ -44,6 +44,23 @@ function profile_context(array $user): array
     ];
 }
 
+function initialize_profile_account_fields(int $userId, string $userKind): void
+{
+    try {
+        $username = 'fpuser' . str_pad((string)$userId, 6, '0', STR_PAD_LEFT);
+        $office = $userKind === 'internal' ? 'Regional Office' : 'External Applicant';
+        db()->prepare(
+            "UPDATE users
+             SET username=COALESCE(NULLIF(username,''),?),
+                 office_level=COALESCE(NULLIF(office_level,''),?)
+             WHERE id=?"
+        )->execute([$username, $office, $userId]);
+    } catch (PDOException $e) {
+        // Profile migration may not yet be installed during staged deployment.
+        error_log('FP-OMS profile field initialization skipped: ' . $e->getMessage());
+    }
+}
+
 function profile_photo_url(array $user): ?string
 {
     $path = trim((string)($user['profile_photo'] ?? ''));
