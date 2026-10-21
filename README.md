@@ -64,6 +64,8 @@ mysql -u root -p denr_fp_oms < database/002_future_workflow.sql
 mysql -u root -p denr_fp_oms < database/004_password_reset.sql
 # Required for the bell notification center:
 mysql -u root -p denr_fp_oms < database/005_notifications.sql
+# Required for authenticated profile editing and profile photos:
+mysql -u root -p denr_fp_oms < database/006_user_profile_fields.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -130,7 +132,13 @@ After bootstrap, remove or rotate `FPOMS_SETUP_KEY` in the server environment.
 
 ## Profile and notification bell
 
-The authenticated top-right user card and the sidebar user card open the clean route `/profile`. The Profile area now has **View Profile / Edit Profile** tabs. `/profile` is read-only, while `/edit-profile` allows the signed-in user to update Full Name and Email Address. Role, account type, status and account ID remain read-only. Email changes reject duplicates, updates are audited, and applicant full-name changes are synchronized to the registration representative name. Applicant accounts also show their company/proponent and contact details.
+The authenticated top-right user card and the sidebar user card open the clean route `/profile`. The Profile area has **View Profile / Edit Profile** tabs. Editing now uses the canonical route `GET /profile?tab=edit` and `POST /profile?tab=edit`; the old `/edit-profile` GET route redirects to the canonical tab.
+
+The signed-in user can update only their own full name and optional email address. Full name is validated at 3–160 characters. A supplied email must be valid and unique; leaving it blank preserves the current login email so email-based authentication is not broken. Username, normalized role assignment, office level/assignment and account status are rendered read-only and ignored from ordinary profile POSTs. Applicant full-name changes are synchronized to the applicant registration representative name. Successful updates are audited, regenerate the authenticated session ID and use POST-Redirect-GET.
+
+Profile photos are stored under the private `storage/profile_photos/<user-id>/` tree, outside the public web root. The database stores only the relative path. The protected `/profile-photo` route serves only the currently authenticated user's photo. Uploads are limited server-side to real JPG/PNG/WEBP images, maximum 2 MB and minimum 100×100 pixels, with MIME/content inspection and randomized filenames. Replacements delete the previous file only after a successful database commit; a newly written file is deleted if the database update fails. Existing photos can be removed through a CSRF-protected confirmation POST.
+
+The browser editor supports a device image picker and camera capture. Camera access is same-origin only, enumerates available cameras after permission, supports switching/restarting, mirrors front-camera preview without incorrectly mirroring the raw capture, and stops all media tracks when the camera modal closes. Before upload, the user can drag/reposition, zoom, crop to a square and flip the image; the adjusted result is exported as a 600×600 JPEG and is still fully revalidated by the server.
 
 The topbar bell shows unread count and the latest five notifications with unread items first. It supports **Mark all read** and **View All Notifications**. Phase 1 currently creates notifications for:
 
@@ -264,7 +272,8 @@ denr-fp-oms/
 │   ├── 001_core.sql             # Phase 1 schema
 │   ├── 002_future_workflow.sql  # tables only (Steps 2–11 later)
 │   ├── 004_password_reset.sql   # password reset token storage
-│   └── 005_notifications.sql    # bell notification storage
+│   ├── 005_notifications.sql    # bell notification storage
+│   └── 006_user_profile_fields.sql # username/photo/office profile fields
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
