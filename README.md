@@ -105,6 +105,24 @@ Remove-Item Env:FPOMS_ADMIN_NAME,Env:FPOMS_ADMIN_EMAIL,Env:FPOMS_ADMIN_PASSWORD
 
 Use the actual authorized DENR administrator name/email at deployment time. Do **not** commit, paste into source code, or retain the temporary bootstrap password in scripts or documentation. On first sign-in the administrator must change it.
 
+### Web-based first Super Administrator setup
+
+FP-OMS also provides a one-time clean URL:
+
+```text
+/setup-admin
+```
+
+This route is available only while **no account with the `super_admin` role exists**. Before opening it, configure a long random one-time secret in the server `.env`:
+
+```env
+FPOMS_SETUP_KEY=use_a_long_random_one_time_secret_here
+```
+
+The setup form requires the RICTU administrator's full name, official/work email, the setup key, and an initial password. On successful submission the system creates the actual `users` and `user_roles` records, writes an audit event, and forces a password change on first login. Once a Super Administrator exists, `/setup-admin` returns an access notice and can no longer create another bootstrap administrator.
+
+After bootstrap, remove or rotate `FPOMS_SETUP_KEY` in the server environment.
+
 ## 5. Run locally
 
 ```bash
