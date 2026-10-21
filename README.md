@@ -157,6 +157,14 @@ MAIL_DEBUG=false
 
 The Gmail App Password is a deployment secret. The PNPKI/D-Sign source contains an older hardcoded Gmail credential, but FP-OMS deliberately does **not** copy or commit that secret. Put the authorized Gmail account and its current App Password only in the FP-OMS server `.env`. For Gmail, `MAIL_HOST=smtp.gmail.com`, `MAIL_PORT=587`, and `MAIL_ENCRYPTION=tls` match the PNPKI transport. `MAIL_FROM_ADDRESS` should normally match the authenticated Gmail account.
 
+For XAMPP/local deployment, the easiest safe setup is the CLI helper. It writes the Gmail settings and your newly generated App Password only to the ignored local `.env`:
+
+```bash
+php scripts/configure_smtp.php
+```
+
+The helper defaults the Gmail account prompt to `feasibilitypermit@gmail.com`, strips spaces from Google's displayed 16-character App Password, and never prints the password back. If an App Password has been exposed in chat, screenshots, source control, or another shared location, revoke it and generate a new one before running this command.
+
 Test SMTP delivery from the FP-OMS application directory:
 
 ```bash
@@ -242,6 +250,7 @@ denr-fp-oms/
 │   ├── seed_roles.php
 │   ├── create_admin.php
 │   ├── reset_password.php
+│   ├── configure_smtp.php        # safely writes Gmail SMTP values to local .env
 │   └── test_smtp.php
 ├── storage/                    # PRIVATE uploaded documents
 ├── tests/domain_test.php
