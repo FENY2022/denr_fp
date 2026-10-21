@@ -91,6 +91,14 @@ function register_applicant(array $values, string $email, string $password, stri
         $stored[] = store_reg_document($pdo,$regId,$uid,1,'valid_id',$id);
         if (!isset($extra['none'])) $stored[] = store_reg_document($pdo,$regId,$uid,1,'supporting_document',$extra);
         audit($uid,'registration.submitted','registration',$regId,['revision'=>1]);
+        notify_role(
+            'lpdd_fus',
+            'New Applicant Registration',
+            $values['representative_name'] . ' submitted a registration for ' . $values['company_name'] . '.',
+            'person-plus',
+            'info',
+            'review_queue'
+        );
         $pdo->commit();
         return [];
     } catch (PDOException $ex) {
@@ -148,6 +156,14 @@ function revise_registration(array $user, array $values, array $files): array
         if (!isset($id['none'])) $stored[] = store_reg_document($pdo,(int)$reg['id'],(int)$user['id'],$revision,'valid_id',$id);
         if (!isset($extra['none'])) $stored[] = store_reg_document($pdo,(int)$reg['id'],(int)$user['id'],$revision,'supporting_document',$extra);
         audit((int)$user['id'],'registration.resubmitted','registration',(int)$reg['id'],['revision'=>$revision]);
+        notify_role(
+            'lpdd_fus',
+            'Registration Resubmitted',
+            $values['representative_name'] . ' submitted registration corrections for ' . $values['company_name'] . '.',
+            'arrow-repeat',
+            'warning',
+            'review_queue'
+        );
         $pdo->commit();
         return [];
     } catch (Throwable $ex) {
@@ -183,6 +199,25 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
             $pdo->prepare("UPDATE users SET status='active',activated_at=NOW() WHERE id=?")->execute([(int)$reg['user_id']]);
         } else {
             $pdo->prepare("UPDATE users SET status='needs_correction' WHERE id=?")->execute([(int)$reg['user_id']]);
+        }
+        if ($decision === 'approved') {
+            create_notification(
+                (int)$reg['user_id'],
+                'Registration Approved',
+                'Your FP-OMS registration has been approved and your account is now active.',
+                'check-circle',
+                'success',
+                'my_registration'
+            );
+        } else {
+            create_notification(
+                (int)$reg['user_id'],
+                'Registration Corrections Required',
+                'LPDD-FUS returned your registration for correction. Open My Registration to review the remarks.',
+                'exclamation-circle',
+                'warning',
+                'my_registration'
+            );
         }
         audit((int)$reviewer['id'],'registration.' . $decision,'registration',$registrationId,['revision'=>(int)$reg['revision']]);
         $pdo->commit();
