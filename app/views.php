@@ -196,6 +196,9 @@ function view_login(array $errors = []): void
         . field('password','Password','','password',true,'autocomplete="current-password"')
         . '<button class="btn btn-primary w-100" type="submit">Sign in</button></form>'
         . '<hr><p class="mb-0 small">New applicant? <a href="' . url('register') . '">Register for an account</a>.</p>'
+        . (initial_admin_setup_available()
+            ? '<div class="alert alert-warning small mt-3 mb-0"><strong>Initial RICTU setup:</strong> No Super Administrator exists yet. <a href="' . url('setup_admin') . '">Create the first Super Administrator</a>.</div>'
+            : '')
         . '<div class="install-app-card"><div class="install-copy"><span class="install-icon"><i class="bi bi-download"></i></span>'
         . '<div><strong>Install DENR FP-OMS</strong><small>Use FP-OMS like a desktop or mobile app</small></div></div>'
         . '<button type="button" id="installAppButton" class="btn btn-sm btn-outline-primary"><i class="bi bi-display me-1"></i>Install</button></div>'
