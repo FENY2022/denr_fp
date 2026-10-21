@@ -201,4 +201,347 @@
     adminPassword.select();
   });
 
+
+  // Authenticated Profile Photo editor: device file picker + camera + square crop.
+  const profileEditForm = document.getElementById('profileEditForm');
+  if (profileEditForm) {
+    const MAX_PROFILE_BYTES = 2 * 1024 * 1024;
+    const ALLOWED_PROFILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const CROP_SIZE = 600;
+
+    const sourceInput = document.getElementById('profilePhotoSource');
+    const uploadInput = document.getElementById('profilePhotoUpload');
+    const chooseButton = document.getElementById('profileChoosePhoto');
+    const cameraButton = document.getElementById('profileUseCamera');
+    const pendingNotice = document.getElementById('profilePhotoPending');
+    const preview = document.getElementById('profilePhotoPreview');
+
+    const cameraModalEl = document.getElementById('profileCameraModal');
+    const cameraVideo = document.getElementById('profileCameraVideo');
+    const cameraSelect = document.getElementById('profileCameraSelect');
+    const cameraRestart = document.getElementById('profileCameraRestart');
+    const cameraCapture = document.getElementById('profileCameraCapture');
+    const cameraAlert = document.getElementById('profileCameraAlert');
+
+    const adjustModalEl = document.getElementById('profileAdjustModal');
+    const cropCanvas = document.getElementById('profileCropCanvas');
+    const cropZoom = document.getElementById('profileCropZoom');
+    const cropFlip = document.getElementById('profileCropFlip');
+    const cropReset = document.getElementById('profileCropReset');
+    const cropApply = document.getElementById('profileCropApply');
+
+    let cameraStream = null;
+    let cameraFrontFacing = true;
+    let pendingCapturedBlob = null;
+    let previewObjectUrl = null;
+
+    const editor = {
+      image: null,
+      zoom: 1,
+      offsetX: 0,
+      offsetY: 0,
+      flipX: false,
+      dragging: false,
+      pointerX: 0,
+      pointerY: 0
+    };
+
+    const showCameraAlert = (message = '') => {
+      if (!cameraAlert) return;
+      cameraAlert.textContent = message;
+      cameraAlert.classList.toggle('d-none', !message);
+    };
+
+    const stopCamera = () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      if (cameraVideo) {
+        cameraVideo.pause();
+        cameraVideo.srcObject = null;
+        cameraVideo.classList.remove('is-mirrored');
+      }
+    };
+
+    const refreshCameraList = async (selectedId = '') => {
+      if (!cameraSelect || !navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+
+      cameraSelect.innerHTML = '';
+      cameras.forEach((camera, index) => {
+        const option = document.createElement('option');
+        option.value = camera.deviceId;
+        option.textContent = camera.label || `Camera ${index + 1}`;
+        if (selectedId && camera.deviceId === selectedId) option.selected = true;
+        cameraSelect.appendChild(option);
+      });
+
+      cameraSelect.disabled = cameras.length < 2;
+    };
+
+    const startCamera = async (deviceId = '') => {
+      if (!navigator.mediaDevices?.getUserMedia || !cameraVideo) {
+        showCameraAlert('Camera access is not supported by this browser. Use Choose Photo instead.');
+        return;
+      }
+
+      stopCamera();
+      showCameraAlert('');
+
+      try {
+        const videoConstraints = deviceId
+          ? {deviceId: {exact: deviceId}, width: {ideal: 1280}, height: {ideal: 1280}}
+          : {facingMode: {ideal: 'user'}, width: {ideal: 1280}, height: {ideal: 1280}};
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({video: videoConstraints, audio: false});
+        cameraVideo.srcObject = cameraStream;
+        await cameraVideo.play();
+
+        const track = cameraStream.getVideoTracks()[0];
+        const settings = track?.getSettings?.() || {};
+        const label = String(track?.label || '').toLowerCase();
+        cameraFrontFacing = settings.facingMode === 'user'
+          || (!settings.facingMode && /front|user|facetime|selfie/.test(label));
+
+        cameraVideo.classList.toggle('is-mirrored', cameraFrontFacing);
+        await refreshCameraList(String(settings.deviceId || deviceId || ''));
+      } catch (error) {
+        stopCamera();
+        const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
+        showCameraAlert(denied
+          ? 'Camera permission was denied. Allow camera access for this site, then click Restart Camera.'
+          : 'The selected camera could not be started. Try another camera or use Choose Photo.');
+      }
+    };
+
+    const loadImageFromBlob = (blob) => new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(blob);
+      const image = new Image();
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Image could not be opened.'));
+      };
+      image.src = objectUrl;
+    });
+
+    const editorGeometry = () => {
+      if (!editor.image) return null;
+      const base = Math.max(CROP_SIZE / editor.image.naturalWidth, CROP_SIZE / editor.image.naturalHeight);
+      const scale = base * editor.zoom;
+      const width = editor.image.naturalWidth * scale;
+      const height = editor.image.naturalHeight * scale;
+      const maxX = Math.max(0, (width - CROP_SIZE) / 2);
+      const maxY = Math.max(0, (height - CROP_SIZE) / 2);
+      editor.offsetX = Math.max(-maxX, Math.min(maxX, editor.offsetX));
+      editor.offsetY = Math.max(-maxY, Math.min(maxY, editor.offsetY));
+
+      return {
+        width,
+        height,
+        x: (CROP_SIZE - width) / 2 + editor.offsetX,
+        y: (CROP_SIZE - height) / 2 + editor.offsetY
+      };
+    };
+
+    const renderCrop = () => {
+      if (!cropCanvas || !editor.image) return;
+      const ctx = cropCanvas.getContext('2d');
+      const geometry = editorGeometry();
+      if (!ctx || !geometry) return;
+
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, CROP_SIZE, CROP_SIZE);
+
+      if (editor.flipX) {
+        ctx.translate(CROP_SIZE, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(
+          editor.image,
+          -geometry.x - geometry.width,
+          geometry.y,
+          geometry.width,
+          geometry.height
+        );
+      } else {
+        ctx.drawImage(editor.image, geometry.x, geometry.y, geometry.width, geometry.height);
+      }
+      ctx.restore();
+    };
+
+    const resetEditor = () => {
+      editor.zoom = 1;
+      editor.offsetX = 0;
+      editor.offsetY = 0;
+      editor.flipX = false;
+      if (cropZoom) cropZoom.value = '1';
+      if (cropFlip) cropFlip.classList.remove('active');
+      renderCrop();
+    };
+
+    const openAdjustment = async (blob) => {
+      try {
+        const image = await loadImageFromBlob(blob);
+        if (image.naturalWidth < 100 || image.naturalHeight < 100) {
+          window.alert('Profile photo must be at least 100×100 pixels.');
+          return;
+        }
+
+        editor.image = image;
+        resetEditor();
+
+        if (window.bootstrap && adjustModalEl) {
+          window.bootstrap.Modal.getOrCreateInstance(adjustModalEl).show();
+        }
+      } catch (_) {
+        window.alert('The selected file is not a readable image.');
+      }
+    };
+
+    chooseButton?.addEventListener('click', () => sourceInput?.click());
+
+    sourceInput?.addEventListener('change', () => {
+      const file = sourceInput.files?.[0];
+      sourceInput.value = '';
+      if (!file) return;
+
+      if (!ALLOWED_PROFILE_TYPES.includes(file.type)) {
+        window.alert('Choose a JPG, PNG, or WEBP image.');
+        return;
+      }
+      if (file.size > MAX_PROFILE_BYTES) {
+        window.alert('Profile photo must be 2 MB or smaller.');
+        return;
+      }
+
+      openAdjustment(file);
+    });
+
+    cameraModalEl?.addEventListener('shown.bs.modal', () => startCamera(cameraSelect?.value || ''));
+    cameraModalEl?.addEventListener('hidden.bs.modal', () => {
+      stopCamera();
+      if (pendingCapturedBlob) {
+        const blob = pendingCapturedBlob;
+        pendingCapturedBlob = null;
+        openAdjustment(blob);
+      }
+    });
+
+    cameraSelect?.addEventListener('change', () => startCamera(cameraSelect.value));
+    cameraRestart?.addEventListener('click', () => startCamera(cameraSelect?.value || ''));
+
+    cameraCapture?.addEventListener('click', () => {
+      if (!cameraVideo || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+        showCameraAlert('Camera is not ready yet. Wait a moment and try again.');
+        return;
+      }
+
+      const capture = document.createElement('canvas');
+      capture.width = cameraVideo.videoWidth;
+      capture.height = cameraVideo.videoHeight;
+      const ctx = capture.getContext('2d');
+      if (!ctx) return;
+
+      // The front camera preview is mirrored for familiarity, but the raw captured
+      // frame remains correctly oriented. The editor offers an explicit Flip control.
+      ctx.drawImage(cameraVideo, 0, 0, capture.width, capture.height);
+      capture.toBlob(blob => {
+        if (!blob) {
+          showCameraAlert('Could not capture the camera image.');
+          return;
+        }
+        pendingCapturedBlob = blob;
+        window.bootstrap?.Modal.getOrCreateInstance(cameraModalEl)?.hide();
+      }, 'image/jpeg', 0.92);
+    });
+
+    cropZoom?.addEventListener('input', () => {
+      editor.zoom = Math.max(1, Math.min(3, Number(cropZoom.value) || 1));
+      renderCrop();
+    });
+
+    cropFlip?.addEventListener('click', () => {
+      editor.flipX = !editor.flipX;
+      cropFlip.classList.toggle('active', editor.flipX);
+      renderCrop();
+    });
+
+    cropReset?.addEventListener('click', resetEditor);
+
+    cropCanvas?.addEventListener('pointerdown', event => {
+      if (!editor.image) return;
+      editor.dragging = true;
+      editor.pointerX = event.clientX;
+      editor.pointerY = event.clientY;
+      cropCanvas.setPointerCapture?.(event.pointerId);
+      cropCanvas.classList.add('is-dragging');
+    });
+
+    cropCanvas?.addEventListener('pointermove', event => {
+      if (!editor.dragging || !editor.image) return;
+      const rect = cropCanvas.getBoundingClientRect();
+      const ratio = rect.width > 0 ? CROP_SIZE / rect.width : 1;
+      editor.offsetX += (event.clientX - editor.pointerX) * ratio;
+      editor.offsetY += (event.clientY - editor.pointerY) * ratio;
+      editor.pointerX = event.clientX;
+      editor.pointerY = event.clientY;
+      renderCrop();
+    });
+
+    const stopCropDrag = event => {
+      if (!editor.dragging) return;
+      editor.dragging = false;
+      cropCanvas?.releasePointerCapture?.(event.pointerId);
+      cropCanvas?.classList.remove('is-dragging');
+    };
+    cropCanvas?.addEventListener('pointerup', stopCropDrag);
+    cropCanvas?.addEventListener('pointercancel', stopCropDrag);
+
+    const canvasToJpeg = (quality) => new Promise(resolve => {
+      cropCanvas?.toBlob(blob => resolve(blob), 'image/jpeg', quality);
+    });
+
+    cropApply?.addEventListener('click', async () => {
+      if (!editor.image || !cropCanvas || !uploadInput) return;
+
+      renderCrop();
+      let blob = await canvasToJpeg(0.9);
+      if (blob && blob.size > MAX_PROFILE_BYTES) blob = await canvasToJpeg(0.78);
+
+      if (!blob || blob.size > MAX_PROFILE_BYTES) {
+        window.alert('The adjusted image is still larger than 2 MB. Try a different image.');
+        return;
+      }
+
+      const file = new File([blob], 'profile-photo.jpg', {type: 'image/jpeg', lastModified: Date.now()});
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      uploadInput.files = transfer.files;
+
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = URL.createObjectURL(blob);
+
+      if (preview) {
+        preview.innerHTML = '';
+        const image = document.createElement('img');
+        image.src = previewObjectUrl;
+        image.alt = 'Adjusted profile photo ready to upload';
+        preview.appendChild(image);
+      }
+
+      pendingNotice?.classList.remove('d-none');
+      window.bootstrap?.Modal.getOrCreateInstance(adjustModalEl)?.hide();
+    });
+
+    window.addEventListener('beforeunload', stopCamera);
+  };
+
 })();
