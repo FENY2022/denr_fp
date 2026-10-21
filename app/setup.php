@@ -116,6 +116,10 @@ function view_initial_admin_setup(array $errors = []): void
     }
 
     $configured = env_value('FPOMS_SETUP_KEY') !== '';
+    $defaultName = trim(env_value('FPOMS_ADMIN_NAME'));
+    $defaultEmail = strtolower(trim(env_value('FPOMS_ADMIN_EMAIL')));
+    $nameValue = form_value('name', ['name' => $defaultName]);
+    $emailValue = form_value('email', ['email' => $defaultEmail]);
     $notice = $configured
         ? '<div class="alert alert-info small"><i class="bi bi-shield-lock me-1"></i>This page works only until the first RICTU Super Administrator is created. Enter the one-time setup key configured by RICTU on the server.</div>'
         : '<div class="alert alert-warning small"><strong>Setup key required.</strong> Add <code>FPOMS_SETUP_KEY</code> to the server <code>.env</code> first, then reload this page.</div>';
@@ -126,13 +130,19 @@ function view_initial_admin_setup(array $errors = []): void
         . '<div><h2 class="h5 mb-1">Create RICTU Super Administrator</h2><p class="text-secondary small mb-0">One-time system bootstrap for DENR FP-OMS.</p></div></div>'
         . $notice
         . '<form method="post" action="' . url('setup_admin') . '" autocomplete="off">' . csrf_field()
-        . field('name', 'Administrator full name', form_value('name'), 'text', true, 'maxlength="180"')
-        . field('email', 'Official / work email', form_value('email'), 'email', true, 'autocomplete="email" maxlength="190"')
+        . field('name', 'Administrator full name', $nameValue, 'text', true, 'maxlength="180"')
+        . field('email', 'Official / work email', $emailValue, 'email', true, 'autocomplete="email" maxlength="190"')
         . field('setup_key', 'One-time setup key', '', 'password', true, 'autocomplete="off" maxlength="255"')
+        . '<div class="row g-3"><div class="col-md-6">'
         . field('password', 'Initial password', '', 'password', true, 'autocomplete="new-password" minlength="12"')
+        . '</div><div class="col-md-6">'
         . field('confirm_password', 'Confirm initial password', '', 'password', true, 'autocomplete="new-password" minlength="12"')
-        . '<div class="form-text mb-3">Use at least 12 characters with letters and numbers. The administrator will be required to change this password on first login.</div>'
+        . '</div></div>'
+        . '<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3"><div class="form-text m-0">Use at least 12 characters with letters and numbers. First login requires a password change.</div>'
+        . '<button class="btn btn-sm btn-outline-primary" type="button" id="generateAdminPassword"><i class="bi bi-magic me-1"></i>Generate Temporary Password</button></div>'
+        . '<div id="generatedPasswordNotice" class="alert alert-success small d-none" role="status"></div>'
         . '<button class="btn btn-primary w-100" type="submit"' . ($configured ? '' : ' disabled') . '><i class="bi bi-shield-check me-1"></i>Create Super Administrator</button>'
+        . '<script>(function(){const b=document.getElementById("generateAdminPassword"),p=document.getElementById("password"),c=document.getElementById("confirm_password"),n=document.getElementById("generatedPasswordNotice");if(!b||!p||!c||!n)return;b.addEventListener("click",function(){const a="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";const bytes=new Uint32Array(18);crypto.getRandomValues(bytes);let v="";for(const x of bytes)v+=a[x%a.length];p.value=v;c.value=v;n.textContent="A secure temporary password was generated and filled into both password fields. Copy it now and share it only through an approved secure channel.";n.classList.remove("d-none");p.focus();p.select();});})();</script>'
         . '</form><hr><p class="small text-secondary mb-0">After successful creation, this setup route automatically closes and the account can sign in through <a href="' . url('login') . '">Sign In</a>.</p>'
         . '</div></div></div>';
 
