@@ -117,6 +117,7 @@
   document.addEventListener('submit', event => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || (form.target && form.target !== '_self')) return;
+    if (form.hasAttribute('data-inline-submit-loading')) return;
     showPageLoader();
     setTimeout(() => { if (event.defaultPrevented && loaderVisible) hidePageLoader(); }, 0);
   }, true);
@@ -124,6 +125,60 @@
   window.addEventListener('beforeunload', showPageLoader);
   window.addEventListener('pageshow', event => {
     if (event.persisted) hidePageLoader();
+  });
+
+
+  // Forgot Password: keep the form visible while SMTP processing is in progress,
+  // prevent duplicate submissions, and retain the email value in the POST.
+  const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+  const resetForgotPasswordSendingState = () => {
+    if (!forgotPasswordForm) return;
+    forgotPasswordForm.dataset.submitting = '0';
+    forgotPasswordForm.classList.remove('is-sending');
+    const email = forgotPasswordForm.querySelector('input[name="email"]');
+    const submit = document.getElementById('forgotPasswordSubmit');
+    const spinner = document.getElementById('forgotPasswordSpinner');
+    const buttonText = document.getElementById('forgotPasswordButtonText');
+    const status = document.getElementById('forgotPasswordSendingStatus');
+    if (email) {
+      email.readOnly = false;
+      email.removeAttribute('aria-readonly');
+    }
+    if (submit) submit.disabled = false;
+    spinner?.classList.add('d-none');
+    if (buttonText) buttonText.textContent = 'Send Reset Link';
+    status?.classList.add('d-none');
+  };
+
+  forgotPasswordForm?.addEventListener('submit', event => {
+    if (!forgotPasswordForm.checkValidity()) return;
+    if (forgotPasswordForm.dataset.submitting === '1') {
+      event.preventDefault();
+      return;
+    }
+
+    forgotPasswordForm.dataset.submitting = '1';
+    forgotPasswordForm.classList.add('is-sending');
+
+    const email = forgotPasswordForm.querySelector('input[name="email"]');
+    const submit = document.getElementById('forgotPasswordSubmit');
+    const spinner = document.getElementById('forgotPasswordSpinner');
+    const buttonText = document.getElementById('forgotPasswordButtonText');
+    const status = document.getElementById('forgotPasswordSendingStatus');
+
+    // readonly keeps the email included in the POST; disabled inputs would be omitted.
+    if (email) {
+      email.readOnly = true;
+      email.setAttribute('aria-readonly', 'true');
+    }
+    if (submit) submit.disabled = true;
+    spinner?.classList.remove('d-none');
+    if (buttonText) buttonText.textContent = 'Sending reset link…';
+    status?.classList.remove('d-none');
+  });
+
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) resetForgotPasswordSendingState();
   });
 
 
