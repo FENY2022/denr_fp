@@ -8,11 +8,6 @@ DirectoryIndex index.php
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # Never redirect POST submissions. Only canonicalize legacy external GET links.
-  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
-  RewriteCond %{THE_REQUEST} \s/+[^\s?]*[a-z0-9-]+\.php[?\s] [NC]
-  RewriteRule ^([a-z][a-z0-9-]*)\.php$ $1 [R=302,L,NE]
-
   # Leave physical public assets and the front controller untouched.
   RewriteCond %{REQUEST_FILENAME} -f
   RewriteRule ^ - [L]
