@@ -40,10 +40,13 @@ function shell_user_card(array $user, array $roles): string
     $roleNames = array_map(static fn(string $role): string => $labels[$role][0] ?? $role, $roles);
     $roleText = $user['user_kind'] === 'applicant' ? 'Applicant' : implode(', ', $roleNames);
     $initial = strtoupper(substr(trim((string)$user['name']), 0, 1)) ?: 'U';
-    return '<div class="sidebar-user"><div class="sidebar-user-row"><span class="sidebar-avatar">' . e($initial) . '</span>'
+
+    return '<div class="sidebar-user"><a class="sidebar-user-row sidebar-user-profile-link" href="' . e(url('profile')) . '" title="Open Profile">'
+        . '<span class="sidebar-avatar">' . e($initial) . '</span>'
         . '<div class="sidebar-user-copy"><span class="sidebar-user-name" title="' . e($user['name']) . '">' . e($user['name']) . '</span>'
-        . '<span class="sidebar-user-role">' . e($roleText) . '</span></div></div>'
-        . '<div class="sidebar-user-actions"><a href="' . e(url('change_password')) . '"><i class="bi bi-lock"></i> Password</a>'
+        . '<span class="sidebar-user-role">' . e($roleText) . '</span></div></a>'
+        . '<div class="sidebar-user-actions"><a href="' . e(url('profile')) . '"><i class="bi bi-person"></i> Profile</a>'
+        . '<a href="' . e(url('change_password')) . '"><i class="bi bi-lock"></i> Password</a>'
         . '<form method="post" action="' . e(url('logout')) . '">' . csrf_field()
         . '<button type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button></form></div></div>';
 }
@@ -92,8 +95,9 @@ function render_page(string $title, string $content): void
             . '<div class="topbar-actions"><label for="textSizeSelect" class="visually-hidden">Adjust text size</label>'
             . '<select class="form-select form-select-sm text-size-select" id="textSizeSelect" aria-label="Adjust text size">'
             . '<option value="small">Text: Small</option><option value="medium">Text: Medium</option><option value="large">Text: Large</option><option value="xl">Text: XL</option><option value="xxl">Text: XXL</option><option value="xxxl">Text: XXXL</option></select>'
-            . '<div class="topbar-user-mini" title="' . e($user['name']) . '"><span class="topbar-user-initial">' . e($initial) . '</span>'
-            . '<div><span class="topbar-mini-name">' . e($user['name']) . '</span><span class="topbar-mini-role">' . e($roleDisplay) . '</span></div></div></div></div></header>'
+            . notification_dropdown_html($user)
+            . '<a class="topbar-user-mini" href="' . e(url('profile')) . '" title="Open Profile · ' . e($user['name']) . '"><span class="topbar-user-initial">' . e($initial) . '</span>'
+            . '<div><span class="topbar-mini-name">' . e($user['name']) . '</span><span class="topbar-mini-role">' . e($roleDisplay) . '</span></div></a></div></div></header>'
             . '<main class="app-content"><div class="eyebrow">DENR · CARAGA REGION XIII</div><h1 class="page-title">' . $titleEsc . '</h1>';
     } else {
         echo '<div class="app-shell d-flex flex-column"><header class="public-header"><div class="container-xl public-header-inner">'
