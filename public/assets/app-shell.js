@@ -65,4 +65,65 @@
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     help(ios ? 'On iPhone/iPad, tap Share and choose Add to Home Screen.' : 'Open your browser menu and select Install app or Add to Home Screen. Chrome and Edge usually require HTTPS (or localhost).');
   });
+
+  // FP-OMS global page loader: shared by landing, public, and authenticated pages.
+  const loader = document.createElement('div');
+  loader.id = 'fpomsPageLoader';
+  loader.className = 'page-loader';
+  loader.setAttribute('aria-hidden', 'true');
+  loader.innerHTML = '<div class="page-loader-panel" role="status" aria-live="polite">'
+    + '<img class="page-loader-logo" src="assets/fpoms-icon.svg" alt="">'
+    + '<div class="page-loader-brand">DENR FP-OMS</div>'
+    + '<div class="page-loader-subtitle">Feasibility Permit Online Management System</div>'
+    + '<span class="page-loader-spinner" aria-hidden="true"></span>'
+    + '<div class="page-loader-message">Loading DENR FP-OMS...</div>'
+    + '<div class="page-loader-help">Please wait</div></div>';
+  document.body.appendChild(loader);
+
+  let loaderVisible = false;
+  const showPageLoader = () => {
+    loaderVisible = true;
+    loader.classList.add('is-visible');
+    loader.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('page-loading');
+  };
+  const hidePageLoader = () => {
+    loaderVisible = false;
+    loader.classList.remove('is-visible');
+    loader.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('page-loading');
+  };
+
+  showPageLoader();
+  const finishInitialLoad = () => requestAnimationFrame(() => requestAnimationFrame(hidePageLoader));
+  if (document.readyState === 'complete') finishInitialLoad();
+  else window.addEventListener('load', finishInitialLoad, {once:true});
+
+  document.addEventListener('click', event => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const link = event.target.closest('a[href]');
+    if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+    const rawHref = link.getAttribute('href') || '';
+    if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('javascript:')) return;
+    let target;
+    try { target = new URL(link.href, window.location.href); } catch (_) { return; }
+    if (target.origin !== window.location.origin) return;
+    if (target.pathname === window.location.pathname && target.search === window.location.search && target.hash) return;
+    const path = target.pathname.toLowerCase();
+    if (path.includes('/download-reg') || path.includes('/download_reg')) return;
+    showPageLoader();
+  }, true);
+
+  document.addEventListener('submit', event => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || (form.target && form.target !== '_self')) return;
+    showPageLoader();
+    setTimeout(() => { if (event.defaultPrevented && loaderVisible) hidePageLoader(); }, 0);
+  }, true);
+
+  window.addEventListener('beforeunload', showPageLoader);
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) hidePageLoader();
+  });
+
 })();
