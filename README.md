@@ -10,14 +10,14 @@
 - Public external applicant registration with one-time account creation.
 - Representative, company, company address, contact details and valid-ID upload (PDF/JPEG/PNG).
 - Registration files held outside web root, checked for MIME/type/size and protected by per-request authorization.
-- Email-address login, PHP password hashing, CSRF tokens, hardened session cookies, throttled login attempts and password-change workflow.
+- Email-address login, PHP password hashing, CSRF tokens, hardened session cookies, throttled login attempts, password-change workflow, and one-time password-reset links.
 - RICTU Super Administrator can provision DENR internal users and assign a primary role; passwords are forced to change at first login.
 - LPDD-FUS review queue and individual review details: approve/activate, or return with mandatory correction remarks.
 - Applicant sees registration status, deficiencies, latest attachments; can edit and resubmit while corrections are required.
 - Audit log of registration submission, resubmission, review, login and staff provisioning.
 - Permission checks on each protected route; Bootstrap 5 responsive UI.
 
-**Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, SMS/email messages. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
+**Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, and general SMS/email notifications. Password-reset email is supported when server mail delivery is configured. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
 
 ## Public Landing Page
 
@@ -59,6 +59,8 @@ Import schema using a separate MySQL migration/admin account with DDL privileges
 mysql -u root -p denr_fp_oms < database/001_core.sql
 # Optional, schemas for later features; no working UI for steps 2–11:
 mysql -u root -p denr_fp_oms < database/002_future_workflow.sql
+# Required for Forgot Password / Reset Password:
+mysql -u root -p denr_fp_oms < database/004_password_reset.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -123,6 +125,35 @@ The setup form requires the RICTU administrator's full name, official/work email
 
 After bootstrap, remove or rotate `FPOMS_SETUP_KEY` in the server environment.
 
+## Password recovery
+
+The Sign In page includes **Forgot password?**. The recovery flow uses a cryptographically random one-time token; only its SHA-256 hash is stored in the database. Reset links expire after **30 minutes**, are invalidated after use, and all outstanding reset links for the account are invalidated when a password is successfully changed through the reset flow.
+
+Import the password-reset migration before using the feature:
+
+```bash
+mysql -u root -p denr_fp_oms < database/004_password_reset.sql
+```
+
+To enable email delivery, configure the server's PHP `mail()` transport and set:
+
+```env
+APP_URL=https://your-fpoms-host.example
+MAIL_ENABLED=true
+MAIL_FROM_NAME="DENR FP-OMS"
+MAIL_FROM_ADDRESS=no-reply@your-approved-domain.example
+```
+
+`APP_URL` must be the real URL users can open because it is used to build the password-reset link. The public form returns a generic confirmation whether or not an email exists, limits reset requests per account and IP address, and does not store raw reset tokens.
+
+If outbound mail is not yet available, RICTU can recover an account locally from the application server:
+
+```bash
+php scripts/reset_password.php
+```
+
+The CLI tool prompts for the account email and a new password, hashes the password with PHP's password API, invalidates unused reset tokens, and writes an audit event. Do not put the new password in source files or shell scripts.
+
 ## 5. Run locally
 
 ```bash
@@ -170,6 +201,7 @@ denr-fp-oms/
 │   ├── bootstrap.php            # environment + security headers/session
 │   ├── core.php                 # PDO, CSRF, authorization, audit, helpers
 │   ├── auth.php                 # login, logout, password change
+│   ├── password_reset.php       # forgot/reset password workflow
 │   ├── domain.php               # status, validators, role definitions
 │   ├── registration.php         # applicant submission/review/uploads
 │   ├── staff.php                # RICTU provisioning
@@ -186,7 +218,8 @@ denr-fp-oms/
 │   └── assets/                 # AMSOS-inspired styles, JS, and install icons
 ├── scripts/
 │   ├── seed_roles.php
-│   └── create_admin.php
+│   ├── create_admin.php
+│   └── reset_password.php
 ├── storage/                    # PRIVATE uploaded documents
 ├── tests/domain_test.php
 └── docs/ARCHITECTURE.md
