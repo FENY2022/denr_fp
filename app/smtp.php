@@ -159,7 +159,7 @@ function smtp_send_html(string $to, string $subject, string $html, string $plain
             throw new RuntimeException('SMTP message write failed.');
         }
         smtp_expect($stream, [250], 'message delivery');
-        @smtp_command($stream, 'QUIT', [221], 'QUIT');
+        @fwrite($stream, "QUIT\r\n");
         fclose($stream);
         return true;
     } catch (Throwable $e) {
