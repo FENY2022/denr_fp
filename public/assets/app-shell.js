@@ -232,6 +232,7 @@
 
     let cameraStream = null;
     let cameraFrontFacing = true;
+    let cameraRequestGeneration = 0;
     let pendingCapturedBlob = null;
     let previewObjectUrl = null;
 
@@ -252,7 +253,7 @@
       cameraAlert.classList.toggle('d-none', !message);
     };
 
-    const stopCamera = () => {
+    const stopCameraTracks = () => {
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         cameraStream = null;
@@ -262,6 +263,11 @@
         cameraVideo.srcObject = null;
         cameraVideo.classList.remove('is-mirrored');
       }
+    };
+
+    const stopCamera = () => {
+      cameraRequestGeneration += 1;
+      stopCameraTracks();
     };
 
     const refreshCameraList = async (selectedId = '') => {
@@ -287,7 +293,8 @@
         return;
       }
 
-      stopCamera();
+      const requestGeneration = ++cameraRequestGeneration;
+      stopCameraTracks();
       showCameraAlert('');
 
       try {
@@ -295,7 +302,12 @@
           ? {deviceId: {exact: deviceId}, width: {ideal: 1280}, height: {ideal: 1280}}
           : {facingMode: {ideal: 'user'}, width: {ideal: 1280}, height: {ideal: 1280}};
 
-        cameraStream = await navigator.mediaDevices.getUserMedia({video: videoConstraints, audio: false});
+        const requestedStream = await navigator.mediaDevices.getUserMedia({video: videoConstraints, audio: false});
+        if (requestGeneration !== cameraRequestGeneration || !cameraModalEl?.classList.contains('show')) {
+          requestedStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        cameraStream = requestedStream;
         cameraVideo.srcObject = cameraStream;
         await cameraVideo.play();
 
@@ -308,7 +320,8 @@
         cameraVideo.classList.toggle('is-mirrored', cameraFrontFacing);
         await refreshCameraList(String(settings.deviceId || deviceId || ''));
       } catch (error) {
-        stopCamera();
+        if (requestGeneration !== cameraRequestGeneration) return;
+        stopCameraTracks();
         const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
         showCameraAlert(denied
           ? 'Camera permission was denied. Allow camera access for this site, then click Restart Camera.'
@@ -545,7 +558,10 @@
       window.bootstrap?.Modal.getOrCreateInstance(adjustModalEl)?.hide();
     });
 
-    window.addEventListener('beforeunload', stopCamera);
+    window.addEventListener('beforeunload', () => {
+      stopCamera();
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    });
   };
 
 })();
