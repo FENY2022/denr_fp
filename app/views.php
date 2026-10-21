@@ -97,9 +97,9 @@ function render_page(string $title, string $content): void
             . '<main class="app-content"><div class="eyebrow">DENR · CARAGA REGION XIII</div><h1 class="page-title">' . $titleEsc . '</h1>';
     } else {
         echo '<div class="app-shell d-flex flex-column"><header class="public-header"><div class="container-xl public-header-inner">'
-            . '<a class="public-brand" href="' . e(url('login')) . '"><span class="brand-mark"><img src="assets/fpoms-icon.svg" alt="DENR FP-OMS"></span>'
+            . '<a class="public-brand" href="' . e(url('landing')) . '"><span class="brand-mark"><img src="assets/fpoms-icon.svg" alt="DENR FP-OMS"></span>'
             . '<span><strong>DENR FP-OMS</strong><small>Caraga Region XIII · Feasibility Permit System</small></span></a>'
-            . '<nav class="public-links" aria-label="Public navigation"><a href="' . e(url('login')) . '">Sign in</a>'
+            . '<nav class="public-links" aria-label="Public navigation"><a href="' . e(url('landing')) . '">Home</a><a href="' . e(url('login')) . '">Sign in</a>'
             . '<a class="btn btn-primary btn-sm" href="' . e(url('register')) . '">Register</a></nav>'
             . '</div></header><main class="public-content"><div class="eyebrow">DENR · CARAGA REGION XIII</div><h1 class="page-title">' . $titleEsc . '</h1>';
     }
