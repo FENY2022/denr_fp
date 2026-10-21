@@ -41,7 +41,8 @@ SET @fpoms_super_admin_user_id := (
 
 INSERT INTO user_roles (user_id,role_id)
 SELECT @fpoms_super_admin_user_id, @fpoms_super_admin_role_id
-WHERE @fpoms_super_admin_user_id IS NOT NULL
+WHERE @fpoms_super_admin_created = 1
+  AND @fpoms_super_admin_user_id IS NOT NULL
   AND @fpoms_super_admin_role_id IS NOT NULL
 ON DUPLICATE KEY UPDATE assigned_at = assigned_at;
 
