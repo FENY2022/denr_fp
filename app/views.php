@@ -39,10 +39,8 @@ function shell_user_card(array $user, array $roles): string
     $labels = role_definitions();
     $roleNames = array_map(static fn(string $role): string => $labels[$role][0] ?? $role, $roles);
     $roleText = $user['user_kind'] === 'applicant' ? 'Applicant' : implode(', ', $roleNames);
-    $initial = strtoupper(substr(trim((string)$user['name']), 0, 1)) ?: 'U';
-
     return '<div class="sidebar-user"><a class="sidebar-user-row sidebar-user-profile-link" href="' . e(url('profile')) . '" title="Open Profile">'
-        . '<span class="sidebar-avatar">' . e($initial) . '</span>'
+        . profile_avatar_html($user, 'sidebar-avatar', 'Profile photo')
         . '<div class="sidebar-user-copy"><span class="sidebar-user-name" title="' . e($user['name']) . '">' . e($user['name']) . '</span>'
         . '<span class="sidebar-user-role">' . e($roleText) . '</span></div></a>'
         . '<div class="sidebar-user-actions"><a href="' . e(url('profile')) . '"><i class="bi bi-person"></i> Profile</a>'
@@ -96,7 +94,7 @@ function render_page(string $title, string $content): void
             . '<select class="form-select form-select-sm text-size-select" id="textSizeSelect" aria-label="Adjust text size">'
             . '<option value="small">Text: Small</option><option value="medium">Text: Medium</option><option value="large">Text: Large</option><option value="xl">Text: XL</option><option value="xxl">Text: XXL</option><option value="xxxl">Text: XXXL</option></select>'
             . notification_dropdown_html($user)
-            . '<a class="topbar-user-mini" href="' . e(url('profile')) . '" title="Open Profile · ' . e($user['name']) . '"><span class="topbar-user-initial">' . e($initial) . '</span>'
+            . '<a class="topbar-user-mini" href="' . e(url('profile')) . '" title="Open Profile · ' . e($user['name']) . '">' . profile_avatar_html($user, 'topbar-user-initial', 'Profile photo')
             . '<div><span class="topbar-mini-name">' . e($user['name']) . '</span><span class="topbar-mini-role">' . e($roleDisplay) . '</span></div></a></div></div></header>'
             . '<main class="app-content"><div class="eyebrow">DENR · CARAGA REGION XIII</div><h1 class="page-title">' . $titleEsc . '</h1>';
     } else {
