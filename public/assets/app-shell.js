@@ -366,7 +366,7 @@
         ctx.scale(-1, 1);
         ctx.drawImage(
           editor.image,
-          -geometry.x - geometry.width,
+          CROP_SIZE - geometry.x - geometry.width,
           geometry.y,
           geometry.width,
           geometry.height
@@ -522,6 +522,10 @@
       }
 
       const file = new File([blob], 'profile-photo.jpg', {type: 'image/jpeg', lastModified: Date.now()});
+      if (typeof DataTransfer !== 'function') {
+        window.alert('This browser cannot attach the adjusted image to the form. Please use a current Chrome, Edge, Firefox, or Safari version.');
+        return;
+      }
       const transfer = new DataTransfer();
       transfer.items.add(file);
       uploadInput.files = transfer.files;
