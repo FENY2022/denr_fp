@@ -126,4 +126,24 @@
     if (event.persisted) hidePageLoader();
   });
 
+
+  const generateAdminPassword = document.getElementById('generateAdminPassword');
+  const adminPassword = document.getElementById('password');
+  const adminPasswordConfirm = document.getElementById('confirm_password');
+  const generatedPasswordNotice = document.getElementById('generatedPasswordNotice');
+  generateAdminPassword?.addEventListener('click', () => {
+    if (!adminPassword || !adminPasswordConfirm || !generatedPasswordNotice || !window.crypto?.getRandomValues) return;
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    const bytes = new Uint32Array(18);
+    window.crypto.getRandomValues(bytes);
+    let value = '';
+    for (const item of bytes) value += alphabet[item % alphabet.length];
+    adminPassword.value = value;
+    adminPasswordConfirm.value = value;
+    generatedPasswordNotice.textContent = 'A secure temporary password was generated and filled into both password fields. Copy it now and share it only through an approved secure channel.';
+    generatedPasswordNotice.classList.remove('d-none');
+    adminPassword.focus();
+    adminPassword.select();
+  });
+
 })();
