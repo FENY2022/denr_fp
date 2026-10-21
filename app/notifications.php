@@ -23,17 +23,21 @@ function create_notification(
     }
 
     $queryJson = $routeQuery ? json_encode($routeQuery, JSON_THROW_ON_ERROR) : null;
-    db()->prepare(
-        'INSERT INTO notifications (user_id,title,message,icon,level,route_page,route_query_json) VALUES (?,?,?,?,?,?,?)'
-    )->execute([
-        $userId,
-        substr($title, 0, 180),
-        substr($message, 0, 1000),
-        $icon,
-        $level,
-        $routePage,
-        $queryJson
-    ]);
+    try {
+        db()->prepare(
+            'INSERT INTO notifications (user_id,title,message,icon,level,route_page,route_query_json) VALUES (?,?,?,?,?,?,?)'
+        )->execute([
+            $userId,
+            substr($title, 0, 180),
+            substr($message, 0, 1000),
+            $icon,
+            $level,
+            $routePage,
+            $queryJson
+        ]);
+    } catch (PDOException $e) {
+        error_log('FP-OMS notification write skipped: ' . $e->getMessage());
+    }
 }
 
 function notify_role(
@@ -61,32 +65,44 @@ function notify_role(
 
 function notification_unread_count(int $userId): int
 {
-    $row = query_one('SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND read_at IS NULL', [$userId]);
-    return (int)($row['n'] ?? 0);
+    try {
+        $row = query_one('SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND read_at IS NULL', [$userId]);
+        return (int)($row['n'] ?? 0);
+    } catch (PDOException $e) {
+        return 0;
+    }
 }
 
 function latest_notifications(int $userId, int $limit = 5): array
 {
     $limit = max(1, min(20, $limit));
-    return query_all(
-        "SELECT * FROM notifications
-         WHERE user_id=?
-         ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
-         LIMIT {$limit}",
-        [$userId]
-    );
+    try {
+        return query_all(
+            "SELECT * FROM notifications
+             WHERE user_id=?
+             ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
+             LIMIT {$limit}",
+            [$userId]
+        );
+    } catch (PDOException $e) {
+        return [];
+    }
 }
 
 function all_notifications(int $userId, int $limit = 100): array
 {
     $limit = max(1, min(200, $limit));
-    return query_all(
-        "SELECT * FROM notifications
-         WHERE user_id=?
-         ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
-         LIMIT {$limit}",
-        [$userId]
-    );
+    try {
+        return query_all(
+            "SELECT * FROM notifications
+             WHERE user_id=?
+             ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
+             LIMIT {$limit}",
+            [$userId]
+        );
+    } catch (PDOException $e) {
+        return [];
+    }
 }
 
 function notification_destination(array $notification): string
