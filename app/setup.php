@@ -142,7 +142,6 @@ function view_initial_admin_setup(array $errors = []): void
         . '<button class="btn btn-sm btn-outline-primary" type="button" id="generateAdminPassword"><i class="bi bi-magic me-1"></i>Generate Temporary Password</button></div>'
         . '<div id="generatedPasswordNotice" class="alert alert-success small d-none" role="status"></div>'
         . '<button class="btn btn-primary w-100" type="submit"' . ($configured ? '' : ' disabled') . '><i class="bi bi-shield-check me-1"></i>Create Super Administrator</button>'
-        . '<script>(function(){const b=document.getElementById("generateAdminPassword"),p=document.getElementById("password"),c=document.getElementById("confirm_password"),n=document.getElementById("generatedPasswordNotice");if(!b||!p||!c||!n)return;b.addEventListener("click",function(){const a="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";const bytes=new Uint32Array(18);crypto.getRandomValues(bytes);let v="";for(const x of bytes)v+=a[x%a.length];p.value=v;c.value=v;n.textContent="A secure temporary password was generated and filled into both password fields. Copy it now and share it only through an approved secure channel.";n.classList.remove("d-none");p.focus();p.select();});})();</script>'
         . '</form><hr><p class="small text-secondary mb-0">After successful creation, this setup route automatically closes and the account can sign in through <a href="' . url('login') . '">Sign In</a>.</p>'
         . '</div></div></div>';
 
