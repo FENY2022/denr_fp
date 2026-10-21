@@ -63,3 +63,9 @@ body.page-loading{overflow:hidden}
 @keyframes fpoms-loader-spin{to{transform:rotate(360deg)}}
 @media(max-width:575.98px){.page-loader-panel{padding:1.6rem 1rem}.page-loader-logo{width:70px;height:70px}.page-loader-spinner{width:56px;height:56px;border-width:6px}.page-loader-subtitle{font-size:.61rem;letter-spacing:.12em}}
 @media(prefers-reduced-motion:reduce){.page-loader{transition:none}.page-loader-spinner{animation-duration:1.6s}}
+
+
+/* Forgot Password inline sending state */
+.forgot-password-form.is-sending .form-control[readonly]{background:#f3f7f5;color:#5c6b64;cursor:wait}
+.forgot-password-form.is-sending .btn{cursor:wait}
+.forgot-password-sending-status{margin-top:.7rem;padding:.7rem .8rem;border:1px solid #d8e9df;border-radius:10px;background:#f2faf6;color:var(--amsos-green-dark);font-size:.76rem;font-weight:650;text-align:center}
