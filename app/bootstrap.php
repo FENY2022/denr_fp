@@ -55,3 +55,4 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/registration.php';
 require_once __DIR__ . '/staff.php';
 require_once __DIR__ . '/views.php';
+require_once __DIR__ . '/landing.php';
