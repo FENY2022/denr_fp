@@ -74,6 +74,7 @@ try {
     )->execute([$name, $email, password_hash($pass, PASSWORD_DEFAULT)]);
 
     $uid = (int)$pdo->lastInsertId();
+    initialize_profile_account_fields($uid, 'internal');
     $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')
         ->execute([$uid, (int)$role['id']]);
 
