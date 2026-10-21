@@ -51,6 +51,35 @@ try {
                 view_login(['Invalid credentials or too many recent failed attempts. Try again later.']);
             } else view_login();
             break;
+        case 'forgot_password':
+            if ($post) {
+                check_csrf();
+                request_password_reset(safe_post('email', 190));
+                flash('info', 'If the email is registered and password-reset email is available, a reset link has been sent. The link expires in 30 minutes.');
+                go('login');
+            } else {
+                view_forgot_password();
+            }
+            break;
+        case 'reset_password':
+            $token = strtolower(trim((string)($_GET['token'] ?? '')));
+            if ($post) {
+                check_csrf();
+                $errors = complete_password_reset(
+                    $token,
+                    (string)($_POST['password'] ?? ''),
+                    (string)($_POST['confirm_password'] ?? '')
+                );
+                if ($errors) {
+                    view_reset_password($token, $errors);
+                } else {
+                    flash('success', 'Password reset successfully. You can now sign in with your new password.');
+                    go('login');
+                }
+            } else {
+                view_reset_password($token);
+            }
+            break;
         case 'register':
             if ($post) {
                 check_csrf();
