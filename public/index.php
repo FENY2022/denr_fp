@@ -95,6 +95,25 @@ try {
         case 'dashboard':
             view_dashboard();
             break;
+        case 'profile':
+            view_profile();
+            break;
+        case 'notifications':
+            view_notifications();
+            break;
+        case 'notification_open':
+            $user = require_user();
+            $id = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid notification ID.', 400);
+            notification_open($user, (int)$id);
+            break;
+        case 'notifications_read_all':
+            if (!$post) show_error('This action requires a submitted form.', 405);
+            $user = require_user();
+            check_csrf();
+            mark_all_notifications_read($user);
+            go('notifications');
+            break;
         case 'my_registration':
             view_applicant_registration(require_user());
             break;
