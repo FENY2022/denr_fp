@@ -96,22 +96,34 @@ try {
             view_dashboard();
             break;
         case 'profile':
-            view_profile();
-            break;
-        case 'edit_profile':
             $user = require_user();
-            if ($post) {
-                check_csrf();
-                $errors = update_profile($user, $_POST);
-                if ($errors) {
-                    view_edit_profile($errors);
+            $tab = strtolower(trim((string)($_GET['tab'] ?? 'view')));
+            if ($tab === 'edit') {
+                if ($post) {
+                    check_csrf();
+                    $action = (string)($_POST['profile_action'] ?? 'update');
+                    $errors = $action === 'remove_photo'
+                        ? remove_profile_photo($user)
+                        : process_profile_update($user, $_POST, $_FILES);
+                    if ($errors) {
+                        view_edit_profile($errors);
+                    } else {
+                        flash('success', $action === 'remove_photo' ? 'Profile photo removed successfully.' : 'Profile updated successfully.');
+                        go('profile', ['tab'=>'edit']);
+                    }
                 } else {
-                    flash('success', 'Profile updated successfully.');
-                    go('profile');
+                    view_edit_profile();
                 }
             } else {
-                view_edit_profile();
+                if ($post) show_error('Profile updates must be submitted from the Edit Profile tab.', 405);
+                view_profile();
             }
+            break;
+        case 'edit_profile':
+            if ($post) show_error('Use /profile?tab=edit to update your profile.', 405);
+            go('profile', ['tab'=>'edit']);
+        case 'profile_photo':
+            send_current_profile_photo(require_user());
             break;
         case 'notifications':
             view_notifications();
