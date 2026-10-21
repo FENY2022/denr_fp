@@ -25,6 +25,14 @@ function create_internal_user(array $admin, array $data): array
         if (!$row) throw new RuntimeException('Role not installed: ' . $role);
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$uid,(int)$row['id']]);
         audit((int)$admin['id'],'staff.created','user',$uid,['role'=>$role]);
+        create_notification(
+            $uid,
+            'DENR FP-OMS Account Created',
+            'Your internal DENR FP-OMS account has been created. Change your initial password on first sign-in.',
+            'person-check',
+            'success',
+            'change_password'
+        );
         $pdo->commit();
         return [];
     } catch (PDOException $ex) {
