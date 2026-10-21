@@ -194,3 +194,33 @@ body.page-loading{overflow:hidden}
   .text-size-select{min-width:92px;max-width:92px}
   .notification-badge{min-width:18px;height:18px;font-size:.56rem}
 }
+
+
+/* Authenticated profile photo editor */
+.profile-avatar-has-photo{overflow:hidden;padding:0!important}
+.profile-avatar-has-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.sidebar-avatar.profile-avatar-has-photo,.topbar-user-initial.profile-avatar-has-photo,.profile-avatar-lg.profile-avatar-has-photo{background:#eaf7f0}
+.profile-photo-card{padding:0;overflow:hidden;height:100%}
+.profile-photo-body{display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem}
+.profile-photo-preview{width:124px;height:124px;display:grid;place-items:center;margin-bottom:1rem;border:5px solid #fff;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,#e1f5e8,#d8eef9);color:var(--amsos-green-dark);font-size:2.35rem;font-weight:800;box-shadow:0 12px 28px rgba(16,75,48,.13)}
+.profile-photo-preview img{width:100%;height:100%;object-fit:cover}
+.profile-photo-source{width:100%;margin-top:1.15rem;padding:1rem;border:1px dashed #bdd9c9;border-radius:14px;background:#f8fcfa;text-align:left}
+.profile-photo-source .btn{white-space:nowrap}
+.profile-camera-frame{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:4/3;overflow:hidden;border-radius:16px;background:#101614}
+.profile-camera-frame video{width:100%;height:100%;object-fit:cover;background:#101614}
+.profile-camera-frame video.is-mirrored{transform:scaleX(-1)}
+.profile-crop-stage{display:grid;place-items:center;width:min(100%,620px);margin:0 auto;padding:10px;border:1px solid #dce6e1;border-radius:18px;background:repeating-conic-gradient(#f3f5f4 0 25%,#e9eeeb 0 50%) 50%/24px 24px}
+.profile-crop-stage canvas{display:block;width:min(100%,600px);height:auto;aspect-ratio:1/1;border-radius:12px;box-shadow:0 10px 30px rgba(15,45,31,.15);cursor:grab;touch-action:none;background:#fff}
+.profile-crop-stage canvas.is-dragging{cursor:grabbing}
+#profileCropFlip.active{background:var(--amsos-green);border-color:var(--amsos-green);color:#fff}
+.profile-information-card .form-control{width:100%}
+@media(max-width:991.98px){
+  .profile-photo-card{height:auto}
+  .profile-photo-source .btn{white-space:normal}
+}
+@media(max-width:575.98px){
+  .profile-photo-body{padding:1.1rem}
+  .profile-photo-preview{width:104px;height:104px;font-size:2rem}
+  .profile-camera-frame{aspect-ratio:3/4}
+  .profile-crop-stage{padding:6px;border-radius:14px}
+}
