@@ -3,7 +3,17 @@ declare(strict_types=1);
 require_once __DIR__ . '/../app/bootstrap.php';
 
 try {
-    $page = (string)($_GET['page'] ?? 'dashboard');
+    // Canonicalize old index.php?page=... bookmarks without redirecting POST data.
+    $requestPath = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
+    if (in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true)
+        && str_ends_with($requestPath, '/index.php')) {
+        $legacyPage = (string)($_GET['page'] ?? 'dashboard');
+        $legacyParams = $_GET;
+        unset($legacyParams['page']);
+        header('Location: ' . url(str_replace('-', '_', $legacyPage), $legacyParams), true, 302);
+        exit;
+    }
+    $page = str_replace('-', '_', (string)($_GET['page'] ?? 'dashboard'));
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $post = $method === 'POST';
     $loggedIn = current_user();

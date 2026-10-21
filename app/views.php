@@ -1,43 +1,119 @@
 <?php
 declare(strict_types=1);
 
+/** Shared navigation for desktop and mobile; never grants authorization. */
+function shell_nav_item(string $page, string $label, string $icon, string $active): string
+{
+    $activeAttr = $active === $page ? ' active' : '';
+    $currentAttr = $active === $page ? ' aria-current="page"' : '';
+    return '<a class="sidebar-link' . $activeAttr . '" href="' . e(url($page)) . '" title="' . e($label) . '"' . $currentAttr . '>'
+        . '<i class="bi bi-' . e($icon) . '" aria-hidden="true"></i><span>' . e($label) . '</span></a>';
+}
+
+function shell_sidebar_menu(array $user, array $roles, string $active): string
+{
+    $html = '<div class="sidebar-section-title">Main</div>'
+        . shell_nav_item('dashboard', 'Dashboard', 'grid-1x2-fill', $active);
+    if ($user['user_kind'] === 'applicant') {
+        $html .= shell_nav_item('my_registration', 'My Registration', 'person-vcard', $active)
+            . '<div class="sidebar-section-title">Permit Application</div>'
+            . '<span class="sidebar-link" aria-disabled="true" title="Available in Phase 2"><i class="bi bi-file-earmark-plus"></i><span>Submit FP Application · Soon</span></span>';
+    } else {
+        $html .= '<div class="sidebar-section-title">Permit Processing</div>';
+        if (in_array('lpdd_fus', $roles, true)) {
+            $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active);
+        }
+        foreach ([['file-earmark-text','FP Applications'],['clipboard-data','Document Evaluation'],['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
+            $html .= '<span class="sidebar-link" aria-disabled="true" title="Available in a later phase"><i class="bi bi-' . e($icon) . '"></i><span>' . e($label) . ' · Soon</span></span>';
+        }
+        if (in_array('super_admin', $roles, true)) {
+            $html .= '<div class="sidebar-section-title">Administration</div>'
+                . shell_nav_item('staff', 'Manage Users', 'people-fill', $active);
+        }
+    }
+    return $html;
+}
+
+function shell_user_card(array $user, array $roles): string
+{
+    $labels = role_definitions();
+    $roleNames = array_map(static fn(string $role): string => $labels[$role][0] ?? $role, $roles);
+    $roleText = $user['user_kind'] === 'applicant' ? 'Applicant' : implode(', ', $roleNames);
+    $initial = strtoupper(substr(trim((string)$user['name']), 0, 1)) ?: 'U';
+    return '<div class="sidebar-user"><div class="sidebar-user-row"><span class="sidebar-avatar">' . e($initial) . '</span>'
+        . '<div class="sidebar-user-copy"><span class="sidebar-user-name" title="' . e($user['name']) . '">' . e($user['name']) . '</span>'
+        . '<span class="sidebar-user-role">' . e($roleText) . '</span></div></div>'
+        . '<div class="sidebar-user-actions"><a href="' . e(url('change_password')) . '"><i class="bi bi-lock"></i> Password</a>'
+        . '<form method="post" action="' . e(url('logout')) . '">' . csrf_field()
+        . '<button type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button></form></div></div>';
+}
+
 function render_page(string $title, string $content): void
 {
     $user = current_user();
-    $name = e(env_value('APP_NAME', 'DENR FP-OMS'));
-    $pageTitle = e($title);
+    $appName = e(env_value('APP_NAME', 'DENR FP-OMS'));
+    $titleEsc = e($title);
     $flashes = take_flashes();
-    echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-       . '<meta name="description" content="DENR Caraga Feasibility Permit Online Management System">'
-       . '<title>' . $pageTitle . ' | ' . $name . '</title>'
-       . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
-       . '<link href="assets/style.css" rel="stylesheet"></head><body>';
-    echo '<header class="topbar"><div class="container-xl d-flex align-items-center justify-content-between flex-wrap gap-2">'
-       . '<a class="brand" href="' . url() . '"><span class="brand-mark">DENR</span> <span><strong>FP-OMS</strong><small>Caraga Region XIII</small></span></a>';
-    echo '<div class="d-flex align-items-center flex-wrap gap-3">';
+    $active = str_replace('-', '_', (string)($_GET['page'] ?? 'dashboard'));
+    $roles = $user ? user_roles((int)$user['id']) : [];
+
+    echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<meta name="description" content="DENR Caraga Feasibility Permit Online Management System">'
+        . '<meta name="theme-color" content="#075c32">'
+        . '<title>' . $titleEsc . ' | ' . $appName . '</title>'
+        . '<link rel="icon" href="assets/fpoms-icon.svg" type="image/svg+xml">'
+        . '<link rel="manifest" href="manifest.webmanifest">'
+        . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
+        . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
+        . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
+        . '<link href="assets/style.css" rel="stylesheet">'
+        . '<script src="assets/app-shell.js" defer></script></head><body>';
+
     if ($user) {
-        echo '<span class="small user-display">' . e($user['name']) . '</span>';
-        echo '<a class="navlink" href="' . url('dashboard') . '">Dashboard</a>';
-        if ($user['user_kind'] === 'applicant') echo '<a class="navlink" href="' . url('my_registration') . '">Registration</a>';
-        if ($user['status'] === 'active' && has_role($user,'lpdd_fus')) echo '<a class="navlink" href="' . url('review_queue') . '">Review Queue</a>';
-        if ($user['status'] === 'active' && has_role($user,'super_admin')) echo '<a class="navlink" href="' . url('staff') . '">Users</a>';
-        echo '<a class="navlink" href="' . url('change_password') . '">Password</a>';
-        echo '<form method="post" action="' . url('logout') . '" class="m-0">' . csrf_field() . '<button class="btn btn-sm btn-outline-light" type="submit">Sign out</button></form>';
+        $brandHtml = '<a class="sidebar-brand" href="' . e(url('dashboard')) . '">'
+            . '<span class="sidebar-logo"><img src="assets/fpoms-icon.svg" alt="DENR FP-OMS"></span>'
+            . '<span class="sidebar-brand-copy"><span class="sidebar-brand-title">DENR FP-OMS</span>'
+            . '<span class="sidebar-brand-sub">Feasibility Permit System</span></span></a>';
+        $navigation = shell_sidebar_menu($user, $roles, $active);
+        $userCard = shell_user_card($user, $roles);
+        $roleNames = role_definitions();
+        $roleDisplay = $user['user_kind'] === 'applicant' ? 'Applicant' : ($roleNames[$roles[0] ?? ''][0] ?? 'DENR Personnel');
+        $initial = strtoupper(substr(trim((string)$user['name']), 0, 1)) ?: 'U';
+        echo '<div class="app-shell"><aside id="appSidebar" class="app-sidebar" aria-label="Primary navigation">'
+            . '<button class="sidebar-collapse-toggle" type="button" data-sidebar-toggle aria-expanded="true" aria-label="Collapse navigation sidebar" title="Collapse sidebar"><i class="bi bi-layout-sidebar-inset"></i></button>'
+            . $brandHtml . '<div class="sidebar-separator"></div><nav class="sidebar-scroll" aria-label="Main menu">' . $navigation . '</nav>' . $userCard . '</aside>'
+            . '<div class="offcanvas offcanvas-start mobile-nav" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">'
+            . '<div class="offcanvas-header"><h2 class="h6 mb-0" id="mobileSidebarLabel">DENR FP-OMS</h2><button class="btn-close" data-bs-dismiss="offcanvas" type="button" aria-label="Close"></button></div>'
+            . '<div class="offcanvas-body d-flex flex-column"><nav aria-label="Mobile main menu">' . $navigation . '</nav>' . $userCard . '</div></div>'
+            . '<div class="app-main"><header class="app-topbar"><div class="container-fluid app-topbar-inner px-3 px-lg-4">'
+            . '<div class="d-flex align-items-center gap-3"><button class="mobile-menu-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar" aria-label="Open navigation"><i class="bi bi-list fs-5"></i></button>'
+            . '<div><div class="topbar-title">' . $titleEsc . '</div><div class="topbar-breadcrumb">DENR FP-OMS / ' . $titleEsc . '</div></div></div>'
+            . '<div class="topbar-actions"><label for="textSizeSelect" class="visually-hidden">Adjust text size</label>'
+            . '<select class="form-select form-select-sm text-size-select" id="textSizeSelect" aria-label="Adjust text size">'
+            . '<option value="small">Text: Small</option><option value="medium">Text: Medium</option><option value="large">Text: Large</option><option value="xl">Text: XL</option><option value="xxl">Text: XXL</option><option value="xxxl">Text: XXXL</option></select>'
+            . '<div class="topbar-user-mini" title="' . e($user['name']) . '"><span class="topbar-user-initial">' . e($initial) . '</span>'
+            . '<div><span class="topbar-mini-name">' . e($user['name']) . '</span><span class="topbar-mini-role">' . e($roleDisplay) . '</span></div></div></div></div></header>'
+            . '<main class="app-content"><div class="eyebrow">DENR · CARAGA REGION XIII</div><h1 class="page-title">' . $titleEsc . '</h1>';
     } else {
-        echo '<a class="navlink" href="' . url('login') . '">Sign in</a>';
-        echo '<a class="btn btn-sm btn-light" href="' . url('register') . '">Register Applicant</a>';
+        echo '<div class="app-shell d-flex flex-column"><header class="public-header"><div class="container-xl public-header-inner">'
+            . '<a class="public-brand" href="' . e(url('login')) . '"><span class="brand-mark"><img src="assets/fpoms-icon.svg" alt="DENR FP-OMS"></span>'
+            . '<span><strong>DENR FP-OMS</strong><small>Caraga Region XIII · Feasibility Permit System</small></span></a>'
+            . '<nav class="public-links" aria-label="Public navigation"><a href="' . e(url('login')) . '">Sign in</a>'
+            . '<a class="btn btn-primary btn-sm" href="' . e(url('register')) . '">Register</a></nav>'
+            . '</div></header><main class="public-content"><div class="eyebrow">DENR · CARAGA REGION XIII</div><h1 class="page-title">' . $titleEsc . '</h1>';
     }
-    echo '</div></div></header>';
-    echo '<main class="container-xl py-4 py-lg-5"><div class="mb-4"><div class="eyebrow">DENR • CARAGA</div><h1 class="page-title">' . $pageTitle . '</h1></div>';
+
     foreach ($flashes as $message) {
-        $type = in_array($message['type'], ['success','warning','danger','info'], true) ? $message['type'] : 'info';
-        echo '<div class="alert alert-' . $type . '">' . e((string)$message['message']) . '</div>';
+        $type = in_array($message['type'], ['success', 'warning', 'danger', 'info'], true) ? $message['type'] : 'info';
+        echo '<div class="alert alert-' . $type . '" role="status">' . e((string)$message['message']) . '</div>';
     }
     echo $content;
-    echo '</main><footer class="footer"><div class="container-xl d-flex flex-wrap justify-content-between gap-2">'
-       . '<span>DENR Regional Office XIII — Feasibility Permit Online Management System</span>'
-       . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer>'
-       . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script></body></html>';
+    echo '</main><footer class="footer"><div class="d-flex flex-wrap gap-2 justify-content-between">'
+        . '<span>DENR Regional Office XIII — Feasibility Permit Online Management System</span>'
+        . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer></div></div>'
+        . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>'
+        . '</body></html>';
 }
 
 function errors_html(array $errors): string
@@ -120,6 +196,10 @@ function view_login(array $errors = []): void
         . field('password','Password','','password',true,'autocomplete="current-password"')
         . '<button class="btn btn-primary w-100" type="submit">Sign in</button></form>'
         . '<hr><p class="mb-0 small">New applicant? <a href="' . url('register') . '">Register for an account</a>.</p>'
+        . '<div class="install-app-card"><div class="install-copy"><span class="install-icon"><i class="bi bi-download"></i></span>'
+        . '<div><strong>Install DENR FP-OMS</strong><small>Use FP-OMS like a desktop or mobile app</small></div></div>'
+        . '<button type="button" id="installAppButton" class="btn btn-sm btn-outline-primary"><i class="bi bi-display me-1"></i>Install</button></div>'
+        . '<p id="installAppHelp" class="install-help" role="status" aria-live="polite"></p>'
         . '</div></div></div>';
     render_page('Sign In', $html);
 }

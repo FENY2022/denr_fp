@@ -26,7 +26,10 @@ function e(?string $value): string
 
 function url(string $page = 'dashboard', array $query = []): string
 {
-    return 'index.php?' . http_build_query(array_merge(['page' => $page], $query), '', '&', PHP_QUERY_RFC3986);
+    $slug = str_replace('_', '-', $page);
+    if (!preg_match('/^[a-z][a-z0-9-]*$/', $slug)) throw new InvalidArgumentException('Invalid route');
+    $queryString = $query ? '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986) : '';
+    return $slug . $queryString;
 }
 
 function go(string $page, array $query = []): never

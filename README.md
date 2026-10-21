@@ -19,6 +19,15 @@
 
 **Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, SMS/email messages. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
 
+## UI and Install App (AMSOS V2-inspired)
+
+- Adapted the visual shell from **ICT-AMSOS V2** for FP-OMS: Inter typography, #08783f DENR green, deep-green gradient left sidebar, white cards, blue accent and Bootstrap 5.3 icons.
+- Sidebar is **270px expanded / 82px collapsed**, remembers its state, supports responsive mobile offcanvas, and only shows available routes for each role. Permit workflow menu items labeled **Soon** are placeholders, not functioning modules.
+- The topbar text-size selector (Small, Medium, Large, XL, XXL, XXXL) remembers its value per browser.
+- The login screen includes an **Install DENR FP-OMS** card and native install prompt or browser-specific guidance. The PWA manifest, 192/512 PNG icons, and service worker cache **public static assets only**; it deliberately does not cache authenticated pages, registration uploads, API responses, or form submissions. Installation depends on browser support and secure HTTPS (or localhost).
+- All internal links/forms use **clean URLs without .php**, such as `/login`, `/register`, `/dashboard`, `/my-registration`, `/review-queue`, `/staff`, `/change-password`. The application handles a legacy `GET /index.php?page=register` with a 302 redirect. It **does not redirect POST submissions**.
+- **Apache:** keep `/public` as DocumentRoot and enable `mod_rewrite` + `AllowOverride FileInfo` / `.htaccess` for clean URLs. On another web server, reproduce the route rewrite rules. For PHP's built-in development server, use the router command below.
+
 ## 1. Requirements
 
 - PHP 8.2 or newer with extensions `pdo_mysql`, `fileinfo`, and `mbstring` (PDO MySQL is mandatory).
@@ -78,7 +87,7 @@ The script prompts for full name, email and an initial 12+ character password. O
 ## 5. Run locally
 
 ```bash
-php -S 127.0.0.1:8000 -t public
+php -S 127.0.0.1:8000 -t public public/router.php
 ```
 
 Open `http://127.0.0.1:8000`.
@@ -131,7 +140,11 @@ denr-fp-oms/
 │   └── 002_future_workflow.sql  # tables only (Steps 2–11 later)
 ├── public/
 │   ├── index.php                # application entry/router
-│   └── assets/style.css
+│   ├── router.php               # built-in PHP development server clean routing
+│   ├── .htaccess                # Apache rewrite rules
+│   ├── manifest.webmanifest     # PWA configuration
+│   ├── service-worker.js        # public static assets only
+│   └── assets/                 # AMSOS-inspired styles, JS, and install icons
 ├── scripts/
 │   ├── seed_roles.php
 │   └── create_admin.php

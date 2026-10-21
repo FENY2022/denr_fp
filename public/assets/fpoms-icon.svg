@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DENR FP-OMS logo">
+  <rect width="512" height="512" rx="112" fill="#075c32"/>
+  <circle cx="256" cy="220" r="132" fill="#fff" opacity=".09"/>
+  <path d="M256 88 148 230h64l-75 91h238l-75-91h64L256 88Z" fill="#d6f2df"/>
+  <path d="M256 173 183 268h49l-49 59h146l-49-59h49l-73-95Z" fill="#40b876"/>
+  <rect x="242" y="314" width="28" height="44" rx="4" fill="#f4f0db"/>
+  <text x="256" y="425" text-anchor="middle" font-family="Arial,sans-serif" font-size="54" font-weight="bold" fill="#fff">FP-OMS</text>
+</svg>
