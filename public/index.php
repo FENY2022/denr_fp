@@ -55,7 +55,7 @@ try {
             if ($post) {
                 check_csrf();
                 request_password_reset(safe_post('email', 190));
-                flash('info', 'If the email is registered and password-reset email is available, a reset link has been sent. The link expires in 30 minutes.');
+                flash('info', 'Please check your email for a password reset link. If it is not in your inbox, check your Spam or Junk folder. For security, a link is sent only when the email address matches a registered account, and it expires in 30 minutes.');
                 go('login');
             } else {
                 view_forgot_password();
