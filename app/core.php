@@ -29,6 +29,7 @@ function url(string $page = 'dashboard', array $query = []): string
     $slug = str_replace('_', '-', $page);
     if (!preg_match('/^[a-z][a-z0-9-]*$/', $slug)) throw new InvalidArgumentException('Invalid route');
     $queryString = $query ? '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986) : '';
+    if ($slug === 'landing') return './' . $queryString;
     return $slug . $queryString;
 }
 
