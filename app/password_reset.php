@@ -45,6 +45,15 @@ function request_password_reset(string $email): void
         return;
     }
 
+    $ip = client_ip();
+    $recentIp = query_one(
+        'SELECT COUNT(*) AS n FROM password_reset_tokens WHERE requested_ip=? AND created_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)',
+        [$ip]
+    );
+    if ((int)($recentIp['n'] ?? 0) >= 20) {
+        return;
+    }
+
     $user = query_one('SELECT id,name,email,status FROM users WHERE email=?', [$email]);
     if (!$user || $user['status'] === 'suspended') {
         return;
@@ -62,7 +71,7 @@ function request_password_reset(string $email): void
     $hash = hash('sha256', $token);
     db()->prepare(
         'INSERT INTO password_reset_tokens (user_id,token_hash,requested_ip,expires_at) VALUES (?,?,?,DATE_ADD(NOW(), INTERVAL 30 MINUTE))'
-    )->execute([(int)$user['id'], $hash, client_ip()]);
+    )->execute([(int)$user['id'], $hash, $ip]);
 
     $sent = send_password_reset_email($user, password_reset_url($token));
     audit((int)$user['id'], 'auth.password_reset_requested', 'user', (int)$user['id'], [
