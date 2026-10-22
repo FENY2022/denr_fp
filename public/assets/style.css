@@ -150,7 +150,7 @@ body.page-loading{overflow:hidden}
   .app-topbar-inner{gap:.55rem}
   .topbar-actions{gap:.4rem}
   .text-size-select{min-width:110px;max-width:110px}
-  .topbar-user-mini{width:min(150px,25vw)}
+  .topbar-user-mini{width:clamp(190px,28vw,240px);max-width:240px}
   .sidebar-user-actions{grid-template-columns:1fr}
   .sidebar-user-actions form{grid-column:auto}
   .mobile-nav .sidebar-user{margin-top:auto}
