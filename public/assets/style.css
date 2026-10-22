@@ -246,3 +246,34 @@ body.page-loading{overflow:hidden}
     padding:.42rem .65rem;
   }
 }
+
+
+/* Topbar identity text alignment */
+@media(min-width:992px){
+  .topbar-user-mini>div{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    min-width:0;
+    line-height:1.05;
+  }
+  .topbar-mini-name{
+    font-size:.8rem;
+    font-weight:800;
+    line-height:1.12;
+    margin:0;
+  }
+  .topbar-mini-role{
+    margin-top:.08rem;
+    font-size:.61rem;
+    line-height:1;
+    transform:translateY(-1px);
+  }
+}
+@media(min-width:1200px){
+  .topbar-user-mini{
+    width:310px;
+    min-width:270px;
+    max-width:310px;
+  }
+}
