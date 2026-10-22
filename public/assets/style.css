@@ -224,3 +224,25 @@ body.page-loading{overflow:hidden}
   .profile-camera-frame{aspect-ratio:3/4}
   .profile-crop-stage{padding:6px;border-radius:14px}
 }
+
+
+/* Wider authenticated user card on desktop */
+@media(min-width:1200px){
+  .topbar-user-mini{
+    width:290px;
+    min-width:250px;
+    max-width:290px;
+    padding:.45rem .75rem;
+    gap:.65rem;
+  }
+  .topbar-mini-name{font-size:.78rem}
+  .topbar-mini-role{font-size:.65rem}
+}
+@media(min-width:992px) and (max-width:1199.98px){
+  .topbar-user-mini{
+    width:250px;
+    min-width:220px;
+    max-width:250px;
+    padding:.42rem .65rem;
+  }
+}
