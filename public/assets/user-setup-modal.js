@@ -16,11 +16,14 @@
   const passwordFeedback = modal.querySelector('[data-setup-password-feedback]');
   const confirmFeedback = modal.querySelector('[data-setup-confirm-feedback]');
   const officeReference = modal.querySelector('[data-office-reference]');
+  const suggestionHint = modal.querySelector('[data-email-suggestion-note]');
+  const sharedReferenceHint = modal.querySelector('[data-shared-email-note]');
   const notes = modal.querySelector('[data-personnel-notes]');
   const fullPageLink = modal.querySelector('#setupFullPageLink');
 
   if (!password || !confirmation || !identity || !activate || !passwordFeedback ||
-      !confirmFeedback || !officeReference || !notes || !fullPageLink) return;
+      !confirmFeedback || !officeReference || !suggestionHint ||
+      !sharedReferenceHint || !notes || !fullPageLink) return;
 
   const strength = value => {
     const size = new TextEncoder().encode(value).length;
@@ -96,7 +99,12 @@
     form.action = action;
     fullPageLink.href = action;
     setField('name', button.dataset.userName);
-    setField('email', ''); // Shared office contact emails must never be copied into login email.
+    // Offer only a single-person reference email that is not already a login.
+    // This does NOT establish ownership; the RICTU administrator must confirm it.
+    const suggestedEmail = button.dataset.userSuggestedEmail || '';
+    setField('email', suggestedEmail);
+    suggestionHint.classList.toggle('d-none', !suggestedEmail);
+    sharedReferenceHint.classList.toggle('d-none', button.dataset.userReferenceShared !== '1');
     setField('contact_number', button.dataset.userContact);
     setField('office_station', button.dataset.userOffice);
     setField('role', button.dataset.userRole);
