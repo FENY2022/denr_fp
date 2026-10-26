@@ -8,8 +8,8 @@
 ## Implemented in Phase 1
 
 - Public external applicant registration with one-time account creation and an optional SMTP acknowledgment email after successful submission.
-- Representative, company, company address, contact details and valid-ID upload (PDF/JPEG/PNG).
-- Registration files held outside web root, checked for MIME/type/size and protected by per-request authorization.
+- Applicant name, company, contact details, and multiple Valid ID uploads with individual ID Type selections (PDF/JPEG/PNG).
+- Up to 5 Valid IDs and 5 supporting documents per submission; all retained revisions remain visible to the applicant and LPDD-FUS, with private storage, MIME/type/size checks, and per-request download authorization.
 - Email-address login, PHP password hashing, CSRF tokens, hardened session cookies, throttled login attempts, password-change workflow, and one-time password-reset links.
 - RICTU Super Administrator can provision DENR internal users and assign a primary role; passwords are forced to change at first login.
 - LPDD-FUS review queue and individual review details: approve/activate, or return with mandatory correction remarks.
@@ -66,6 +66,8 @@ mysql -u root -p denr_fp_oms < database/004_password_reset.sql
 mysql -u root -p denr_fp_oms < database/005_notifications.sql
 # Required for authenticated profile editing and profile photos:
 mysql -u root -p denr_fp_oms < database/006_user_profile_fields.sql
+# Required for multiple registration file uploads and ID type selection (import ONCE):
+mysql -u root -p denr_fp_oms < database/007_registration_id_types.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -85,8 +87,8 @@ Optional upload settings in `php.ini`:
 ```ini
 file_uploads=On
 upload_max_filesize=5M
-post_max_size=14M
-max_file_uploads=10
+post_max_size=64M
+max_file_uploads=12
 ```
 
 ## 4. Seed roles, create the initial RICTU admin
@@ -166,6 +168,31 @@ FP-OMS sends these **applicant** messages using its existing PHPMailer SMTP tran
 Emails are attempted **only after the corresponding database transaction commits successfully**. An SMTP error or disabled mail setting does **not** undo the registration or review decision. Attempts are recorded in the existing audit log with `smtp` or `not_sent` delivery metadata. There is no automatic retry queue: failed messages require a system administrator to check the server mail settings and logs. Ordinary registration resubmission alone does not send another acknowledgment email; the decision on the revised submission generates the subsequent status email. These are transactional registration messages, not general SMS/email notifications.
 
 To enable email sending in the server's ignored `.env`, configure `MAIL_ENABLED=true` and valid `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_NAME`, and `MAIL_FROM_ADDRESS`. The **same SMTP settings** are used for password reset messages. Never put credentials into the repository. Use `php scripts/configure_smtp.php` to configure authorized Gmail App Password credentials and `php scripts/test_smtp.php` to test the connection. A successful code update is **not** proof that email was delivered: test with a dummy applicant registration, then approve or return it for correction using a non-production test email account. No new SQL migration is required for these emails.
+
+## Multiple Registration Attachments
+
+The **Registration Attachments** form accepts up to **5 government-issued Valid IDs** plus **5 optional supporting documents** per submission. Each Valid ID gets an explicit ID Type selection (Philippine National ID, passport, driver's license, UMID, PRC ID, postal ID, voter's ID, or other government-issued ID). On initial registration, **at least one Valid ID with an ID Type is mandatory**. During applicant correction/resubmission, additional uploads are optional.
+
+Users can add/remove upload rows before submitting. Each file is checked server-side using the existing upload security checks (PDF/JPG/PNG, max `MAX_UPLOAD_BYTES`, default 5 MB). Client-side form checks are convenience only; the backend independently validates ID types, upload counts, file types/sizes, and file errors. Every file receives its own immutable `registration_documents` record with an optional `id_type`, preserving old submissions and earlier revisions. The applicant and LPDD-FUS review pages show **every uploaded file** with its ID Type and revision rather than collapsing records by `document_type`.
+
+**Database migration required on an existing installation — apply this ONCE before deploying the new application code:**
+
+```bash
+mysql -u root -p denr_fp_oms < database/007_registration_id_types.sql
+```
+
+The migration adds nullable `registration_documents.id_type` (VARCHAR(80)); pre-existing uploads remain intact and appear as "Valid ID (type not recorded)." The original `valid_id` and `supporting_document` single-upload POST names remain accepted by the backend during rolling deployment. No changes are made to user credentials, review-role permissions, or transactional registration email notifications.
+
+Increase the XAMPP/server PHP upload limits if needed (for five 5 MB IDs plus five 5 MB supporting files, recommended: `upload_max_filesize=5M`, `post_max_size=64M`, `max_file_uploads=12`). Restart Apache after changing `php.ini`. The app will still reject individual files beyond its configured `MAX_UPLOAD_BYTES`. Use synthetic test documents only until privacy and security reviews are complete.
+
+Regression checks:
+
+```bash
+php -l app/registration_attachments.php
+php -l app/registration.php
+php -l app/views.php
+php tests/registration_attachments_test.php
+```
 
 ## Password recovery
 
@@ -276,6 +303,8 @@ denr-fp-oms/
 │   ├── password_reset.php       # forgot/reset password workflow
 │   ├── domain.php               # status, validators, role definitions
 │   ├── registration.php         # applicant submission/review/uploads
+│   ├── registration_attachments.php # multiple uploads / ID metadata / file listings
+│   ├── registration_mail.php    # applicant acknowledgment and review emails
 │   ├── staff.php                # RICTU provisioning
 │   ├── notifications.php        # bell notification center
 │   ├── profile.php              # authenticated user profile
@@ -285,7 +314,8 @@ denr-fp-oms/
 │   ├── 002_future_workflow.sql  # tables only (Steps 2–11 later)
 │   ├── 004_password_reset.sql   # password reset token storage
 │   ├── 005_notifications.sql    # bell notification storage
-│   └── 006_user_profile_fields.sql # username/photo/office profile fields
+│   ├── 006_user_profile_fields.sql # username/photo/office profile fields
+│   └── 007_registration_id_types.sql # multiple ID uploads metadata
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
@@ -301,6 +331,7 @@ denr-fp-oms/
 │   └── test_smtp.php
 ├── storage/                    # PRIVATE uploaded documents
 ├── tests/domain_test.php
+├── tests/registration_attachments_test.php
 └── docs/ARCHITECTURE.md
 ```
 
@@ -316,4 +347,4 @@ The diagram shows a 15-day total while its individually labeled durations for St
 - Conduct automated/integration tests on a real MySQL staging instance; perform penetration/security review, malware scanning for uploads, backups, disaster recovery, retention/privacy impact assessment and authorized user acceptance testing.
 - Add encrypted HTTPS transport, trusted email verification/reset flow, production monitoring, controlled administrator credential distribution, data access logging and operational incident procedures.
 - Consider securing applicant onboarding against spam/automation and requiring stronger authentication for government approvers.
-- Secure staff initial passwords using an approved out-of-band channel; Phase 1 does not send emails automatically.
+- Secure staff initial passwords using an approved out-of-band channel; applicant registration acknowledgment and review decision emails use the configured SMTP transport when enabled.
