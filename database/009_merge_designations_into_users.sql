@@ -63,17 +63,18 @@ INNER JOIN users u ON u.source_key=d.source_key AND u.user_kind='internal'
 SET d.linked_user_id=u.id
 WHERE d.linked_user_id IS NULL;
 
--- Copy proposed functional roles for pending users (existing user roles remain unchanged).
+-- Ensure designated roles exist for all matched users, including the existing admin if its role link is missing.
+-- Other previously assigned roles are preserved; no roles are deleted.
 INSERT INTO user_roles (user_id,role_id)
 SELECT u.id,r.id
 FROM user_designations d
-INNER JOIN users u ON u.id=d.linked_user_id AND u.status='pending_setup'
+INNER JOIN users u ON u.id=d.linked_user_id AND u.user_kind='internal'
 INNER JOIN roles r ON r.code=d.suggested_role
 LEFT JOIN user_roles ur ON ur.user_id=u.id AND ur.role_id=r.id
 WHERE ur.user_id IS NULL;
 
 -- 3) Reconciliation: never drop the source unless EVERY designation has its
--- corresponding internal users record, source_key, and (for pending users) role.
+-- corresponding internal users record, source_key, and designated role.
 -- This conditional DROP remains safe even if an SQL import client continues past an error.
 SET @fpoms_merge_is_complete = (
     SELECT CASE WHEN
@@ -88,7 +89,7 @@ SET @fpoms_merge_is_complete = (
             LEFT JOIN roles r ON r.code=d.suggested_role
             LEFT JOIN user_roles ur ON ur.user_id=u.id AND ur.role_id=r.id
             WHERE r.id IS NULL
-               OR (u.status='pending_setup' AND ur.user_id IS NULL)
+               OR ur.user_id IS NULL
         )
     THEN 1 ELSE 0 END
 );
