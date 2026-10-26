@@ -69,12 +69,6 @@ function user_management_validate(array $values): array
     return $errors;
 }
 
-function user_management_designation(int $id): ?array
-{
-    if ($id < 1) return null;
-    return query_one('SELECT * FROM user_designations WHERE id=?', [$id]);
-}
-
 function user_management_user(int $id): ?array
 {
     if ($id < 1) return null;
@@ -83,49 +77,29 @@ function user_management_user(int $id): ?array
 
 function user_management_accounts(string $query = '', string $role = '', string $status = ''): array
 {
-    $sql = "SELECT u.id,u.name,u.email,u.username,u.contact_number,u.office_station,u.status,
-                   u.created_at,u.must_change_password,
+    $sql = "SELECT u.id,u.name,u.email,u.username,u.contact_number,u.office_station,
+                   u.status,u.created_at,u.must_change_password,u.source_key,
+                   u.reference_email,u.designation_notes,
                    (SELECT GROUP_CONCAT(r.label ORDER BY r.label SEPARATOR ', ')
-                    FROM user_roles ur JOIN roles r ON r.id=ur.role_id
-                    WHERE ur.user_id=u.id) AS role_names
+                    FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id) AS role_names
             FROM users u WHERE u.user_kind='internal'";
     $params = [];
     if ($query !== '') {
-        $sql .= ' AND (u.name LIKE ? OR u.email LIKE ? OR u.office_station LIKE ?)';
+        $sql .= ' AND (u.name LIKE ? OR u.email LIKE ? OR u.office_station LIKE ? OR u.reference_email LIKE ?)';
         $search = '%' . $query . '%';
-        array_push($params, $search, $search, $search);
+        array_push($params,$search,$search,$search,$search);
     }
     if ($role !== '' && user_management_valid_role($role)) {
-        $sql .= ' AND EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
-                      WHERE ur.user_id=u.id AND r.code=?)';
+        $sql .= ' AND EXISTS (SELECT 1 FROM user_roles ur INNER JOIN roles r ON r.id=ur.role_id
+                              WHERE ur.user_id=u.id AND r.code=?)';
         $params[] = $role;
     }
-    if (in_array($status, ['active','suspended'], true)) {
+    if (in_array($status, ['active','suspended','pending_setup'], true)) {
         $sql .= ' AND u.status=?';
         $params[] = $status;
     }
-    $sql .= ' ORDER BY u.name ASC,u.id ASC LIMIT 300';
-    return query_all($sql, $params);
-}
-
-function user_management_designations(string $query = '', string $role = '', string $setup = ''): array
-{
-    $sql = 'SELECT d.*, u.name AS linked_name, u.email AS linked_email
-            FROM user_designations d LEFT JOIN users u ON u.id=d.linked_user_id WHERE 1=1';
-    $params = [];
-    if ($query !== '') {
-        $sql .= ' AND (d.full_name LIKE ? OR d.office_station LIKE ? OR d.reference_email LIKE ?)';
-        $search = '%' . $query . '%';
-        array_push($params, $search, $search, $search);
-    }
-    if ($role !== '' && user_management_valid_role($role)) {
-        $sql .= ' AND d.suggested_role=?';
-        $params[] = $role;
-    }
-    if ($setup === 'pending') $sql .= ' AND d.linked_user_id IS NULL';
-    elseif ($setup === 'linked') $sql .= ' AND d.linked_user_id IS NOT NULL';
-    $sql .= ' ORDER BY (d.linked_user_id IS NOT NULL) ASC,d.office_station ASC,d.full_name ASC LIMIT 300';
-    return query_all($sql, $params);
+    $sql .= " ORDER BY (u.status='pending_setup') DESC,u.name ASC,u.id ASC LIMIT 300";
+    return query_all($sql,$params);
 }
 
 function user_management_assign_role(PDO $pdo, int $userId, int $roleId): void
@@ -140,124 +114,132 @@ function user_management_assign_role(PDO $pdo, int $userId, int $roleId): void
  */
 function user_management_create(array $admin, array $input): array
 {
+    // Manual account creation (pending imported personnel use user_management_activate).
     $values = user_management_data($input);
     $errors = user_management_validate($values);
     $password = (string)($input['password'] ?? '');
-    $confirmation = (string)($input['confirm_password'] ?? '');
-    if ($message = check_password_strength($password)) $errors[] = $message;
-    if ($password !== $confirmation) $errors[] = 'Initial password and confirmation must match.';
-    if ($values['status'] !== 'active') $errors[] = 'New accounts must start active.';
-    $designationId = filter_var($input['designation_id'] ?? 0, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]) ?: 0;
-    if (isset($input['designation_id']) && (string)$input['designation_id'] !== '' &&
-        (string)$input['designation_id'] !== '0' && !$designationId) $errors[] = 'Invalid designation ID.';
+    if ($msg = check_password_strength($password)) $errors[] = $msg;
+    if ($password !== (string)($input['confirm_password'] ?? '')) $errors[] = 'Initial passwords do not match.';
+    if ($values['status'] !== 'active') $errors[] = 'New accounts must begin active.';
     if ($errors) return $errors;
-
     $pdo = db();
     try {
         $pdo->beginTransaction();
-        $designation = null;
-        if ($designationId) {
-            $designation = query_one('SELECT * FROM user_designations WHERE id=? FOR UPDATE', [$designationId]);
-            if (!$designation || $designation['linked_user_id'] !== null) {
-                $pdo->rollBack();
-                return ['This pending designation was already assigned or no longer exists.'];
-            }
-        }
-        // Check normalized names as well as email uniqueness to avoid duplicating
-        // already-provisioned staff (e.g., "V. CATALAN" versus "V CATALAN").
         $identity = static fn(string $name): string =>
             strtolower((string)preg_replace('/[^a-z0-9]/i', '', $name));
-        $knownAccounts = query_all("SELECT id,name FROM users WHERE user_kind='internal'");
-        foreach ($knownAccounts as $known) {
-            if ($identity((string)$known['name']) === $identity($values['name'])) {
+        $existing = query_all("SELECT name,office_station FROM users WHERE user_kind='internal' FOR UPDATE");
+        foreach ($existing as $other) {
+            if ($identity((string)$other['name']) === $identity($values['name']) &&
+                strcasecmp((string)($other['office_station'] ?? ''), $values['office_station']) === 0) {
                 $pdo->rollBack();
-                return ['An internal account with this name already exists. Use Link Existing Account instead of creating a duplicate.'];
+                return ['This person already appears in User Management. Edit their existing or Pending Setup record instead.'];
             }
         }
         $roleId = user_management_role_id($values['role']);
         if (!$roleId) {
             $pdo->rollBack();
-            return ['The selected role is not installed. Run the database migration and role seeder.'];
+            return ['The role has not been installed. Run the role seeder.'];
         }
-        $stmt = $pdo->prepare("INSERT INTO users
-            (name,email,password_hash,user_kind,status,must_change_password,activated_at,contact_number,office_station)
-            VALUES (?,?,?,'internal','active',1,NOW(),?,?)");
-        $stmt->execute([
-            $values['name'],$values['email'],password_hash($password,PASSWORD_DEFAULT),
-            $values['contact_number'] ?: null,$values['office_station']
-        ]);
+        $pdo->prepare("INSERT INTO users
+                (name,email,password_hash,user_kind,office_level,contact_number,office_station,
+                 status,must_change_password,activated_at)
+            VALUES (?,?,?,'internal',?,?,?,'active',1,NOW())")
+            ->execute([
+                $values['name'],$values['email'],password_hash($password,PASSWORD_DEFAULT),
+                user_management_office_level($values['role']),
+                $values['contact_number'] ?: null,$values['office_station']
+            ]);
         $id = (int)$pdo->lastInsertId();
-        initialize_profile_account_fields($id, 'internal');
-        $pdo->prepare('UPDATE users SET office_level=? WHERE id=?')
-            ->execute([user_management_office_level($values['role']), $id]);
+        initialize_profile_account_fields($id,'internal');
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$id,$roleId]);
-        create_notification(
-            $id,
-            'DENR FP-OMS Account Created',
-            'Your internal account is ready. Please change your temporary password at first sign-in.',
-            'person-check', 'success', 'change_password'
-        );
-        if ($designation) {
-            $pdo->prepare('UPDATE user_designations SET linked_user_id=? WHERE id=? AND linked_user_id IS NULL')
-                ->execute([$id,$designationId]);
+        create_notification($id,'DENR FP-OMS Account Created',
+            'Your internal account is ready. Change your initial password on first sign-in.',
+            'person-check','success','change_password');
+        audit((int)$admin['id'],'user_management.created','user',$id,
+            ['role'=>$values['role'],'office'=>$values['office_station']]);
+        $pdo->commit();
+        return [];
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($e->getCode() === '23000') return ['This email is already in use. Assign an individual login email.'];
+        error_log('User Management create failed: ' . $e->getMessage());
+        return ['Unable to create the account. Review database migration and server logs.'];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('User Management create failed: ' . $e->getMessage());
+        return ['Unable to create the account. Check server logs.'];
+    }
+}
+
+/**
+ * Activate an existing pending personnel row within users.
+ * Never INSERT another user for a designation that already exists.
+ */
+function user_management_activate(array $admin, int $userId, array $input): array
+{
+    $values = user_management_data($input);
+    $errors = user_management_validate($values);
+    $password = (string)($input['password'] ?? '');
+    if ($msg = check_password_strength($password)) $errors[] = $msg;
+    if ($password !== (string)($input['confirm_password'] ?? '')) {
+        $errors[] = 'Initial password and confirmation do not match.';
+    }
+    if ((string)($input['confirm_identity'] ?? '') !== '1') {
+        $errors[] = 'Confirm the designated employee identity and unique login email before activation.';
+    }
+    if ($values['status'] !== 'active') $errors[] = 'A completed account must start active.';
+    if ($errors) return $errors;
+    $pdo = db();
+    try {
+        $pdo->beginTransaction();
+        $record = query_one("SELECT * FROM users WHERE id=? AND user_kind='internal' FOR UPDATE", [$userId]);
+        if (!$record || $record['status'] !== 'pending_setup') {
+            $pdo->rollBack();
+            return ['This account is not awaiting setup. Reload User Management.'];
         }
-        audit((int)$admin['id'],'user_management.created','user',$id,[
-            'role'=>$values['role'],'office'=>$values['office_station'],
-            'source_designation_id'=>$designationId ?: null
+        $roleId = user_management_role_id($values['role']);
+        if (!$roleId) {
+            $pdo->rollBack();
+            return ['The assigned role has not been installed. Run the role seeder.'];
+        }
+        $duplicate = query_one('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1',
+            [$values['email'],$userId]);
+        if ($duplicate) {
+            $pdo->rollBack();
+            return ['That login email is already assigned to another user.'];
+        }
+        $pdo->prepare("UPDATE users SET name=?,email=?,password_hash=?,contact_number=?,
+                     office_station=?,office_level=?,status='active',must_change_password=1,
+                     activated_at=NOW() WHERE id=? AND status='pending_setup'")
+            ->execute([
+                $values['name'],$values['email'],password_hash($password,PASSWORD_DEFAULT),
+                $values['contact_number'] ?: null,$values['office_station'],
+                user_management_office_level($values['role']),$userId
+            ]);
+        initialize_profile_account_fields($userId,'internal');
+        user_management_assign_role($pdo,$userId,$roleId);
+        create_notification($userId,'DENR FP-OMS Account Activated',
+            'Your account is now active. Change your temporary password when you sign in.',
+            'person-check','success','change_password');
+        audit((int)$admin['id'],'user_management.activated','user',$userId,[
+            'role'=>$values['role'],
+            'source_key'=>$record['source_key'] ?? null,
+            'office'=>$values['office_station']
         ]);
         $pdo->commit();
         return [];
     } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        if ($e->getCode() === '23000') return ['This email or account is already registered. Use a different individual login email.'];
-        error_log('FP-OMS managed user creation failed: ' . $e->getMessage());
-        return ['Could not create this account. Check database migration and server logs.'];
+        if ($e->getCode() === '23000') return ['Login email is already used or the user was activated by another administrator.'];
+        error_log('User Management activation failed: ' . $e->getMessage());
+        return ['Unable to activate this user. Check server logs.'];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        error_log('FP-OMS managed user creation failed: ' . $e->getMessage());
-        return ['Could not create this account. Check server logs.'];
+        error_log('User Management activation failed: ' . $e->getMessage());
+        return ['Unable to activate this user. Check server logs.'];
     }
 }
 
-/** Explicitly link a known existing user to a named designation without changing credentials. */
-function user_management_link_existing(array $admin, int $designationId, int $existingUserId, bool $confirmed): array
-{
-    if (!$confirmed) return ['Confirm that this designation refers to the selected existing account.'];
-    if ($designationId < 1 || $existingUserId < 1) return ['Select a valid designation and existing account.'];
-    $pdo = db();
-    try {
-        $pdo->beginTransaction();
-        $designation = query_one('SELECT * FROM user_designations WHERE id=? FOR UPDATE', [$designationId]);
-        $user = query_one("SELECT id,name,user_kind FROM users WHERE id=? AND user_kind='internal' FOR UPDATE", [$existingUserId]);
-        if (!$designation || $designation['linked_user_id'] !== null || !$user) {
-            $pdo->rollBack();
-            return ['Designation or internal account is invalid or already linked.'];
-        }
-        $already = query_one('SELECT id FROM user_designations WHERE linked_user_id=? LIMIT 1', [$existingUserId]);
-        if ($already) {
-            $pdo->rollBack();
-            return ['This user account is already linked to another designation.'];
-        }
-        $normalize = static fn(string $name): string => strtolower((string)preg_replace('/[^a-z0-9]/i', '', $name));
-        if ($normalize((string)$designation['full_name']) !== $normalize((string)$user['name'])) {
-            $pdo->rollBack();
-            return ['The account name does not match the designation. Verify the identity and correct the account name first.'];
-        }
-        $pdo->prepare('UPDATE user_designations SET linked_user_id=? WHERE id=? AND linked_user_id IS NULL')
-            ->execute([$existingUserId, $designationId]);
-        audit((int)$admin['id'],'user_management.designation_linked','user',$existingUserId,[
-            'designation_id'=>$designationId
-        ]);
-        $pdo->commit();
-        return [];
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        error_log('FP-OMS existing account link failed: ' . $e->getMessage());
-        return ['Unable to link the designation. Check server logs.'];
-    }
-}
-
-/** Update an existing internal user's contact, office, unique email, role and status. */
 function user_management_update(array $admin, int $userId, array $input): array
 {
     $values = user_management_data($input);
@@ -271,6 +253,10 @@ function user_management_update(array $admin, int $userId, array $input): array
         if (!$target) {
             $pdo->rollBack();
             return ['Internal user account not found.'];
+        }
+        if ($target['status'] === 'pending_setup') {
+            $pdo->rollBack();
+            return ['Complete the pending account setup, including a password, before changing its status.'];
         }
         $originalRoles = user_roles($userId);
         if ((int)$admin['id'] === $userId &&
@@ -346,6 +332,11 @@ function user_management_reset_password(array $admin, int $userId, array $input)
         if (!$target) {
             $pdo->rollBack();
             return ['Internal user account does not exist.'];
+        }
+        $pending = query_one("SELECT status FROM users WHERE id=? AND user_kind='internal'",[$userId]);
+        if (($pending['status'] ?? '') === 'pending_setup') {
+            $pdo->rollBack();
+            return ['Use Set Up Account for designated personnel who have no login yet.'];
         }
         $pdo->prepare("UPDATE users SET password_hash=?, must_change_password=1 WHERE id=?")
             ->execute([password_hash($password,PASSWORD_DEFAULT),$userId]);
