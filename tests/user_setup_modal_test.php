@@ -40,7 +40,10 @@ assert_modal(str_contains($html, 'name="confirm_identity"'), 'Identity verificat
 assert_modal(str_contains($html, 'id="setupPassword"'), 'Password entry exists');
 assert_modal(str_contains($html, 'id="setupPasswordConfirm"'), 'Password confirmation exists');
 assert_modal(substr_count($html,'data-toggle-setup-password') === 2, 'Both password toggles exist');
-assert_modal(str_contains($html, 'user-setup-modal.js?v=1'), 'Modal behavior script is loaded');
+assert_modal(str_contains($html, 'user-setup-modal.js?v=2'), 'Updated email-suggestion modal script is loaded');
+assert_modal(str_contains($html, 'data-email-suggestion-note'), 'Uniquely listed email suggestion notice exists');
+assert_modal(str_contains($html, 'data-shared-email-note'), 'Shared office email warning exists');
+assert_modal(str_contains($html, 'Office Email (Reference)'), 'Office email is labelled separately from login');
 assert_modal(str_contains($html, 'option value="cenro_twg"'), 'Assigned role list is available');
 assert_modal(str_contains($html, 'modal-dialog-scrollable'), 'Modal supports smaller viewports');
 assert_modal(str_contains($html, 'must be shared'), 'Temporary password security notice exists');
