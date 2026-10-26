@@ -114,7 +114,16 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . '<div class="col-12 col-md-6">' . user_management_field(
             'email','Individual Login Email',(string)$previous['email'],true,
             'maxlength="190" autocomplete="off" placeholder="employee@denr.gov.ph"','email'
-        ) . '</div>'
+        )
+        . '<div class="form-text text-success" data-email-suggestion-note'
+        . ($reopen && !empty($reopenUser['suggested_login_email']) ? '' : ' hidden')
+        . '>Suggested from the submitted form (listed once). '
+        . '<strong>Verify this mailbox belongs to the employee</strong> before activation.</div>'
+        . '<div class="form-text text-warning" data-shared-email-note'
+        . ($reopen && !empty($reopenUser['office_email_shared']) ? '' : ' hidden')
+        . '>This office email is shared by other designated personnel. '
+        . 'Provide a separate individual login email.</div>'
+        . '</div>'
         . '<div class="col-12 col-md-6">' . user_management_field(
             'contact_number','Contact Number',(string)$previous['contact_number'],
             false,'maxlength="40" placeholder="09XX-XXX-XXXX"','tel'
@@ -129,7 +138,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . '</select></div></div>'
         . '<div class="user-setup-reference border rounded-3 p-3 small mt-2">'
         . '<div class="fw-semibold mb-1">Personnel reference information</div>'
-        . '<div>Office contact: <span data-office-reference>'
+        . '<div>Office Email (Reference): <span data-office-reference>'
         . e($reopen ? (string)($reopenUser['reference_email'] ?? '') : '')
         . '</span></div>'
         . '<div class="mt-1" data-personnel-notes>'
@@ -400,12 +409,13 @@ function view_user_management(
         . '<h3 class="h6 mb-0">Internal Accounts and Designated Personnel</h3>'
         . '<a class="btn btn-sm btn-outline-primary" href="' . e(url('user_create')) . '">'
         . '<i class="bi bi-person-plus me-1"></i>Add User</a></div>'
-        . '<div class="alert alert-info small">The names from the uploaded FP-OMS user-role form are in the same table as accounts. '
-        . 'Reference/office emails may be shared and are <strong>not</strong> used for login. '
-        . 'Click Set Up to assign a unique login email and temporary password to a pending employee.</div>'
+        . '<div class="alert alert-info small">Office Email comes from the uploaded FP-OMS personnel form. '
+        . 'Login Email remains unassigned until the administrator verifies ownership and sets a temporary password. '
+        . 'Only an email listed once (and not already used for login) is suggested during Set Up; '
+        . '<strong>shared office emails must not be used as personal login accounts.</strong></div>'
         . '<div class="table-responsive"><table class="table table-hover table-sm align-middle">'
-        . '<thead><tr><th>Full Name</th><th>Login Email</th><th>Office / Contact</th>'
-        . '<th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+        . '<thead><tr><th>Full Name</th><th>Login Email</th><th>Office Email (Reference)</th>'
+        . '<th>Office / Contact</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>';
     foreach ($records as $person) {
         $pending = $person['status'] === 'pending_setup';
         $html .= '<tr><td><strong>' . e((string)$person['name']) . '</strong>'
@@ -413,8 +423,14 @@ function view_user_management(
                 . e((string)$person['designation_notes']) . '</div>' : '')
             . '</td><td>' . ($pending ? '<span class="text-secondary">Not assigned</span>'
                 : e((string)($person['email'] ?? '—')))
-            . (!empty($person['reference_email']) ? '<div class="small text-secondary">Office reference: '
-                . e((string)$person['reference_email']) . '</div>' : '')
+            . '</td><td>'
+            . (!empty($person['reference_email'])
+                ? e((string)$person['reference_email'])
+                : '<span class="text-secondary">Not provided</span>')
+            . ($pending && !empty($person['suggested_login_email'])
+                ? '<div class="small text-success">Suggested for verification</div>' : '')
+            . ($pending && !empty($person['office_email_shared'])
+                ? '<div class="small text-warning">Shared office address</div>' : '')
             . '</td><td>' . e((string)($person['office_station'] ?? '—'))
             . (!empty($person['contact_number']) ? '<div class="small text-secondary">'
                 . e((string)$person['contact_number']) . '</div>' : '') . '</td>'
@@ -432,6 +448,8 @@ function view_user_management(
                 . 'data-user-contact="' . e((string)($person['contact_number'] ?? '')) . '" '
                 . 'data-user-role="' . e((string)($person['role_code'] ?? '')) . '" '
                 . 'data-user-reference="' . e((string)($person['reference_email'] ?? '')) . '" '
+                . 'data-user-suggested-email="' . e((string)($person['suggested_login_email'] ?? '')) . '" '
+                . 'data-user-reference-shared="' . (!empty($person['office_email_shared']) ? '1' : '0') . '" '
                 . 'data-user-notes="' . e((string)($person['designation_notes'] ?? '')) . '" '
                 . 'data-setup-url="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
                 . '<i class="bi bi-person-gear me-1" aria-hidden="true"></i>Set Up</a></td></tr>';
@@ -454,7 +472,7 @@ function view_user_management(
                 . '<i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit</a></td></tr>';
         }
     }
-    if (!$records) $html .= '<tr><td colspan="6" class="text-center text-secondary py-4">No matching users found.</td></tr>';
+    if (!$records) $html .= '<tr><td colspan="7" class="text-center text-secondary py-4">No matching users found.</td></tr>';
     $html .= '</tbody></table></div>'
         . '<p class="text-secondary small mb-0">Changes to user roles, credentials, and account status are logged. '
         . 'Applicant registrations and accounts are managed separately.</p></div>';
@@ -505,7 +523,7 @@ function view_user_edit(int $id, array $errors = []): void
     $assignedRoles = user_roles($id);
     $values = [
         'name'=>(string)$user['name'],
-        'email'=>(string)($user['email'] ?? ''),
+        'email'=>$pending ? (string)($user['suggested_login_email'] ?? '') : (string)($user['email'] ?? ''),
         'contact_number'=>(string)($user['contact_number'] ?? ''),
         'office_station'=>(string)($user['office_station'] ?? ''),
         'role'=>($assignedRoles[0] ?? ''),
@@ -525,7 +543,14 @@ function view_user_edit(int $id, array $errors = []): void
     if ($pending) {
         $html .= '<div class="alert alert-warning small"><strong>Pending Setup:</strong> This person is already recorded '
             . 'in the users table, but cannot sign in. Set a unique individual login email, verify their identity, '
-            . 'and assign a temporary password to activate this same record.</div>';
+            . 'and assign a temporary password to activate this same record.</div>'
+            . '<p class="small"><strong>Office Email (Reference):</strong> '
+            . e((string)($user['reference_email'] ?? 'Not provided'))
+            . (!empty($user['office_email_shared'])
+                ? ' <span class="text-warning">Shared with other personnel — do not use for personal login.</span>'
+                : (!empty($user['suggested_login_email'])
+                    ? ' <span class="text-success">Suggested only; verify employee ownership.</span>'
+                    : '')) . '</p>';
     }
     $html .= '<form method="post" action="' . e(url('user_edit',['id'=>$id])) . '">'
         . csrf_field() . '<input type="hidden" name="action" value="'
