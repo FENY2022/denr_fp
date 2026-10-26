@@ -43,7 +43,7 @@ assert_modal(substr_count($html,'data-toggle-setup-password') === 2, 'Both passw
 assert_modal(str_contains($html, 'user-setup-modal.js?v=1'), 'Modal behavior script is loaded');
 assert_modal(str_contains($html, 'option value="cenro_twg"'), 'Assigned role list is available');
 assert_modal(str_contains($html, 'modal-dialog-scrollable'), 'Modal supports smaller viewports');
-assert_modal(str_contains($html, 'Share'), 'Temporary password security notice exists');
+assert_modal(str_contains($html, 'must be shared'), 'Temporary password security notice exists');
 
 $payload = user_management_field(
     'employee_name', 'Full Name', 'A "B" <script>alert(1)</script>', true
