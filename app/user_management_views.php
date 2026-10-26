@@ -204,12 +204,25 @@ function user_management_edit_modal(
 ): string {
     $reopenUser = $reopenUserId > 0 ? user_management_user($reopenUserId) : null;
     $reopen = $reopenUser && in_array($reopenUser['status'], ['active','suspended'], true);
-    $values = $reopen && $reopenAction === 'update' && !empty($_POST)
-        ? user_management_data($_POST)
-        : [
-            'name'=>'','email'=>'','contact_number'=>'',
-            'office_station'=>'','role'=>'','status'=>'active'
+    $values = [
+        'name'=>'','email'=>'','contact_number'=>'',
+        'office_station'=>'','role'=>'','status'=>'active'
+    ];
+    if ($reopen) {
+        $roles = user_roles((int)$reopenUser['id']);
+        $values = [
+            'name'=>(string)$reopenUser['name'],
+            'email'=>(string)($reopenUser['email'] ?? ''),
+            'contact_number'=>(string)($reopenUser['contact_number'] ?? ''),
+            'office_station'=>(string)($reopenUser['office_station'] ?? ''),
+            'role'=>(string)($roles[0] ?? ''),
+            'status'=>(string)$reopenUser['status']
         ];
+        if ($reopenAction === 'update' && !empty($_POST)) {
+            // Preserve submitted profile values, never any submitted password.
+            $values = user_management_data($_POST);
+        }
+    }
     $targetUrl = url('user_edit',['id'=>$reopen ? $reopenUserId : 0]);
     $admin = $reopen ? require_role('super_admin') : null;
     $self = $reopen && (int)$admin['id'] === (int)$reopenUserId;
