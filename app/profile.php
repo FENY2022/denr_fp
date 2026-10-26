@@ -334,8 +334,9 @@ function view_profile(): void
         . '<div class="profile-info-item"><span class="profile-info-label">Username</span><div class="profile-info-value">' . e((string)$context['username']) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Role</span><div class="profile-info-value">' . e((string)$context['role_text']) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Office Level / Assignment</span><div class="profile-info-value">' . e((string)$context['office_level']) . '</div></div>'
-        . '<div class="profile-info-item"><span class="profile-info-label">Office / Station</span><div class="profile-info-value">' . e((string)($user['office_station'] ?? 'Not assigned')) . '</div></div>'
+        . ($user['user_kind'] === 'internal' ? '<div class="profile-info-item"><span class="profile-info-label">Office / Station</span><div class="profile-info-value">' . e((string)($user['office_station'] ?? 'Not assigned')) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Contact Number</span><div class="profile-info-value">' . e((string)($user['contact_number'] ?? 'Not provided')) . '</div></div>'
+            : '')
         . '<div class="profile-info-item"><span class="profile-info-label">Account Status</span><div class="profile-info-value">' . profile_status_badge((string)$user['status']) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Last Login</span><div class="profile-info-value">' . e(profile_display_date($user['last_login_at'] ?? null)) . '</div></div>'
         . '<div class="profile-info-item"><span class="profile-info-label">Activated</span><div class="profile-info-value">' . e(profile_display_date($user['activated_at'] ?? null)) . '</div></div>'
@@ -417,8 +418,9 @@ function view_edit_profile(array $errors = []): void
         . '<div class="col-md-6"><label class="form-label">Username</label><div class="profile-readonly-field">' . e((string)$context['username']) . '</div></div>'
         . '<div class="col-md-6"><label class="form-label">Role</label><div class="profile-readonly-field">' . e((string)$context['role_text']) . '</div></div>'
         . '<div class="col-md-6"><label class="form-label">Office Level / Assignment</label><div class="profile-readonly-field">' . e((string)$context['office_level']) . '</div></div>'
-        . '<div class="col-md-6"><label class="form-label">Office / Station</label><div class="profile-readonly-field">' . e((string)($user['office_station'] ?? 'Not assigned')) . '</div></div>'
+        . ($user['user_kind'] === 'internal' ? '<div class="col-md-6"><label class="form-label">Office / Station</label><div class="profile-readonly-field">' . e((string)($user['office_station'] ?? 'Not assigned')) . '</div></div>'
         . '<div class="col-md-6"><label class="form-label">Contact Number</label><div class="profile-readonly-field">' . e((string)($user['contact_number'] ?? 'Not provided')) . '</div></div>'
+            : '')
         . '<div class="col-md-6"><label class="form-label">Account Status</label><div class="profile-readonly-field">' . profile_status_badge((string)$user['status']) . '</div></div>'
         . '</div><div class="alert alert-light border small mt-3 mb-0"><i class="bi bi-shield-check me-1"></i>Username, role, office assignment and account status are controlled account fields and cannot be changed from this page.</div>'
         . ($user['user_kind'] === 'applicant' ? '<div class="alert alert-info small mt-3 mb-0">Changing your full name also updates the representative name in your applicant registration.</div>' : '')
