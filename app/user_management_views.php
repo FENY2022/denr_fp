@@ -211,13 +211,15 @@ function user_management_edit_modal(
             'office_station'=>'','role'=>'','status'=>'active'
         ];
     $targetUrl = url('user_edit',['id'=>$reopen ? $reopenUserId : 0]);
-    $self = $reopen && (int)(require_role('super_admin')['id']) === (int)$reopenUserId;
+    $admin = require_role('super_admin');
+    $self = $reopen && (int)$admin['id'] === (int)$reopenUserId;
     $showProfileErrors = $reopen && $reopenAction === 'update';
     $showResetErrors = $reopen && $reopenAction === 'reset_password';
     $html = '<div class="modal fade user-edit-modal" id="userEditModal" tabindex="-1" '
         . 'aria-labelledby="userEditModalLabel" aria-hidden="true" '
         . 'data-reopen="' . ($reopen ? '1' : '0') . '" '
-        . 'data-reopen-action="' . e($reopen ? $reopenAction : '') . '">'
+        . 'data-reopen-action="' . e($reopen ? $reopenAction : '') . '" '
+        . 'data-reopen-self="' . ($self ? '1' : '0') . '">'
         . '<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">'
         . '<div class="modal-content">'
         . '<div class="modal-header">'
