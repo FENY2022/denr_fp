@@ -208,7 +208,7 @@ FP-OMS stores internal employee accounts **and** not-yet-provisioned designated 
 
 **Pending Setup → Set Up (modal):** clicking a pending user's **Set Up** button on `/user-management` opens a responsive Bootstrap popup on the same page, instead of navigating to another page. The popup pre-fills the person's name, contact, office and assigned role from the existing user record; it displays the office email as a **reference only**, never as a login address. Enter a unique individual login email, provide and confirm a temporary password (12–200 UTF-8 bytes with a letter and number), then check the employee identity verification box. The **Activate Account** button is enabled when form inputs pass validation. Show/hide buttons are provided for both password fields. Form submission still uses the original CSRF-protected `/user-edit?id=<id>` activation route and all server-side checks; any validation errors reopen the same modal with non-password fields preserved. On success, the user returns to the refreshed User Management list. If Bootstrap JavaScript is unavailable, the Set Up link offers the existing full-page fallback. This **updates the existing users row in place**, assigns username and forces a first-login password change; it never creates another row for that person.
 
-**Edit:** for an active/suspended internal user, an authorized RICTU administrator can update their full name, email, contact number, office/station, role and status. Password reset is a separate action. Password hashes are never displayed or sent by email. The final active Super Administrator cannot be disabled or demoted, and self-demotion/suspension is blocked.
+**Edit (modal):** clicking **Edit** for an active/suspended internal user opens a responsive Bootstrap popup on the same User Management page. The **Edit Profile** tab is prefilled with their full name, individual login email, contact number, office/station, role and status. The **Reset Password** tab is a separate CSRF-protected form for another person's strong temporary password (with show/hide and confirmation matching); it is hidden for the currently logged-in Super Administrator, who should use their own Profile → Change Password workflow. On successful save/reset, the user returns to the refreshed User Management list. Server-side validation errors reopen the correct tab and preserve only non-password form inputs. Both actions retain the existing RICTU authorization, audit log, strong password hashing and user record. The final active Super Administrator cannot be disabled/demoted, and self-demotion/suspension remains blocked. With JavaScript unavailable, the Edit link opens the existing full-page editing form.
 
 **Add User:** create a separate manually added staff account only for personnel not already present in All Users. The backend checks duplicate names in the same office and enforces a unique individual login email. Account changes are audited.
 
@@ -236,6 +236,7 @@ php tests/domain_test.php
 php tests/registration_attachments_test.php
 php tests/user_management_test.php
 php tests/user_setup_modal_test.php
+php tests/user_edit_modal_test.php
 ```
 
 ## Password recovery
