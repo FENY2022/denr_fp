@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS user_designations (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_designation_role (suggested_role),
     INDEX idx_designation_office (office_station),
-    INDEX idx_designation_user (linked_user_id),
+    UNIQUE KEY uq_designation_linked_user (linked_user_id),
     CONSTRAINT fk_designation_linked_user FOREIGN KEY (linked_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
