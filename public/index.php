@@ -84,7 +84,7 @@ try {
             if ($post) {
                 check_csrf();
                 $values = registration_input();
-                $errors = register_applicant($values,safe_post('email',190),(string)($_POST['password'] ?? ''),(string)($_POST['password_confirm'] ?? ''),$_FILES);
+                $errors = register_applicant($values,safe_post('email',190),(string)($_POST['password'] ?? ''),(string)($_POST['password_confirm'] ?? ''),$_FILES,$_POST);
                 if (!$errors) {
                     flash('success','Registration submitted. Sign in to check LPDD-FUS review status.');
                     go('login');
@@ -149,7 +149,7 @@ try {
             require_kind($user,'applicant');
             if (!$post) go('my_registration');
             check_csrf();
-            $errors = revise_registration($user,registration_input(),$_FILES);
+            $errors = revise_registration($user,registration_input(),$_FILES,$_POST);
             if ($errors) view_applicant_registration($user,$errors);
             else {
                 flash('success','Corrections resubmitted for LPDD-FUS review.');
