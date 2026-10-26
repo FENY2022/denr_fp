@@ -14,7 +14,7 @@
 CREATE TEMPORARY TABLE IF NOT EXISTS fpoms_office_email_restore (
     source_key VARCHAR(64) PRIMARY KEY,
     reference_email VARCHAR(190) NOT NULL
-) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4;
+) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 DELETE FROM fpoms_office_email_restore;
 
