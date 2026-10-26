@@ -23,6 +23,9 @@ must(user_management_validate($valid) === [], 'Valid staff profile accepted');
 must($valid['email'] === 'nelson.caranzo@example.org', 'Individual email normalized');
 must(!isset(user_management_internal_roles()['applicant']), 'Applicant role cannot be assigned to internal staff');
 must(isset(user_management_internal_roles()['gis_focal']), 'GIS Focal role available');
+must(user_management_office_level('cenro_twg') === 'CENRO', 'CENRO office assignment');
+must(user_management_office_level('penro_user') === 'PENRO', 'PENRO office assignment');
+must(user_management_office_level('gis_focal') === 'Regional Office', 'Regional GIS assignment');
 
 $bad = $valid;
 $bad['email'] = 'invalid';

@@ -285,5 +285,5 @@ body.page-loading{overflow:hidden}
 .sidebar-config-menu > summary .bi-chevron-down{transition:transform .15s ease;width:auto;flex:none}
 .sidebar-config-menu[open] > summary .bi-chevron-down{transform:rotate(180deg)}
 .sidebar-config-menu > .ps-3 .sidebar-link{padding-left:.6rem}
-.sidebar-collapsed .sidebar-config-menu > .ps-3,
+.sidebar-collapsed .sidebar-config-menu > .ps-3{padding-left:0!important}
 .sidebar-collapsed .sidebar-config-menu > summary .bi-chevron-down{display:none!important}
