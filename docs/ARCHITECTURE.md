@@ -52,6 +52,9 @@ flowchart TD
 * Existing accounts (including the administrator) preserve their IDs, hashed passwords and references; missing `user_roles` rows are restored using verified designation roles, never replacing other existing roles. Importing 009 is a one-time data migration, not a new account signup.
 * A RICTU administrator can edit active/suspended internal users, manually add users absent from the consolidated list, reset temporary passwords and update office/contact information. Self-demotion, self-suspension and removal of the last active administrator are blocked. All these operations are audited.
 * Designated `gis_focal` is present as an internal role, but future permit workflow modules do not become active merely because the role exists.
+* `users.email` is the unique login address; `users.reference_email` is the office/reference address supplied in the personnel form. User Management displays both separately. A reference address is eligible as a **setup suggestion** only if it appears for exactly one internal person across all users and has no existing login assignment. This is not proof of mailbox ownership, which the administrator must verify. Reference addresses used by multiple personnel are rejected as new personal logins in account creation, activation and email editing.
+* `010_restore_office_email_references.sql` is an optional idempotent data-repair migration after 009. It restores only missing `reference_email` values for source-keyed pending staff; it never populates login credentials or activates accounts. The supplied October 26 export already contains the reference addresses.
+
 
 ## Authorization matrix — Phase 1
 
