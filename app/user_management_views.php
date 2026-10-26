@@ -211,7 +211,7 @@ function user_management_edit_modal(
             'office_station'=>'','role'=>'','status'=>'active'
         ];
     $targetUrl = url('user_edit',['id'=>$reopen ? $reopenUserId : 0]);
-    $admin = require_role('super_admin');
+    $admin = $reopen ? require_role('super_admin') : null;
     $self = $reopen && (int)$admin['id'] === (int)$reopenUserId;
     $showProfileErrors = $reopen && $reopenAction === 'update';
     $showResetErrors = $reopen && $reopenAction === 'reset_password';
