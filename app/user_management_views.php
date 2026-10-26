@@ -101,6 +101,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . '<form id="userSetupForm" method="post" action="' . e($url) . '" autocomplete="off">'
         . '<div class="modal-body">' . csrf_field()
         . '<input type="hidden" name="action" value="activate">'
+        . '<input type="hidden" name="setup_origin" value="user_management_modal">'
         . '<input type="hidden" name="status" value="active">'
         . ($reopen ? errors_html($errors) : '')
         . '<div class="alert alert-warning small"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>'
