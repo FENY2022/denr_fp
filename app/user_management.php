@@ -81,7 +81,10 @@ function user_management_accounts(string $query = '', string $role = '', string 
                    u.status,u.created_at,u.must_change_password,u.source_key,
                    u.reference_email,u.designation_notes,
                    (SELECT GROUP_CONCAT(r.label ORDER BY r.label SEPARATOR ', ')
-                    FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id) AS role_names
+                    FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id) AS role_names,
+                   (SELECT r.code FROM user_roles ur
+                    INNER JOIN roles r ON r.id=ur.role_id
+                    WHERE ur.user_id=u.id ORDER BY r.id LIMIT 1) AS role_code
             FROM users u WHERE u.user_kind='internal'";
     $params = [];
     if ($query !== '') {
