@@ -31,7 +31,7 @@ function upload_details(?array $file, bool $required): array
     ];
 }
 
-function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $revision, string $type, array $info): string
+function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $revision, string $type, array $info, ?string $idType = null): string
 {
     $relative = 'registrations/' . $userId . '/' . bin2hex(random_bytes(18)) . '.' . $info['extension'];
     $absolute = PROJECT_ROOT . '/storage/' . $relative;
@@ -44,8 +44,8 @@ function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $rev
     chmod($absolute, 0600);
     $digest = hash_file('sha256', $absolute);
     try {
-        $stmt = $pdo->prepare('INSERT INTO registration_documents (registration_id,document_type,original_name,stored_path,mime_type,file_size,sha256,revision) VALUES (?,?,?,?,?,?,?,?)');
-        $stmt->execute([$registrationId,$type,$info['name'],$relative,$info['mime'],$info['size'],$digest,$revision]);
+        $stmt = $pdo->prepare('INSERT INTO registration_documents (registration_id,document_type,id_type,original_name,stored_path,mime_type,file_size,sha256,revision) VALUES (?,?,?,?,?,?,?,?,?)');
+        $stmt->execute([$registrationId,$type,$idType,$info['name'],$relative,$info['mime'],$info['size'],$digest,$revision]);
         return $absolute;
     } catch (Throwable $error) {
         @unlink($absolute);
@@ -64,16 +64,14 @@ function registration_input(): array
     ];
 }
 
-function register_applicant(array $values, string $email, string $password, string $confirmation, array $files): array
+function register_applicant(array $values, string $email, string $password, string $confirmation, array $files, array $attachmentInput = []): array
 {
     $errors = registration_validation($values);
     if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190) $errors[] = 'Enter a valid email address.';
     if ($message = check_password_strength($password)) $errors[] = $message;
     if ($password !== $confirmation) $errors[] = 'Passwords do not match.';
-    $id = upload_details($files['valid_id'] ?? null, true);
-    $extra = upload_details($files['supporting_document'] ?? null, false);
-    if (isset($id['error'])) $errors[] = $id['error'];
-    if (isset($extra['error'])) $errors[] = $extra['error'];
+    $attachments = registration_attachment_batch($attachmentInput, $files, true);
+    $errors = array_merge($errors, $attachments['errors']);
     if ($errors) return $errors;
     $pdo = db();
     $stored = [];
@@ -89,8 +87,12 @@ function register_applicant(array $values, string $email, string $password, stri
         $stmt = $pdo->prepare('INSERT INTO applicant_registrations (user_id,company_name,company_address,representative_name,representative_position,contact_number) VALUES (?,?,?,?,?,?)');
         $stmt->execute([$uid,$values['company_name'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number']]);
         $regId = (int)$pdo->lastInsertId();
-        $stored[] = store_reg_document($pdo,$regId,$uid,1,'valid_id',$id);
-        if (!isset($extra['none'])) $stored[] = store_reg_document($pdo,$regId,$uid,1,'supporting_document',$extra);
+        foreach ($attachments['items'] as $attachment) {
+            $stored[] = store_reg_document(
+                $pdo, $regId, $uid, 1, $attachment['document_type'],
+                $attachment['info'], $attachment['id_type']
+            );
+        }
         audit($uid,'registration.submitted','registration',$regId,['revision'=>1]);
         notify_role(
             'lpdd_fus',
@@ -137,16 +139,16 @@ function latest_review(int $registrationId): ?array
 
 function registration_documents(int $registrationId): array
 {
-    return query_all('SELECT rd.* FROM registration_documents rd INNER JOIN (SELECT document_type, MAX(id) AS max_id FROM registration_documents WHERE registration_id=? GROUP BY document_type) recent ON recent.max_id=rd.id ORDER BY rd.document_type', [$registrationId]);
+    // Show every uploaded file, not only the latest one per document type.
+    // Immutable earlier revisions remain available to applicants and LPDD-FUS.
+    return query_all('SELECT * FROM registration_documents WHERE registration_id=? ORDER BY revision DESC, id DESC', [$registrationId]);
 }
 
-function revise_registration(array $user, array $values, array $files): array
+function revise_registration(array $user, array $values, array $files, array $attachmentInput = []): array
 {
     $errors = registration_validation($values);
-    $id = upload_details($files['valid_id'] ?? null, false);
-    $extra = upload_details($files['supporting_document'] ?? null, false);
-    if (isset($id['error'])) $errors[] = $id['error'];
-    if (isset($extra['error'])) $errors[] = $extra['error'];
+    $attachments = registration_attachment_batch($attachmentInput, $files, false);
+    $errors = array_merge($errors, $attachments['errors']);
     if ($errors) return $errors;
     $pdo = db();
     $stored = [];
@@ -163,8 +165,12 @@ function revise_registration(array $user, array $values, array $files): array
         $pdo->prepare('UPDATE applicant_registrations SET company_name=?,company_address=?,representative_name=?,representative_position=?,contact_number=?,revision=?,submitted_at=NOW() WHERE id=?')
             ->execute([$values['company_name'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number'],$revision,(int)$reg['id']]);
         $pdo->prepare("UPDATE users SET name=?,status='pending_review' WHERE id=?")->execute([$values['representative_name'],(int)$user['id']]);
-        if (!isset($id['none'])) $stored[] = store_reg_document($pdo,(int)$reg['id'],(int)$user['id'],$revision,'valid_id',$id);
-        if (!isset($extra['none'])) $stored[] = store_reg_document($pdo,(int)$reg['id'],(int)$user['id'],$revision,'supporting_document',$extra);
+        foreach ($attachments['items'] as $attachment) {
+            $stored[] = store_reg_document(
+                $pdo, (int)$reg['id'], (int)$user['id'], $revision,
+                $attachment['document_type'], $attachment['info'], $attachment['id_type']
+            );
+        }
         audit((int)$user['id'],'registration.resubmitted','registration',(int)$reg['id'],['revision'=>$revision]);
         notify_role(
             'lpdd_fus',
