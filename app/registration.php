@@ -101,6 +101,15 @@ function register_applicant(array $values, string $email, string $password, stri
             'review_queue'
         );
         $pdo->commit();
+        // The registration is durable before attempting SMTP; mail problems never undo it.
+        try {
+            $sent = send_registration_acknowledgment_email(strtolower(trim($email)), $values['representative_name']);
+            audit($uid, 'registration.email_acknowledgment', 'registration', $regId, [
+                'delivery' => $sent ? 'smtp' : 'not_sent'
+            ]);
+        } catch (Throwable $mailError) {
+            error_log('Registration acknowledgment email failed after commit: ' . $mailError->getMessage());
+        }
         return [];
     } catch (PDOException $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -183,7 +192,7 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
     $pdo = db();
     try {
         $pdo->beginTransaction();
-        $reg = query_one('SELECT ar.*,u.status FROM applicant_registrations ar JOIN users u ON u.id=ar.user_id WHERE ar.id=? FOR UPDATE', [$registrationId]);
+        $reg = query_one('SELECT ar.*,u.status,u.email FROM applicant_registrations ar JOIN users u ON u.id=ar.user_id WHERE ar.id=? FOR UPDATE', [$registrationId]);
         if (!$reg || $reg['status'] !== 'pending_review') {
             $pdo->rollBack();
             return ['This registration is no longer pending review. Reload the queue.'];
@@ -222,6 +231,21 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
         }
         audit((int)$reviewer['id'],'registration.' . $decision,'registration',$registrationId,['revision'=>(int)$reg['revision']]);
         $pdo->commit();
+        // The review decision is committed before sending the applicant status email.
+        try {
+            $sent = send_registration_decision_email(
+                (string)$reg['email'],
+                (string)$reg['representative_name'],
+                $decision,
+                $remarks
+            );
+            audit((int)$reviewer['id'], 'registration.email_decision', 'registration', $registrationId, [
+                'decision' => $decision,
+                'delivery' => $sent ? 'smtp' : 'not_sent'
+            ]);
+        } catch (Throwable $mailError) {
+            error_log('Registration decision email failed after commit: ' . $mailError->getMessage());
+        }
         return [];
     } catch (Throwable $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();
