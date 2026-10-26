@@ -13,6 +13,15 @@ function user_management_internal_roles(): array
     return $roles;
 }
 
+function user_management_office_level(string $role): string
+{
+    return match ($role) {
+        'cenro_twg' => 'CENRO',
+        'penro_user' => 'PENRO',
+        default => 'Regional Office',
+    };
+}
+
 function user_management_valid_role(string $code): bool
 {
     return isset(user_management_internal_roles()[$code]);
@@ -179,6 +188,8 @@ function user_management_create(array $admin, array $input): array
         ]);
         $id = (int)$pdo->lastInsertId();
         initialize_profile_account_fields($id, 'internal');
+        $pdo->prepare('UPDATE users SET office_level=? WHERE id=?')
+            ->execute([user_management_office_level($values['role']), $id]);
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$id,$roleId]);
         create_notification(
             $id,
@@ -286,10 +297,11 @@ function user_management_update(array $admin, int $userId, array $input): array
             $pdo->rollBack();
             return ['Role is missing from the database. Run role seeding.'];
         }
-        $pdo->prepare("UPDATE users SET name=?,email=?,contact_number=?,office_station=?,status=? WHERE id=? AND user_kind='internal'")
+        $pdo->prepare("UPDATE users SET name=?,email=?,contact_number=?,office_station=?,office_level=?,status=? WHERE id=? AND user_kind='internal'")
             ->execute([
                 $values['name'],$values['email'],$values['contact_number'] ?: null,
-                $values['office_station'],$values['status'],$userId
+                $values['office_station'],user_management_office_level($values['role']),
+                $values['status'],$userId
             ]);
         user_management_assign_role($pdo, $userId, $roleId);
         audit((int)$admin['id'],'user_management.updated','user',$userId,[
