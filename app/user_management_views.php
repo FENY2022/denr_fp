@@ -250,7 +250,8 @@ function view_user_management(array $errors = [], int $reopenUserId = 0): void
         if ($pending) {
             // Data attributes contain display-only personnel fields, escaped for HTML attribute context.
             // Login email/password remain empty until an administrator submits the form.
-            $html .= '<td><button type="button" class="btn btn-sm btn-primary" '
+            $html .= '<td><a class="btn btn-sm btn-primary" role="button" '
+                . 'href="' . e(url('user_edit',['id'=>(int)$person['id']])) . '" '
                 . 'data-bs-toggle="modal" data-bs-target="#userSetupModal" '
                 . 'data-user-setup-trigger data-user-id="' . (int)$person['id'] . '" '
                 . 'data-user-name="' . e((string)$person['name']) . '" '
@@ -260,7 +261,7 @@ function view_user_management(array $errors = [], int $reopenUserId = 0): void
                 . 'data-user-reference="' . e((string)($person['reference_email'] ?? '')) . '" '
                 . 'data-user-notes="' . e((string)($person['designation_notes'] ?? '')) . '" '
                 . 'data-setup-url="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
-                . '<i class="bi bi-person-gear me-1" aria-hidden="true"></i>Set Up</button></td></tr>';
+                . '<i class="bi bi-person-gear me-1" aria-hidden="true"></i>Set Up</a></td></tr>';
         } else {
             $html .= '<td><a class="btn btn-sm btn-outline-primary" href="'
                 . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
