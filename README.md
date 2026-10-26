@@ -204,13 +204,22 @@ FP-OMS stores internal employee accounts **and** not-yet-provisioned designated 
 
 **Routes:** Super Administrators see **Configuration → User Management** in the sidebar. The clean URL is `/user-management`. The old `/staff` GET route redirects there.
 
-**All Users:** one searchable list for internal staff, including the people imported from the LPDD/FUS form. Filter by name, office/reference email, role and account status. A new `pending_setup` status means the person exists in `users` but cannot sign in. No fabricated account email or password is used.
+**All Users — Login Email versus Office Email:** the table has a dedicated **Login Email** column (the unique address required to sign in) and a separate **Office Email (Reference)** column containing the email supplied in the October 21, 2026 personnel form. The reference is displayed even when login credentials have not been set up. The imported personnel records include **6 pending users whose reference address appears only once** and **27 pending users whose office address appears on more than one record**; the existing active Super Administrator already has a login address. These counts apply to the supplied October 26 SQL export, not necessarily to a later database state. Shared addresses are labelled and **rejected if someone tries to assign them as a personal login**.
+
+**Verified-only suggestions:** when RICTU clicks **Set Up**, an existing office-reference address is suggested inside Individual Login Email only if it appears for precisely one internal person across the **entire users table** and is not already used as an account login. This does *not* prove personal ownership; the administrator must still verify it, confirm identity and enter a strong initial password. Shared office emails remain visible as a **reference only** and require a separate individual login email. The full-page Set Up fallback follows the same rule. The Edit User modal likewise displays the office reference separately from the editable account login address.
 
 **Pending Setup → Set Up (modal):** clicking a pending user's **Set Up** button on `/user-management` opens a responsive Bootstrap popup on the same page, instead of navigating to another page. The popup pre-fills the person's name, contact, office and assigned role from the existing user record; it displays the office email as a **reference only**, never as a login address. Enter a unique individual login email, provide and confirm a temporary password (12–200 UTF-8 bytes with a letter and number), then check the employee identity verification box. The **Activate Account** button is enabled when form inputs pass validation. Show/hide buttons are provided for both password fields. Form submission still uses the original CSRF-protected `/user-edit?id=<id>` activation route and all server-side checks; any validation errors reopen the same modal with non-password fields preserved. On success, the user returns to the refreshed User Management list. If Bootstrap JavaScript is unavailable, the Set Up link offers the existing full-page fallback. This **updates the existing users row in place**, assigns username and forces a first-login password change; it never creates another row for that person.
 
 **Edit (modal):** clicking **Edit** for an active/suspended internal user opens a responsive Bootstrap popup on the same User Management page. The **Edit Profile** tab is prefilled with their full name, individual login email, contact number, office/station, role and status. The **Reset Password** tab is a separate CSRF-protected form for another person's strong temporary password (with show/hide and confirmation matching); it is hidden for the currently logged-in Super Administrator, who should use their own Profile → Change Password workflow. On successful save/reset, the user returns to the refreshed User Management list. Server-side validation errors reopen the correct tab and preserve only non-password form inputs. Both actions retain the existing RICTU authorization, audit log, strong password hashing and user record. The final active Super Administrator cannot be disabled/demoted, and self-demotion/suspension remains blocked. With JavaScript unavailable, the Edit link opens the existing full-page editing form.
 
 **Add User:** create a separate manually added staff account only for personnel not already present in All Users. The backend checks duplicate names in the same office and enforces a unique individual login email. Account changes are audited.
+
+**Optional office email repair (migration 010):** The supplied `users (6).sql` already contains the office emails under `users.reference_email`, so no import is needed solely to display them after pulling the new code. If some office-reference values are blank on another installed database, back it up and import `database/010_restore_office_email_references.sql` **after** completing migration 009. It fills missing `reference_email` values using the 34 source keys from the supplied form, without replacing existing references or changing `users.email`, passwords, role assignments or account status. It is idempotent. The SQL ends with read-only verification and the list of unshared reference email candidates. You must still activate each person individually.
+
+```bash
+# Optional, only when office email references are missing:
+mysql -u root -p denr_fp_oms < database/010_restore_office_email_references.sql
+```
 
 **Database migration — apply ONCE to your existing MariaDB/XAMPP database, AFTER taking a full SQL backup and AFTER migration 008:**
 
@@ -237,6 +246,7 @@ php tests/registration_attachments_test.php
 php tests/user_management_test.php
 php tests/user_setup_modal_test.php
 php tests/user_edit_modal_test.php
+php tests/user_office_email_test.php
 ```
 
 ## Password recovery
@@ -365,7 +375,8 @@ denr-fp-oms/
 │   ├── 006_user_profile_fields.sql # username/photo/office profile fields
 │   ├── 007_registration_id_types.sql # multiple ID uploads metadata
 │   ├── 008_user_management.sql  # former designation staging schema
-│   └── 009_merge_designations_into_users.sql # one-table safe consolidation
+│   ├── 009_merge_designations_into_users.sql # one-table safe consolidation
+│   └── 010_restore_office_email_references.sql # optional reference data repair
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
