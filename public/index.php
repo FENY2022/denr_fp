@@ -180,16 +180,69 @@ try {
             send_registration_document($user,(int)$id);
             break;
         case 'staff':
+            require_role('super_admin');
+            if ($post) show_error('The previous user-creation form is no longer used. Open User Management.',405);
+            go('user_management');
+            break;
+        case 'user_management':
             $admin = require_role('super_admin');
             if ($post) {
                 check_csrf();
-                $errors = create_internal_user($admin,$_POST);
-                if ($errors) view_staff($errors);
+                $action = (string)($_POST['action'] ?? '');
+                if ($action !== 'link_existing') show_error('Invalid user management action.',400);
+                $designationId = filter_var($_POST['designation_id'] ?? 0,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+                $existingUserId = filter_var($_POST['existing_user_id'] ?? 0,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+                $errors = user_management_link_existing(
+                    $admin,(int)$designationId,(int)$existingUserId,
+                    (string)($_POST['confirm_identity'] ?? '') === '1'
+                );
+                if ($errors) view_user_create($errors);
                 else {
-                    flash('success','Internal account created. Share the initial password securely and require its change on first login.');
-                    go('staff');
+                    flash('success','Designation linked with the existing internal user account.');
+                    go('user_management',['tab'=>'designations']);
                 }
-            } else view_staff();
+            } else {
+                view_user_management();
+            }
+            break;
+        case 'user_create':
+            $admin = require_role('super_admin');
+            if ($post) {
+                check_csrf();
+                $errors = user_management_create($admin,$_POST);
+                if ($errors) view_user_create($errors);
+                else {
+                    flash('success','Internal user created. Share the temporary password securely. The new user must change it on first sign-in.');
+                    go('user_management',['tab'=>'accounts']);
+                }
+            } else {
+                view_user_create();
+            }
+            break;
+        case 'user_edit':
+            $admin = require_role('super_admin');
+            $id = filter_var($_GET['id'] ?? 0,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+            if (!$id) show_error('Invalid internal user ID.',400);
+            if ($post) {
+                check_csrf();
+                $action = (string)($_POST['action'] ?? '');
+                if ($action === 'update') {
+                    $errors = user_management_update($admin,(int)$id,$_POST);
+                    $success = 'User profile, role, and account status updated.';
+                } elseif ($action === 'reset_password') {
+                    $errors = user_management_reset_password($admin,(int)$id,$_POST);
+                    $success = 'Temporary password reset. Share it securely; the user must change it at next login.';
+                } else {
+                    show_error('Invalid user edit operation.',400);
+                }
+                if ($errors) view_user_edit((int)$id,$errors);
+                else {
+                    flash('success',$success);
+                    go('user_edit',['id'=>(int)$id]);
+                }
+            } else {
+                view_user_edit((int)$id);
+            }
             break;
         case 'change_password':
             $user = require_user();
