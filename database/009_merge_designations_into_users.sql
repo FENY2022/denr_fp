@@ -72,35 +72,40 @@ INNER JOIN roles r ON r.code=d.suggested_role
 LEFT JOIN user_roles ur ON ur.user_id=u.id AND ur.role_id=r.id
 WHERE ur.user_id IS NULL;
 
--- 3) Hard-stop guard: prohibit dropping any record until every designation has
--- exactly one preserved users row AND each pending user has the designated role.
-CREATE TEMPORARY TABLE fp_oms_designation_merge_guard (
-    ok TINYINT NOT NULL,
-    CONSTRAINT chk_fp_oms_designation_merge_guard CHECK (ok = 1)
+-- 3) Reconciliation: never drop the source unless EVERY designation has its
+-- corresponding internal users record, source_key, and (for pending users) role.
+-- This conditional DROP remains safe even if an SQL import client continues past an error.
+SET @fpoms_merge_is_complete = (
+    SELECT CASE WHEN
+        (SELECT COUNT(*) FROM user_designations)
+        =
+        (SELECT COUNT(*) FROM user_designations d
+         INNER JOIN users u ON u.id=d.linked_user_id
+         WHERE u.user_kind='internal' AND u.source_key=d.source_key)
+        AND NOT EXISTS (
+            SELECT 1 FROM user_designations d
+            INNER JOIN users u ON u.id=d.linked_user_id
+            LEFT JOIN roles r ON r.code=d.suggested_role
+            LEFT JOIN user_roles ur ON ur.user_id=u.id AND ur.role_id=r.id
+            WHERE r.id IS NULL
+               OR (u.status='pending_setup' AND ur.user_id IS NULL)
+        )
+    THEN 1 ELSE 0 END
 );
-INSERT INTO fp_oms_designation_merge_guard (ok)
-SELECT CASE WHEN
-    (SELECT COUNT(*) FROM user_designations)
-    =
-    (SELECT COUNT(*) FROM user_designations d
-     INNER JOIN users u ON u.id=d.linked_user_id
-     WHERE u.user_kind='internal' AND u.source_key=d.source_key)
-    AND
-    NOT EXISTS (
-        SELECT 1 FROM user_designations d
-        INNER JOIN users u ON u.id=d.linked_user_id
-        LEFT JOIN roles r ON r.code=d.suggested_role
-        LEFT JOIN user_roles ur ON ur.user_id=u.id AND ur.role_id=r.id
-        WHERE r.id IS NULL
-           OR (u.status='pending_setup' AND ur.user_id IS NULL)
-    )
-THEN 1 ELSE 0 END;
 
 COMMIT;
-DROP TEMPORARY TABLE fp_oms_designation_merge_guard;
 
--- 4) Remove the now redundant table only AFTER successful reconciliation.
-DROP TABLE user_designations;
+SELECT @fpoms_merge_is_complete AS safe_to_remove_old_table;
+
+-- 4) Only remove the redundant table when verification returns 1.
+SET @fpoms_cleanup_sql = IF(
+    @fpoms_merge_is_complete = 1,
+    'DROP TABLE user_designations',
+    'SELECT ''INCOMPLETE MERGE: source table retained; contact administrator'' AS migration_status'
+);
+PREPARE fpoms_cleanup_stmt FROM @fpoms_cleanup_sql;
+EXECUTE fpoms_cleanup_stmt;
+DEALLOCATE PREPARE fpoms_cleanup_stmt;
 
 -- 5) Verification (on the supplied export: 34 users, of which 33 pending setup).
 SELECT COUNT(*) AS total_users,
