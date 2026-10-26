@@ -23,6 +23,12 @@ must(user_management_validate($valid) === [], 'Valid staff profile accepted');
 must($valid['email'] === 'nelson.caranzo@example.org', 'Individual email normalized');
 must(!isset(user_management_internal_roles()['applicant']), 'Applicant role cannot be assigned to internal staff');
 must(isset(user_management_internal_roles()['gis_focal']), 'GIS Focal role available');
+must(function_exists('user_management_activate'), 'Pending users have an in-place setup method');
+must(function_exists('user_management_accounts'), 'One user table is used for the account listing');
+$bad = $valid;
+$bad['status'] = 'pending_setup';
+must(user_management_validate($bad) !== [], 'An unprovisioned account cannot be directly marked active through editing');
+
 must(user_management_office_level('cenro_twg') === 'CENRO', 'CENRO office assignment');
 must(user_management_office_level('penro_user') === 'PENRO', 'PENRO office assignment');
 must(user_management_office_level('gis_focal') === 'Regional Office', 'Regional GIS assignment');
