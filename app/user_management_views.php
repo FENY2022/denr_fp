@@ -75,7 +75,109 @@ function user_management_form_fields(array $values, bool $editing = false): stri
     return $html . '</div>';
 }
 
-function view_user_management(array $errors = []): void
+/**
+ * One Bootstrap modal serves every pending staff row.
+ * The browser pre-fills fields from escaped data attributes; POST is validated by
+ * user_management_activate() on the server and reopens this modal if validation fails.
+ */
+function user_management_setup_modal(array $errors = [], int $reopenUserId = 0): string
+{
+    $previous = $reopenUserId > 0 && !empty($_POST)
+        ? user_management_data($_POST)
+        : ['name'=>'','email'=>'','contact_number'=>'','office_station'=>'','role'=>'','status'=>'active'];
+    $reopenUser = $reopenUserId > 0 ? user_management_user($reopenUserId) : null;
+    $reopen = $reopenUser && $reopenUser['status'] === 'pending_setup';
+    $url = url('user_edit', ['id'=>$reopen ? $reopenUserId : 0]);
+    $html = '<div class="modal fade user-setup-modal" id="userSetupModal" tabindex="-1" '
+        . 'aria-labelledby="userSetupModalLabel" aria-hidden="true" '
+        . 'data-reopen="' . ($reopen ? '1' : '0') . '">'
+        . '<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">'
+        . '<div class="modal-content">'
+        . '<div class="modal-header">'
+        . '<div><h2 class="modal-title h5 mb-1" id="userSetupModalLabel">Set Up User Account</h2>'
+        . '<p class="text-secondary small mb-0">Complete and verify the employee information before activation.</p></div>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
+        . '</div>'
+        . '<form id="userSetupForm" method="post" action="' . e($url) . '" autocomplete="off">'
+        . '<div class="modal-body">' . csrf_field()
+        . '<input type="hidden" name="action" value="activate">'
+        . '<input type="hidden" name="status" value="active">'
+        . ($reopen ? errors_html($errors) : '')
+        . '<div class="alert alert-warning small"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>'
+        . 'The employee is <strong>Pending Setup</strong> and cannot log in yet. '
+        . 'Use a <strong>unique individual login email</strong>, not a shared office contact address.</div>'
+        . '<div class="row g-3">'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'name','Full Name',(string)$previous['name'],true,'maxlength="180" autocomplete="off"'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'email','Individual Login Email',(string)$previous['email'],true,
+            'maxlength="190" autocomplete="off" placeholder="employee@denr.gov.ph"','email'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'contact_number','Contact Number',(string)$previous['contact_number'],
+            false,'maxlength="40" placeholder="09XX-XXX-XXXX"','tel'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'office_station','Office / Station',(string)$previous['office_station'],
+            true,'maxlength="160"'
+        ) . '</div>'
+        . '<div class="col-12"><label class="form-label" for="role">User Role <span class="text-danger">*</span></label>'
+        . '<select class="form-select" id="role" name="role" required>'
+        . user_management_role_options((string)$previous['role'])
+        . '</select></div></div>'
+        . '<div class="user-setup-reference border rounded-3 p-3 small mt-2">'
+        . '<div class="fw-semibold mb-1">Personnel reference information</div>'
+        . '<div>Office contact: <span data-office-reference>'
+        . e($reopen ? (string)($reopenUser['reference_email'] ?? '') : '')
+        . '</span></div>'
+        . '<div class="mt-1" data-personnel-notes>'
+        . e($reopen ? (string)($reopenUser['designation_notes'] ?? '') : '')
+        . '</div></div>'
+        . '<hr><h3 class="h6">Password Setup</h3>'
+        . '<div class="row g-3">'
+        . '<div class="col-12 col-md-6"><label class="form-label" for="setupPassword">'
+        . 'Temporary Password <span class="text-danger">*</span></label>'
+        . '<div class="input-group">'
+        . '<input class="form-control" id="setupPassword" name="password" type="password" '
+        . 'autocomplete="new-password" minlength="12" maxlength="200" required>'
+        . '<button type="button" class="btn btn-outline-secondary" data-toggle-setup-password="setupPassword" '
+        . 'aria-label="Show temporary password" aria-pressed="false" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div class="form-text" data-setup-password-feedback>'
+        . '12–200 characters, with at least one letter and one number.</div></div>'
+        . '<div class="col-12 col-md-6"><label class="form-label" for="setupPasswordConfirm">'
+        . 'Confirm Temporary Password <span class="text-danger">*</span></label>'
+        . '<div class="input-group">'
+        . '<input class="form-control" id="setupPasswordConfirm" name="confirm_password" type="password" '
+        . 'autocomplete="new-password" minlength="12" maxlength="200" required>'
+        . '<button type="button" class="btn btn-outline-secondary" data-toggle-setup-password="setupPasswordConfirm" '
+        . 'aria-label="Show confirmation password" aria-pressed="false" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div class="form-text" data-setup-confirm-feedback>'
+        . 'Enter the same temporary password.</div></div></div>'
+        . '<div class="form-check mt-3">'
+        . '<input class="form-check-input" type="checkbox" id="setupConfirmIdentity" '
+        . 'name="confirm_identity" value="1" required>'
+        . '<label class="form-check-label small" for="setupConfirmIdentity">'
+        . 'I verified the employee identity and their individual login email address.'
+        . '</label></div>'
+        . '<p class="small text-secondary mt-3 mb-0">The temporary password must be shared through an '
+        . 'approved secure channel. The employee must change it at first login.</p>'
+        . '</div>'
+        . '<div class="modal-footer">'
+        . '<a class="btn btn-outline-secondary me-auto" id="setupFullPageLink" href="'
+        . e(url('user_edit',['id'=>$reopen ? $reopenUserId : 0]))
+        . '">Full-page setup</a>'
+        . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        . '<button type="submit" class="btn btn-success" id="setupActivateButton" disabled>'
+        . '<i class="bi bi-person-check me-1" aria-hidden="true"></i>Activate Account</button>'
+        . '</div></form></div></div></div>'
+        . '<script src="assets/user-setup-modal.js?v=1" defer></script>';
+    return $html;
+}
+
+function view_user_management(array $errors = [], int $reopenUserId = 0): void
 {
     require_role('super_admin');
     $query = substr(trim((string)($_GET['q'] ?? '')),0,120);
@@ -143,15 +245,32 @@ function view_user_management(array $errors = []): void
             . (!empty($person['contact_number']) ? '<div class="small text-secondary">'
                 . e((string)$person['contact_number']) . '</div>' : '') . '</td>'
             . '<td>' . e((string)($person['role_names'] ?? 'Unassigned')) . '</td>'
-            . '<td>' . user_management_status_badge((string)$person['status']) . '</td>'
-            . '<td><a class="btn btn-sm ' . ($pending ? 'btn-primary' : 'btn-outline-primary')
-            . '" href="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
-            . ($pending ? 'Set Up' : 'Edit') . '</a></td></tr>';
+            . '<td>' . user_management_status_badge((string)$person['status']) . '</td>';
+        if ($pending) {
+            // Data attributes contain display-only personnel fields, escaped for HTML attribute context.
+            // Login email/password remain empty until an administrator submits the form.
+            $html .= '<td><button type="button" class="btn btn-sm btn-primary" '
+                . 'data-bs-toggle="modal" data-bs-target="#userSetupModal" '
+                . 'data-user-setup-trigger data-user-id="' . (int)$person['id'] . '" '
+                . 'data-user-name="' . e((string)$person['name']) . '" '
+                . 'data-user-office="' . e((string)($person['office_station'] ?? '')) . '" '
+                . 'data-user-contact="' . e((string)($person['contact_number'] ?? '')) . '" '
+                . 'data-user-role="' . e((string)($person['role_code'] ?? '')) . '" '
+                . 'data-user-reference="' . e((string)($person['reference_email'] ?? '')) . '" '
+                . 'data-user-notes="' . e((string)($person['designation_notes'] ?? '')) . '" '
+                . 'data-setup-url="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
+                . '<i class="bi bi-person-gear me-1" aria-hidden="true"></i>Set Up</button></td></tr>';
+        } else {
+            $html .= '<td><a class="btn btn-sm btn-outline-primary" href="'
+                . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
+                . '<i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit</a></td></tr>';
+        }
     }
     if (!$records) $html .= '<tr><td colspan="6" class="text-center text-secondary py-4">No matching users found.</td></tr>';
     $html .= '</tbody></table></div>'
         . '<p class="text-secondary small mb-0">Changes to user roles, credentials, and account status are logged. '
         . 'Applicant registrations and accounts are managed separately.</p></div>';
+    $html .= user_management_setup_modal($errors, $reopenUserId);
     render_page('User Management',$html);
 }
 
