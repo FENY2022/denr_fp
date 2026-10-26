@@ -87,12 +87,21 @@ function view_user_management(array $errors = []): void
         . user_management_tabs($tab)
         . '<div class="panel"><form method="get" action="' . e(url('user_management')) . '" class="row g-2 mb-3">'
         . '<input type="hidden" name="tab" value="' . e($tab) . '">'
-        . '<div class="col-lg-5"><label class="visually-hidden" for="user-management-search">Search name, email, or office</label>'
+        . '<div class="col-lg-4"><label class="visually-hidden" for="user-management-search">Search name, email, or office</label>'
         . '<input class="form-control" id="user-management-search" name="q" value="' . e($q) . '" placeholder="Search name, email or office"></div>'
-        . '<div class="col-lg-4"><label class="visually-hidden" for="filter-role">Filter role</label>'
+        . '<div class="col-lg-3"><label class="visually-hidden" for="filter-role">Filter role</label>'
         . '<select class="form-select" id="filter-role" name="role"><option value="">All Roles</option>';
     foreach (user_management_internal_roles() as $code=>$r) {
         $html .= '<option value="' . e($code) . '"' . ($role === $code ? ' selected' : '') . '>' . e($r[0]) . '</option>';
+    }
+    $statuses = $tab === 'accounts'
+        ? [''=>'All Statuses','active'=>'Active','suspended'=>'Suspended']
+        : [''=>'All Designations','pending'=>'Pending Setup','linked'=>'Linked'];
+    $html .= '</select></div><div class="col-lg-2">'
+        . '<label class="visually-hidden" for="filter-state">Filter status</label>'
+        . '<select class="form-select" id="filter-state" name="state">';
+    foreach ($statuses as $key=>$label) {
+        $html .= '<option value="' . e($key) . '"' . ($key === $state ? ' selected' : '') . '>' . e($label) . '</option>';
     }
     $html .= '</select></div><div class="col-lg-3 d-flex gap-2">'
         . '<button type="submit" class="btn btn-primary flex-grow-1">Filter</button>'
