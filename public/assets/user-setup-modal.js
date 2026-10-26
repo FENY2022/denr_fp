@@ -99,10 +99,12 @@
     form.action = action;
     fullPageLink.href = action;
     setField('name', button.dataset.userName);
-    // Offer only a single-person reference email that is not already a login.
-    // This does NOT establish ownership; the RICTU administrator must confirm it.
+    // Pre-fill the office reference even if it is shared, solely to help the
+    // administrator identify and edit the address. Server-side activation
+    // still rejects shared/duplicate login emails until replaced and verified.
+    const officeEmail = button.dataset.userReference || '';
     const suggestedEmail = button.dataset.userSuggestedEmail || '';
-    setField('email', suggestedEmail);
+    setField('email', officeEmail || suggestedEmail);
     suggestionHint.classList.toggle('d-none', !suggestedEmail);
     sharedReferenceHint.classList.toggle('d-none', button.dataset.userReferenceShared !== '1');
     setField('contact_number', button.dataset.userContact);
