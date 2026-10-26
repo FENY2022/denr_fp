@@ -37,6 +37,29 @@
     sidebarScroll.addEventListener('scroll', () => safeStorage.setItem(scrollKey, String(sidebarScroll.scrollTop)), {passive:true});
   }
 
+  const userManagementPage = document.getElementById('user-management-search');
+  const userManagementScrollKey = 'fpoms.userManagement.scroll';
+  let sessionStore = null;
+  try { sessionStore = window.sessionStorage; } catch (_) {}
+  if (userManagementPage && sessionStore) {
+    const savedPosition = sessionStore.getItem(userManagementScrollKey);
+    const previous = Number(savedPosition);
+    if (savedPosition !== null && Number.isFinite(previous) && previous >= 0) {
+      sessionStore.removeItem(userManagementScrollKey);
+      window.addEventListener('load', () => window.scrollTo(0, previous), {once:true});
+    }
+
+    document.addEventListener('submit', event => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement) || event.defaultPrevented) return;
+      const fromManagementModal = form.querySelector(
+        'input[name="setup_origin"][value="user_management_modal"],'
+        + 'input[name="edit_origin"][value="user_management_modal"]'
+      );
+      if (fromManagementModal) sessionStore.setItem(userManagementScrollKey, String(window.scrollY));
+    });
+  }
+
   if ('serviceWorker' in navigator && (window.isSecureContext || location.hostname === 'localhost')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('service-worker.js', {scope:'./'}).catch(() => {}));
   }

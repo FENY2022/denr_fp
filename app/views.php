@@ -71,7 +71,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css?v=18" rel="stylesheet">'
-        . '<script src="assets/app-shell.js" defer></script></head><body>';
+        . '<script src="assets/app-shell.js?v=19" defer></script></head><body>';
 
     if ($user) {
         $brandHtml = '<a class="sidebar-brand" href="' . e(url('dashboard')) . '">'
