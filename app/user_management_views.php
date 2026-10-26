@@ -115,12 +115,14 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
             'email','Individual Login Email',(string)$previous['email'],true,
             'maxlength="190" autocomplete="off" placeholder="employee@denr.gov.ph"','email'
         )
-        . '<div class="form-text text-success" data-email-suggestion-note'
-        . ($reopen && !empty($reopenUser['suggested_login_email']) ? '' : ' hidden')
+        . '<div class="form-text text-success'
+        . ($reopen && !empty($reopenUser['suggested_login_email']) ? '' : ' d-none')
+        . '" data-email-suggestion-note'
         . '>Suggested from the submitted form (listed once). '
         . '<strong>Verify this mailbox belongs to the employee</strong> before activation.</div>'
-        . '<div class="form-text text-warning" data-shared-email-note'
-        . ($reopen && !empty($reopenUser['office_email_shared']) ? '' : ' hidden')
+        . '<div class="form-text text-warning'
+        . ($reopen && !empty($reopenUser['office_email_shared']) ? '' : ' d-none')
+        . '" data-shared-email-note'
         . '>This office email is shared by other designated personnel. '
         . 'Provide a separate individual login email.</div>'
         . '</div>'
