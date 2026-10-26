@@ -68,6 +68,8 @@ mysql -u root -p denr_fp_oms < database/005_notifications.sql
 mysql -u root -p denr_fp_oms < database/006_user_profile_fields.sql
 # Required for multiple registration file uploads and ID type selection (import ONCE):
 mysql -u root -p denr_fp_oms < database/007_registration_id_types.sql
+# Required for Configuration → User Management, contact/office fields, and 34 staged names (import ONCE):
+mysql -u root -p denr_fp_oms < database/008_user_management.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -194,6 +196,42 @@ php -l app/views.php
 php tests/registration_attachments_test.php
 ```
 
+## Configuration → User Management (RICTU)
+
+The authenticated left sidebar now has a collapsible **Configuration → User Management** child menu, available only to accounts with the active `super_admin` role. Use the clean URL `/user-management`. The old `/staff` GET URL redirects to User Management.
+
+The module has **Internal Accounts**, **Designated Personnel**, and **Add User** tabs:
+
+- **Internal Accounts:** filter by name/email/office, user role and account status; click **Edit** to change full name, individual login email (unique), contact number, office/station, role and active/suspended state.
+- **Add User:** manually create a DENR internal account, assign exactly one role and an initial strong password (minimum 12 characters including letters and numbers). The account must change that password at first login. Passwords are hashed, never stored in plaintext or auto-shared by email.
+- **Administrator Password Reset:** set and confirm a replacement temporary password for another internal user, mark a forced password change, and invalidate outstanding password-reset tokens. Communicate credentials using an approved secure channel, never by ordinary email.
+- **Designated Personnel:** the import from the *FP-OMS User Role Assignment & Information Form (October 21, 2026)* contains **34 individual pending setup records**: 1 RICTU administrator, 24 CENRO/TWG/IPENRO personnel, 5 regional-office personnel, 1 ARD-TS, 2 RRDC/GIS, and 1 RED. Paired slash-separated names are separate individuals with their stated station. The shared office email on the paper form is **reference contact information only**, not a login credential. No user account or password is provisioned by the SQL migration.
+- Clicking **Set Up** on a pending designation prefills its name, role, office/station and reference phone number, **but not a login email**. The administrator must supply and verify an individual login email and choose a temporary password. The account is only created on successful submission.
+- For a person with an existing account (especially the RICTU administrator), **Link Existing Account** attaches a designation to the matching account without creating duplicate credentials. A normalised identity match and explicit administrator confirmation are required. `Ma. Theresa` in the Cantilan row has an incomplete name in the source form; confirm the full identity before provisioning.
+- The new `gis_focal` internal role is registered for the GIS Focal designation. Existing role-based feature permissions remain enforced on the server; the role **does not** automatically unlock future workflow modules.
+- To protect privileged access, an administrator cannot suspend their own account or remove their own super-admin role. The application also rejects removal of the last active Super Administrator. All account creates/updates/links/resets are audited.
+
+**Required database migration for existing installations (apply ONCE):**
+
+```bash
+mysql -u root -p denr_fp_oms < database/008_user_management.sql
+```
+
+This adds `users.contact_number` and `users.office_station`, creates `user_designations`, inserts the 34 pending designations, and seeds `gis_focal` into `roles`. Existing user accounts and applicant registrations are preserved. Before running this migration, import `006_user_profile_fields.sql` if not yet installed. To ensure other roles also exist, run `php scripts/seed_roles.php` after migration.
+
+**Smoke test:** As RICTU Super Administrator open **Configuration → User Management**, view 34 designated personnel, link an existing admin account to the matching designation, create one TEST employee with a unique TEST email, edit role/office/email, reset their temporary password, and verify their forced change on first login. Check that applicants and non-admin staff receive access denied on these routes. Never use live passwords or real personal data for early testing.
+
+Unit and PHP syntax checks (GitHub Actions workflow also added):
+
+```bash
+php tests/domain_test.php
+php tests/registration_attachments_test.php
+php tests/user_management_test.php
+php -l app/user_management.php
+php -l app/user_management_views.php
+php -l public/index.php
+```
+
 ## Password recovery
 
 The Sign In page includes **Forgot password?**. The recovery flow uses a cryptographically random one-time token; only its SHA-256 hash is stored in the database. Reset links expire after **30 minutes**, are invalidated after use, and all outstanding reset links for the account are invalidated when a password is successfully changed through the reset flow.
@@ -275,7 +313,7 @@ Typical smoke test:
 
 | Role code | Assigned function | Phase 1 UI |
 |---|---|---|
-| `super_admin` | RICTU: system/user administration | Internal-user creation |
+| `super_admin` | RICTU: configuration and account administration | User Management |
 | `applicant` | External applicant | Registration/status/correction |
 | `lpdd_fus` | LPDD-FUS: registration/document review, drafting | Registration review queue |
 | `ro_receiving` | RO Receiving/Releasing | Placeholder dashboard |
@@ -286,8 +324,9 @@ Typical smoke test:
 | `penro_user` | PENRO coordination | Placeholder dashboard |
 | `rrdc_member` | RRDC review committee | Placeholder dashboard |
 | `rrdc_secretariat` | RRDC scheduling/document handling | Placeholder dashboard |
+| `gis_focal` | GIS focal mapping | Placeholder dashboard |
 
-Permissions are checked on the server, not simply by hiding buttons. The schema supports multiple roles per account (`user_roles`), while Phase 1 creates accounts with one role. Office scoping/editing and admin user lifecycle management are reserved for Phase 2.
+Permissions are checked on the server, not simply by hiding buttons. The schema supports multiple roles per account (`user_roles`), while User Management currently edits one primary role at a time. Administrator editing of internal user profiles, contact/office assignments, status and passwords is implemented. Automatic office-scoped processing rights and full permit workflow permissions remain future work.
 
 ## Project tree
 
@@ -305,7 +344,9 @@ denr-fp-oms/
 │   ├── registration.php         # applicant submission/review/uploads
 │   ├── registration_attachments.php # multiple uploads / ID metadata / file listings
 │   ├── registration_mail.php    # applicant acknowledgment and review emails
-│   ├── staff.php                # RICTU provisioning
+│   ├── staff.php                # legacy provisioning helper
+│   ├── user_management.php      # RICTU user lifecycle + admin authorization
+│   ├── user_management_views.php # internal account and pending designation screens
 │   ├── notifications.php        # bell notification center
 │   ├── profile.php              # authenticated user profile
 │   └── views.php                # HTML views
@@ -315,7 +356,8 @@ denr-fp-oms/
 │   ├── 004_password_reset.sql   # password reset token storage
 │   ├── 005_notifications.sql    # bell notification storage
 │   ├── 006_user_profile_fields.sql # username/photo/office profile fields
-│   └── 007_registration_id_types.sql # multiple ID uploads metadata
+│   ├── 007_registration_id_types.sql # multiple ID uploads metadata
+│   └── 008_user_management.sql  # user management + 34 pending names
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
@@ -332,6 +374,7 @@ denr-fp-oms/
 ├── storage/                    # PRIVATE uploaded documents
 ├── tests/domain_test.php
 ├── tests/registration_attachments_test.php
+├── tests/user_management_test.php
 └── docs/ARCHITECTURE.md
 ```
 
