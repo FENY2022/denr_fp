@@ -185,25 +185,9 @@ try {
             go('user_management');
             break;
         case 'user_management':
-            $admin = require_role('super_admin');
-            if ($post) {
-                check_csrf();
-                $action = (string)($_POST['action'] ?? '');
-                if ($action !== 'link_existing') show_error('Invalid user management action.',400);
-                $designationId = filter_var($_POST['designation_id'] ?? 0,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
-                $existingUserId = filter_var($_POST['existing_user_id'] ?? 0,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
-                $errors = user_management_link_existing(
-                    $admin,(int)$designationId,(int)$existingUserId,
-                    (string)($_POST['confirm_identity'] ?? '') === '1'
-                );
-                if ($errors) view_user_create($errors);
-                else {
-                    flash('success','Designation linked with the existing internal user account.');
-                    go('user_management',['tab'=>'designations']);
-                }
-            } else {
-                view_user_management();
-            }
+            require_role('super_admin');
+            if ($post) show_error('Use Add User or Edit User to change user records.',405);
+            view_user_management();
             break;
         case 'user_create':
             $admin = require_role('super_admin');
@@ -229,6 +213,9 @@ try {
                 if ($action === 'update') {
                     $errors = user_management_update($admin,(int)$id,$_POST);
                     $success = 'User profile, role, and account status updated.';
+                } elseif ($action === 'activate') {
+                    $errors = user_management_activate($admin,(int)$id,$_POST);
+                    $success = 'Existing Pending Setup user activated. Share their temporary password securely.';
                 } elseif ($action === 'reset_password') {
                     $errors = user_management_reset_password($admin,(int)$id,$_POST);
                     $success = 'Temporary password reset. Share it securely; the user must change it at next login.';
