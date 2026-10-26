@@ -181,3 +181,83 @@ function registration_documents_html(array $documents): string
     }
     return $html . '</ul>';
 }
+
+
+/** Form controls are shared by initial registration and corrected submissions. */
+function registration_id_upload_row(int $index, string $selectedType, bool $required): string
+{
+    $suffix = (string)$index;
+    $require = $required ? ' required' : '';
+    $options = '<option value="">Select ID Type</option>';
+    foreach (registration_id_type_choices() as $value => $label) {
+        $options .= '<option value="' . e($value) . '"' . ($selectedType === $value ? ' selected' : '') . '>'
+            . e($label) . '</option>';
+    }
+
+    return '<div class="border rounded-3 p-3 mb-3" data-attachment-row="id" data-row-index="' . $suffix . '">'
+        . '<div class="d-flex justify-content-between align-items-center gap-2 mb-2">'
+        . '<strong data-row-title>Valid ID</strong>'
+        . '<button class="btn btn-sm btn-outline-danger d-none" type="button" data-remove-attachment aria-label="Remove this Valid ID">'
+        . '<i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button></div>'
+        . '<div class="row g-3"><div class="col-md-6">'
+        . '<label class="form-label" for="id_type_' . $suffix . '">ID Type ' . ($required ? '<span class="text-danger">*</span>' : '') . '</label>'
+        . '<select class="form-select" id="id_type_' . $suffix . '" name="id_types[' . $suffix . ']" data-id-type' . $require . '>'
+        . $options . '</select></div><div class="col-md-6">'
+        . '<label class="form-label" for="id_file_' . $suffix . '">Upload ID ' . ($required ? '<span class="text-danger">*</span>' : '') . '</label>'
+        . '<input class="form-control" type="file" id="id_file_' . $suffix . '" name="id_files[' . $suffix . ']" accept=".pdf,.jpg,.jpeg,.png" data-attachment-file' . $require . '>'
+        . '<div class="form-text" data-file-name>No file selected</div>'
+        . '</div></div></div>';
+}
+
+function registration_supporting_upload_row(int $index): string
+{
+    $suffix = (string)$index;
+    return '<div class="border rounded-3 p-3 mb-3" data-attachment-row="supporting" data-row-index="' . $suffix . '">'
+        . '<div class="d-flex justify-content-between align-items-center gap-2 mb-2">'
+        . '<strong data-row-title>Supporting Document</strong>'
+        . '<button class="btn btn-sm btn-outline-danger d-none" type="button" data-remove-attachment aria-label="Remove this supporting document">'
+        . '<i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button></div>'
+        . '<label class="form-label" for="supporting_file_' . $suffix . '">Upload Document (optional)</label>'
+        . '<input class="form-control" type="file" id="supporting_file_' . $suffix . '" name="supporting_files[' . $suffix . ']" accept=".pdf,.jpg,.jpeg,.png" data-attachment-file>'
+        . '<div class="form-text" data-file-name>No file selected</div></div>';
+}
+
+function registration_attachment_form_fields(bool $new): string
+{
+    $posted = $_POST['id_types'] ?? [];
+    $ids = [];
+    if (is_array($posted)) {
+        foreach ($posted as $index => $selected) {
+            if ((is_int($index) || (is_string($index) && ctype_digit($index)))
+                && (int)$index >= 0 && (int)$index <= 999 && is_string($selected)) {
+                $ids[(int)$index] = $selected;
+            }
+            if (count($ids) >= 5) break;
+        }
+    }
+    if (!$ids) $ids = [0 => ''];
+
+    $maxBytes = max(1, (int)env_value('MAX_UPLOAD_BYTES', '5242880'));
+    $maxMb = round($maxBytes / 1048576, 1);
+    $html = '<hr><h3 class="h6">Registration Attachments</h3>'
+        . '<p class="small text-secondary">Upload at least one government-issued ID for a new registration. Select the ID Type for each file. '
+        . 'You may upload up to <strong>5 Valid IDs</strong> and <strong>5 supporting documents</strong>. '
+        . 'PDF, JPG and PNG only; maximum ' . e((string)$maxMb) . ' MB per file. Files are stored securely outside the public web directory.</p>'
+        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="5" data-max-file-bytes="' . $maxBytes . '">'
+        . '<h4 class="h6 mt-3 mb-2">Valid Identification Cards ' . ($new ? '<span class="text-danger">*</span>' : '(optional new uploads)') . '</h4>'
+        . '<div id="valid-id-rows">';
+    foreach ($ids as $index => $selected) {
+        $html .= registration_id_upload_row($index, $selected, $new);
+    }
+
+    $html .= '</div><button class="btn btn-sm btn-outline-primary mb-4" type="button" data-add-id>'
+        . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Another Valid ID</button>'
+        . '<h4 class="h6 mb-2">Other Supporting Documents (Optional)</h4>'
+        . '<div id="supporting-document-rows">'
+        . registration_supporting_upload_row(0)
+        . '</div><button class="btn btn-sm btn-outline-primary mb-2" type="button" data-add-supporting>'
+        . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Supporting Document</button>'
+        . '<p class="small text-secondary mb-0" id="attachment-feedback" role="status" aria-live="polite"></p>'
+        . '</div>';
+    return $html;
+}
