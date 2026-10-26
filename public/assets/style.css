@@ -287,3 +287,23 @@ body.page-loading{overflow:hidden}
 .sidebar-config-menu > .ps-3 .sidebar-link{padding-left:.6rem}
 .sidebar-collapsed .sidebar-config-menu > .ps-3{padding-left:0!important}
 .sidebar-collapsed .sidebar-config-menu > summary .bi-chevron-down{display:none!important}
+
+/* RICTU User Management — accessible Set Up User modal */
+.user-setup-modal .modal-content{border:0;border-radius:18px;overflow:hidden;box-shadow:0 20px 65px rgba(10,41,24,.2)}
+.user-setup-modal .modal-header{padding:1.25rem 1.5rem;border-bottom:1px solid #e2ede6;background:linear-gradient(120deg,#f3faf5,#f8fcff)}
+.user-setup-modal .modal-body{padding:1.3rem 1.5rem}
+.user-setup-modal .modal-footer{padding:1rem 1.5rem;border-top:1px solid #e2ede6}
+.user-setup-modal .user-setup-reference{background:#f6faf7;border-color:#d7e9dc!important;color:#3b6050;overflow-wrap:anywhere}
+.user-setup-modal .form-label{font-size:.83rem;font-weight:650}
+.user-setup-modal .form-control,.user-setup-modal .form-select{min-height:41px}
+.user-setup-modal .input-group>.form-control{min-width:0}
+.user-setup-modal .modal-body .alert{line-height:1.55}
+@media(max-width:575.98px){
+  .user-setup-modal .modal-dialog{margin:.45rem;max-width:calc(100% - .9rem)}
+  .user-setup-modal .modal-content{border-radius:13px}
+  .user-setup-modal .modal-header{padding:1rem}
+  .user-setup-modal .modal-body{padding:1rem}
+  .user-setup-modal .modal-footer{padding:.85rem 1rem;gap:.5rem}
+  .user-setup-modal .modal-footer .btn{min-height:40px}
+  .user-setup-modal .modal-footer .me-auto{margin-right:0!important}
+}
