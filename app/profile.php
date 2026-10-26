@@ -23,6 +23,7 @@ function profile_status_badge(string $status): string
         'pending_review' => ['warning', 'Pending Review'],
         'needs_correction' => ['danger', 'Corrections Required'],
         'suspended' => ['secondary', 'Suspended'],
+        'pending_setup' => ['warning', 'Pending Setup'],
     ];
     [$color, $label] = $labels[$status] ?? ['secondary', ucwords(str_replace('_', ' ', $status))];
     return '<span class="badge text-bg-' . e($color) . '">' . e($label) . '</span>';
