@@ -155,11 +155,23 @@ function registration_fields(array $values = [], bool $new = true): string
         . '<textarea class="form-control" id="company_address" name="company_address" rows="2" maxlength="2000" required>'
         . e(form_value('company_address',$values)) . '</textarea></div>';
     if ($new) {
-        $html .= '<div class="row"><div class="col-md-6">'
-            . field('password','Password','','password',true,'autocomplete="new-password" minlength="12"')
+        $html .= '<div class="row g-3 mb-3"><div class="col-md-6">'
+            . '<label class="form-label" for="password">Password <span class="text-danger">*</span></label>'
+            . '<div class="input-group"><input class="form-control" id="password" name="password" type="password" required autocomplete="new-password" minlength="12" maxlength="200" aria-describedby="password-rules password-feedback">'
+            . '<button class="btn btn-outline-secondary" type="button" data-toggle-password="password" aria-controls="password" aria-pressed="false" aria-label="Show password" title="Show password"><i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+            . '<div class="small fw-semibold mt-3 mb-1">Password requirements</div>'
+            . '<ul class="list-unstyled small mb-0" id="password-rules" aria-label="Password validation requirements">'
+            . '<li class="text-secondary mb-1" data-password-rule="minimum"><i class="bi bi-circle me-2" aria-hidden="true"></i>At least 12 characters <span class="visually-hidden password-rule-status">Not met</span></li>'
+            . '<li class="text-secondary mb-1" data-password-rule="letter"><i class="bi bi-circle me-2" aria-hidden="true"></i>At least one letter (A–Z) <span class="visually-hidden password-rule-status">Not met</span></li>'
+            . '<li class="text-secondary mb-1" data-password-rule="number"><i class="bi bi-circle me-2" aria-hidden="true"></i>At least one number (0–9) <span class="visually-hidden password-rule-status">Not met</span></li>'
+            . '<li class="text-secondary mb-1" data-password-rule="maximum"><i class="bi bi-circle me-2" aria-hidden="true"></i>Maximum 200 characters <span class="visually-hidden password-rule-status">Not met</span></li>'
+            . '</ul><div id="password-feedback" class="small text-secondary mt-2" role="status" aria-live="polite">Enter a password to check its requirements.</div>'
             . '</div><div class="col-md-6">'
-            . field('password_confirm','Confirm password','','password',true,'autocomplete="new-password" minlength="12"')
-            . '</div></div><div class="form-text mb-3">Use at least 12 characters, including letters and numbers.</div>';
+            . '<label class="form-label" for="password_confirm">Confirm Password <span class="text-danger">*</span></label>'
+            . '<div class="input-group"><input class="form-control" id="password_confirm" name="password_confirm" type="password" required autocomplete="new-password" minlength="12" maxlength="200" aria-describedby="password-confirm-feedback">'
+            . '<button class="btn btn-outline-secondary" type="button" data-toggle-password="password_confirm" aria-controls="password_confirm" aria-pressed="false" aria-label="Show confirmation password" title="Show password"><i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+            . '<div id="password-confirm-feedback" class="small text-secondary mt-2" role="status" aria-live="polite">Re-enter your password to confirm.</div>'
+            . '</div></div>';
     }
     $html .= '<hr><h3 class="h6">Registration attachments</h3>'
         . '<p class="text-secondary small">Allowed: PDF, JPG or PNG. Maximum 5 MB per file. Files are stored outside the public web directory.</p>'
@@ -177,14 +189,15 @@ function view_register(array $errors = []): void
     $html = '<div class="row g-4"><div class="col-lg-8"><div class="panel">'
         . errors_html($errors)
         . '<p class="text-secondary">Create a one-time applicant account. LPDD-FUS will review the submitted information before activation.</p>'
-        . '<form method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
+        . '<form id="applicant-registration-form" method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
         . registration_fields()
         . '<div class="mt-4 d-flex gap-3 align-items-center flex-wrap"><button class="btn btn-primary" type="submit">Submit for review</button>'
         . '<a href="' . url('login') . '">Already registered? Sign in</a></div></form></div></div>'
         . '<div class="col-lg-4"><div class="panel soft"><h2 class="h5">Account activation</h2>'
         . '<ol class="small"><li>Register and upload a valid ID.</li><li>LPDD-FUS checks information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
-        . '</div></div></div>';
+        . '</div></div></div>'
+        . '<script src="assets/register-password.js?v=1" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
