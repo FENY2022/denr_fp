@@ -36,6 +36,7 @@ function status_label(string $status): string
         'needs_correction' => 'Corrections Required',
         'active' => 'Account Activated',
         'suspended' => 'Suspended',
+        'pending_setup' => 'Pending Account Setup',
         default => 'Unknown'
     };
 }
