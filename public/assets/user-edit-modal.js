@@ -17,6 +17,7 @@
   const multiRoleNotice = modal.querySelector('[data-edit-multi-role-notice]');
   const userIdLabel = modal.querySelector('[data-edit-user-id]');
   const usernameLabel = modal.querySelector('[data-edit-user-username]');
+  const officeReferenceLabel = modal.querySelector('[data-edit-office-reference]');
   const profileTab = modal.querySelector('#editUserProfileTab');
   const passwordTab = modal.querySelector('#editUserPasswordTab');
   const password = input(passwordForm, 'new_password');
@@ -25,7 +26,7 @@
   const confirmFeedback = modal.querySelector('[data-edit-confirm-feedback]');
 
   if (!profileSave || !resetSave || !resetNav || !selfNotice || !multiRoleNotice ||
-      !userIdLabel || !usernameLabel || !profileTab || !passwordTab ||
+      !userIdLabel || !usernameLabel || !officeReferenceLabel || !profileTab || !passwordTab ||
       !password || !confirm || !passwordFeedback || !confirmFeedback) return;
 
   let editSelf = modal.dataset.reopenSelf === '1';
@@ -121,6 +122,7 @@
     passwordForm.action = action;
     userIdLabel.textContent = String(userId);
     usernameLabel.textContent = button.dataset.userUsername || 'Not assigned';
+    officeReferenceLabel.textContent = button.dataset.userReferenceEmail || 'Not provided';
 
     setProfileField('name', button.dataset.userName);
     setProfileField('email', button.dataset.userEmail);
