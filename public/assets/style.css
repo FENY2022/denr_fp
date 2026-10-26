@@ -307,3 +307,21 @@ body.page-loading{overflow:hidden}
   .user-setup-modal .modal-footer .btn{min-height:40px}
   .user-setup-modal .modal-footer .me-auto{margin-right:0!important}
 }
+
+/* RICTU User Management — Edit User modal */
+.user-edit-modal .modal-content{border:0;border-radius:18px;overflow:hidden;box-shadow:0 20px 65px rgba(10,41,24,.2)}
+.user-edit-modal .modal-header{padding:1.25rem 1.5rem;border-bottom:1px solid #e2ede6;background:linear-gradient(120deg,#f3faf5,#f8fcff)}
+.user-edit-modal .modal-body{padding:1.3rem 1.5rem}
+.user-edit-modal .form-label{font-size:.83rem;font-weight:650}
+.user-edit-modal .form-control,.user-edit-modal .form-select{min-height:41px}
+.user-edit-modal .input-group>.form-control{min-width:0}
+.user-edit-modal #editUserTabs{gap:.25rem}
+.user-edit-modal #editUserTabs .nav-link{font-size:.87rem;font-weight:650}
+.user-edit-modal [data-edit-reset-tab][hidden],.user-edit-modal [data-edit-self-notice][hidden],.user-edit-modal [data-edit-multi-role-notice][hidden]{display:none!important}
+@media(max-width:575.98px){
+  .user-edit-modal .modal-dialog{margin:.45rem;max-width:calc(100% - .9rem)}
+  .user-edit-modal .modal-content{border-radius:13px}
+  .user-edit-modal .modal-header,.user-edit-modal .modal-body{padding:1rem}
+  .user-edit-modal #editUserTabs .nav-link{padding:.55rem .65rem;font-size:.78rem}
+  .user-edit-modal .btn{min-height:40px}
+}
