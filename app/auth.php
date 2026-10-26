@@ -11,7 +11,9 @@ function authenticate(string $email, string $password): bool
     if ((int)($blockedEmail['n'] ?? 0) >= 8 || (int)($blockedIp['n'] ?? 0) >= 40) return false;
 
     $user = query_one('SELECT * FROM users WHERE email=?', [$email]);
-    $success = $user && $user['status'] !== 'suspended' && password_verify($password, $user['password_hash']);
+    $success = $user && !in_array($user['status'], ['suspended', 'pending_setup'], true)
+        && is_string($user['password_hash']) && $user['password_hash'] !== ''
+        && password_verify($password, $user['password_hash']);
     db()->prepare('INSERT INTO login_attempts (email_hash,ip_address,was_successful) VALUES (?,?,?)')->execute([$hash,$ip,(int)(bool)$success]);
     if (!$success) return false;
     session_regenerate_id(true);
