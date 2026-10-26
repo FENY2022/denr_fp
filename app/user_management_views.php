@@ -178,9 +178,152 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
     return $html;
 }
 
-function view_user_management(array $errors = [], int $reopenUserId = 0): void
+
+/**
+ * Reusable Edit User modal for active/suspended internal employees.
+ * Each action uses its own CSRF-protected POST form and the existing user_edit route.
+ * A failed form reopens the correct tab; passwords are never reflected in HTML.
+ */
+function user_management_edit_modal(
+    array $errors = [], int $reopenUserId = 0, string $reopenAction = ''
+): string {
+    $reopenUser = $reopenUserId > 0 ? user_management_user($reopenUserId) : null;
+    $reopen = $reopenUser && in_array($reopenUser['status'], ['active','suspended'], true);
+    $values = $reopen && $reopenAction === 'update' && !empty($_POST)
+        ? user_management_data($_POST)
+        : [
+            'name'=>'','email'=>'','contact_number'=>'',
+            'office_station'=>'','role'=>'','status'=>'active'
+        ];
+    $targetUrl = url('user_edit',['id'=>$reopen ? $reopenUserId : 0]);
+    $self = $reopen && (int)(require_role('super_admin')['id']) === (int)$reopenUserId;
+    $showProfileErrors = $reopen && $reopenAction === 'update';
+    $showResetErrors = $reopen && $reopenAction === 'reset_password';
+    $html = '<div class="modal fade user-edit-modal" id="userEditModal" tabindex="-1" '
+        . 'aria-labelledby="userEditModalLabel" aria-hidden="true" '
+        . 'data-reopen="' . ($reopen ? '1' : '0') . '" '
+        . 'data-reopen-action="' . e($reopen ? $reopenAction : '') . '">'
+        . '<div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">'
+        . '<div class="modal-content">'
+        . '<div class="modal-header">'
+        . '<div><h2 class="modal-title h5 mb-1" id="userEditModalLabel">Edit User Account</h2>'
+        . '<p class="text-secondary small mb-0">Update employee account information and permissions.</p></div>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
+        . '</div><div class="modal-body">'
+        . '<div class="d-flex align-items-center gap-2 flex-wrap mb-3">'
+        . '<span class="badge text-bg-light border text-dark">User ID: <span data-edit-user-id>'
+        . ($reopen ? (int)$reopenUserId : '') . '</span></span>'
+        . '<span class="small text-secondary">Username: <span data-edit-user-username>'
+        . e($reopen ? (string)($reopenUser['username'] ?? '') : '') . '</span></span>'
+        . '</div>'
+        . '<ul class="nav nav-tabs mb-3" id="editUserTabs" role="tablist">'
+        . '<li class="nav-item" role="presentation"><button class="nav-link active" type="button" '
+        . 'id="editUserProfileTab" data-bs-toggle="tab" data-bs-target="#editUserProfilePane" '
+        . 'role="tab" aria-controls="editUserProfilePane" aria-selected="true">'
+        . '<i class="bi bi-person-lines-fill me-1" aria-hidden="true"></i>Edit Profile</button></li>'
+        . '<li class="nav-item" role="presentation" data-edit-reset-tab'
+        . ($self ? ' hidden' : '') . '><button class="nav-link" type="button" '
+        . 'id="editUserPasswordTab" data-bs-toggle="tab" data-bs-target="#editUserPasswordPane" '
+        . 'role="tab" aria-controls="editUserPasswordPane" aria-selected="false">'
+        . '<i class="bi bi-key me-1" aria-hidden="true"></i>Reset Password</button></li>'
+        . '</ul><div class="tab-content">'
+        . '<div class="tab-pane fade show active" id="editUserProfilePane" '
+        . 'role="tabpanel" aria-labelledby="editUserProfileTab" tabindex="0">'
+        . '<form method="post" id="editUserProfileForm" action="' . e($targetUrl) . '">'
+        . csrf_field()
+        . '<input type="hidden" name="action" value="update">'
+        . '<input type="hidden" name="edit_origin" value="user_management_modal">'
+        . ($showProfileErrors ? errors_html($errors) : '')
+        . '<div class="row g-3">'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'edit_user_name','Full Name',(string)$values['name'],true,
+            'maxlength="180" autocomplete="name"'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'edit_user_email','Individual Login Email',(string)$values['email'],true,
+            'maxlength="190" autocomplete="off"','email'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'edit_user_contact_number','Contact Number',(string)$values['contact_number'],false,
+            'maxlength="40"','tel'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'edit_user_office_station','Office / Station',(string)$values['office_station'],true,
+            'maxlength="160"'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6"><label class="form-label" for="editUserRole">'
+        . 'User Role <span class="text-danger">*</span></label>'
+        . '<select class="form-select" id="editUserRole" name="role" required>'
+        . user_management_role_options((string)$values['role']) . '</select></div>'
+        . '<div class="col-12 col-md-6"><label class="form-label" for="editUserStatus">Account Status</label>'
+        . '<select class="form-select" id="editUserStatus" name="status">'
+        . '<option value="active"' . ($values['status'] === 'active' ? ' selected' : '') . '>Active</option>'
+        . '<option value="suspended"' . ($values['status'] === 'suspended' ? ' selected' : '') . '>Suspended</option>'
+        . '</select></div></div>'
+        . '<div class="alert alert-warning small mt-3 mb-0" data-edit-self-notice'
+        . ($self ? '' : ' hidden') . '>'
+        . 'You cannot suspend your own account or remove your own Super Administrator role.</div>'
+        . '<div class="alert alert-info small mt-3 mb-0" data-edit-multi-role-notice hidden>'
+        . 'This account has multiple roles. Saving will replace them with the selected primary role.</div>'
+        . '<div class="d-flex flex-wrap justify-content-end gap-2 mt-4">'
+        . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        . '<button type="submit" class="btn btn-primary">'
+        . '<i class="bi bi-save me-1" aria-hidden="true"></i>Save Changes</button>'
+        . '</div></form></div>'
+        . '<div class="tab-pane fade" id="editUserPasswordPane" '
+        . 'role="tabpanel" aria-labelledby="editUserPasswordTab" tabindex="0">'
+        . '<form method="post" id="editUserPasswordForm" action="' . e($targetUrl) . '" '
+        . 'autocomplete="off">'
+        . csrf_field()
+        . '<input type="hidden" name="action" value="reset_password">'
+        . '<input type="hidden" name="edit_origin" value="user_management_modal">'
+        . ($showResetErrors ? errors_html($errors) : '')
+        . '<div class="alert alert-warning small">'
+        . 'Resetting a password immediately replaces the current password. '
+        . 'Share the temporary password only through an approved secure channel. '
+        . 'The employee will be required to change it at their next login.</div>'
+        . '<div class="row g-3"><div class="col-12 col-md-6">'
+        . '<label class="form-label" for="editUserNewPassword">New Temporary Password '
+        . '<span class="text-danger">*</span></label>'
+        . '<div class="input-group"><input class="form-control" id="editUserNewPassword" '
+        . 'name="new_password" type="password" autocomplete="new-password" '
+        . 'minlength="12" maxlength="200" required>'
+        . '<button class="btn btn-outline-secondary" type="button" '
+        . 'data-toggle-edit-password="editUserNewPassword" aria-pressed="false" '
+        . 'aria-label="Show temporary password" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div class="form-text" data-edit-password-feedback>'
+        . '12–200 characters with at least one letter and one number.</div>'
+        . '</div><div class="col-12 col-md-6">'
+        . '<label class="form-label" for="editUserConfirmPassword">Confirm Temporary Password '
+        . '<span class="text-danger">*</span></label>'
+        . '<div class="input-group"><input class="form-control" id="editUserConfirmPassword" '
+        . 'name="confirm_password" type="password" autocomplete="new-password" '
+        . 'minlength="12" maxlength="200" required>'
+        . '<button class="btn btn-outline-secondary" type="button" '
+        . 'data-toggle-edit-password="editUserConfirmPassword" aria-pressed="false" '
+        . 'aria-label="Show confirmation password" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div class="form-text" data-edit-confirm-feedback>Re-enter the temporary password.</div>'
+        . '</div></div>'
+        . '<div class="d-flex flex-wrap justify-content-end gap-2 mt-4">'
+        . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        . '<button type="submit" class="btn btn-outline-danger" id="editUserResetButton" disabled>'
+        . '<i class="bi bi-key me-1" aria-hidden="true"></i>Reset Password</button>'
+        . '</div></form></div></div>'
+        . '<p class="small text-secondary mt-3 mb-0">Changes are logged for auditing. '
+        . 'Employee profile updates and password resets are separate operations.</p>'
+        . '</div></div></div></div>'
+        . '<script src="assets/user-edit-modal.js?v=1" defer></script>';
+    return $html;
+}
+
+function view_user_management(
+    array $errors = [], int $reopenUserId = 0,
+    int $reopenEditUserId = 0, string $reopenEditAction = ''
+): void
 {
-    require_role('super_admin');
+    $admin = require_role('super_admin');
     $query = substr(trim((string)($_GET['q'] ?? '')),0,120);
     $role = trim((string)($_GET['role'] ?? ''));
     $status = trim((string)($_GET['state'] ?? ''));
@@ -190,7 +333,7 @@ function view_user_management(array $errors = [], int $reopenUserId = 0): void
                        FROM users WHERE user_kind='internal'") ?: [];
     $records = user_management_accounts($query,$role,$status);
 
-    $html = errors_html($errors)
+    $html = ($reopenUserId > 0 || $reopenEditUserId > 0 ? '' : errors_html($errors))
         . '<div class="panel mb-4"><div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">'
         . '<div><h2 class="h5 mb-1">Configuration / User Management</h2>'
         . '<p class="text-secondary small mb-0">Single master list from the users table. '
@@ -263,8 +406,21 @@ function view_user_management(array $errors = [], int $reopenUserId = 0): void
                 . 'data-setup-url="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
                 . '<i class="bi bi-person-gear me-1" aria-hidden="true"></i>Set Up</a></td></tr>';
         } else {
-            $html .= '<td><a class="btn btn-sm btn-outline-primary" href="'
-                . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
+            $html .= '<td><a class="btn btn-sm btn-outline-primary" role="button" '
+                . 'href="' . e(url('user_edit',['id'=>(int)$person['id']])) . '" '
+                . 'data-bs-toggle="modal" data-bs-target="#userEditModal" '
+                . 'data-user-edit-trigger data-user-id="' . (int)$person['id'] . '" '
+                . 'data-user-name="' . e((string)$person['name']) . '" '
+                . 'data-user-email="' . e((string)($person['email'] ?? '')) . '" '
+                . 'data-user-contact="' . e((string)($person['contact_number'] ?? '')) . '" '
+                . 'data-user-office="' . e((string)($person['office_station'] ?? '')) . '" '
+                . 'data-user-role="' . e((string)($person['role_code'] ?? '')) . '" '
+                . 'data-user-roles="' . e((string)($person['role_names'] ?? '')) . '" '
+                . 'data-user-status="' . e((string)$person['status']) . '" '
+                . 'data-user-username="' . e((string)($person['username'] ?? '')) . '" '
+                . 'data-can-reset="' . ((int)$person['id'] === (int)$admin['id'] ? '0' : '1') . '" '
+                . 'data-is-self="' . ((int)$person['id'] === (int)$admin['id'] ? '1' : '0') . '" '
+                . 'data-edit-url="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
                 . '<i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit</a></td></tr>';
         }
     }
@@ -272,7 +428,8 @@ function view_user_management(array $errors = [], int $reopenUserId = 0): void
     $html .= '</tbody></table></div>'
         . '<p class="text-secondary small mb-0">Changes to user roles, credentials, and account status are logged. '
         . 'Applicant registrations and accounts are managed separately.</p></div>';
-    $html .= user_management_setup_modal($errors, $reopenUserId);
+    $html .= user_management_setup_modal($reopenUserId > 0 ? $errors : [], $reopenUserId);
+    $html .= user_management_edit_modal($reopenEditUserId > 0 ? $errors : [], $reopenEditUserId, $reopenEditAction);
     render_page('User Management',$html);
 }
 
