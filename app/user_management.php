@@ -154,11 +154,16 @@ function user_management_create(array $admin, array $input): array
                 return ['This pending designation was already assigned or no longer exists.'];
             }
         }
-        // A matching internal identity may already have an account with another email.
-        $existing = query_one("SELECT id FROM users WHERE user_kind='internal' AND LOWER(name)=LOWER(?) LIMIT 1", [$values['name']]);
-        if ($existing) {
-            $pdo->rollBack();
-            return ['An internal account with this name already exists. Use Link Existing Account instead of creating a duplicate.'];
+        // Check normalized names as well as email uniqueness to avoid duplicating
+        // already-provisioned staff (e.g., "V. CATALAN" versus "V CATALAN").
+        $identity = static fn(string $name): string =>
+            strtolower((string)preg_replace('/[^a-z0-9]/i', '', $name));
+        $knownAccounts = query_all("SELECT id,name FROM users WHERE user_kind='internal'");
+        foreach ($knownAccounts as $known) {
+            if ($identity((string)$known['name']) === $identity($values['name'])) {
+                $pdo->rollBack();
+                return ['An internal account with this name already exists. Use Link Existing Account instead of creating a duplicate.'];
+            }
         }
         $roleId = user_management_role_id($values['role']);
         if (!$roleId) {
@@ -175,6 +180,12 @@ function user_management_create(array $admin, array $input): array
         $id = (int)$pdo->lastInsertId();
         initialize_profile_account_fields($id, 'internal');
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$id,$roleId]);
+        create_notification(
+            $id,
+            'DENR FP-OMS Account Created',
+            'Your internal account is ready. Please change your temporary password at first sign-in.',
+            'person-check', 'success', 'change_password'
+        );
         if ($designation) {
             $pdo->prepare('UPDATE user_designations SET linked_user_id=? WHERE id=? AND linked_user_id IS NULL')
                 ->execute([$id,$designationId]);
