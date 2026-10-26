@@ -277,3 +277,13 @@ body.page-loading{overflow:hidden}
     max-width:310px;
   }
 }
+
+/* RICTU Configuration → User Management submenu */
+.sidebar-config-menu > summary{list-style:none;cursor:pointer;user-select:none}
+.sidebar-config-menu > summary::-webkit-details-marker{display:none}
+.sidebar-config-menu > summary:focus-visible{outline:2px solid #70dfa4;outline-offset:2px}
+.sidebar-config-menu > summary .bi-chevron-down{transition:transform .15s ease;width:auto;flex:none}
+.sidebar-config-menu[open] > summary .bi-chevron-down{transform:rotate(180deg)}
+.sidebar-config-menu > .ps-3 .sidebar-link{padding-left:.6rem}
+.sidebar-collapsed .sidebar-config-menu > .ps-3,
+.sidebar-collapsed .sidebar-config-menu > summary .bi-chevron-down{display:none!important}
