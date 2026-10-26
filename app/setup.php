@@ -8,7 +8,7 @@ function super_admin_exists(): bool
          FROM users u
          INNER JOIN user_roles ur ON ur.user_id=u.id
          INNER JOIN roles r ON r.id=ur.role_id
-         WHERE r.code='super_admin'
+         WHERE r.code='super_admin' AND u.status='active'
          LIMIT 1"
     );
     return $row !== null;
@@ -73,7 +73,7 @@ function create_initial_super_admin(array $input): array
              FROM users u
              INNER JOIN user_roles ur ON ur.user_id=u.id
              INNER JOIN roles r ON r.id=ur.role_id
-             WHERE r.code='super_admin'
+             WHERE r.code='super_admin' AND u.status='active'
              LIMIT 1"
         );
         if ($existingAdmin) {
