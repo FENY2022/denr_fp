@@ -7,7 +7,7 @@
 
 ## Implemented in Phase 1
 
-- Public external applicant registration with one-time account creation.
+- Public external applicant registration with one-time account creation and an optional SMTP acknowledgment email after successful submission.
 - Representative, company, company address, contact details and valid-ID upload (PDF/JPEG/PNG).
 - Registration files held outside web root, checked for MIME/type/size and protected by per-request authorization.
 - Email-address login, PHP password hashing, CSRF tokens, hardened session cookies, throttled login attempts, password-change workflow, and one-time password-reset links.
@@ -18,7 +18,7 @@
 - Clickable user Profile page plus a topbar notification bell with unread count, unread-first latest items, mark-all-read, and View All Notifications.
 - Permission checks on each protected route; Bootstrap 5 responsive UI.
 
-**Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, and general SMS/email notifications. Password-reset email is supported when server mail delivery is configured. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
+**Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, and general SMS/email notifications beyond the implemented registration and password-reset messages. Password-reset email and registration emails require working server mail delivery. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
 
 ## Public Landing Page
 
@@ -154,6 +154,18 @@ mysql -u root -p denr_fp_oms < database/005_notifications.sql
 ```
 
 The shell is migration-safe: before the table is imported, the rest of FP-OMS continues to load and the bell simply shows no stored items.
+
+## Transactional registration email notifications
+
+FP-OMS sends these **applicant** messages using its existing PHPMailer SMTP transport:
+
+1. **New registration successfully saved:** an acknowledgment that the account is **Pending Validation** by the concerned Forest Utilization Unit (FUU) / assigned LPDD-FUS reviewing personnel. This email does not indicate account approval or permit issuance.
+2. **LPDD-FUS approves a registration:** an account activation notice (not a Feasibility Permit approval).
+3. **LPDD-FUS returns a registration for correction:** a request to review the decision remarks and resubmit the registration.
+
+Emails are attempted **only after the corresponding database transaction commits successfully**. An SMTP error or disabled mail setting does **not** undo the registration or review decision. Attempts are recorded in the existing audit log with `smtp` or `not_sent` delivery metadata. There is no automatic retry queue: failed messages require a system administrator to check the server mail settings and logs. Ordinary registration resubmission alone does not send another acknowledgment email; the decision on the revised submission generates the subsequent status email. These are transactional registration messages, not general SMS/email notifications.
+
+To enable email sending in the server's ignored `.env`, configure `MAIL_ENABLED=true` and valid `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_NAME`, and `MAIL_FROM_ADDRESS`. The **same SMTP settings** are used for password reset messages. Never put credentials into the repository. Use `php scripts/configure_smtp.php` to configure authorized Gmail App Password credentials and `php scripts/test_smtp.php` to test the connection. A successful code update is **not** proof that email was delivered: test with a dummy applicant registration, then approve or return it for correction using a non-production test email account. No new SQL migration is required for these emails.
 
 ## Password recovery
 
