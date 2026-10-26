@@ -35,7 +35,7 @@ flowchart TD
 | `roles` | Known functional roles | 1:N to user_roles |
 | `user_roles` | Flexible many-to-many RBAC assignment | PK(user_id, role_id) |
 | `applicant_registrations` | One-time applicant company/contact details | 1:1 users |
-| `user_designations` | Pending staff identities and reference office contacts; not login accounts | Optional link to one internal user |
+| `users` pending_setup rows | Pending staff identities and office-reference contacts in the master accounts table | Cannot authenticate until administrator activates in-place |
 | `registration_documents` | Immutable private-upload revisions | N:1 registrations |
 | `registration_reviews` | LPDD-FUS approval/correction decisions | N:1 registrations |
 | `login_attempts` | Login rate limiting (per email hash/IP) | Independent audit data |
@@ -43,13 +43,15 @@ flowchart TD
 
 **Scaffold only in `002_future_workflow.sql`:** `permit_applications`, `application_documents`, `workflow_actions`, `permit_records`. Additional workflow entities (RRDC sessions, TOR templates, signatures, assignments, notifications) will be designed when Steps 2–11 are implemented and their detailed business rules approved.
 
-## RICTU User Management
+## RICTU User Management — Single `users` Table
 
-* The Configuration → User Management menu is visible only to RICTU Super Administrators, and each matching router action independently calls `require_role('super_admin')` followed by CSRF checks for POST changes.
-* The `008_user_management.sql` migration creates nullable internal-user contact/station fields and imports 34 pending staff designation records based on the supplied October 21, 2026 assignment form. Imported office emails are references only. No user account, login credential, or password is automatically created.
-* An authorized administrator may create an account from a designation, link a pre-existing matching internal account, edit its profile/role/status, or reset its password. Unique login email validation, hashing, first-login password change, and audit logs apply.
-* Administrator self-demotion/suspension and removal of the last active Super Administrator are blocked. User role changes use a single selected primary internal role, and server-side permissions remain authoritative.
-* The `gis_focal` code adds a role for GIS Focal staff but does not grant access to unimplemented permit workflow features.
+* The RICTU Configuration → User Management menu is visible only to authorized active Super Administrators; all POST routes have CSRF and server-side authorization checks.
+* Migration `008_user_management.sql` originally staged the 34 personnel designations from the October 21, 2026 form; migration `009_merge_designations_into_users.sql` consolidates these records into the existing `users` table and drops `user_designations` **only after a successful reconciliation check**.
+* Unique source identifiers, original office contact/reference emails, notes and office/station are preserved in `users.source_key`, `users.reference_email`, `users.designation_notes`, `users.office_station`. An office reference email is not automatically a login email.
+* The `pending_setup` status allows staff to be visible in `users` with null `email` and `password_hash`. Login/session code excludes this status entirely. Administrators activate these rows **in place** by assigning unique login email, role and strong temporary password, forcing a change at first sign-in.
+* Existing accounts (including the administrator) preserve their IDs, hashed passwords and references; missing `user_roles` rows are restored using verified designation roles, never replacing other existing roles. Importing 009 is a one-time data migration, not a new account signup.
+* A RICTU administrator can edit active/suspended internal users, manually add users absent from the consolidated list, reset temporary passwords and update office/contact information. Self-demotion, self-suspension and removal of the last active administrator are blocked. All these operations are audited.
+* Designated `gis_focal` is present as an internal role, but future permit workflow modules do not become active merely because the role exists.
 
 ## Authorization matrix — Phase 1
 
