@@ -106,7 +106,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . ($reopen ? errors_html($errors) : '')
         . '<div class="alert alert-warning small"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>'
         . 'The employee is <strong>Pending Setup</strong> and cannot log in yet. '
-        . 'Use a <strong>unique individual login email</strong>, not a shared office contact address.</div>'
+        . 'The office email is prefilled as a reference. <strong>Replace it with a unique individual login email</strong> if shared, and verify ownership before activation.</div>'
         . '<div class="row g-3">'
         . '<div class="col-12 col-md-6">' . user_management_field(
             'name','Full Name',(string)$previous['name'],true,'maxlength="180" autocomplete="off"'
@@ -185,7 +185,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . '<button type="submit" class="btn btn-success" id="setupActivateButton" disabled>'
         . '<i class="bi bi-person-check me-1" aria-hidden="true"></i>Activate Account</button>'
         . '</div></form></div></div></div>'
-        . '<script src="assets/user-setup-modal.js?v=2" defer></script>';
+        . '<script src="assets/user-setup-modal.js?v=3" defer></script>';
     return $html;
 }
 
@@ -533,7 +533,7 @@ function view_user_edit(int $id, array $errors = []): void
     $assignedRoles = user_roles($id);
     $values = [
         'name'=>(string)$user['name'],
-        'email'=>$pending ? (string)($user['suggested_login_email'] ?? '') : (string)($user['email'] ?? ''),
+        'email'=>$pending ? (string)($user['reference_email'] ?: ($user['suggested_login_email'] ?? '')) : (string)($user['email'] ?? ''),
         'contact_number'=>(string)($user['contact_number'] ?? ''),
         'office_station'=>(string)($user['office_station'] ?? ''),
         'role'=>($assignedRoles[0] ?? ''),
