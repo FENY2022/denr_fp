@@ -53,6 +53,7 @@ function role_definitions(): array
         'cenro_twg' => ['CENRO Technical Working Group', 'Field validation, CSW, GIS/shapefiles and certifications'],
         'penro_user' => ['PENRO User', 'Coordination with CENRO field offices'],
         'rrdc_member' => ['RRDC Member', 'Review and deliberation committee'],
-        'rrdc_secretariat' => ['RRDC Secretariat', 'Meeting minutes, agreements and signed documents']
+        'rrdc_secretariat' => ['RRDC Secretariat', 'Meeting minutes, agreements and signed documents'],
+        'gis_focal' => ['GIS Focal', 'Prepare final GIS maps and geographical information']
     ];
 }
