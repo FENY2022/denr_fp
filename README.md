@@ -70,6 +70,8 @@ mysql -u root -p denr_fp_oms < database/006_user_profile_fields.sql
 mysql -u root -p denr_fp_oms < database/007_registration_id_types.sql
 # Required for Configuration → User Management, contact/office fields, and 34 staged names (import ONCE):
 mysql -u root -p denr_fp_oms < database/008_user_management.sql
+# Merge the two prior tables into users; REMOVE redundant user_designations (import ONCE):
+mysql -u root -p denr_fp_oms < database/009_merge_designations_into_users.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -196,40 +198,43 @@ php -l app/views.php
 php tests/registration_attachments_test.php
 ```
 
-## Configuration → User Management (RICTU)
+## Configuration → User Management (Single Users Table)
 
-The authenticated left sidebar now has a collapsible **Configuration → User Management** child menu, available only to accounts with the active `super_admin` role. Use the clean URL `/user-management`. The old `/staff` GET URL redirects to User Management.
+FP-OMS stores internal employee accounts **and** not-yet-provisioned designated personnel in ONE `users` table. The earlier `user_designations` table has been retired by migration `009_merge_designations_into_users.sql`. `user_roles` remains a separate role-assignment junction table; this is necessary to preserve user-to-role relationships, not duplicate user identities.
 
-The module has **Internal Accounts**, **Designated Personnel**, and **Add User** tabs:
+**Routes:** Super Administrators see **Configuration → User Management** in the sidebar. The clean URL is `/user-management`. The old `/staff` GET route redirects there.
 
-- **Internal Accounts:** filter by name/email/office, user role and account status; click **Edit** to change full name, individual login email (unique), contact number, office/station, role and active/suspended state.
-- **Add User:** manually create a DENR internal account, assign exactly one role and an initial strong password (minimum 12 characters including letters and numbers). The account must change that password at first login. Passwords are hashed, never stored in plaintext or auto-shared by email.
-- **Administrator Password Reset:** set and confirm a replacement temporary password for another internal user, mark a forced password change, and invalidate outstanding password-reset tokens. Communicate credentials using an approved secure channel, never by ordinary email.
-- **Designated Personnel:** the import from the *FP-OMS User Role Assignment & Information Form (October 21, 2026)* contains **34 individual pending setup records**: 1 RICTU administrator, 24 CENRO/TWG/IPENRO personnel, 5 regional-office personnel, 1 ARD-TS, 2 RRDC/GIS, and 1 RED. Paired slash-separated names are separate individuals with their stated station. The shared office email on the paper form is **reference contact information only**, not a login credential. No user account or password is provisioned by the SQL migration.
-- Clicking **Set Up** on a pending designation prefills its name, role, office/station and reference phone number, **but not a login email**. The administrator must supply and verify an individual login email and choose a temporary password. The account is only created on successful submission.
-- For a person with an existing account (especially the RICTU administrator), **Link Existing Account** attaches a designation to the matching account without creating duplicate credentials. A normalised identity match and explicit administrator confirmation are required. `Ma. Theresa` in the Cantilan row has an incomplete name in the source form; confirm the full identity before provisioning.
-- The new `gis_focal` internal role is registered for the GIS Focal designation. Existing role-based feature permissions remain enforced on the server; the role **does not** automatically unlock future workflow modules.
-- To protect privileged access, an administrator cannot suspend their own account or remove their own super-admin role. The application also rejects removal of the last active Super Administrator. All account creates/updates/links/resets are audited.
+**All Users:** one searchable list for internal staff, including the people imported from the LPDD/FUS form. Filter by name, office/reference email, role and account status. A new `pending_setup` status means the person exists in `users` but cannot sign in. No fabricated account email or password is used.
 
-**Required database migration for existing installations (apply ONCE):**
+**Pending Setup → Set Up:** click a pending user and confirm identity. Supply an individual login email, a role, office/contact details and a strong initial password (12–200 characters with letters and numbers). This **updates the existing users row in place**, assigns username and forces a first-login password change. It never creates another row for that person.
+
+**Edit:** for an active/suspended internal user, an authorized RICTU administrator can update their full name, email, contact number, office/station, role and status. Password reset is a separate action. Password hashes are never displayed or sent by email. The final active Super Administrator cannot be disabled or demoted, and self-demotion/suspension is blocked.
+
+**Add User:** create a separate manually added staff account only for personnel not already present in All Users. The backend checks duplicate names in the same office and enforces a unique individual login email. Account changes are audited.
+
+**Database migration — apply ONCE to your existing MariaDB/XAMPP database, AFTER taking a full SQL backup and AFTER migration 008:**
 
 ```bash
-mysql -u root -p denr_fp_oms < database/008_user_management.sql
+mysql -u root -p denr_fp_oms < database/009_merge_designations_into_users.sql
 ```
 
-This adds `users.contact_number` and `users.office_station`, creates `user_designations`, inserts the 34 pending designations, and seeds `gis_focal` into `roles`. Existing user accounts and applicant registrations are preserved. Before running this migration, import `006_user_profile_fields.sql` if not yet installed. To ensure other roles also exist, run `php scripts/seed_roles.php` after migration.
+The migration makes `users.email` and `users.password_hash` nullable for pending records; adds the `source_key`, `reference_email`, and `designation_notes` columns; and adds the `pending_setup` status. It merges the October 21, 2026 form's **34 personnel designations** into the `users` table. It matches existing accounts only when both the full name and email match (or are already explicitly linked). This preserves existing IDs, password hashes, credentials, role assignments, login history, and references. A stored office email becomes `reference_email`, **not** a shared login email. It also attaches the designated role when missing from `user_roles`; the supplied October 26 database dump includes one existing administrator in `users` but no user-role data rows.
 
-**Smoke test:** As RICTU Super Administrator open **Configuration → User Management**, view 34 designated personnel, link an existing admin account to the matching designation, create one TEST employee with a unique TEST email, edit role/office/email, reset their temporary password, and verify their forced change on first login. Check that applicants and non-admin staff receive access denied on these routes. Never use live passwords or real personal data for early testing.
+A built-in reconciliation step conditionally removes `user_designations` only when every designation is represented in `users` and its assigned role exists. **For the supplied SQL export:** the expected result is **34 internal users**, consisting of **1 existing active administrator** and **33 pending_setup users**, with the redundant table gone. The actual results depend on changes to the live database since export.
 
-Unit and PHP syntax checks (GitHub Actions workflow also added):
+**phpMyAdmin:** download/pull migration 009, open database `denr_fp_oms`, choose Import, upload `009_merge_designations_into_users.sql`, then check `users`. **Do not re-import the full old database dump** over your live database. This migration is one-time; do not run it again after it has succeeded.
+
+**After migration:** run `php scripts/seed_roles.php` to keep role labels current (this preserves assignments); then test with an existing administrator and a separate dummy pending account. Confirm unauthenticated and non-admin visitors cannot access User Management, and a pending user cannot log in without credentials.
+
+PHP checks:
 
 ```bash
+php -l app/user_management.php
+php -l app/user_management_views.php
+php -l app/auth.php
 php tests/domain_test.php
 php tests/registration_attachments_test.php
 php tests/user_management_test.php
-php -l app/user_management.php
-php -l app/user_management_views.php
-php -l public/index.php
 ```
 
 ## Password recovery
@@ -346,7 +351,7 @@ denr-fp-oms/
 │   ├── registration_mail.php    # applicant acknowledgment and review emails
 │   ├── staff.php                # legacy provisioning helper
 │   ├── user_management.php      # RICTU user lifecycle + admin authorization
-│   ├── user_management_views.php # internal account and pending designation screens
+│   ├── user_management_views.php # consolidated users and pending setup screens
 │   ├── notifications.php        # bell notification center
 │   ├── profile.php              # authenticated user profile
 │   └── views.php                # HTML views
@@ -357,7 +362,8 @@ denr-fp-oms/
 │   ├── 005_notifications.sql    # bell notification storage
 │   ├── 006_user_profile_fields.sql # username/photo/office profile fields
 │   ├── 007_registration_id_types.sql # multiple ID uploads metadata
-│   └── 008_user_management.sql  # user management + 34 pending names
+│   ├── 008_user_management.sql  # former designation staging schema
+│   └── 009_merge_designations_into_users.sql # one-table safe consolidation
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
