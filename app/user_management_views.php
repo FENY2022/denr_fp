@@ -178,7 +178,9 @@ function view_user_create(array $errors = []): void
         'role'=>$designation['suggested_role'] ?? '',
         'status'=>'active'
     ];
-    if ($_POST) $values = array_merge($values,user_management_data($_POST));
+    if ($_POST && (string)($_POST['action'] ?? '') !== 'link_existing') {
+        $values = array_merge($values,user_management_data($_POST));
+    }
 
     $html = '<div class="mb-3"><a href="' . e(url('user_management',['tab'=>'designations'])) . '">← Back to User Management</a></div>'
         . user_management_tabs('create')
