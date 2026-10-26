@@ -13,6 +13,11 @@ function upload_details(?array $file, bool $required): array
     return ['name' => $file['name'], 'file' => $file, 'mime' => 'image/png', 'size' => $file['size'], 'extension' => 'png'];
 }
 
+function env_value(string $key, string $fallback = ''): string
+{
+    return $fallback;
+}
+
 function e(string $text): string
 {
     return htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
