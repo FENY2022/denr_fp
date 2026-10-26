@@ -74,7 +74,7 @@ function send_registration_decision_email(string $email, string $name, string $d
         $body = '<p style="line-height:1.65;margin:0 0 15px">The concerned DENR reviewing personnel have returned your registration for <strong>CORRECTIONS</strong>.</p>'
             . '<p style="line-height:1.65;margin:0 0 10px">Please review the remarks below and sign in to FP-OMS to update and resubmit your registration:</p>'
             . '<div style="background:#fff8e7;border-left:4px solid #c68a20;padding:14px 16px;margin:0 0 16px;line-height:1.6;white-space:normal">' . $safeRemarks . '</div>'
-            . '<p style="line-height:1.65;margin:0 0 15px">Your account will remain pending until the required corrections have been submitted and reviewed.</p>';
+            . '<p style="line-height:1.65;margin:0 0 15px">Your account will remain unapproved until the required corrections have been submitted and reviewed.</p>';
         $plain = "Your DENR CARAGA FP-OMS registration requires CORRECTIONS.\n\n"
             . "Reviewing personnel remarks:\n{$remarks}\n\n"
             . "Please sign in to FP-OMS, update the requested information, and resubmit your registration for review.";
