@@ -140,15 +140,15 @@ function form_value(string $name, array $values = []): string
 function registration_fields(array $values = [], bool $new = true): string
 {
     $html = '<div class="row"><div class="col-md-6">'
-        . field('representative_name','Authorized representative / Full name',form_value('representative_name',$values), 'text',true,'maxlength="180"')
+        . field('representative_name','Applicant Full Name',form_value('representative_name',$values), 'text',true,'maxlength="180"')
         . '</div><div class="col-md-6">'
-        . field('representative_position','Representative position',form_value('representative_position',$values),'text',false,'maxlength="150"')
+        . field('representative_position','Position / Designation',form_value('representative_position',$values),'text',false,'maxlength="150"')
         . '</div></div>';
     if ($new) {
         $html .= field('email','Email for login',form_value('email'),'email',true,'autocomplete="email" maxlength="190"');
     }
     $html .= '<div class="row"><div class="col-md-6">'
-        . field('company_name','Company / Proponent name',form_value('company_name',$values),'text',true,'maxlength="220"')
+        . field('company_name','Company Name',form_value('company_name',$values),'text',true,'maxlength="220"')
         . '</div><div class="col-md-6">'
         . field('contact_number','Contact number',form_value('contact_number',$values),'tel',true,'maxlength="40"')
         . '</div></div><div class="mb-3"><label class="form-label" for="company_address">Company address <span class="text-danger">*</span></label>'
