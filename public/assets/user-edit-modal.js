@@ -28,7 +28,7 @@
       !userIdLabel || !usernameLabel || !profileTab || !passwordTab ||
       !password || !confirm || !passwordFeedback || !confirmFeedback) return;
 
-  let editSelf = false;
+  let editSelf = modal.dataset.reopenSelf === '1';
   const validPassword = value => {
     const size = new TextEncoder().encode(value).length;
     return size >= 12 && size <= 200 && /[A-Za-z]/.test(value) && /[0-9]/.test(value);
