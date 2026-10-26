@@ -57,6 +57,7 @@ require_once __DIR__ . '/smtp.php';
 require_once __DIR__ . '/registration_mail.php';
 require_once __DIR__ . '/password_reset.php';
 require_once __DIR__ . '/registration.php';
+require_once __DIR__ . '/registration_attachments.php';
 require_once __DIR__ . '/staff.php';
 require_once __DIR__ . '/profile.php';
 require_once __DIR__ . '/views.php';
