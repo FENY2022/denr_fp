@@ -325,3 +325,58 @@ body.page-loading{overflow:hidden}
   .user-edit-modal #editUserTabs .nav-link{padding:.55rem .65rem;font-size:.78rem}
   .user-edit-modal .btn{min-height:40px}
 }
+
+/* Keep account dialogs within the viewport; only their content scrolls.
+   The header and action buttons remain visible at the top and bottom. */
+#userSetupModal .modal-dialog,
+#userEditModal .modal-dialog{
+  height:calc(100dvh - 2rem);
+  max-height:calc(100dvh - 2rem);
+  margin-top:1rem;
+  margin-bottom:1rem;
+}
+#userSetupModal .modal-content,
+#userEditModal .modal-content{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  max-height:100%;
+  overflow:hidden;
+}
+#userSetupModal #userSetupForm{
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+  flex:1 1 auto;
+}
+#userSetupModal .modal-body,
+#userEditModal .modal-body{
+  min-height:0;
+  flex:1 1 auto;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:#8daa9b #edf4ef;
+}
+#userSetupModal .modal-body::-webkit-scrollbar,
+#userEditModal .modal-body::-webkit-scrollbar{width:9px}
+#userSetupModal .modal-body::-webkit-scrollbar-track,
+#userEditModal .modal-body::-webkit-scrollbar-track{background:#edf4ef}
+#userSetupModal .modal-body::-webkit-scrollbar-thumb,
+#userEditModal .modal-body::-webkit-scrollbar-thumb{
+  background:#8daa9b;
+  border-radius:9px;
+  border:2px solid #edf4ef;
+}
+#userSetupModal .modal-header,
+#userSetupModal .modal-footer,
+#userEditModal .modal-header{flex-shrink:0}
+@media(max-width:575.98px){
+  #userSetupModal .modal-dialog,
+  #userEditModal .modal-dialog{
+    height:calc(100dvh - 1rem);
+    max-height:calc(100dvh - 1rem);
+    margin-top:.5rem;
+    margin-bottom:.5rem;
+  }
+}
