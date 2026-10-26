@@ -32,3 +32,4 @@ jobs:
           php tests/registration_attachments_test.php
           php tests/user_management_test.php
           php tests/user_setup_modal_test.php
+          php tests/user_edit_modal_test.php
