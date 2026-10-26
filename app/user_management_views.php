@@ -185,7 +185,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . '<button type="submit" class="btn btn-success" id="setupActivateButton" disabled>'
         . '<i class="bi bi-person-check me-1" aria-hidden="true"></i>Activate Account</button>'
         . '</div></form></div></div></div>'
-        . '<script src="assets/user-setup-modal.js?v=1" defer></script>';
+        . '<script src="assets/user-setup-modal.js?v=2" defer></script>';
     return $html;
 }
 
@@ -292,6 +292,13 @@ function user_management_edit_modal(
             'office_station','Office / Station',(string)$values['office_station'],true,
             'maxlength="160"'
         ) . '</div>'
+        . '<div class="col-12"><label class="form-label">Office Email (Reference)</label>'
+        . '<div class="form-control bg-light" aria-label="Office email, read only">'
+        . '<span data-edit-office-reference>'
+        . e($reopen ? (string)($reopenUser['reference_email'] ?? 'Not provided') : 'Not provided')
+        . '</span></div>'
+        . '<div class="form-text">Reference from the personnel designation form; '
+        . 'this is not necessarily the employee’s individual login email.</div></div>'
         . '<div class="col-12 col-md-6"><label class="form-label" for="editUserRole">'
         . 'User Role <span class="text-danger">*</span></label>'
         . '<select class="form-select" id="editUserRole" name="role" required>'
@@ -462,6 +469,7 @@ function view_user_management(
                 . 'data-user-edit-trigger data-user-id="' . (int)$person['id'] . '" '
                 . 'data-user-name="' . e((string)$person['name']) . '" '
                 . 'data-user-email="' . e((string)($person['email'] ?? '')) . '" '
+                . 'data-user-reference-email="' . e((string)($person['reference_email'] ?? '')) . '" '
                 . 'data-user-contact="' . e((string)($person['contact_number'] ?? '')) . '" '
                 . 'data-user-office="' . e((string)($person['office_station'] ?? '')) . '" '
                 . 'data-user-role="' . e((string)($person['role_code'] ?? '')) . '" '
