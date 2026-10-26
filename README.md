@@ -224,7 +224,7 @@ A built-in reconciliation step conditionally removes `user_designations` only wh
 
 **phpMyAdmin:** download/pull migration 009, open database `denr_fp_oms`, choose Import, upload `009_merge_designations_into_users.sql`, then check `users`. **Do not re-import the full old database dump** over your live database. This migration is one-time; do not run it again after it has succeeded.
 
-**After migration:** run `php scripts/seed_roles.php` to keep role labels current (this preserves assignments); then test with an existing administrator and a separate dummy pending account. Confirm unauthenticated and non-admin visitors cannot access User Management, and a pending user cannot log in without credentials.
+**After migration:** run `php scripts/seed_roles.php` to keep role labels current (this preserves assignments). Then run `php scripts/verify_user_merge.php` for a **read-only** check of the single-table structure, pending-account login restrictions and existing active super-administrator role. Finally, test with an existing administrator and a separate dummy pending account. Confirm unauthenticated and non-admin visitors cannot access User Management, and a pending user cannot log in without credentials.
 
 PHP checks:
 
@@ -374,6 +374,7 @@ denr-fp-oms/
 ├── scripts/
 │   ├── seed_roles.php
 │   ├── create_admin.php
+│   ├── verify_user_merge.php     # read-only post-migration verification
 │   ├── reset_password.php
 │   ├── configure_smtp.php        # safely writes Gmail SMTP values to local .env
 │   └── test_smtp.php
