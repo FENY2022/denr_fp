@@ -206,7 +206,7 @@ FP-OMS stores internal employee accounts **and** not-yet-provisioned designated 
 
 **All Users:** one searchable list for internal staff, including the people imported from the LPDD/FUS form. Filter by name, office/reference email, role and account status. A new `pending_setup` status means the person exists in `users` but cannot sign in. No fabricated account email or password is used.
 
-**Pending Setup → Set Up:** click a pending user and confirm identity. Supply an individual login email, a role, office/contact details and a strong initial password (12–200 characters with letters and numbers). This **updates the existing users row in place**, assigns username and forces a first-login password change. It never creates another row for that person.
+**Pending Setup → Set Up (modal):** clicking a pending user's **Set Up** button on `/user-management` opens a responsive Bootstrap popup on the same page, instead of navigating to another page. The popup pre-fills the person's name, contact, office and assigned role from the existing user record; it displays the office email as a **reference only**, never as a login address. Enter a unique individual login email, provide and confirm a temporary password (12–200 UTF-8 bytes with a letter and number), then check the employee identity verification box. The **Activate Account** button is enabled when form inputs pass validation. Show/hide buttons are provided for both password fields. Form submission still uses the original CSRF-protected `/user-edit?id=<id>` activation route and all server-side checks; any validation errors reopen the same modal with non-password fields preserved. On success, the user returns to the refreshed User Management list. If Bootstrap JavaScript is unavailable, the Set Up link offers the existing full-page fallback. This **updates the existing users row in place**, assigns username and forces a first-login password change; it never creates another row for that person.
 
 **Edit:** for an active/suspended internal user, an authorized RICTU administrator can update their full name, email, contact number, office/station, role and status. Password reset is a separate action. Password hashes are never displayed or sent by email. The final active Super Administrator cannot be disabled or demoted, and self-demotion/suspension is blocked.
 
@@ -235,6 +235,7 @@ php -l app/auth.php
 php tests/domain_test.php
 php tests/registration_attachments_test.php
 php tests/user_management_test.php
+php tests/user_setup_modal_test.php
 ```
 
 ## Password recovery
