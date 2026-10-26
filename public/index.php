@@ -224,12 +224,15 @@ try {
                 }
                 $fromSetupModal = $action === 'activate'
                     && (string)($_POST['setup_origin'] ?? '') === 'user_management_modal';
+                $fromEditModal = in_array($action, ['update','reset_password'], true)
+                    && (string)($_POST['edit_origin'] ?? '') === 'user_management_modal';
                 if ($errors) {
                     if ($fromSetupModal) view_user_management($errors,(int)$id);
+                    elseif ($fromEditModal) view_user_management($errors,0,(int)$id,$action);
                     else view_user_edit((int)$id,$errors);
                 } else {
                     flash('success',$success);
-                    if ($fromSetupModal) go('user_management');
+                    if ($fromSetupModal || $fromEditModal) go('user_management');
                     else go('user_edit',['id'=>(int)$id]);
                 }
             } else {
