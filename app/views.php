@@ -173,13 +173,7 @@ function registration_fields(array $values = [], bool $new = true): string
             . '<div id="password-confirm-feedback" class="small text-secondary mt-2" role="status" aria-live="polite">Re-enter your password to confirm.</div>'
             . '</div></div>';
     }
-    $html .= '<hr><h3 class="h6">Registration attachments</h3>'
-        . '<p class="text-secondary small">Allowed: PDF, JPG or PNG. Maximum 5 MB per file. Files are stored outside the public web directory.</p>'
-        . '<div class="row"><div class="col-md-6">'
-        . '<label class="form-label" for="valid_id">Valid ID ' . ($new ? '<span class="text-danger">*</span>' : '(optional replacement)') . '</label>'
-        . '<input class="form-control" id="valid_id" name="valid_id" type="file" accept=".pdf,.jpg,.jpeg,.png" ' . ($new ? 'required' : '') . '></div>'
-        . '<div class="col-md-6"><label class="form-label" for="supporting_document">Other registration document (optional)</label>'
-        . '<input class="form-control" id="supporting_document" name="supporting_document" type="file" accept=".pdf,.jpg,.jpeg,.png"></div></div>';
+    $html .= registration_attachment_form_fields($new);
     return $html;
 }
 
@@ -197,7 +191,8 @@ function view_register(array $errors = []): void
         . '<ol class="small"><li>Register and upload a valid ID.</li><li>LPDD-FUS checks information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
         . '</div></div></div>'
-        . '<script src="assets/register-password.js?v=1" defer></script>';
+        . '<script src="assets/register-password.js?v=1" defer></script>'
+        . '<script src="assets/registration-attachments.js?v=1" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
@@ -237,7 +232,7 @@ function view_applicant_registration(array $user, array $errors = []): void
     $latest = latest_review((int)$reg['id']);
     $html = '<div class="row g-4"><div class="col-lg-8"><div class="panel">' . errors_html($errors)
         . '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3"><h2 class="h5 m-0">Registration Details</h2>' . status_badge($user['status']) . '</div>'
-        . '<dl class="row details"><dt class="col-sm-4">Representative</dt><dd class="col-sm-8">' . e($reg['representative_name']) . '</dd>'
+        . '<dl class="row details"><dt class="col-sm-4">Applicant</dt><dd class="col-sm-8">' . e($reg['representative_name']) . '</dd>'
         . '<dt class="col-sm-4">Company</dt><dd class="col-sm-8">' . e($reg['company_name']) . '</dd>'
         . '<dt class="col-sm-4">Email</dt><dd class="col-sm-8">' . e($user['email']) . '</dd>'
         . '<dt class="col-sm-4">Contact</dt><dd class="col-sm-8">' . e($reg['contact_number']) . '</dd>'
@@ -246,12 +241,7 @@ function view_applicant_registration(array $user, array $errors = []): void
     if ($latest) $html .= '<div class="alert ' . ($latest['decision'] === 'approved' ? 'alert-success' : 'alert-warning') . '"><strong>LPDD-FUS decision:</strong> ' . e(ucwords(str_replace('_',' ',$latest['decision'])))
         . '<div class="small mt-1">' . nl2br(e($latest['remarks'] ?: 'No additional remarks.')) . '</div></div>';
     $docs = registration_documents((int)$reg['id']);
-    $html .= '<h3 class="h6">Submitted documents</h3><ul class="list-group mb-3">';
-    foreach ($docs as $doc) {
-        $html .= '<li class="list-group-item d-flex justify-content-between gap-2"><span>'
-            . e(ucwords(str_replace('_',' ',$doc['document_type']))) . '</span><a href="' . url('download_reg',['id'=>(int)$doc['id']]) . '">' . e($doc['original_name']) . '</a></li>';
-    }
-    $html .= '</ul>';
+    $html .= '<h3 class="h6">Submitted documents</h3>' . registration_documents_html($docs);
     if ($user['status'] === 'active') {
         $html .= '<div class="alert alert-success mb-0"><strong>Your account is activated.</strong> Step 2 application submission will be enabled in a later development phase; no application has been filed by this registration.</div>';
     } elseif ($user['status'] === 'pending_review') {
@@ -259,10 +249,11 @@ function view_applicant_registration(array $user, array $errors = []): void
     }
     $html .= '</div></div><div class="col-lg-4"><div class="panel soft"><h3 class="h6">Processing note</h3><p class="small mb-0">Registration and activation are excluded from the 15-working-day FP permit-processing period.</p></div></div></div>';
     if ($user['status'] === 'needs_correction') {
-        $html .= '<div class="panel mt-4"><h2 class="h5">Submit Corrected Registration</h2><p class="text-secondary">Edit your information and optionally upload replacement attachments. Previously uploaded documents remain on file unless replaced.</p>'
+        $html .= '<div class="panel mt-4"><h2 class="h5">Submit Corrected Registration</h2><p class="text-secondary">Edit your information and optionally add new IDs or supporting documents. Earlier uploads remain on file for review history.</p>'
             . '<form action="' . url('registration_update') . '" method="post" enctype="multipart/form-data">' . csrf_field()
             . registration_fields($reg, false)
-            . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>';
+            . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
+            . '<script src="assets/registration-attachments.js?v=1" defer></script>';
     }
     render_page('My Registration', $html);
 }
@@ -292,17 +283,16 @@ function view_review_case(int $id, array $errors = []): void
     if (!$reg) show_error('Registration not found.', 404);
     $html = '<div class="mb-3"><a href="' . url('review_queue') . '">← Back to review queue</a></div><div class="row g-4"><div class="col-lg-7"><div class="panel">' . errors_html($errors)
         . '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><h2 class="h5">Registration #' . (int)$reg['id'] . '</h2>' . status_badge($reg['status']) . '</div>'
-        . '<dl class="row details"><dt class="col-sm-4">Representative</dt><dd class="col-sm-8">' . e($reg['representative_name']) . '</dd>'
+        . '<dl class="row details"><dt class="col-sm-4">Applicant</dt><dd class="col-sm-8">' . e($reg['representative_name']) . '</dd>'
         . '<dt class="col-sm-4">Position</dt><dd class="col-sm-8">' . e($reg['representative_position'] ?? '') . '</dd>'
         . '<dt class="col-sm-4">Company</dt><dd class="col-sm-8">' . e($reg['company_name']) . '</dd>'
         . '<dt class="col-sm-4">Company address</dt><dd class="col-sm-8">' . nl2br(e($reg['company_address'])) . '</dd>'
         . '<dt class="col-sm-4">Email</dt><dd class="col-sm-8">' . e($reg['email']) . '</dd>'
         . '<dt class="col-sm-4">Contact</dt><dd class="col-sm-8">' . e($reg['contact_number']) . '</dd>'
         . '<dt class="col-sm-4">Revision</dt><dd class="col-sm-8">' . (int)$reg['revision'] . '</dd></dl>'
-        . '<h3 class="h6 mt-3">Latest attachments</h3><ul class="list-group">';
-    foreach (registration_documents($id) as $doc) $html .= '<li class="list-group-item d-flex justify-content-between gap-2"><span>' . e(ucwords(str_replace('_',' ',$doc['document_type']))) . '</span>'
-        . '<a href="' . url('download_reg',['id'=>(int)$doc['id']]) . '">' . e($doc['original_name']) . '</a></li>';
-    $html .= '</ul></div></div><div class="col-lg-5"><div class="panel soft"><h2 class="h5">LPDD-FUS Decision</h2>';
+        . '<h3 class="h6 mt-3">Submitted attachments and revisions</h3>'
+        . registration_documents_html(registration_documents($id))
+        . '</div></div><div class="col-lg-5"><div class="panel soft"><h2 class="h5">LPDD-FUS Decision</h2>';
     if ($reg['status'] === 'pending_review') {
         $html .= '<form method="post" action="' . url('review',['id'=>$id]) . '">' . csrf_field()
             . '<label class="form-label" for="remarks">Remarks / Corrections to address</label>'
