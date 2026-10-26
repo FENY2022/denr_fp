@@ -61,8 +61,10 @@ test_office_email(str_contains($view, 'data-user-reference-shared='),
     'Shared office warning is supplied to the Set Up modal');
 
 $js = file_get_contents(__DIR__ . '/../public/assets/user-setup-modal.js');
-test_office_email(is_string($js) && str_contains($js, 'button.dataset.userSuggestedEmail'),
-    'Client prefill uses the server-calculated suggestion');
+test_office_email(is_string($js) && str_contains($js, 'button.dataset.userReference'),
+    'Client prefill uses the office reference even when shared');
+test_office_email(str_contains($js, 'setField(\'email\', officeEmail || suggestedEmail)'),
+    'Office reference is the first prefill choice, with suggestion fallback');
 test_office_email(str_contains($js, 'button.dataset.userReferenceShared'),
     'Client warns about shared office emails');
 
