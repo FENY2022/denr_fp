@@ -184,6 +184,21 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
  * Each action uses its own CSRF-protected POST form and the existing user_edit route.
  * A failed form reopens the correct tab; passwords are never reflected in HTML.
  */
+
+/** Preserve POST field names while keeping modal-specific labels and IDs unique. */
+function user_management_edit_field(
+    string $name, string $label, string $value, bool $required = false,
+    string $extra = '', string $type = 'text'
+): string {
+    $html = user_management_field($name, $label, $value, $required, $extra, $type);
+    $newId = 'edit_user_' . $name;
+    return str_replace(
+        ['for="' . e($name) . '"', 'id="' . e($name) . '"'],
+        ['for="' . e($newId) . '"', 'id="' . e($newId) . '"'],
+        $html
+    );
+}
+
 function user_management_edit_modal(
     array $errors = [], int $reopenUserId = 0, string $reopenAction = ''
 ): string {
@@ -235,20 +250,20 @@ function user_management_edit_modal(
         . '<input type="hidden" name="edit_origin" value="user_management_modal">'
         . ($showProfileErrors ? errors_html($errors) : '')
         . '<div class="row g-3">'
-        . '<div class="col-12 col-md-6">' . user_management_field(
-            'edit_user_name','Full Name',(string)$values['name'],true,
+        . '<div class="col-12 col-md-6">' . user_management_edit_field(
+            'name','Full Name',(string)$values['name'],true,
             'maxlength="180" autocomplete="name"'
         ) . '</div>'
-        . '<div class="col-12 col-md-6">' . user_management_field(
-            'edit_user_email','Individual Login Email',(string)$values['email'],true,
+        . '<div class="col-12 col-md-6">' . user_management_edit_field(
+            'email','Individual Login Email',(string)$values['email'],true,
             'maxlength="190" autocomplete="off"','email'
         ) . '</div>'
-        . '<div class="col-12 col-md-6">' . user_management_field(
-            'edit_user_contact_number','Contact Number',(string)$values['contact_number'],false,
+        . '<div class="col-12 col-md-6">' . user_management_edit_field(
+            'contact_number','Contact Number',(string)$values['contact_number'],false,
             'maxlength="40"','tel'
         ) . '</div>'
-        . '<div class="col-12 col-md-6">' . user_management_field(
-            'edit_user_office_station','Office / Station',(string)$values['office_station'],true,
+        . '<div class="col-12 col-md-6">' . user_management_edit_field(
+            'office_station','Office / Station',(string)$values['office_station'],true,
             'maxlength="160"'
         ) . '</div>'
         . '<div class="col-12 col-md-6"><label class="form-label" for="editUserRole">'
