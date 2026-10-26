@@ -28,7 +28,9 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         }
         if (in_array('super_admin', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Administration</div>'
-                . shell_nav_item('staff', 'Manage Users', 'people-fill', $active);
+                . '<details class="sidebar-config-menu"' . (in_array($active, ['user_management','user_create','user_edit'], true) ? ' open' : '') . '>'
+                . '<summary class="sidebar-link"><i class="bi bi-gear-fill"></i><span>Configuration</span><i class="bi bi-chevron-down ms-auto"></i></summary>'
+                . '<div class="ps-3">' . shell_nav_item('user_management','User Management','people-fill', in_array($active, ['user_management','user_create','user_edit'], true) ? 'user_management' : $active) . '</div></details>';
         }
     }
     return $html;
@@ -362,7 +364,7 @@ function view_dashboard(): void
         $pending = query_one("SELECT COUNT(*) AS n FROM users WHERE user_kind='applicant' AND status='pending_review'");
         $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('review_queue') . '"><strong>Applicant Reviews</strong><span class="metric">' . (int)$pending['n'] . '</span><small>Awaiting LPDD-FUS action</small></a></div>';
     }
-    if (has_role($user,'super_admin')) $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('staff') . '"><strong>Internal User Administration</strong><span class="metric">RICTU</span><small>Create role-assigned accounts</small></a></div>';
+    if (has_role($user,'super_admin')) $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('user_management') . '"><strong>User Management</strong><span class="metric">RICTU</span><small>Create role-assigned accounts</small></a></div>';
     $html .= '</div><div class="alert alert-info mt-3 mb-0">This is the Phase 1 dashboard. Permit submission, receiving, evaluation, field validation, RRDC deliberation, RED approval and release (Steps 2–11) are not yet implemented.</div></div>';
     render_page('Dashboard', $html);
 }
