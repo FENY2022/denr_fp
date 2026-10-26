@@ -120,7 +120,7 @@ function current_user(): ?array
 {
     if (!isset($_SESSION['user_id'])) return null;
     $user = user_by_id((int)$_SESSION['user_id']);
-    if (!$user || $user['status'] === 'suspended') {
+    if (!$user || in_array($user['status'], ['suspended', 'pending_setup'], true)) {
         unset($_SESSION['user_id']);
         return null;
     }
