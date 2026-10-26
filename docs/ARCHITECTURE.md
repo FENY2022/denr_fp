@@ -35,12 +35,21 @@ flowchart TD
 | `roles` | Known functional roles | 1:N to user_roles |
 | `user_roles` | Flexible many-to-many RBAC assignment | PK(user_id, role_id) |
 | `applicant_registrations` | One-time applicant company/contact details | 1:1 users |
+| `user_designations` | Pending staff identities and reference office contacts; not login accounts | Optional link to one internal user |
 | `registration_documents` | Immutable private-upload revisions | N:1 registrations |
 | `registration_reviews` | LPDD-FUS approval/correction decisions | N:1 registrations |
 | `login_attempts` | Login rate limiting (per email hash/IP) | Independent audit data |
 | `audit_logs` | Recorded security/business actions | actor_user_id nullable |
 
 **Scaffold only in `002_future_workflow.sql`:** `permit_applications`, `application_documents`, `workflow_actions`, `permit_records`. Additional workflow entities (RRDC sessions, TOR templates, signatures, assignments, notifications) will be designed when Steps 2–11 are implemented and their detailed business rules approved.
+
+## RICTU User Management
+
+* The Configuration → User Management menu is visible only to RICTU Super Administrators, and each matching router action independently calls `require_role('super_admin')` followed by CSRF checks for POST changes.
+* The `008_user_management.sql` migration creates nullable internal-user contact/station fields and imports 34 pending staff designation records based on the supplied October 21, 2026 assignment form. Imported office emails are references only. No user account, login credential, or password is automatically created.
+* An authorized administrator may create an account from a designation, link a pre-existing matching internal account, edit its profile/role/status, or reset its password. Unique login email validation, hashing, first-login password change, and audit logs apply.
+* Administrator self-demotion/suspension and removal of the last active Super Administrator are blocked. User role changes use a single selected primary internal role, and server-side permissions remain authoritative.
+* The `gis_focal` code adds a role for GIS Focal staff but does not grant access to unimplemented permit workflow features.
 
 ## Authorization matrix — Phase 1
 
