@@ -69,10 +69,50 @@ function user_management_validate(array $values): array
     return $errors;
 }
 
+/**
+ * A reference email is only a setup suggestion if it belongs to a single
+ * internal designation in the entire database and is not used as a login.
+ * Filtering the displayed table must never change this determination.
+ */
+function user_management_email_reference_columns_sql(): string
+{
+    return "CASE WHEN u.status='pending_setup'
+               AND u.reference_email IS NOT NULL AND TRIM(u.reference_email)<>''
+               AND (SELECT COUNT(*) FROM users ref
+                    WHERE ref.user_kind='internal'
+                      AND LOWER(TRIM(ref.reference_email))=LOWER(TRIM(u.reference_email)))=1
+               AND NOT EXISTS (SELECT 1 FROM users taken
+                    WHERE taken.email IS NOT NULL
+                      AND LOWER(TRIM(taken.email))=LOWER(TRIM(u.reference_email)))
+               THEN TRIM(u.reference_email) ELSE NULL
+            END AS suggested_login_email,
+            CASE WHEN u.reference_email IS NOT NULL AND TRIM(u.reference_email)<>''
+              AND (SELECT COUNT(*) FROM users shared
+                   WHERE shared.user_kind='internal'
+                     AND LOWER(TRIM(shared.reference_email))=LOWER(TRIM(u.reference_email)))>1
+                 THEN 1 ELSE 0 END AS office_email_shared";
+}
+
+/** Never issue personal credentials against a mailbox shared by staff. */
+function user_management_is_shared_office_email(string $email): bool
+{
+    $row = query_one(
+        "SELECT COUNT(*) AS recipients FROM users
+         WHERE user_kind='internal' AND reference_email IS NOT NULL
+           AND LOWER(TRIM(reference_email))=LOWER(TRIM(?))",
+        [$email]
+    );
+    return (int)($row['recipients'] ?? 0) > 1;
+}
+
 function user_management_user(int $id): ?array
 {
     if ($id < 1) return null;
-    return query_one("SELECT * FROM users WHERE id=? AND user_kind='internal'", [$id]);
+    return query_one(
+        "SELECT u.*, " . user_management_email_reference_columns_sql()
+        . " FROM users u WHERE u.id=? AND u.user_kind='internal'",
+        [$id]
+    );
 }
 
 function user_management_accounts(string $query = '', string $role = '', string $status = ''): array
@@ -84,7 +124,9 @@ function user_management_accounts(string $query = '', string $role = '', string 
                     FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id) AS role_names,
                    (SELECT r.code FROM user_roles ur
                     INNER JOIN roles r ON r.id=ur.role_id
-                    WHERE ur.user_id=u.id ORDER BY r.id LIMIT 1) AS role_code
+                    WHERE ur.user_id=u.id ORDER BY r.id LIMIT 1) AS role_code,
+                   " . user_management_email_reference_columns_sql()
+                   . "
             FROM users u WHERE u.user_kind='internal'";
     $params = [];
     if ($query !== '') {
@@ -137,6 +179,10 @@ function user_management_create(array $admin, array $input): array
                 $pdo->rollBack();
                 return ['This person already appears in User Management. Edit their existing or Pending Setup record instead.'];
             }
+        }
+        if (user_management_is_shared_office_email($values['email'])) {
+            $pdo->rollBack();
+            return ['This email is shared by multiple designated employees. Provide an individual login email.'];
         }
         $roleId = user_management_role_id($values['role']);
         if (!$roleId) {
@@ -200,6 +246,10 @@ function user_management_activate(array $admin, int $userId, array $input): arra
             $pdo->rollBack();
             return ['This account is not awaiting setup. Reload User Management.'];
         }
+        if (user_management_is_shared_office_email($values['email'])) {
+            $pdo->rollBack();
+            return ['This email is shared by multiple designated employees. Provide an individual login email.'];
+        }
         $roleId = user_management_role_id($values['role']);
         if (!$roleId) {
             $pdo->rollBack();
@@ -260,6 +310,11 @@ function user_management_update(array $admin, int $userId, array $input): array
         if ($target['status'] === 'pending_setup') {
             $pdo->rollBack();
             return ['Complete the pending account setup, including a password, before changing its status.'];
+        }
+        if (strcasecmp((string)$target['email'], $values['email']) !== 0
+            && user_management_is_shared_office_email($values['email'])) {
+            $pdo->rollBack();
+            return ['This email is shared by several designated employees. Choose an individual login email.'];
         }
         $originalRoles = user_roles($userId);
         if ((int)$admin['id'] === $userId &&
