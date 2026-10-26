@@ -222,10 +222,15 @@ try {
                 } else {
                     show_error('Invalid user edit operation.',400);
                 }
-                if ($errors) view_user_edit((int)$id,$errors);
-                else {
+                $fromSetupModal = $action === 'activate'
+                    && (string)($_POST['setup_origin'] ?? '') === 'user_management_modal';
+                if ($errors) {
+                    if ($fromSetupModal) view_user_management($errors,(int)$id);
+                    else view_user_edit((int)$id,$errors);
+                } else {
                     flash('success',$success);
-                    go('user_edit',['id'=>(int)$id]);
+                    if ($fromSetupModal) go('user_management');
+                    else go('user_edit',['id'=>(int)$id]);
                 }
             } else {
                 view_user_edit((int)$id);
