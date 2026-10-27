@@ -48,10 +48,12 @@ function profile_context(array $user): array
 function initialize_profile_account_fields(int $userId, string $userKind): void
 {
     try {
-        $username = 'fpuser' . str_pad((string)$userId, 6, '0', STR_PAD_LEFT);
+        $table = $userKind === 'applicant' ? 'user_client' : 'users';
+        $username = ($userKind === 'applicant' ? 'fpclient' : 'fpuser')
+            . str_pad((string)$userId, 6, '0', STR_PAD_LEFT);
         $office = $userKind === 'internal' ? 'Regional Office' : 'External Applicant';
         db()->prepare(
-            "UPDATE users
+            "UPDATE {$table}
              SET username=COALESCE(NULLIF(username,''),?),
                  office_level=COALESCE(NULLIF(office_level,''),?)
              WHERE id=?"
@@ -153,9 +155,11 @@ function profile_storage_root(): string
     return PROJECT_ROOT . '/storage/profile_photos';
 }
 
-function store_profile_photo(int $userId, array $upload): array
+function store_profile_photo(int $userId, array $upload, string $kind = 'internal'): array
 {
-    $relativeDir = 'profile_photos/' . $userId;
+    // Separate storage namespaces prevent equal staff/client IDs sharing a folder.
+    $relativeDir = $kind === 'applicant'
+        ? 'profile_photos/clients/' . $userId : 'profile_photos/' . $userId;
     $absoluteDir = PROJECT_ROOT . '/storage/' . $relativeDir;
 
     if (!is_dir($absoluteDir) && !mkdir($absoluteDir, 0700, true) && !is_dir($absoluteDir)) {
@@ -205,8 +209,9 @@ function process_profile_update(array $user, array $data, array $files): array
     }
 
     if ($email !== '') {
-        $duplicate = query_one('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1', [$email, (int)$user['id']]);
-        if ($duplicate) $errors[] = 'Another account already uses this email address.';
+        if (email_assigned_to_other_account($email, (string)$user['user_kind'], (int)$user['id'])) {
+            $errors[] = 'Another account already uses this email address.';
+        }
     }
 
     $upload = profile_upload_details($files['profile_photo'] ?? null);
@@ -219,28 +224,34 @@ function process_profile_update(array $user, array $data, array $files): array
 
     try {
         if (!isset($upload['none'])) {
-            $newStored = store_profile_photo((int)$user['id'], $upload);
+            $newStored = store_profile_photo((int)$user['id'], $upload, (string)$user['user_kind']);
         }
 
         $pdo->beginTransaction();
-        $locked = query_one('SELECT id,user_kind,name,email,profile_photo FROM users WHERE id=? FOR UPDATE', [(int)$user['id']]);
+        $table = principal_table($user);
+        $locked = query_one("SELECT id,user_kind,name,email,profile_photo FROM {$table} WHERE id=? FOR UPDATE", [(int)$user['id']]);
         if (!$locked) throw new RuntimeException('User account was not found.');
 
         $newPhoto = $newStored['relative'] ?? (string)($locked['profile_photo'] ?? '');
 
-        $pdo->prepare('UPDATE users SET name=?,email=?,profile_photo=? WHERE id=?')
+        $pdo->prepare("UPDATE {$table} SET name=?,email=?,profile_photo=? WHERE id=?")
             ->execute([$name, $email, $newPhoto !== '' ? $newPhoto : null, (int)$user['id']]);
 
         if ((string)$locked['user_kind'] === 'applicant') {
-            $pdo->prepare('UPDATE applicant_registrations SET representative_name=? WHERE user_id=?')
+            $pdo->prepare('UPDATE applicant_registrations SET representative_name=? WHERE client_id=?')
                 ->execute([$name, (int)$user['id']]);
         }
 
-        audit((int)$user['id'], 'profile.updated', 'user', (int)$user['id'], [
+        $details = [
             'name_changed' => $name !== (string)$locked['name'],
             'email_changed' => $email !== strtolower((string)$locked['email']),
             'photo_replaced' => $newStored !== null,
-        ]);
+        ];
+        if ($table === 'user_client') {
+            audit_client((int)$user['id'], 'profile.updated', 'client', (int)$user['id'], $details);
+        } else {
+            audit((int)$user['id'], 'profile.updated', 'user', (int)$user['id'], $details);
+        }
 
         $pdo->commit();
 
@@ -249,7 +260,7 @@ function process_profile_update(array $user, array $data, array $files): array
         }
 
         session_regenerate_id(true);
-        $_SESSION['user_id'] = (int)$user['id'];
+        $_SESSION[$user['user_kind'] === 'applicant' ? 'client_id' : 'user_id'] = (int)$user['id'];
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
         return [];
@@ -274,18 +285,20 @@ function remove_profile_photo(array $user): array
 
     try {
         $pdo->beginTransaction();
-        $locked = query_one('SELECT id,profile_photo FROM users WHERE id=? FOR UPDATE', [(int)$user['id']]);
+        $table = principal_table($user);
+        $locked = query_one("SELECT id,profile_photo FROM {$table} WHERE id=? FOR UPDATE", [(int)$user['id']]);
         if (!$locked) throw new RuntimeException('User account was not found.');
 
         $old = trim((string)($locked['profile_photo'] ?? ''));
-        $pdo->prepare('UPDATE users SET profile_photo=NULL WHERE id=?')->execute([(int)$user['id']]);
-        audit((int)$user['id'], 'profile.photo_removed', 'user', (int)$user['id']);
+        $pdo->prepare("UPDATE {$table} SET profile_photo=NULL WHERE id=?")->execute([(int)$user['id']]);
+        if ($table === 'user_client') audit_client((int)$user['id'], 'profile.photo_removed', 'client', (int)$user['id']);
+        else audit((int)$user['id'], 'profile.photo_removed', 'user', (int)$user['id']);
         $pdo->commit();
 
         if ($old !== '') delete_profile_photo_relative($old);
 
         session_regenerate_id(true);
-        $_SESSION['user_id'] = (int)$user['id'];
+        $_SESSION[$user['user_kind'] === 'applicant' ? 'client_id' : 'user_id'] = (int)$user['id'];
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         return [];
     } catch (Throwable $e) {
