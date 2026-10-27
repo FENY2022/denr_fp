@@ -77,14 +77,16 @@ function register_applicant(array $values, string $email, string $password, stri
     $stored = [];
     try {
         $pdo->beginTransaction();
-        $stmt = $pdo->prepare("INSERT INTO users (name,email,password_hash,user_kind,status) VALUES (?,?,?,'applicant','pending_review')");
+        if (email_assigned_to_other_account(strtolower(trim($email)), 'applicant')) {
+            $pdo->rollBack();
+            return ['This email is already registered. Use your existing account or choose another email.'];
+        }
+        $stmt = $pdo->prepare("INSERT INTO user_client (name,email,password_hash,user_kind,status) VALUES (?,?,?,'applicant','pending_review')");
         $stmt->execute([$values['representative_name'],strtolower(trim($email)),password_hash($password, PASSWORD_DEFAULT)]);
         $uid = (int)$pdo->lastInsertId();
         initialize_profile_account_fields($uid, 'applicant');
-        $role = query_one('SELECT id FROM roles WHERE code=?', ['applicant']);
-        if (!$role) throw new RuntimeException('Roles have not been seeded.');
-        $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$uid,(int)$role['id']]);
-        $stmt = $pdo->prepare('INSERT INTO applicant_registrations (user_id,company_name,company_address,representative_name,representative_position,contact_number) VALUES (?,?,?,?,?,?)');
+        // Client identity is inferred from user_client, not DENR user_roles.
+        $stmt = $pdo->prepare('INSERT INTO applicant_registrations (client_id,company_name,company_address,representative_name,representative_position,contact_number) VALUES (?,?,?,?,?,?)');
         $stmt->execute([$uid,$values['company_name'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number']]);
         $regId = (int)$pdo->lastInsertId();
         foreach ($attachments['items'] as $attachment) {
@@ -93,7 +95,7 @@ function register_applicant(array $values, string $email, string $password, stri
                 $attachment['info'], $attachment['id_type']
             );
         }
-        audit($uid,'registration.submitted','registration',$regId,['revision'=>1]);
+        audit_client($uid,'registration.submitted','registration',$regId,['revision'=>1]);
         notify_role(
             'lpdd_fus',
             'New Applicant Registration',
@@ -106,7 +108,7 @@ function register_applicant(array $values, string $email, string $password, stri
         // The registration is durable before attempting SMTP; mail problems never undo it.
         try {
             $sent = send_registration_acknowledgment_email(strtolower(trim($email)), $values['representative_name']);
-            audit($uid, 'registration.email_acknowledgment', 'registration', $regId, [
+            audit_client($uid, 'registration.email_acknowledgment', 'registration', $regId, [
                 'delivery' => $sent ? 'smtp' : 'not_sent'
             ]);
         } catch (Throwable $mailError) {
@@ -129,7 +131,7 @@ function register_applicant(array $values, string $email, string $password, stri
 
 function registration_for_user(int $uid): ?array
 {
-    return query_one('SELECT * FROM applicant_registrations WHERE user_id=?', [$uid]);
+    return query_one('SELECT * FROM applicant_registrations WHERE client_id=?', [$uid]);
 }
 
 function latest_review(int $registrationId): ?array
@@ -154,7 +156,7 @@ function revise_registration(array $user, array $values, array $files, array $at
     $stored = [];
     try {
         $pdo->beginTransaction();
-        $locked = query_one('SELECT * FROM users WHERE id=? FOR UPDATE', [(int)$user['id']]);
+        $locked = query_one('SELECT * FROM user_client WHERE id=? FOR UPDATE', [(int)$user['id']]);
         if (!$locked || $locked['status'] !== 'needs_correction') {
             $pdo->rollBack();
             return ['Registration may be resubmitted only when corrections are required.'];
@@ -164,14 +166,14 @@ function revise_registration(array $user, array $values, array $files, array $at
         $revision = (int)$reg['revision'] + 1;
         $pdo->prepare('UPDATE applicant_registrations SET company_name=?,company_address=?,representative_name=?,representative_position=?,contact_number=?,revision=?,submitted_at=NOW() WHERE id=?')
             ->execute([$values['company_name'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number'],$revision,(int)$reg['id']]);
-        $pdo->prepare("UPDATE users SET name=?,status='pending_review' WHERE id=?")->execute([$values['representative_name'],(int)$user['id']]);
+        $pdo->prepare("UPDATE user_client SET name=?,status='pending_review' WHERE id=?")->execute([$values['representative_name'],(int)$user['id']]);
         foreach ($attachments['items'] as $attachment) {
             $stored[] = store_reg_document(
                 $pdo, (int)$reg['id'], (int)$user['id'], $revision,
                 $attachment['document_type'], $attachment['info'], $attachment['id_type']
             );
         }
-        audit((int)$user['id'],'registration.resubmitted','registration',(int)$reg['id'],['revision'=>$revision]);
+        audit_client((int)$user['id'],'registration.resubmitted','registration',(int)$reg['id'],['revision'=>$revision]);
         notify_role(
             'lpdd_fus',
             'Registration Resubmitted',
@@ -198,7 +200,7 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
     $pdo = db();
     try {
         $pdo->beginTransaction();
-        $reg = query_one('SELECT ar.*,u.status,u.email FROM applicant_registrations ar JOIN users u ON u.id=ar.user_id WHERE ar.id=? FOR UPDATE', [$registrationId]);
+        $reg = query_one('SELECT ar.*,u.status,u.email FROM applicant_registrations ar JOIN user_client u ON u.id=ar.client_id WHERE ar.id=? FOR UPDATE', [$registrationId]);
         if (!$reg || $reg['status'] !== 'pending_review') {
             $pdo->rollBack();
             return ['This registration is no longer pending review. Reload the queue.'];
@@ -212,13 +214,13 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
             ->execute([$registrationId,(int)$reviewer['id'],(int)$reg['revision'],$decision,$remarks ?: null]);
         $pdo->prepare('UPDATE applicant_registrations SET last_reviewed_at=NOW() WHERE id=?')->execute([$registrationId]);
         if ($decision === 'approved') {
-            $pdo->prepare("UPDATE users SET status='active',activated_at=NOW() WHERE id=?")->execute([(int)$reg['user_id']]);
+            $pdo->prepare("UPDATE user_client SET status='active',activated_at=NOW() WHERE id=?")->execute([(int)$reg['client_id']]);
         } else {
-            $pdo->prepare("UPDATE users SET status='needs_correction' WHERE id=?")->execute([(int)$reg['user_id']]);
+            $pdo->prepare("UPDATE user_client SET status='needs_correction' WHERE id=?")->execute([(int)$reg['client_id']]);
         }
         if ($decision === 'approved') {
-            create_notification(
-                (int)$reg['user_id'],
+            create_client_notification(
+                (int)$reg['client_id'],
                 'Registration Approved',
                 'Your FP-OMS registration has been approved and your account is now active.',
                 'check-circle',
@@ -226,8 +228,8 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
                 'my_registration'
             );
         } else {
-            create_notification(
-                (int)$reg['user_id'],
+            create_client_notification(
+                (int)$reg['client_id'],
                 'Registration Corrections Required',
                 'LPDD-FUS returned your registration for correction. Open My Registration to review the remarks.',
                 'exclamation-circle',
@@ -262,8 +264,9 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
 
 function send_registration_document(array $viewer, int $documentId): never
 {
-    $doc = query_one('SELECT rd.*,ar.user_id FROM registration_documents rd JOIN applicant_registrations ar ON ar.id=rd.registration_id WHERE rd.id=?',[$documentId]);
-    if (!$doc || ((int)$doc['user_id'] !== (int)$viewer['id'] &&
+    $doc = query_one('SELECT rd.*,ar.client_id FROM registration_documents rd JOIN applicant_registrations ar ON ar.id=rd.registration_id WHERE rd.id=?',[$documentId]);
+    if (!$doc || (!(($viewer['user_kind'] ?? '') === 'applicant'
+            && (int)$doc['client_id'] === (int)$viewer['id']) &&
             !has_role($viewer,'lpdd_fus') && !has_role($viewer,'super_admin'))) {
         show_error('Document not found or access not permitted.', 404);
     }
