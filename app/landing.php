@@ -138,8 +138,7 @@ function view_landing(): void
 
     echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>';
     if ($submission !== null) {
-        echo '<script>try{localStorage.removeItem("fpoms.registration.form.v1")}catch(e){};'
-            . 'new bootstrap.Modal(document.getElementById("registration-success-modal"),{backdrop:"static",keyboard:false}).show();</script>';
+        echo '<script src="assets/landing-registration-success.js?v=1"></script>';
     }
     echo '</body></html>';
 }
