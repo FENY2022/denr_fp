@@ -102,6 +102,10 @@ try {
                     $errors = registration_otp_verify(trim((string)($_POST['otp_code'] ?? '')));
                     if (!$errors) {
                         flash('success', 'Email verified; registration submitted for FUU validation.');
+                        if (!empty($_SESSION['registration_ack_delivery_failed'])) {
+                            flash('warning', 'Your email is verified, but delivery of the registration acknowledgment could not be confirmed. Please check your inbox and contact the system administrator if it does not arrive.');
+                        }
+                        unset($_SESSION['registration_ack_delivery_failed']);
                         go('login');
                     }
                     view_verify_registration_otp($errors);
