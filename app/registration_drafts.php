@@ -49,14 +49,28 @@ function registration_draft_public_list(): array
     ], registration_draft_list());
 }
 
-function registration_draft_list_html(): string
+/**
+ * Render one upload list immediately below its respective file input controls.
+ * The ID and Supporting Document sections have independent progress queues and
+ * counters but share the same server-side session-bound draft records.
+ */
+function registration_draft_list_html(string $kind = 'id'): string
 {
-    $docs = registration_draft_public_list();
-    $html = '<section class="registration-selected-files" id="registration-draft-list" aria-live="polite">'
+    if (!in_array($kind, ['id','supporting'], true)) {
+        throw new InvalidArgumentException('Unknown registration attachment category.');
+    }
+    $type = $kind === 'id' ? 'valid_id' : 'supporting_document';
+    $docs = array_values(array_filter(
+        registration_draft_public_list(),
+        static fn(array $row): bool => $row['document_type'] === $type
+    ));
+    $id = $kind === 'id' ? 'registration-draft-list' : 'registration-supporting-draft-list';
+    $html = '<section class="registration-selected-files" id="' . $id
+        . '" data-draft-list-kind="' . $kind . '" aria-live="polite">'
         . '<div class="selected-files-heading"><span>SELECTED FILES</span>'
         . '<span class="selected-files-total" data-draft-count>' . count($docs) . '</span></div>'
-        . '<p class="selected-files-guidance">Files are securely saved as you select them and stay here '
-        . 'if you refresh this page in the same browser session. Unsubmitted uploads expire in 24 hours.</p>'
+        . '<p class="selected-files-guidance">Saved files stay available after refresh in the same '
+        . 'browser session. Unsubmitted uploads expire in 24 hours.</p>'
         . '<div class="selected-upload-queue" data-upload-queue></div>'
         . '<ul class="selected-file-list" data-draft-items>';
     foreach ($docs as $doc) {
