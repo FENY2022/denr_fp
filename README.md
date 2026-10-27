@@ -7,9 +7,9 @@
 
 ## Implemented in Phase 1
 
-- Public external applicant registration with one-time account creation and an optional SMTP acknowledgment email after successful submission.
+- Public external applicant registration now saves credentials in **user_client**, separate from DENR personnel in **users**, with distinct session identity and optional SMTP acknowledgment after submission.
 - Applicant name, company, contact details, and multiple Valid ID uploads with individual ID Type selections (PDF/JPEG/PNG).
-- Up to 5 Valid IDs and 5 supporting documents per submission; all retained revisions remain visible to the applicant and LPDD-FUS, with private storage, MIME/type/size checks, and per-request download authorization.
+- Up to 5 Valid IDs and 5 supporting documents per submission. On public registration, each selected file uploads immediately to **private draft storage**, so it stays listed after reload in the same browser session. Drafts expire after 24 hours and successful registration moves their content into permanent private storage. Existing document revisions, MIME checks and download authorization remain.
 - Email-address login, PHP password hashing, CSRF tokens, hardened session cookies, throttled login attempts, password-change workflow, and one-time password-reset links.
 - RICTU Super Administrator can provision DENR internal users and assign a primary role; passwords are forced to change at first login.
 - LPDD-FUS review queue and individual review details: approve/activate, or return with mandatory correction remarks.
@@ -72,9 +72,36 @@ mysql -u root -p denr_fp_oms < database/007_registration_id_types.sql
 mysql -u root -p denr_fp_oms < database/008_user_management.sql
 # Merge the two prior tables into users; REMOVE redundant user_designations (import ONCE):
 mysql -u root -p denr_fp_oms < database/009_merge_designations_into_users.sql
+# ONE TIME client migration 011 (requires the existing permit scaffold tables):
+mysql -u root -p denr_fp_oms < database/011_separate_client_accounts.sql
+# Registration draft attachments (refresh-safe staging):
+mysql -u root -p denr_fp_oms < database/012_registration_draft_uploads.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
+
+
+**For an existing XAMPP installation:** Export a complete SQL backup of `denr_fp_oms` and back up `storage/`. Shut down client registration and review operations while importing. Import **011 first, then 012** in phpMyAdmin. Both require pre-existing FP-OMS schema, including the permit scaffold tables. The 011 migration is **one-time and non-repeatable**: it preserves existing client IDs/password hashes, remaps the applicant foreign keys and moves only client rows out of `users`. Do not rerun if import partially fails; restore the backup and investigate. The earlier 008/009 merges should not be repeated if already completed. 010 remains optional for missing office-reference emails.
+
+## Client account separation and refresh-safe registration drafts
+
+**DENR personnel:** `users` + internal `user_roles`. **External clients/applicants:** `user_client`, with distinct PHP session key `client_id`. Staff and client numeric IDs can overlap without granting each other's permissions. Migration 011 migrates existing applicants, including their password hashes, registration links, history, notifications and password-reset links. FUU reviewers remain staff in `users`.
+
+**On /register:** choosing a file saves it immediately in `storage/registration_drafts/` using a CSRF-protected HTTP request. The Saved Attachments section shows the uploaded ID/type or supporting file even when the page refreshes. Saved files can be removed without resetting the entire form. Invalid registration fields do not erase saved uploads; only after successful registration are they copied into permanent registration documents and the temporary originals removed. **Maximum 5 Valid IDs and 5 supporting documents**, each restricted to PDF/JPG/PNG and the server's configured maximum size. Drafts **expire after 24 hours** and are only recoverable while using the same browser's PHP session. Clearing cookies or changing browsers may prevent recovery. This feature does not persist passwords or other form entries.
+
+**Daily cleanup of expired anonymous drafts** (Windows Task Scheduler or CLI; change folder path if needed):
+
+```powershell
+C:\xampp\php\php.exe C:\xampp\htdocs\denr_fp\scripts\cleanup_registration_drafts.php
+```
+
+**Read-only verification after importing migrations 011 and 012:**
+
+```powershell
+C:\xampp\php\php.exe C:\xampp\htdocs\denr_fp\scripts\verify_client_separation.php
+```
+
+Run end-to-end tests in a staging database for existing and new clients, saved uploads surviving refresh, removal, form validation errors, first login, profile editing, LPDD-FUS review and password resets. GitHub static checks are **not** a substitute for real MariaDB/PHP browser testing.
 
 ## 3. Configure the application
 
@@ -142,7 +169,7 @@ The authenticated top-right user card and the sidebar user card open the clean r
 
 The signed-in user can update only their own full name and optional email address. Full name is validated at 3–160 characters. A supplied email must be valid and unique; leaving it blank preserves the current login email so email-based authentication is not broken. Username, normalized role assignment, office level/assignment and account status are rendered read-only and ignored from ordinary profile POSTs. Applicant full-name changes are synchronized to the applicant registration representative name. Successful updates are audited, regenerate the authenticated session ID and use POST-Redirect-GET.
 
-Profile photos are stored under the private `storage/profile_photos/<user-id>/` tree, outside the public web root. The database stores only the relative path. The protected `/profile-photo` route serves only the currently authenticated user's photo. Uploads are limited server-side to real JPG/PNG/WEBP images, maximum 2 MB and minimum 100×100 pixels, with MIME/content inspection and randomized filenames. Replacements delete the previous file only after a successful database commit; a newly written file is deleted if the database update fails. Existing photos can be removed through a CSRF-protected confirmation POST.
+Staff photos are stored under `storage/profile_photos/<user-id>/`; new applicant photos use `storage/profile_photos/clients/<client-id>/`, all private, outside the public web root. The database stores only the relative path. The protected `/profile-photo` route serves only the currently authenticated user's photo. Uploads are limited server-side to real JPG/PNG/WEBP images, maximum 2 MB and minimum 100×100 pixels, with MIME/content inspection and randomized filenames. Replacements delete the previous file only after a successful database commit; a newly written file is deleted if the database update fails. Existing photos can be removed through a CSRF-protected confirmation POST.
 
 The browser editor supports a device image picker and camera capture. Camera access is same-origin only, enumerates available cameras after permission, supports switching/restarting, mirrors front-camera preview without incorrectly mirroring the raw capture, and stops all media tracks when the camera modal closes. Before upload, the user can drag/reposition, zoom, crop to a square and flip the image; the adjusted result is exported as a 600×600 JPEG and is still fully revalidated by the server.
 
@@ -360,6 +387,7 @@ denr-fp-oms/
 │   ├── domain.php               # status, validators, role definitions
 │   ├── registration.php         # applicant submission/review/uploads
 │   ├── registration_attachments.php # multiple uploads / ID metadata / file listings
+│   ├── registration_drafts.php # refresh-safe private temporary uploads
 │   ├── registration_mail.php    # applicant acknowledgment and review emails
 │   ├── staff.php                # legacy provisioning helper
 │   ├── user_management.php      # RICTU user lifecycle + admin authorization
@@ -376,7 +404,9 @@ denr-fp-oms/
 │   ├── 007_registration_id_types.sql # multiple ID uploads metadata
 │   ├── 008_user_management.sql  # former designation staging schema
 │   ├── 009_merge_designations_into_users.sql # one-table safe consolidation
-│   └── 010_restore_office_email_references.sql # optional reference data repair
+│   ├── 010_restore_office_email_references.sql # optional reference data repair
+│   ├── 011_separate_client_accounts.sql # separate applicant authentication
+│   └── 012_registration_draft_uploads.sql # private session draft attachments
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
@@ -388,6 +418,8 @@ denr-fp-oms/
 │   ├── seed_roles.php
 │   ├── create_admin.php
 │   ├── verify_user_merge.php     # read-only post-migration verification
+│   ├── verify_client_separation.php # read-only account split verification
+│   ├── cleanup_registration_drafts.php # daily expired draft removal
 │   ├── reset_password.php
 │   ├── configure_smtp.php        # safely writes Gmail SMTP values to local .env
 │   └── test_smtp.php
