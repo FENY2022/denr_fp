@@ -41,7 +41,13 @@ function registration_login_qr_png(string $loginUrl): ?string
 
         // Pad the last byte with white pixels outside the picture width.
         $bits .= str_repeat('1', $pad);
-        $scanline = "\x00" . pack('B*', $bits); // PNG filter type 0 (None).
+        // PHP pack() has no binary-bit-string (B) format. Encode the
+        // padded scanline in 8-bit chunks instead (MSB first).
+        $packedRow = '';
+        for ($offset = 0, $length = strlen($bits); $offset < $length; $offset += 8) {
+            $packedRow .= chr(bindec(substr($bits, $offset, 8)));
+        }
+        $scanline = "\x00" . $packedRow; // PNG filter type 0 (None).
         $scanlines .= str_repeat($scanline, $scale);
     }
 
