@@ -92,6 +92,19 @@ try {
                 view_register($errors);
             } else view_register();
             break;
+        case 'register_draft_upload':
+            if (!$post) registration_draft_json(['error'=>'Upload requires POST.'],405);
+            if ($loggedIn) registration_draft_json(['error'=>'Sign out before registering.'],403);
+            check_csrf();
+            $result = registration_draft_upload($_POST,$_FILES);
+            registration_draft_json($result, isset($result['error']) ? 422 : 200);
+        case 'register_draft_delete':
+            if (!$post) registration_draft_json(['error'=>'Removal requires POST.'],405);
+            if ($loggedIn) registration_draft_json(['error'=>'Sign out before registering.'],403);
+            check_csrf();
+            $draftId = filter_var($_POST['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+            $result = registration_draft_delete((int)$draftId);
+            registration_draft_json($result, isset($result['error']) ? 422 : 200);
         case 'dashboard':
             view_dashboard();
             break;
