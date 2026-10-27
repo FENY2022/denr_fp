@@ -24,7 +24,7 @@ function view_verify_registration_otp(array $errors = [], array $notices = []): 
             . 'Check SMTP configuration and retry using Resend OTP after 60 seconds.</div>';
     }
     $html .= '<p class="text-secondary">Enter the 6-digit code sent to <strong>'
-        . e($mask) . '</strong>. FUU review begins only after verification.</p>'
+        . e($mask) . '</strong>. Forest Utilization Section (FUU) review begins only after verification.</p>'
         . '<form method="post" action="' . url('verify_registration_otp') . '">'
         . csrf_field()
         . '<input type="hidden" name="otp_action" value="verify">'
