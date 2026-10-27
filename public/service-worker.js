@@ -1,7 +1,7 @@
 'use strict';
 // Cache public static assets only. Authenticated pages, uploads, API responses,
 // form posts and user documents must never enter the service worker cache.
-const CACHE_NAME = 'fp-oms-static-v20';
+const CACHE_NAME = 'fp-oms-static-v21';
 const ASSETS = ['./assets/style.css?v=19', './assets/landing.css', './assets/app-shell.js?v=19', './assets/fpoms-icon.svg', './assets/fpoms-icon-192.png', './assets/fpoms-icon-512.png', './manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).catch(() => undefined));
