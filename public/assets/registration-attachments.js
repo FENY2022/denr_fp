@@ -103,6 +103,7 @@
     const row = items[0].cloneNode(true);
     row.dataset.rowIndex = String(index);
     delete row.dataset.uploading;
+    row._waitingIdCard = null;
     row.querySelectorAll('[id]').forEach(field => {
       field.id = field.id.replace(/_\d+$/, '_' + index);
     });
@@ -165,6 +166,35 @@
     progress.append(bar);
     card.append(icon, text, close, progress);
     return { card, message, bar };
+  }
+
+  function clearWaitingForIdType(row) {
+    if (row._waitingIdCard) row._waitingIdCard.remove();
+    row._waitingIdCard = null;
+  }
+
+  function showWaitingForIdType(row, file) {
+    if (!uploadQueue) return;
+    clearWaitingForIdType(row);
+    const waiting = selectedFileCard({
+      name: file.name,
+      status: 'Waiting for ID Type — select an ID Type above to upload',
+      percent: 0
+    });
+    waiting.card.classList.add('is-waiting');
+    const remove = waiting.card.querySelector('.selected-file-remove');
+    if (remove) {
+      remove.disabled = false;
+      remove.addEventListener('click', () => {
+        const input = row.querySelector('[data-attachment-file]');
+        if (input) input.value = '';
+        clearWaitingForIdType(row);
+        refresh();
+        setFeedback('Selected Valid ID removed.');
+      });
+    }
+    uploadQueue.append(waiting.card);
+    row._waitingIdCard = waiting.card;
   }
 
   function renderDrafts(documents) {
@@ -238,9 +268,11 @@
     }
     const selectedType = kind === 'id' ? (row.querySelector('[data-id-type]')?.value || '') : '';
     if (kind === 'id' && !selectedType) {
-      setFeedback('Select the ID Type to save this ID attachment.', true);
+      showWaitingForIdType(row, selected);
+      setFeedback('Select the ID Type to start uploading this Valid ID.');
       return;
     }
+    clearWaitingForIdType(row);
     if (savedCount(kind) >= limit[kind]) {
       setFeedback('Maximum saved files reached. Remove an attachment first.', true);
       return;
@@ -319,6 +351,7 @@
       if (!remove) return;
       const row = remove.closest('[data-attachment-row]');
       if (!row || rows(kind).length <= 1 || row.dataset.uploading === '1') return;
+      clearWaitingForIdType(row);
       row.remove();
       setFeedback('');
       refresh();
@@ -329,7 +362,10 @@
       refresh();
       if (draftMode) {
         const row = event.target.closest('[data-attachment-row]');
-        if (row) void stageFile(kind, row);
+        if (row) {
+          if (event.target.matches('[data-attachment-file]')) clearWaitingForIdType(row);
+          void stageFile(kind, row);
+        }
       }
     });
   }
