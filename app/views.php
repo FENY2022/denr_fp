@@ -187,6 +187,7 @@ function view_register(array $errors = []): void
         . '<p class="text-secondary">Create a one-time applicant account. LPDD-FUS will review the submitted information before activation.</p>'
         . '<form id="applicant-registration-form" method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
         . registration_fields()
+        . registration_draft_list_html()
         . '<div class="mt-4 d-flex gap-3 align-items-center flex-wrap"><button class="btn btn-primary" type="submit">Submit for review</button>'
         . '<a href="' . url('login') . '">Already registered? Sign in</a></div></form></div></div>'
         . '<div class="col-lg-4"><div class="panel soft"><h2 class="h5">Account activation</h2>'
@@ -194,7 +195,7 @@ function view_register(array $errors = []): void
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
         . '</div></div></div>'
         . '<script src="assets/register-password.js?v=1" defer></script>'
-        . '<script src="assets/registration-attachments.js?v=1" defer></script>';
+        . '<script src="assets/registration-attachments.js?v=2" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
@@ -255,7 +256,7 @@ function view_applicant_registration(array $user, array $errors = []): void
             . '<form action="' . url('registration_update') . '" method="post" enctype="multipart/form-data">' . csrf_field()
             . registration_fields($reg, false)
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
-            . '<script src="assets/registration-attachments.js?v=1" defer></script>';
+            . '<script src="assets/registration-attachments.js?v=2" defer></script>';
     }
     render_page('My Registration', $html);
 }
