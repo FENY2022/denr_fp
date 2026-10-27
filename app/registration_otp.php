@@ -197,6 +197,14 @@ function registration_otp_verify(string $submitted): array
             error_log('Post-OTP reviewer notification failure: ' . $notifyError->getMessage());
         }
 
+        // Reviewer emails are best-effort and must never reverse successful OTP verification.
+        try {
+            send_lpdd_fus_registration_alerts((int)$reg['id'],
+                (string)$locked['name'], (string)$reg['company_name']);
+        } catch (Throwable $reviewerMailError) {
+            error_log('Post-OTP LPDD-FUS email notification failure: ' . $reviewerMailError->getMessage());
+        }
+
         $_SESSION['registration_ack_delivery_failed'] = !$acknowledgmentSent;
         $_SESSION['registration_verified_applicant_name'] = (string)$locked['name'];
         return [];
