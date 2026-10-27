@@ -76,25 +76,77 @@ function send_registration_verification_link_email(string $email, string $name, 
     return smtp_send_html($email,$subject,registration_email_layout('Confirm Your Email Address',$name,$body),$plain);
 }
 
-/** Send only AFTER successful OTP verification for a committed registration. Never include passwords or ID attachments. */
+/**
+ * Return the configured FP-OMS login URL for applicant registration status.
+ * Do not derive email links from incoming HTTP Host headers. Remote
+ * deployments require HTTPS; HTTP loopback is allowed only for local testing.
+ */
+function registration_applicant_login_url(): ?string
+{
+    $base = rtrim(trim(env_value('APP_URL')), '/');
+    $parts = parse_url($base);
+    if ($parts === false || filter_var($base, FILTER_VALIDATE_URL) === false
+        || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+        || isset($parts['query']) || isset($parts['fragment'])) return null;
+
+    $scheme = strtolower((string)($parts['scheme'] ?? ''));
+    $host = strtolower(trim((string)$parts['host'], '[]'));
+    $loopback = in_array($host, ['localhost', '127.0.0.1', '::1'], true);
+    if ($scheme !== 'https' && !($scheme === 'http' && $loopback)) return null;
+
+    return $base . '/login';
+}
+
+/**
+ * Applicant acknowledgment is sent immediately AFTER successful email
+ * verification and registration commit. It is separate from the LPDD/FUS
+ * notification. Never email passwords, ID attachments, or secure tokens.
+ */
 function send_registration_acknowledgment_email(string $email, string $name): bool
 {
-    $subject = 'Acknowledgment of Registration – DENR CARAGA FP-OMS';
+    $subject = 'Email Successfully Verified! – DENR CARAGA FP-OMS';
+    $loginUrl = registration_applicant_login_url();
+    $safeLoginUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
     $body = '<p style="line-height:1.65;margin:0 0 15px">This is to acknowledge that we have successfully received your applicant account registration submitted through the <strong>DENR CARAGA Feasibility Permit Online Management System (FP-OMS)</strong>.</p>'
-        . '<p style="line-height:1.65;margin:0 0 15px">Please be informed that your registration is currently <strong>PENDING VALIDATION</strong> by the concerned Forest Utilization Section (FUU), through the assigned LPDD-FUS reviewing personnel. Your submitted information and supporting documents will be checked for completeness, accuracy, and compliance with applicable registration requirements.</p>'
+        . '<p style="line-height:1.65;margin:0 0 15px">Please be informed that your registration is currently <strong>PENDING VALIDATION</strong> by the concerned <strong>Forest Utilization Section (FUU)</strong>, through the assigned LPDD-FUS reviewing personnel. Your submitted information and supporting documents will be checked for completeness, accuracy, and compliance with applicable registration requirements.</p>'
         . '<p style="line-height:1.65;margin:0 0 15px">Once validation is completed, you will receive another email regarding your account status. If additional information, corrections, or supporting documents are required, you will be notified accordingly.</p>'
         . '<p style="line-height:1.65;margin:0 0 15px"><strong>Successful registration does not automatically constitute account approval or issuance of a Feasibility Permit.</strong> You may sign in to FP-OMS to monitor your registration status.</p>'
         . '<p style="line-height:1.65;margin:0 0 15px">Thank you for using DENR CARAGA FP-OMS. We appreciate your cooperation and commitment to responsible environmental management.</p>';
-    $plain = "Greetings from the Department of Environment and Natural Resources!\n\n"
+
+    if ($loginUrl !== null) {
+        $body .= '<p style="margin:24px 0"><a href="' . $safeLoginUrl
+            . '" style="background:#08783f;color:#ffffff;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">'
+            . 'Login to FP-OMS – Check Registration Status</a></p>'
+            . '<p style="line-height:1.65;font-size:13px">If the button does not work, open this link:<br>'
+            . '<a href="' . $safeLoginUrl . '">' . $safeLoginUrl . '</a></p>';
+    } else {
+        error_log('FP-OMS applicant acknowledgment login link unavailable: set APP_URL to a reachable HTTPS address or HTTP localhost for local testing.');
+        $body .= '<p style="line-height:1.65;font-size:13px">To check your registration status, open your organization-approved FP-OMS website and sign in.</p>';
+    }
+
+    $plain = "Email Successfully Verified!\n\n"
+        . "Greetings from the Department of Environment and Natural Resources!\n\n"
         . "Dear {$name},\n\n"
         . "This is to acknowledge that we have successfully received your applicant account registration submitted through the DENR CARAGA Feasibility Permit Online Management System (FP-OMS).\n\n"
-        . "Your registration is PENDING VALIDATION by the concerned Forest Utilization Section (FUU), through the assigned LPDD-FUS reviewing personnel. Submitted information and supporting documents will be checked for completeness, accuracy, and applicable requirements.\n\n"
-        . "You will receive another email after validation. If corrections or further documents are required, you will be notified.\n\n"
-        . "Successful registration is not account approval or issuance of a Feasibility Permit. Sign in to FP-OMS to monitor your status.\n\n"
-        . "Thank you for using DENR CARAGA FP-OMS.\n\n"
-        . "Best regards,\nDENR CARAGA – Regional Office XIII\nFeasibility Permit Online Management System (FP-OMS)\n\n"
+        . "Please be informed that your registration is currently PENDING VALIDATION by the concerned Forest Utilization Section (FUU), through the assigned LPDD-FUS reviewing personnel. Your submitted information and supporting documents will be checked for completeness, accuracy, and compliance with applicable registration requirements.\n\n"
+        . "Once validation is completed, you will receive another email regarding your account status. If additional information, corrections, or supporting documents are required, you will be notified accordingly.\n\n"
+        . "Successful registration does not automatically constitute account approval or issuance of a Feasibility Permit. You may sign in to FP-OMS to monitor your registration status.\n\n"
+        . "Thank you for using DENR CARAGA FP-OMS. We appreciate your cooperation and commitment to responsible environmental management.\n\n"
+        . ($loginUrl !== null
+            ? "Login to FP-OMS – Check Registration Status:\n{$loginUrl}\n\n"
+            : "Open your organization-approved FP-OMS website and sign in to check your registration status.\n\n")
+        . "Best regards,\nDENR CARAGA – Regional Office XIII\n"
+        . "Feasibility Permit Online Management System (FP-OMS)\n"
+        . "Department of Environment and Natural Resources\n\n"
         . "This is a system-generated email. Please do not reply directly to this message.";
-    return smtp_send_html($email, $subject, registration_email_layout('Registration Received – Pending Validation', $name, $body), $plain);
+
+    return smtp_send_html(
+        $email,
+        $subject,
+        registration_email_layout('Email Successfully Verified!', $name, $body),
+        $plain
+    );
 }
 
 /** Send only after an LPDD-FUS decision has been committed. */
