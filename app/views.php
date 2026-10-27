@@ -265,10 +265,16 @@ function registration_verified_modal_html(bool $ackDeliveryFailed, string $appli
 
 function view_login(array $errors = []): void
 {
-    if (current_user()) go('dashboard');
+    if (current_user()) {
+        $loggedIn = current_user();
+        if (($_GET['next'] ?? '') === 'review-queue' && has_role($loggedIn, 'lpdd_fus')) go('review_queue');
+        go('dashboard');
+    }
+    $next = (($_GET['next'] ?? '') === 'review-queue') ? 'review-queue' : '';
     $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel">'
         . errors_html($errors) . '<p class="text-secondary">Sign in to your applicant or DENR internal account.</p>'
         . '<form method="post" action="' . url('login') . '">' . csrf_field()
+        . ($next !== '' ? '<input type="hidden" name="next" value="review-queue">' : '')
         . field('email','Email',form_value('email'),'email',true,'autocomplete="username" maxlength="190"')
         . field('password','Password','','password',true,'autocomplete="current-password"')
         . '<button class="btn btn-primary w-100" type="submit">Sign in</button>'
