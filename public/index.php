@@ -44,7 +44,8 @@ try {
         case 'login':
             if ($post) {
                 check_csrf();
-                $email = safe_post('email',190);
+                $hintEmail = reviewer_login_hint_email((string)($_POST['hint'] ?? ''));
+                $email = $hintEmail ?? safe_post('email',190);
                 if (authenticate($email,(string)($_POST['password'] ?? ''))) {
                     $loggedIn = current_user();
                     if (($_POST['next'] ?? '') === 'review-queue' && $loggedIn && has_role($loggedIn, 'lpdd_fus')) go('review_queue');
