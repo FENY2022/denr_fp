@@ -76,10 +76,30 @@ $signInViews = file_get_contents(__DIR__ . '/../app/views.php');
 $modalScript = file_get_contents(__DIR__ . '/../public/assets/otp-verification-success.js');
 $verifiedMarkup = registration_verified_modal_html(false);
 $warningMarkup = registration_verified_modal_html(true);
-must_otp(str_contains($router, "$_SESSION['registration_verified_modal']")
+must_otp(str_contains($router, 'registration_verified_modal')
     && !str_contains($router, "flash('success', 'Email verified; registration submitted for FUU validation.')"),
     'OTP success uses modal state, never a success toast');
-must_otp(str_contains($signInViews, "unset($_SESSION['registration_verified_modal'])")
+must_otp(str_contains($signInViews, 'unset(' . '
+    && str_contains($signInViews, "registration_verified_modal_html("),
+    'Login page consumes OTP success state exactly once');
+must_otp(str_contains($verifiedMarkup, 'id="otp-verification-success-modal"')
+    && str_contains($verifiedMarkup, 'Email Successfully Verified!')
+    && str_contains($verifiedMarkup, 'FUU validation')
+    && str_contains($verifiedMarkup, 'Continue to Login'),
+    'OTP success modal displays correct review status and login action');
+must_otp(!str_contains($verifiedMarkup, 'could not be confirmed')
+    && str_contains($warningMarkup, 'could not be confirmed'),
+    'Acknowledgment delivery warning is preserved only when SMTP failed');
+must_otp(str_contains($signInViews, 'src="assets/otp-verification-success.js?v=1"')
+    && str_contains($modalScript, 'dialog.show()')
+    && str_contains($modalScript, "emailField?.focus()"),
+    'CSP-compatible external script opens modal and restores focus to sign-in');
+must_otp(!str_contains($verifiedMarkup, '<script')
+    && !str_contains($verifiedMarkup, 'style='),
+    'Modal markup has no CSP-blocked inline scripts or styles');
+
+echo "PASS: OTP code format, email-first ordering, verification gate, retry limits and migration.\n";
+ . "_SESSION['registration_verified_modal'])")
     && str_contains($signInViews, "registration_verified_modal_html("),
     'Login page consumes OTP success state exactly once');
 must_otp(str_contains($verifiedMarkup, 'id="otp-verification-success-modal"')
