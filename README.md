@@ -214,7 +214,7 @@ WHERE TABLE_SCHEMA=DATABASE() AND
    OR (TABLE_NAME='audit_logs' AND COLUMN_NAME='actor_client_id'));
 ```
 
-Apply the **one-time SQL 011 and 013 migrations** only if needed, in their required order and after backing up `denr_fp_oms` plus private storage. **Do not rerun** a migration that has already completed or partially applied; restore/reconcile first. The CSP correction itself does not require new SQL. Refresh assets with `git pull origin main` and **Ctrl + Shift + R**, then test registration in XAMPP and verify the OTP email arrives before the acknowledgment.
+Apply the **one-time SQL 011 and 013 migrations** only if needed, in their required order and after backing up `denr_fp_oms` plus private storage. **Do not rerun** a migration that has already completed or partially applied; restore/reconcile first. The CSP correction itself does not require new SQL. Refresh assets with `git pull origin main` and **Ctrl + Shift + R**, then test registration in XAMPP and verify the email-confirmation link arrives before the acknowledgment.
 
 ## Forest Utilization Section (FUU) terminology
 
@@ -232,7 +232,7 @@ The current registration flow uses **one-time email confirmation links**, not si
 
 **Mobile QR prerequisite:** In the server's private environment file, set **APP_URL** to the actual reachable HTTPS URL (including any deployment subfolder). A QR generated from http://localhost or http://127.0.0.1 only works on the host computer; it **cannot open the system from a different phone**. With a missing/invalid URL, the email falls back to manual access instructions. QR generation uses bundled MIT-licensed QR matrix code in lib/qrcode-generator, PHP zlib, and app/registration_qr.php; **GD and third-party QR services are not required**. If the image is unavailable or hidden by the email client, the normal clickable login button and text URL remain.
 
-SMTP delivery requires MAIL_ENABLED=true and the existing MAIL_HOST, MAIL_PORT, MAIL_ENCRYPTION, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM_NAME, and MAIL_FROM_ADDRESS settings. No QR-specific schema or migration is required. New installs still need the existing database/013_registration_otp.sql email-verification migration once, in prerequisite order, after a database backup. Do not commit SMTP credentials.
+SMTP delivery requires MAIL_ENABLED=true and the existing MAIL_HOST, MAIL_PORT, MAIL_ENCRYPTION, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM_NAME, and MAIL_FROM_ADDRESS settings. No QR-specific schema or migration is required. New installs still need the existing database/013_registration_email_otp.sql email-verification migration once, in prerequisite order, after a database backup. Do not commit SMTP credentials.
 
 ## Multiple Registration Attachments
 
