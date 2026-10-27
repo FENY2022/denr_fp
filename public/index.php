@@ -48,6 +48,7 @@ try {
                 if (authenticate($email,(string)($_POST['password'] ?? ''))) {
                     go('dashboard');
                 }
+                if (registration_otp_pending_client()) go('verify_registration_otp');
                 view_login(['Invalid credentials or too many recent failed attempts. Try again later.']);
             } else view_login();
             break;
