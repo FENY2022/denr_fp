@@ -133,9 +133,6 @@ function send_lpdd_fus_registration_alerts(int $registrationId, string $applican
     $base = rtrim(trim(env_value('APP_URL')), '/');
     $parts = parse_url($base);
     $host = strtolower((string)($parts['host'] ?? ''));
-    $publicUrl = ($parts !== false && ($parts['scheme'] ?? '') === 'https'
-        && $host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)
-        && !filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false);
     // Domain names are accepted; private IP addresses are not public deployment URLs.
     $isIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
     $publicUrl = ($parts !== false && ($parts['scheme'] ?? '') === 'https'
