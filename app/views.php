@@ -319,7 +319,7 @@ function view_applicant_registration(array $user, array $errors = []): void
     if ($user['status'] === 'active') {
         $html .= '<div class="alert alert-success mb-0"><strong>Your account is activated.</strong> Step 2 application submission will be enabled in a later development phase; no application has been filed by this registration.</div>';
     } elseif ($user['status'] === 'pending_review') {
-        $html .= '<div class="alert alert-info mb-0">Your registration is awaiting LPDD-FUS review. Log back in to check its status.</div>';
+        $html .= '<div class="alert alert-info mb-0">Your registration is awaiting DENR CARAGA LPDD-FUS review. Log back in to check its status.</div>';
     }
     $html .= '</div></div><div class="col-lg-4"><div class="panel soft"><h3 class="h6">Processing note</h3><p class="small mb-0">Registration and activation are excluded from the 15-working-day FP permit-processing period.</p></div></div></div>';
     if ($user['status'] === 'needs_correction') {
