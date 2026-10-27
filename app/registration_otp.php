@@ -198,6 +198,7 @@ function registration_otp_verify(string $submitted): array
         }
 
         $_SESSION['registration_ack_delivery_failed'] = !$acknowledgmentSent;
+        $_SESSION['registration_verified_applicant_name'] = (string)$locked['name'];
         return [];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
