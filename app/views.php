@@ -117,6 +117,8 @@ function render_page(string $title, string $content): void
         . '<span>DENR Regional Office XIII — Feasibility Permit Online Management System</span>'
         . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer></div></div>'
         . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>'
+        . (str_contains($content, 'id="registration-document-modal"')
+            ? '<script src="assets/registration-document-preview.js?v=1" defer></script>' : '')
         . (str_contains($content, 'id="otp-verification-success-modal"')
             ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
         . '</body></html>';
