@@ -134,13 +134,13 @@ function register_applicant(array $values, string $email, string $password, stri
                 $attachment['info'], $attachment['id_type']
             );
         }
-        $stage = 'otp-create';
+        $stage = 'verification-link-create';
         $initialOtp = registration_otp_create_initial($pdo, $uid);
         $stage = 'client-audit';
         audit_client($uid,'registration.submitted','registration',$regId,[
             'revision'=>1,'email_verification'=>'pending'
         ]);
-        // FUU review and acknowledgment are deferred until the client verifies OTP.
+        // FUU review and acknowledgment are deferred until the client confirms the email link.
         $stage = 'commit-registration';
         $pdo->commit();
         // Only after DB commit: purge temporary upload originals, not permanent copies.
@@ -151,7 +151,7 @@ function register_applicant(array $values, string $email, string $password, stri
                 error_log('Registration draft cleanup after commit: ' . $draftError->getMessage());
             }
         }
-        // This marker authorizes OTP verification only: it does not log in the client.
+        // This marker allows resending a verification link only: it does not log in the client.
         session_regenerate_id(true);
         unset($_SESSION['user_id'], $_SESSION['client_id']);
         $_SESSION['registration_pending_client_id'] = $uid;
