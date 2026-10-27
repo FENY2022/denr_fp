@@ -327,9 +327,16 @@ function send_registration_document(array $viewer, int $documentId): never
     if (!$root || !$path || !str_starts_with($path, $root . DIRECTORY_SEPARATOR) || !is_file($path)) {
         show_error('Document not available.', 404);
     }
+    $preview = (string)($_GET['preview'] ?? '') === '1';
+    $allowedPreview = in_array((string)$doc['mime_type'], ['application/pdf', 'image/jpeg', 'image/png'], true);
+    if ($preview && !$allowedPreview) show_error('Preview is not supported for this file.', 415);
+    if ($preview) {
+        header('X-Frame-Options: SAMEORIGIN');
+        header('Content-Security-Policy: default-src \'none\'; frame-ancestors \'self\'; sandbox');
+    }
     header('Content-Type: ' . $doc['mime_type']);
     header('Content-Length: ' . filesize($path));
-    header('Content-Disposition: attachment; filename="document"; filename*=UTF-8\'\'' . rawurlencode($doc['original_name']));
+    header('Content-Disposition: ' . ($preview ? 'inline' : 'attachment') . '; filename="document"; filename*=UTF-8\'\'' . rawurlencode($doc['original_name']));
     readfile($path);
     exit;
 }
