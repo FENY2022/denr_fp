@@ -8,6 +8,7 @@
   const draftMode = root.dataset.draftMode === '1';
   const savedList = draftMode ? document.getElementById('registration-draft-list') : null;
   const csrf = form?.querySelector('input[name="csrf_token"]')?.value || '';
+  const uploadQueue = savedList?.querySelector('[data-upload-queue]') || null;
   const containers = {
     id: root.querySelector('#valid-id-rows'),
     supporting: root.querySelector('#supporting-document-rows')
@@ -120,6 +121,52 @@
     row.querySelector('select,input')?.focus();
   }
 
+  function selectedFileCard({ id = null, name, type = '', status = '', percent = 0, isSaved = false }) {
+    const card = document.createElement('li');
+    card.className = 'selected-file-card ' + (isSaved ? 'is-saved' : 'is-uploading');
+    if (id !== null) {
+      card.dataset.draftDocument = '';
+      card.dataset.draftId = String(id);
+      card.dataset.draftType = type;
+    }
+    const icon = document.createElement('span');
+    icon.className = 'selected-file-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    const iconGlyph = document.createElement('i');
+    iconGlyph.className = 'bi bi-file-earmark-text-fill';
+    icon.append(iconGlyph);
+
+    const text = document.createElement('div');
+    text.className = 'selected-file-info';
+    const filename = document.createElement('strong');
+    filename.className = 'selected-file-name';
+    filename.textContent = name;
+    const message = document.createElement('span');
+    message.className = 'selected-file-status';
+    message.textContent = status;
+    text.append(filename, message);
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'selected-file-remove';
+    close.setAttribute('aria-label', 'Remove saved attachment: ' + name);
+    close.title = 'Remove file';
+    const closeGlyph = document.createElement('i');
+    closeGlyph.className = 'bi bi-x-lg';
+    closeGlyph.setAttribute('aria-hidden', 'true');
+    close.append(closeGlyph);
+    if (isSaved) close.dataset.removeDraft = '';
+    else close.disabled = true; // Avoid claiming an in-flight HTTP upload was canceled.
+    const progress = document.createElement('span');
+    progress.className = 'selected-file-progress';
+    progress.setAttribute('aria-hidden', 'true');
+    const bar = document.createElement('span');
+    bar.style.width = Math.min(100, Math.max(0, percent)) + '%';
+    progress.append(bar);
+    card.append(icon, text, close, progress);
+    return { card, message, bar };
+  }
+
   function renderDrafts(documents) {
     if (!savedList || !Array.isArray(documents)) return;
     const list = savedList.querySelector('[data-draft-items]');
@@ -128,32 +175,43 @@
     if (!list) return;
     list.replaceChildren();
     for (const doc of documents) {
-      const li = document.createElement('li');
-      li.className = 'list-group-item d-flex align-items-center justify-content-between gap-2 flex-wrap';
-      li.dataset.draftDocument = '';
-      li.dataset.draftType = doc.document_type;
-      li.dataset.draftId = String(doc.id);
-
-      const span = document.createElement('span');
-      const heading = document.createElement('strong');
-      heading.textContent = doc.id_label || 'Attachment';
-      const name = document.createElement('span');
-      name.className = 'small text-secondary d-block';
-      name.textContent = doc.original_name + ' · ' + (doc.size / 1048576).toFixed(2) + ' MB';
-      span.append(heading, name);
-
-      const remove = document.createElement('button');
-      remove.type = 'button';
-      remove.className = 'btn btn-sm btn-outline-danger';
-      remove.dataset.removeDraft = '';
-      remove.textContent = 'Remove';
-      remove.setAttribute('aria-label', 'Remove saved attachment');
-      li.append(span, remove);
-      list.append(li);
+      const item = selectedFileCard({
+        id: doc.id,
+        name: doc.original_name,
+        type: doc.document_type,
+        status: 'Saved — ready for submission · ' + (doc.id_label || 'Attachment'),
+        percent: 100,
+        isSaved: true
+      });
+      list.append(item.card);
     }
     if (count) count.textContent = String(documents.length);
     if (empty) empty.hidden = documents.length > 0;
     refresh();
+  }
+
+  function uploadWithProgress(endpoint, data, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', endpoint);
+      xhr.withCredentials = true;
+      xhr.responseType = 'json';
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.upload.addEventListener('progress', event => {
+        if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100));
+      });
+      xhr.addEventListener('load', () => {
+        const response = xhr.response;
+        if (xhr.status >= 200 && xhr.status < 300 && response && !response.error) {
+          resolve(response);
+        } else {
+          reject(new Error(response?.error || 'Unable to save this file. Please retry.'));
+        }
+      });
+      xhr.addEventListener('error', () => reject(new Error('Network error while uploading. Try again.')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload was interrupted. Select the file again.')));
+      xhr.send(data);
+    });
   }
 
   async function postDraft(endpoint, payload) {
@@ -192,18 +250,38 @@
     data.set('document_type', kind === 'id' ? 'valid_id' : 'supporting_document');
     data.set('id_type', selectedType);
     data.set('attachment', selected);
+    const progress = selectedFileCard({
+      name: selected.name,
+      status: 'Preparing file…',
+      percent: 2
+    });
+    if (uploadQueue) uploadQueue.append(progress.card);
     row.dataset.uploading = '1';
     pendingUploads++;
     refresh();
-    setFeedback('Uploading and securely saving ' + selected.name + '…');
+    setFeedback('Securely uploading ' + selected.name + '…');
     try {
-      const response = await postDraft('register-draft-upload', data);
+      const response = await uploadWithProgress('register-draft-upload', data, percent => {
+        progress.bar.style.width = Math.max(2, percent) + '%';
+        progress.message.textContent = percent < 100
+          ? 'Uploading… ' + percent + '%'
+          : 'Finishing secure upload…';
+      });
       input.value = '';
       const typeSelect = row.querySelector('[data-id-type]');
       if (typeSelect) typeSelect.value = '';
+      progress.bar.style.width = '100%';
+      progress.message.textContent = 'Saved — ready for submission';
+      progress.card.classList.remove('is-uploading');
+      progress.card.classList.add('is-saved');
       renderDrafts(response.documents);
-      setFeedback('Saved to private draft storage. The file remains after page refresh.');
+      progress.card.remove();
+      setFeedback('Attachment saved securely. It will remain after page refresh.');
     } catch (error) {
+      progress.card.classList.add('has-error');
+      progress.message.textContent = 'Upload failed — select the file again';
+      progress.card.remove();
+      // File input is retained so the user can select another file or retry.
       setFeedback(error.message || 'Upload failed. Select the file again.', true);
     } finally {
       pendingUploads--;
@@ -264,7 +342,8 @@
         setFeedback('An attachment is still uploading. Submit after it is saved.', true);
         return;
       }
-      const pendingFile = root.querySelector('[data-attachment-file]');
+      const pendingFile = [...root.querySelectorAll('[data-attachment-file]')]
+        .find(input => input.files?.length);
       const hasUnstaged = [...root.querySelectorAll('[data-attachment-file]')]
         .some(input => input.files?.length);
       if (hasUnstaged) {
