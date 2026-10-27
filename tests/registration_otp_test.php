@@ -49,6 +49,15 @@ must_otp(str_contains($otp, "status='pending_review',email_verified_at=NOW()"),
     'Correct OTP unlocks pending FUU review');
 must_otp(strpos($otp, 'send_registration_acknowledgment_email(')
     > strpos($otp, 'registration_otp_verify('), 'Acknowledgment is sent on successful verification');
+must_otp(str_contains($otp, "registration_ack_delivery_failed")
+    && str_contains($router, "registration_ack_delivery_failed"),
+    'Verified applicant receives accurate notice if SMTP acknowledgment fails');
+must_otp(str_contains($otp, "status='pending_review',email_verified_at=NOW()")
+    && str_contains($otp, "notify_role("),
+    'FUU notification follows verified email status');
+must_otp(strpos($reg, 'registration_otp_create_initial(')
+    < strpos($reg, 'registration_otp_deliver('),
+    'OTP issuance is persisted before the first verification email');
 must_otp(str_contains($otp, 'failed_attempts') && str_contains($otp, '>= 5'),
     'Invalid code attempts are capped');
 must_otp(str_contains($otp, "TIMESTAMPDIFF(SECOND,last_send_at,NOW())")
