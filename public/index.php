@@ -48,6 +48,7 @@ try {
                 if (authenticate($email,(string)($_POST['password'] ?? ''))) {
                     go('dashboard');
                 }
+                if (registration_otp_pending_client()) go('verify_registration_otp');
                 view_login(['Invalid credentials or too many recent failed attempts. Try again later.']);
             } else view_login();
             break;
@@ -86,10 +87,35 @@ try {
                 $values = registration_input();
                 $errors = register_applicant($values,safe_post('email',190),(string)($_POST['password'] ?? ''),(string)($_POST['password_confirm'] ?? ''),$_FILES,$_POST);
                 if (!$errors) {
-                    go('landing', ['registration'=>'success']);
+                    flash('info', 'Please enter the verification code sent to your registered email.');
+                    go('verify_registration_otp');
                 }
                 view_register($errors);
             } else view_register();
+            break;
+        case 'verify_registration_otp':
+            if ($loggedIn) go('dashboard');
+            if ($post) {
+                check_csrf();
+                $otpAction = (string)($_POST['otp_action'] ?? '');
+                if ($otpAction === 'verify') {
+                    $errors = registration_otp_verify(trim((string)($_POST['otp_code'] ?? '')));
+                    if (!$errors) {
+                        flash('success', 'Email verified; registration submitted for FUU validation.');
+                        go('login');
+                    }
+                    view_verify_registration_otp($errors);
+                } elseif ($otpAction === 'resend') {
+                    $errors = registration_otp_resend();
+                    if (!$errors) {
+                        flash('info', 'A new verification code has been sent.');
+                        go('verify_registration_otp');
+                    }
+                    view_verify_registration_otp($errors);
+                } else {
+                    view_verify_registration_otp(['Unknown action.']);
+                }
+            } else view_verify_registration_otp();
             break;
         case 'register_draft_upload':
             if (!$post) registration_draft_json(['error'=>'Upload requires POST.'],405);

@@ -94,13 +94,14 @@ function register_applicant(array $values, string $email, string $password, stri
     if ($errors) return $errors;
     $pdo = db();
     $stored = [];
+    $initialOtp = null;
     try {
         $pdo->beginTransaction();
         if (email_assigned_to_other_account(strtolower(trim($email)), 'applicant')) {
             $pdo->rollBack();
             return ['This email is already registered. Use your existing account or choose another email.'];
         }
-        $stmt = $pdo->prepare("INSERT INTO user_client (name,email,password_hash,user_kind,status) VALUES (?,?,?,'applicant','pending_review')");
+        $stmt = $pdo->prepare("INSERT INTO user_client (name,email,password_hash,user_kind,status) VALUES (?,?,?,'applicant','pending_email_verification')");
         $stmt->execute([$values['representative_name'],strtolower(trim($email)),password_hash($password, PASSWORD_DEFAULT)]);
         $uid = (int)$pdo->lastInsertId();
         initialize_profile_account_fields($uid, 'applicant');
@@ -114,15 +115,11 @@ function register_applicant(array $values, string $email, string $password, stri
                 $attachment['info'], $attachment['id_type']
             );
         }
-        audit_client($uid,'registration.submitted','registration',$regId,['revision'=>1]);
-        notify_role(
-            'lpdd_fus',
-            'New Applicant Registration',
-            $values['representative_name'] . ' submitted a registration for ' . $values['company_name'] . '.',
-            'person-plus',
-            'info',
-            'review_queue'
-        );
+        $initialOtp = registration_otp_create_initial($pdo, $uid);
+        audit_client($uid,'registration.submitted','registration',$regId,[
+            'revision'=>1,'email_verification'=>'pending'
+        ]);
+        // FUU review and acknowledgment are deferred until the client verifies OTP.
         $pdo->commit();
         // Only after DB commit: purge temporary upload originals, not permanent copies.
         if ($hasDrafts) {
@@ -132,21 +129,14 @@ function register_applicant(array $values, string $email, string $password, stri
                 error_log('Registration draft cleanup after commit: ' . $draftError->getMessage());
             }
         }
-        // The registration is durable before attempting SMTP; mail problems never undo it.
-        $normalizedEmail = strtolower(trim($email));
-        $sent = false;
-        try {
-            $sent = send_registration_acknowledgment_email($normalizedEmail, $values['representative_name']);
-            audit_client($uid, 'registration.email_acknowledgment', 'registration', $regId, [
-                'delivery' => $sent ? 'smtp' : 'not_sent'
-            ]);
-        } catch (Throwable $mailError) {
-            error_log('Registration acknowledgment email failed after commit: ' . $mailError->getMessage());
-        }
-        $_SESSION['registration_submission'] = [
-            'email'=>$normalizedEmail,
-            'email_sent'=>$sent,
-        ];
+        // This marker authorizes OTP verification only: it does not log in the client.
+        session_regenerate_id(true);
+        unset($_SESSION['user_id'], $_SESSION['client_id']);
+        $_SESSION['registration_pending_client_id'] = $uid;
+        registration_otp_deliver(
+            $uid, strtolower(trim($email)),
+            (string)$values['representative_name'], (string)$initialOtp
+        );
         return [];
     } catch (PDOException $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();

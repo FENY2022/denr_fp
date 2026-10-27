@@ -184,7 +184,7 @@ function view_register(array $errors = []): void
     if (current_user()) go('dashboard');
     $html = '<div class="row g-4"><div class="col-lg-8"><div class="panel">'
         . errors_html($errors)
-        . '<p class="text-secondary">Create a one-time applicant account. LPDD-FUS will review the submitted information before activation.</p>'
+        . '<p class="text-secondary">Register and verify your email with a six-digit code first. Your application is sent to LPDD-FUS only after email verification.</p>'
         . '<form id="applicant-registration-form" method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
         . registration_fields()
         . '<p class="small text-secondary mb-0">Your entries are saved in this browser until submission or clearing. Passwords are not saved.</p>'
@@ -192,7 +192,7 @@ function view_register(array $errors = []): void
         . '<button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#clear-registration-modal">Clear Form</button>'
         . '<a href="' . url('login') . '">Already registered? Sign in</a></div></form></div></div>'
         . '<div class="col-lg-4"><div class="panel soft"><h2 class="h5">Account activation</h2>'
-        . '<ol class="small"><li>Register and upload a valid ID.</li><li>LPDD-FUS checks information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
+        . '<ol class="small"><li>Register and upload a valid ID.</li><li>Enter the emailed OTP to verify your registration.</li><li>Receive your registration acknowledgment after OTP verification.</li><li>LPDD-FUS checks information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
         . '</div></div></div>'
         . '<div class="modal fade" id="clear-registration-modal" tabindex="-1" aria-labelledby="clear-registration-modal-title" aria-hidden="true">'
@@ -235,7 +235,7 @@ function view_login(array $errors = []): void
 
 function status_badge(string $status): string
 {
-    $colors = ['pending_review'=>'warning','needs_correction'=>'danger','active'=>'success','suspended'=>'secondary'];
+    $colors = ['pending_email_verification'=>'info','pending_review'=>'warning','needs_correction'=>'danger','active'=>'success','suspended'=>'secondary'];
     return '<span class="badge text-bg-' . ($colors[$status] ?? 'secondary') . '">' . e(status_label($status)) . '</span>';
 }
 

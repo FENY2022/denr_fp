@@ -76,6 +76,8 @@ mysql -u root -p denr_fp_oms < database/009_merge_designations_into_users.sql
 mysql -u root -p denr_fp_oms < database/011_separate_client_accounts.sql
 # Registration draft attachments (refresh-safe staging):
 mysql -u root -p denr_fp_oms < database/012_registration_draft_uploads.sql
+# Required for OTP-first registration and verified-email FUU review:
+mysql -u root -p denr_fp_oms < database/013_registration_email_otp.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -188,17 +190,18 @@ mysql -u root -p denr_fp_oms < database/005_notifications.sql
 
 The shell is migration-safe: before the table is imported, the rest of FP-OMS continues to load and the bell simply shows no stored items.
 
-## Transactional registration email notifications
+## Transactional registration email notifications (OTP-first)
 
-FP-OMS sends these **applicant** messages using its existing PHPMailer SMTP transport:
+**Mandatory order for newly registered external clients:**
 
-1. **New registration successfully saved:** an acknowledgment that the account is **Pending Validation** by the concerned Forest Utilization Unit (FUU) / assigned LPDD-FUS reviewing personnel. This email does not indicate account approval or permit issuance.
-2. **LPDD-FUS approves a registration:** an account activation notice (not a Feasibility Permit approval).
-3. **LPDD-FUS returns a registration for correction:** a request to review the decision remarks and resubmit the registration.
+1. **Client submits registration:** Client identity, company information and securely uploaded documents are saved in `user_client` and `applicant_registrations` with account status `pending_email_verification`. The system generates a random **six-digit OTP**, stores only its password hash, and sends **Verify Your Registration OTP – DENR CARAGA FP-OMS**. The acknowledgment email is **not** sent at this point. The FUU review queue does not yet show this record.
+2. **Client completes OTP:** Use the public clean URL `/verify-registration-otp` in the same browser session. The OTP expires after **10 minutes**, permits at most **5 incorrect attempts per code**, and can be resent after **60 seconds** (maximum **5 emails per hour**; resending invalidates earlier codes). No code is placed in a URL or an audit log. If the browser session is lost, sign in with the registered email/password to resume the verification step (this is **not** an authenticated dashboard session).
+3. **Verified email → acknowledgment and FUU review:** After correct OTP the client is marked `pending_review`, with `email_verified_at` timestamp. Only **then** is **Acknowledgment of Registration – DENR CARAGA FP-OMS** sent, and the applicant is added to the FUU/LPDD-FUS review queue with a staff notification. The acknowledgment does not indicate application approval or permit issuance. An SMTP error does not undo a successfully verified status.
+4. **FUU decision:** The approved/corrections email is sent after the reviewing personnel commits their decision, as before.
 
-Emails are attempted **only after the corresponding database transaction commits successfully**. An SMTP error or disabled mail setting does **not** undo the registration or review decision. Attempts are recorded in the existing audit log with `smtp` or `not_sent` delivery metadata. There is no automatic retry queue: failed messages require a system administrator to check the server mail settings and logs. Ordinary registration resubmission alone does not send another acknowledgment email; the decision on the revised submission generates the subsequent status email. These are transactional registration messages, not general SMS/email notifications.
+The OTP and acknowledgment use the existing `smtp_send_html` PHPMailer transport. Before testing registrations, enable `MAIL_ENABLED=true` and configure `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_NAME`, and `MAIL_FROM_ADDRESS` in the private server `.env`. Do not place SMTP secrets in GitHub. If delivery fails, the client may resend within the rate limits after RICTU corrects the SMTP setup. There is no SMS OTP fallback and no SMTP delivery guarantee without testing.
 
-To enable email sending in the server's ignored `.env`, configure `MAIL_ENABLED=true` and valid `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_NAME`, and `MAIL_FROM_ADDRESS`. The **same SMTP settings** are used for password reset messages. Never put credentials into the repository. Use `php scripts/configure_smtp.php` to configure authorized Gmail App Password credentials and `php scripts/test_smtp.php` to test the connection. A successful code update is **not** proof that email was delivered: test with a dummy applicant registration, then approve or return it for correction using a non-production test email account. No new SQL migration is required for these emails.
+**Apply database migration 013 ONCE**, after 011 and 012, and before deploying the new PHP code. Make a database backup and avoid active registration requests while importing. Migration 013 adds the `pending_email_verification` client status, `email_verified_at` and `registration_email_otps`. Existing clients are not forced to retroactively verify or re-register; their existing status, password hash, documents and review history remain unchanged. If 013 was partially applied, restore the backup rather than blindly re-importing it.
 
 ## Multiple Registration Attachments
 
@@ -406,7 +409,8 @@ denr-fp-oms/
 │   ├── 009_merge_designations_into_users.sql # one-table safe consolidation
 │   ├── 010_restore_office_email_references.sql # optional reference data repair
 │   ├── 011_separate_client_accounts.sql # separate applicant authentication
-│   └── 012_registration_draft_uploads.sql # private session draft attachments
+│   ├── 012_registration_draft_uploads.sql # private session draft attachments
+│   └── 013_registration_email_otp.sql # pending verification + hashed codes
 ├── public/
 │   ├── index.php                # application entry/router
 │   ├── router.php               # built-in PHP development server clean routing
