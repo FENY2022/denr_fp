@@ -213,17 +213,22 @@ function send_lpdd_fus_registration_alerts(int $registrationId, string $applican
     }
 
     $subject = 'New Applicant Registration – Pending Validation | DENR CARAGA FP-OMS';
-    // Public HTTPS links work from emailed notifications. Never send localhost
-    // links to office mailboxes that may be opened from other devices.
+    // Build the reviewer link from the configured URL, never from HTTP Host
+    // headers. Permit HTTP loopback only for local XAMPP testing; all other
+    // deployments must use HTTPS to protect reviewer passwords in transit.
     $base = rtrim(trim(env_value('APP_URL')), '/');
     $parts = parse_url($base);
-    $host = strtolower((string)($parts['host'] ?? ''));
-    $isIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
-    $publicUrl = ($parts !== false && ($parts['scheme'] ?? '') === 'https'
-        && $host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)
-        && (!$isIp || filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false)
-        && empty($parts['user']) && empty($parts['pass']) && empty($parts['query']) && empty($parts['fragment']));
-    $baseLoginUrl = $publicUrl ? $base . '/login?next=review-queue' : null;
+    $host = strtolower(trim((string)($parts['host'] ?? ''), '[]'));
+    $scheme = strtolower((string)($parts['scheme'] ?? ''));
+    $isLoopback = in_array($host, ['localhost', '127.0.0.1', '::1'], true);
+    $validBase = ($parts !== false && filter_var($base, FILTER_VALIDATE_URL) !== false
+        && $host !== '' && empty($parts['user']) && empty($parts['pass'])
+        && empty($parts['query']) && empty($parts['fragment']));
+    $usableUrl = $validBase && ($scheme === 'https' || ($scheme === 'http' && $isLoopback));
+    $baseLoginUrl = $usableUrl ? $base . '/login?next=review-queue' : null;
+    if ($baseLoginUrl === null) {
+        error_log('FP-OMS LPDD/FUS login link unavailable: configure APP_URL to the accessible HTTPS system address (or HTTP localhost for local tests).');
+    }
 
     $safeApplicant = htmlspecialchars($applicantName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $safeCompany = htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -247,8 +252,11 @@ function send_lpdd_fus_registration_alerts(int $registrationId, string $applican
             $safeUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $button = $loginUrl !== null
                 ? '<p style="margin:24px 0"><a href="' . $safeUrl . '" style="background:#08783f;color:#fff;padding:13px 22px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Login to FP-OMS – Review Application</a></p>'
-                    . '<p>If the button does not work, open: <a href="' . $safeUrl . '">' . $safeUrl . '</a></p>'
-                : '<p>Open your organization-approved FP-OMS website and sign in to review the application.</p>';
+                    . '<p>If the button does not work, copy and open this link:<br><a href="' . $safeUrl . '">' . $safeUrl . '</a></p>'
+                    . ($isLoopback
+                        ? '<p style="color:#9a6700;font-size:13px"><strong>Local testing:</strong> This link works only on the computer running FP-OMS. For reviewers on other devices, configure an accessible HTTPS APP_URL.</p>'
+                        : '')
+                : '<p>FP-OMS login link is not configured. Please ask the ICT administrator to set the accessible HTTPS APP_URL.</p>';
             $plain = "New verified registration awaiting LPDD/FUS review.\n"
                 . "Applicant: {$applicantName}\nCompany: {$companyName}\nRegistration ID: {$registrationId}\n"
                 . ($loginUrl !== null ? "Login to review: {$loginUrl}"
