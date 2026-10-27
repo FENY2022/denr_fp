@@ -168,7 +168,7 @@ function registration_attachment_batch(array $post, array $files, bool $requires
 function registration_documents_html(array $documents): string
 {
     if (!$documents) return '<p class="small text-secondary">No documents have been uploaded.</p>';
-    $html = '<ul class="list-group mb-3">';
+    $html = '<ul class="list-group mb-3" data-document-list>';
     foreach ($documents as $document) {
         $label = ($document['document_type'] === 'valid_id')
             ? registration_id_type_label(isset($document['id_type']) ? (string)$document['id_type'] : null)
@@ -176,10 +176,22 @@ function registration_documents_html(array $documents): string
         $html .= '<li class="list-group-item d-flex justify-content-between align-items-start gap-2 flex-wrap">'
             . '<span><strong>' . e($label) . '</strong>'
             . '<small class="text-secondary d-block">Submission revision ' . (int)$document['revision'] . '</small></span>'
-            . '<a href="' . e(url('download_reg', ['id' => (int)$document['id']])) . '">'
+            . '<a data-document-preview data-document-mime="' . e((string)$document['mime_type']) . '" data-document-name="' . e((string)$document['original_name']) . '" href="' . e(url('download_reg', ['id' => (int)$document['id'], 'preview' => 1])) . '">'
             . e((string)$document['original_name']) . '</a></li>';
     }
-    return $html . '</ul>';
+    return $html . '</ul>'
+        . '<div class="modal fade" id="registration-document-modal" tabindex="-1" aria-labelledby="registration-document-modal-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-header"><h2 class="modal-title h5" id="registration-document-modal-title">Document Preview</h2>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+        . '<div class="modal-body text-center"><div id="registration-document-preview" class="overflow-auto"></div>'
+        . '<p id="registration-document-error" class="text-danger d-none">Preview unavailable. Use Download instead.</p></div>'
+        . '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-document-zoom="out">Zoom Out</button>'
+        . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="reset">Fit to Screen</button>'
+        . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="in">Zoom In</button>'
+        . '<a class="btn btn-primary" id="registration-document-download" href="#">Download</a>'
+        . '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>'
+        . '</div></div></div>';
 }
 
 
