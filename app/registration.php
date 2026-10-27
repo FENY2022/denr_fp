@@ -92,34 +92,56 @@ function register_applicant(array $values, string $email, string $password, stri
     }
     $errors = array_merge($errors, $attachments['errors']);
     if ($errors) return $errors;
+
+    // Explain missing SQL 011/013 instead of masking it as a generic DB failure.
+    try {
+        $missing = registration_schema_issues();
+    } catch (Throwable $error) {
+        $ref = registration_failure_reference('schema-preflight', $error);
+        return ['Registration service is temporarily unavailable. '
+            . 'Please contact the administrator with reference ' . $ref . '.'];
+    }
+    if ($missing) {
+        $ref = registration_failure_reference('migrations-011-013', null, $missing);
+        return ['Registration database setup is incomplete. The system administrator must '
+            . 'check SQL migrations 011 and 013. Reference: ' . $ref . '.'];
+    }
     $pdo = db();
     $stored = [];
     $initialOtp = null;
+    $stage = 'begin-transaction';
     try {
         $pdo->beginTransaction();
         if (email_assigned_to_other_account(strtolower(trim($email)), 'applicant')) {
             $pdo->rollBack();
             return ['This email is already registered. Use your existing account or choose another email.'];
         }
+        $stage = 'client-account';
         $stmt = $pdo->prepare("INSERT INTO user_client (name,email,password_hash,user_kind,status) VALUES (?,?,?,'applicant','pending_email_verification')");
         $stmt->execute([$values['representative_name'],strtolower(trim($email)),password_hash($password, PASSWORD_DEFAULT)]);
         $uid = (int)$pdo->lastInsertId();
+        $stage = 'client-profile';
         initialize_profile_account_fields($uid, 'applicant');
         // Client identity is inferred from user_client, not DENR user_roles.
+        $stage = 'applicant-registration';
         $stmt = $pdo->prepare('INSERT INTO applicant_registrations (client_id,company_name,company_address,representative_name,representative_position,contact_number) VALUES (?,?,?,?,?,?)');
         $stmt->execute([$uid,$values['company_name'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number']]);
         $regId = (int)$pdo->lastInsertId();
+        $stage = 'registration-documents';
         foreach ($attachments['items'] as $attachment) {
             $stored[] = store_reg_document(
                 $pdo, $regId, $uid, 1, $attachment['document_type'],
                 $attachment['info'], $attachment['id_type']
             );
         }
+        $stage = 'otp-create';
         $initialOtp = registration_otp_create_initial($pdo, $uid);
+        $stage = 'client-audit';
         audit_client($uid,'registration.submitted','registration',$regId,[
             'revision'=>1,'email_verification'=>'pending'
         ]);
         // FUU review and acknowledgment are deferred until the client verifies OTP.
+        $stage = 'commit-registration';
         $pdo->commit();
         // Only after DB commit: purge temporary upload originals, not permanent copies.
         if ($hasDrafts) {
@@ -141,14 +163,21 @@ function register_applicant(array $values, string $email, string $password, stri
     } catch (PDOException $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         foreach ($stored as $path) @unlink($path);
-        if ($ex->getCode() === '23000') return ['That email address is already registered.'];
-        error_log('Registration database failure: ' . $ex->getMessage());
-        return ['Registration could not be saved. Please contact the system administrator.'];
+        $ref = registration_failure_reference($stage, $ex);
+        // SQLSTATE 23000 also covers foreign-key failures; only MySQL 1062
+        // actually means duplicate key.
+        if ((int)($ex->errorInfo[1] ?? 0) === 1062) {
+            return ['An account or registration using this information already exists. '
+                . 'Please sign in or contact the administrator. Reference: ' . $ref . '.'];
+        }
+        return ['Registration could not be saved. Please contact the system administrator '
+            . 'with reference ' . $ref . '.'];
     } catch (Throwable $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         foreach ($stored as $path) @unlink($path);
-        error_log('Registration failure: ' . $ex->getMessage());
-        return ['Registration could not be saved. Please contact the system administrator.'];
+        $ref = registration_failure_reference($stage, $ex);
+        return ['Registration could not be saved. Please contact the system administrator '
+            . 'with reference ' . $ref . '.'];
     }
 }
 
