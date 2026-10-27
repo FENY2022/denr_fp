@@ -217,7 +217,7 @@ function view_register(array $errors = []): void
  * One-time OTP success confirmation. The registration was already committed
  * before this page loads; this UI never changes verification or review state.
  */
-function registration_verified_modal_html(bool $ackDeliveryFailed): string
+function registration_verified_modal_html(bool $ackDeliveryFailed, string $applicantName = ''): string
 {
     $warning = $ackDeliveryFailed
         ? '<div class="alert alert-warning text-start small mt-3 mb-0" role="alert">'
@@ -226,22 +226,38 @@ function registration_verified_modal_html(bool $ackDeliveryFailed): string
             . 'could not be confirmed. Please check your inbox or spam folder and '
             . 'contact the system administrator if it does not arrive.</div>'
         : '';
+    $name = trim($applicantName) !== '' ? e($applicantName) : 'Applicant';
     return '<div class="modal fade" id="otp-verification-success-modal" tabindex="-1" '
         . 'aria-labelledby="otp-verification-success-title" aria-describedby="otp-verification-success-description" '
         . 'aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">'
-        . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
-        . '<div class="modal-body p-4 p-md-5 text-center">'
-        . '<div class="mb-3"><i class="bi bi-check-circle-fill text-success display-3" aria-hidden="true"></i></div>'
-        . '<h2 class="h4 mb-1" id="otp-verification-success-title">Email Successfully Verified!</h2>'
-        . '<p class="text-success fw-semibold small mb-3">DENR CARAGA FP-OMS</p>'
-        . '<p class="mb-3" id="otp-verification-success-description">'
-        . 'Your email address has been successfully verified, and your registration '
-        . 'has been submitted to the <strong>Forest Utilization Section (FUU)</strong> for validation.</p>'
-        . '<p class="text-secondary small mb-0">Please wait for the review and approval '
-        . 'of your registration. You will receive an email notification regarding its status.</p>'
+        . '<div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable"><div class="modal-content">'
+        . '<div class="modal-header bg-success text-white">'
+        . '<div><div class="small fw-semibold">DENR CARAGA FP-OMS</div>'
+        . '<h2 class="h5 mb-0" id="otp-verification-success-title">'
+        . '<i class="bi bi-check-circle-fill me-2" aria-hidden="true"></i>Registration Received – Pending Validation</h2></div>'
+        . '</div><div class="modal-body p-4" id="otp-verification-success-description">'
+        . '<p class="text-success fw-semibold mb-2"><i class="bi bi-check-circle-fill me-2" aria-hidden="true"></i>Email Successfully Verified!</p>'
+        . '<p><strong>Greetings from the Department of Environment and Natural Resources!</strong></p>'
+        . '<p>Dear <strong>' . $name . '</strong>,</p>'
+        . '<p>This is to acknowledge that we have successfully received your applicant account registration submitted through the '
+        . '<strong>DENR CARAGA Feasibility Permit Online Management System (FP-OMS)</strong>.</p>'
+        . '<p>Please be informed that your registration is currently <strong>PENDING VALIDATION</strong> by the concerned '
+        . '<strong>Forest Utilization Section (FUU)</strong>, through the assigned LPDD-FUS reviewing personnel. '
+        . 'Your submitted information and supporting documents will be checked for completeness, accuracy, and compliance '
+        . 'with applicable registration requirements.</p>'
+        . '<p>Once validation is completed, you will receive another email regarding your account status. '
+        . 'If additional information, corrections, or supporting documents are required, you will be notified accordingly.</p>'
+        . '<p><strong>Successful registration does not automatically constitute account approval or issuance of a '
+        . 'Feasibility Permit.</strong> You may sign in to FP-OMS to monitor your registration status.</p>'
+        . '<p>Thank you for using DENR CARAGA FP-OMS. We appreciate your cooperation and commitment to '
+        . 'responsible environmental management.</p>'
+        . '<p class="mb-1">Best regards,</p>'
+        . '<p class="mb-0"><strong>DENR CARAGA – Regional Office XIII</strong><br>'
+        . 'Feasibility Permit Online Management System (FP-OMS)<br>'
+        . 'Department of Environment and Natural Resources</p>'
         . $warning
-        . '<button class="btn btn-primary w-100 mt-4" type="button" '
-        . 'data-bs-dismiss="modal">Continue to Login</button>'
+        . '</div><div class="modal-footer">'
+        . '<button class="btn btn-primary w-100" type="button" data-bs-dismiss="modal">Continue to Login</button>'
         . '</div></div></div></div>';
 }
 
@@ -269,7 +285,8 @@ function view_login(array $errors = []): void
     unset($_SESSION['registration_verified_modal']);
     if (is_array($verificationModal)) {
         $html .= registration_verified_modal_html(
-            !empty($verificationModal['ack_delivery_failed'])
+            !empty($verificationModal['ack_delivery_failed']),
+            (string)($verificationModal['applicant_name'] ?? '')
         );
     }
     render_page('Sign In', $html);
