@@ -107,6 +107,7 @@ function send_registration_acknowledgment_email(string $email, string $name): bo
     $subject = 'Email Successfully Verified! – DENR CARAGA FP-OMS';
     $loginUrl = registration_applicant_login_url();
     $safeLoginUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $embeddedPngs = [];
 
     $body = '<p style="line-height:1.65;margin:0 0 15px">This is to acknowledge that we have successfully received your applicant account registration submitted through the <strong>DENR CARAGA Feasibility Permit Online Management System (FP-OMS)</strong>.</p>'
         . '<p style="line-height:1.65;margin:0 0 15px">Please be informed that your registration is currently <strong>PENDING VALIDATION</strong> by the concerned <strong>Forest Utilization Section (FUU)</strong>, through the assigned LPDD-FUS reviewing personnel. Your submitted information and supporting documents will be checked for completeness, accuracy, and compliance with applicable registration requirements.</p>'
@@ -120,6 +121,30 @@ function send_registration_acknowledgment_email(string $email, string $name): bo
             . 'Login to FP-OMS – Check Registration Status</a></p>'
             . '<p style="line-height:1.65;font-size:13px">If the button does not work, open this link:<br>'
             . '<a href="' . $safeLoginUrl . '">' . $safeLoginUrl . '</a></p>';
+
+        try {
+            // Only the standard login URL is encoded (no name, password,
+            // email verification token, or authenticated session token).
+            $png = registration_login_qr_png($loginUrl);
+            if ($png !== null) {
+                $embeddedPngs['fpoms-applicant-login-qr'] = $png;
+                $body .= '<table role="presentation" cellspacing="0" cellpadding="0" '
+                    . 'style="width:100%;margin:18px 0 24px;border:1px solid #dbe7e0;border-radius:10px">'
+                    . '<tr><td align="center" style="padding:20px 14px">'
+                    . '<p style="font-size:17px;color:#075c32;font-weight:bold;margin:0 0 12px">Scan via Mobile</p>'
+                    . '<img src="cid:fpoms-applicant-login-qr" alt="QR code: open the DENR CARAGA FP-OMS login page" '
+                    . 'width="250" style="display:block;max-width:100%;height:auto;border:0;margin:auto">'
+                    . '<p style="font-size:13px;line-height:1.6;color:#405f51;margin:12px 0 0">'
+                    . 'Scan this QR code using your mobile phone to open DENR CARAGA FP-OMS '
+                    . 'and check your registration status after signing in.</p>'
+                    . '</td></tr></table>';
+            } else {
+                error_log('FP-OMS acknowledgment QR image unavailable; email login button remains available.');
+            }
+        } catch (Throwable $qrError) {
+            error_log('FP-OMS acknowledgment QR generation failed: ' . $qrError->getMessage());
+            // QR image must never prevent sending the registration acknowledgment.
+        }
     } else {
         error_log('FP-OMS applicant acknowledgment login link unavailable: set APP_URL to a reachable HTTPS address or HTTP localhost for local testing.');
         $body .= '<p style="line-height:1.65;font-size:13px">To check your registration status, open your organization-approved FP-OMS website and sign in.</p>';
@@ -145,7 +170,8 @@ function send_registration_acknowledgment_email(string $email, string $name): bo
         $email,
         $subject,
         registration_email_layout('Email Successfully Verified!', $name, $body),
-        $plain
+        $plain,
+        $embeddedPngs
     );
 }
 
