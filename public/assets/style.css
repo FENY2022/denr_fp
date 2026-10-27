@@ -426,10 +426,16 @@ body.page-loading{overflow:hidden}
 .selected-file-remove:hover:not(:disabled),
 .selected-file-remove:focus-visible{background:#e9f1ec;color:#b44343;outline-offset:2px}
 .selected-file-remove:disabled{opacity:.35;cursor:progress}
-.selected-file-progress{display:block;position:absolute;bottom:0;left:0;right:0;
-  height:4px;background:#e4eee6;overflow:hidden}
-.selected-file-progress>span{display:block;height:100%;background:#08783f;
-  border-radius:0 4px 4px 0;transition:width .15s ease}
+/* Native progress.value drives the fill without style attributes, CSP-safe. */
+.selected-file-progress{
+  display:block;position:absolute;bottom:0;left:0;right:0;
+  width:100%;height:4px;margin:0;border:0;border-radius:0;
+  appearance:none;-webkit-appearance:none;
+  background:#e4eee6;color:#08783f;overflow:hidden
+}
+.selected-file-progress::-webkit-progress-bar{background:#e4eee6}
+.selected-file-progress::-webkit-progress-value{background:#08783f;transition:width .15s ease}
+.selected-file-progress::-moz-progress-bar{background:#08783f}
 .selected-file-card.is-saved .selected-file-status{color:#357953}
 .selected-file-card.has-error{border-color:#e6bdbb}
 
