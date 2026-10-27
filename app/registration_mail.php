@@ -31,7 +31,39 @@ function registration_email_layout(string $heading, string $applicantName, strin
         . '</td></tr></table></td></tr></table></body></html>';
 }
 
-/** Send once for a newly committed registration. Never include passwords or ID attachments. */
+/**
+ * First registration email only: temporary code, NEVER the acknowledgment.
+ * Do not include document names, uploads, passwords or account secrets.
+ */
+function send_registration_otp_email(string $email, string $name, string $code): bool
+{
+    if (!preg_match('/^[0-9]{6}$/D', $code)) return false;
+    $subject = 'Verify Your Registration OTP – DENR CARAGA FP-OMS';
+    $safe = htmlspecialchars($code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $body = '<p style="line-height:1.65">Please verify the email address used for your '
+        . '<strong>DENR CARAGA FP-OMS</strong> registration.</p>'
+        . '<p style="margin:20px 0;padding:16px;text-align:center;letter-spacing:8px;'
+        . 'font-size:32px;font-weight:bold;color:#075c32;background:#edf7ef;border-radius:9px">'
+        . $safe . '</p>'
+        . '<p style="line-height:1.65">Enter this 6-digit OTP on the verification page within '
+        . '<strong>10 minutes</strong>. It can be used only once. '
+        . 'Do not share your OTP with anyone, including DENR personnel.</p>'
+        . '<p style="line-height:1.65">Your registration will be forwarded for '
+        . '<strong>FUU/LPDD-FUS validation only after email verification</strong>. '
+        . 'If you did not register, you may disregard this email.</p>';
+    $plain = "DENR CARAGA FP-OMS Email Verification\n\n"
+        . "Dear {$name},\n\nYour registration OTP is: {$code}\n"
+        . "This code expires in 10 minutes and may be used once. "
+        . "Do not share your OTP. Your registration is not yet under FUU review.\n\n"
+        . "If you did not register, disregard this email.";
+    return smtp_send_html(
+        $email, $subject,
+        registration_email_layout('Verify Your Registration Email', $name, $body),
+        $plain
+    );
+}
+
+/** Send only AFTER successful OTP verification for a committed registration. Never include passwords or ID attachments. */
 function send_registration_acknowledgment_email(string $email, string $name): bool
 {
     $subject = 'Acknowledgment of Registration – DENR CARAGA FP-OMS';
