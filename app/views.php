@@ -70,7 +70,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=18" rel="stylesheet">'
+        . '<link href="assets/style.css?v=19" rel="stylesheet">'
         . '<script src="assets/app-shell.js?v=19" defer></script></head><body>';
 
     if ($user) {
@@ -195,7 +195,7 @@ function view_register(array $errors = []): void
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
         . '</div></div></div>'
         . '<script src="assets/register-password.js?v=1" defer></script>'
-        . '<script src="assets/registration-attachments.js?v=2" defer></script>';
+        . '<script src="assets/registration-attachments.js?v=3" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
@@ -256,7 +256,7 @@ function view_applicant_registration(array $user, array $errors = []): void
             . '<form action="' . url('registration_update') . '" method="post" enctype="multipart/form-data">' . csrf_field()
             . registration_fields($reg, false)
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
-            . '<script src="assets/registration-attachments.js?v=2" defer></script>';
+            . '<script src="assets/registration-attachments.js?v=3" defer></script>';
     }
     render_page('My Registration', $html);
 }
