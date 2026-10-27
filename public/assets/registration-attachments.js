@@ -161,14 +161,14 @@
     close.append(closeGlyph);
     if (isSaved) close.dataset.removeDraft = '';
     else close.disabled = true; // Avoid claiming an in-flight HTTP upload was canceled.
-    const progress = document.createElement('span');
+    // Native <progress> updates via its value property, not blocked inline CSS.
+    const progress = document.createElement('progress');
     progress.className = 'selected-file-progress';
-    progress.setAttribute('aria-hidden', 'true');
-    const bar = document.createElement('span');
-    bar.style.width = Math.min(100, Math.max(0, percent)) + '%';
-    progress.append(bar);
+    progress.max = 100;
+    progress.value = Math.min(100, Math.max(0, percent));
+    progress.setAttribute('aria-label', 'File upload progress');
     card.append(icon, text, close, progress);
-    return { card, message, bar };
+    return { card, message, bar: progress };
   }
 
   function clearWaitingForIdType(row) {
@@ -305,13 +305,13 @@
     setFeedback('Securely uploading ' + selected.name + '…');
     try {
       const response = await uploadWithProgress('register-draft-upload', data, percent => {
-        progress.bar.style.width = Math.max(2, percent) + '%';
+        progress.bar.value = Math.max(2, percent);
         progress.message.textContent = percent < 100
           ? 'Uploading… ' + percent + '%'
           : 'Finishing secure upload…';
       });
       input.value = '';
-      progress.bar.style.width = '100%';
+      progress.bar.value = 100;
       progress.message.textContent = 'Saved — ready for submission';
       progress.card.classList.remove('is-uploading');
       progress.card.classList.add('is-saved');
