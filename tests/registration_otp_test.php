@@ -42,8 +42,11 @@ must_otp(send_registration_acknowledgment_email('test@example.invalid', 'Sample 
 $ack = $GLOBALS['sent_message'];
 must_otp($ack['subject'] === 'Acknowledgment of Registration – DENR CARAGA FP-OMS',
     'Acknowledgment email has the requested exact subject');
-must_otp(str_contains($ack['plain'], 'PENDING VALIDATION'),
-    'Acknowledgment clearly distinguishes registration from FUU approval');
+must_otp(str_contains($ack['plain'], 'PENDING VALIDATION')
+    && str_contains($ack['plain'], 'Forest Utilization Section (FUU)')
+    && str_contains($ack['html'], 'Forest Utilization Section (FUU)')
+    && !str_contains($ack['plain'], 'Forest Utilization Unit (FUU)'),
+    'Acknowledgment uses Forest Utilization Section (FUU) in HTML and plain text');
 
 $reg = file_get_contents(__DIR__ . '/../app/registration.php');
 $otp = file_get_contents(__DIR__ . '/../app/registration_otp.php');
@@ -89,8 +92,9 @@ must_otp(str_contains($migration, 'CREATE TABLE registration_email_otps')
     'OTP schema migration remains present');
 
 must_otp(str_contains($router, "case 'verify_registration_otp':")
-    && str_contains($views, 'value="resend"'),
-    'OTP verification and resend UI still work');
+    && str_contains($views, 'value="resend"')
+    && str_contains($views, 'Forest Utilization Section (FUU)'),
+    'OTP verification UI names Forest Utilization Section (FUU) and supports resend');
 must_otp(str_contains($router, "registration_verified_modal")
     && !str_contains($router, "flash('success', 'Email verified; registration submitted for FUU validation.')"),
     'OTP verification success opens a modal instead of a success flash');
@@ -101,8 +105,9 @@ $successModal = registration_verified_modal_html(false);
 $warningModal = registration_verified_modal_html(true);
 must_otp(str_contains($successModal, 'id="otp-verification-success-modal"')
     && str_contains($successModal, 'Email Successfully Verified!')
+    && str_contains($successModal, 'Forest Utilization Section (FUU)')
     && str_contains($successModal, 'Continue to Login'),
-    'Verified registration shows the intended success modal');
+    'Verified registration success modal names Forest Utilization Section (FUU)');
 must_otp(!str_contains($successModal, 'could not be confirmed')
     && str_contains($warningModal, 'could not be confirmed'),
     'Only failed SMTP acknowledgment causes a warning in the modal');
