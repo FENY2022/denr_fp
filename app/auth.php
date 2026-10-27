@@ -23,14 +23,26 @@ function authenticate(string $email, string $password): bool
 
     $isClient = $client !== null;
     $user = $staff ?? $client;
-    $success = $user && !in_array($user['status'], ['suspended', 'pending_setup'], true)
+    if ($isClient && $client['status'] === 'pending_email_verification'
+        && is_string($client['password_hash'])
+        && password_verify($password, $client['password_hash'])) {
+        // Correct password proves account access, but OTP still gates sign-in.
+        db()->prepare('INSERT INTO login_attempts (email_hash,ip_address,was_successful) VALUES (?,?,1)')
+            ->execute([$hash,$ip]);
+        session_regenerate_id(true);
+        unset($_SESSION['user_id'], $_SESSION['client_id']);
+        $_SESSION['registration_pending_client_id'] = (int)$client['id'];
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        return false;
+    }
+    $success = $user && !in_array($user['status'], ['suspended', 'pending_setup', 'pending_email_verification'], true)
         && is_string($user['password_hash']) && $user['password_hash'] !== ''
         && password_verify($password, $user['password_hash']);
     db()->prepare('INSERT INTO login_attempts (email_hash,ip_address,was_successful) VALUES (?,?,?)')
         ->execute([$hash,$ip,(int)(bool)$success]);
     if (!$success) return false;
     session_regenerate_id(true);
-    unset($_SESSION['user_id'], $_SESSION['client_id']);
+    unset($_SESSION['user_id'], $_SESSION['client_id'], $_SESSION['registration_pending_client_id']);
     $_SESSION[$isClient ? 'client_id' : 'user_id'] = (int)$user['id'];
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     $table = $isClient ? 'user_client' : 'users';
