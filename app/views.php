@@ -270,7 +270,10 @@ function view_login(array $errors = []): void
         if (($_GET['next'] ?? '') === 'review-queue' && has_role($loggedIn, 'lpdd_fus')) go('review_queue');
         go('dashboard');
     }
-    $next = (($_GET['next'] ?? '') === 'review-queue') ? 'review-queue' : '';
+    $next = (($_GET['next'] ?? $_POST['next'] ?? '') === 'review-queue') ? 'review-queue' : '';
+    $hint = (string)($_GET['hint'] ?? $_POST['hint'] ?? '');
+    $prefilledEmail = reviewer_login_hint_email($hint);
+    if ($prefilledEmail === null) $hint = '';
     $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel">'
         . errors_html($errors) . '<p class="text-secondary">Sign in to your applicant or DENR internal account.</p>'
         . '<form method="post" action="' . url('login') . '">' . csrf_field()
