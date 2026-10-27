@@ -190,6 +190,32 @@ mysql -u root -p denr_fp_oms < database/005_notifications.sql
 
 The shell is migration-safe: before the table is imported, the rest of FP-OMS continues to load and the bell simply shows no stored items.
 
+## Registration troubleshooting: CSP and database migrations
+
+The public **/register** form runs under the existing strict Content Security Policy. The **Selected Files** progress display now uses native HTML `<progress>` controls styled only in `public/assets/style.css` instead of an inline `style` attribute, and the landing registration modal uses `public/assets/landing-registration-success.js` rather than an inline script. **Do not add `unsafe-inline` to CSP** to work around browser console warnings.
+
+Before committing a new applicant account, the server performs a **read-only registration schema check** for required columns in `user_client`, `applicant_registrations`, `registration_documents`, `registration_email_otps` and `audit_logs`. If migration 011 or 013 is missing/partial, the client receives a database setup notice rather than an unexplained generic error. **No SQL migration is automatically installed or edited by the PHP code.**
+
+Other registration failures show a random **`REG-XXXXXXXXXX` reference**. The administrator should look for exactly that reference in the configured Apache/PHP error log. Its entry includes the stage (`client-account`, `registration-documents`, `otp-create`, etc.), SQLSTATE, database driver code and the exception message, without logging the registration password or OTP. SQLSTATE `23000` is not by itself a duplicate email; only driver error **1062** is treated as a duplicate-key failure. Avoid disclosing full PHP/MySQL error traces to public applicants.
+
+To verify migrations manually using **phpMyAdmin → denr_fp_oms → SQL**, run read-only statements:
+
+```sql
+SELECT TABLE_NAME FROM information_schema.TABLES
+WHERE TABLE_SCHEMA=DATABASE()
+  AND TABLE_NAME IN ('user_client','applicant_registrations',
+      'registration_documents','registration_email_otps','audit_logs');
+SELECT TABLE_NAME,COLUMN_NAME,COLUMN_TYPE
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA=DATABASE() AND
+  ((TABLE_NAME='user_client' AND COLUMN_NAME IN ('status','email_verified_at'))
+   OR (TABLE_NAME='registration_email_otps' AND COLUMN_NAME IN ('client_id','otp_hash'))
+   OR (TABLE_NAME='applicant_registrations' AND COLUMN_NAME='client_id')
+   OR (TABLE_NAME='audit_logs' AND COLUMN_NAME='actor_client_id'));
+```
+
+Apply the **one-time SQL 011 and 013 migrations** only if needed, in their required order and after backing up `denr_fp_oms` plus private storage. **Do not rerun** a migration that has already completed or partially applied; restore/reconcile first. The CSP correction itself does not require new SQL. Refresh assets with `git pull origin main` and **Ctrl + Shift + R**, then test registration in XAMPP and verify the OTP email arrives before the acknowledgment.
+
 ## Transactional registration email notifications (OTP-first)
 
 **Mandatory order for newly registered external clients:**
