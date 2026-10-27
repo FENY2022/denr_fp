@@ -14,7 +14,7 @@ use PHPMailer\PHPMailer\PHPMailer;
  *
  * SMTP credentials are read only from .env/environment variables.
  */
-function smtp_send_html(string $to, string $subject, string $html, string $plain = ''): bool
+function smtp_send_html(string $to, string $subject, string $html, string $plain = '', array $embeddedPngs = []): bool
 {
     if (strtolower(env_value('MAIL_ENABLED', 'false')) !== 'true') {
         error_log('FP-OMS mail delivery skipped: MAIL_ENABLED is not true.');
@@ -95,6 +95,20 @@ function smtp_send_html(string $to, string $subject, string $html, string $plain
         $mail->AltBody = $plain !== ''
             ? $plain
             : trim(html_entity_decode(strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+        // Embed locally generated PNGs as CID images, so recipients can scan
+        // QR codes without loading third-party image-hosting services.
+        foreach ($embeddedPngs as $cid => $png) {
+            if (!is_string($cid) || !preg_match('/^[a-z0-9-]{1,64}$/D', $cid)
+                || !is_string($png) || strlen($png) < 45 || strlen($png) > 524288
+                || !str_starts_with($png, "\x89PNG\r\n\x1a\n")) {
+                throw new InvalidArgumentException('Invalid embedded PNG email image.');
+            }
+            $mail->addStringEmbeddedImage(
+                $png, $cid, $cid . '.png',
+                PHPMailer::ENCODING_BASE64, 'image/png'
+            );
+        }
 
         $debug = strtolower(env_value('MAIL_DEBUG', 'false')) === 'true';
         if ($debug) {
