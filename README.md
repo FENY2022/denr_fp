@@ -216,6 +216,10 @@ WHERE TABLE_SCHEMA=DATABASE() AND
 
 Apply the **one-time SQL 011 and 013 migrations** only if needed, in their required order and after backing up `denr_fp_oms` plus private storage. **Do not rerun** a migration that has already completed or partially applied; restore/reconcile first. The CSP correction itself does not require new SQL. Refresh assets with `git pull origin main` and **Ctrl + Shift + R**, then test registration in XAMPP and verify the OTP email arrives before the acknowledgment.
 
+## Forest Utilization Section (FUU) terminology
+
+Applicant-facing OTP instructions, the successful verification modal, and the HTML/plain-text acknowledgment email use the full office name **Forest Utilization Section (FUU)**. The internal `lpdd_fus` role, reviewer permissions, review queue and existing database values remain unchanged.
+
 ## OTP verification success modal
 
 After the client enters a valid registration OTP, the application completes verification and FUU queue notification **before** redirecting to the public Sign In page. A **one-time Bootstrap modal** opens automatically with the message **Email Successfully Verified!** and a **Continue to Login** button. The former green success flash/toast is no longer used for this event. The acknowledgment email delivery warning, when applicable, appears inside the modal. The session flag is consumed on the first Sign In render, so refreshing the page does not reopen it.
