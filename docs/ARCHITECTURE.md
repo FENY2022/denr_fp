@@ -24,22 +24,26 @@ flowchart TD
     Active --> Future[Step 2 · Future development]
 ```
 
-`users.status` is the authoritative account-activation state. Each correction increments `applicant_registrations.revision` and a review record stores the reviewed revision. Historical uploads and decisions are retained for traceability. Registration documents store one row per uploaded file, with a nullable `id_type` added by `007_registration_id_types.sql`. All uploaded files across revisions are shown (rather than only one per category); legacy IDs without a recorded type remain identifiable. A new submission requires at least one Valid ID with a chosen ID type; corrected submissions may add further IDs and supporting documents. A reviewer cannot approve a registration that is no longer pending.
+`user_client.status` is the authoritative applicant account-activation state; `users.status` applies only to DENR personnel. Each correction increments `applicant_registrations.revision` and a review record stores the reviewed revision. Historical uploads and decisions are retained for traceability. Registration documents store one row per uploaded file, with a nullable `id_type` added by `007_registration_id_types.sql`. All uploaded files across revisions are shown (rather than only one per category); legacy IDs without a recorded type remain identifiable. A new submission requires at least one Valid ID with a chosen ID type; corrected submissions may add further IDs and supporting documents. A reviewer cannot approve a registration that is no longer pending.
 
 ## Core data entities
 
 | Entity | Purpose | Relationship |
 |---|---|---|
 | `offices` | Regional / PENRO / CENRO hierarchy | users.office_id optional |
-| `users` | Account identity, password hash, activation status | 1:N to user_roles |
+| `users` | DENR staff identity and login credentials only | 1:N to user_roles |
+| `user_client` | External applicant credentials, activation status and client profile | 1:1 to applicant_registrations |
 | `roles` | Known functional roles | 1:N to user_roles |
 | `user_roles` | Flexible many-to-many RBAC assignment | PK(user_id, role_id) |
-| `applicant_registrations` | One-time applicant company/contact details | 1:1 users |
+| `applicant_registrations` | One-time applicant company/contact details | client_id references user_client.id |
 | `users` pending_setup rows | Pending staff identities and office-reference contacts in the master accounts table | Cannot authenticate until administrator activates in-place |
 | `registration_documents` | Immutable private-upload revisions | N:1 registrations |
+| `registration_draft_documents` | Anonymous 24-hour session-bound temporary uploads | Random server-side draft hash; no account FK |
 | `registration_reviews` | LPDD-FUS approval/correction decisions | N:1 registrations |
-| `login_attempts` | Login rate limiting (per email hash/IP) | Independent audit data |
-| `audit_logs` | Recorded security/business actions | actor_user_id nullable |
+| `login_attempts` | Shared login rate limiting (per email hash/IP) | Covers DENR and client sign-in |
+| `audit_logs` | Recorded security/business actions | actor_user_id for staff OR actor_client_id for clients |
+
+After migration 011, future permit ownership is `permit_applications.client_id`, while DENR approvals, review events and release metadata retain staff user IDs. Login sessions explicitly use either `user_id` (DENR staff) or `client_id` (applicant); equal numeric IDs in different tables never share permissions.
 
 **Scaffold only in `002_future_workflow.sql`:** `permit_applications`, `application_documents`, `workflow_actions`, `permit_records`. Additional workflow entities (RRDC sessions, TOR templates, signatures, assignments, notifications) will be designed when Steps 2–11 are implemented and their detailed business rules approved.
 
@@ -79,3 +83,11 @@ flowchart TD
 - Server sessions are SameSite=Lax, HttpOnly and HTTPS-Secure when behind HTTPS; production deployments must enforce HTTPS and protect session storage.
 - Each sensitive POST operation uses CSRF validation. SQL uses prepared statements. Login attempts are throttled based on server-visible IP and email hash (a future scheduled cleanup job should prune old attempts).
 - UI uses Bootstrap 5 from a CDN. Before deployment on restricted networks, host a vetted local copy and change CSP to self-hosted-only.
+
+## Client identity migration and public draft-upload persistence
+
+1. Migration **011** copies only original applicant rows from `users` into `user_client`, retaining their IDs, hashes, account status and original profile photo paths. Repoints applicant registration, future permit ownership, notifications, reset-token owners, audit actors and optional uploaded-by/performed-by identities. Preserves the original DENR reviewer and administrator accounts; applies a constraint to block inserting applicants into the internal `users` table. Do not execute while the application is accepting requests.
+2. Migration **012** adds `registration_draft_documents`. On public `/register`, selected files are validated and saved immediately under `storage/registration_drafts` (outside `public`). Rows are keyed by a SHA-256 digest of a per-session random secret stored only in the server-side PHP session, not by user-supplied IDs. The browser only receives opaque document IDs and safe metadata.
+3. Refreshing `/register` renders the current session's staged file list from the server. The user can remove saved attachments. Submission requires at least one saved valid ID and an allowed ID Type. If registration validation fails, staged files are retained; on transaction success, files are copied to permanent `registration_documents` then temporary copies are removed. For non-JavaScript browsers, the previous multipart POST upload remains supported.
+4. Drafts expire 24 hours after upload. Schedule `scripts/cleanup_registration_drafts.php` daily. A separate CLI `scripts/verify_client_separation.php` verifies account isolation and the draft table. These checks are not a substitute for actual XAMPP staging acceptance tests.
+
