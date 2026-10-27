@@ -137,6 +137,10 @@ DELETE u FROM users u
 JOIN user_client c ON c.id=u.id
 WHERE u.user_kind='applicant';
 
+-- Prevent any future PHP code from putting applicants back into the DENR table.
+ALTER TABLE users
+  ADD CONSTRAINT chk_users_internal_only CHECK (user_kind='internal');
+
 DROP TEMPORARY TABLE fpoms_client_migration_guard;
 
 -- 10. Final read-only verification. Both applicant and staff IDs may overlap:
