@@ -38,7 +38,14 @@ function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $rev
     if (!is_dir(dirname($absolute)) && !mkdir(dirname($absolute), 0700, true) && !is_dir(dirname($absolute))) {
         throw new RuntimeException('Storage directory could not be created.');
     }
-    if (!move_uploaded_file((string)$info['file']['tmp_name'], $absolute)) {
+    if (isset($info['draft_path'])) {
+        $safePath = registration_draft_real_path(str_replace(
+            PROJECT_ROOT . '/storage/', '', (string)$info['draft_path']
+        ));
+        if (!$safePath || $safePath !== $info['draft_path'] || !copy($safePath, $absolute)) {
+            throw new RuntimeException('Saved registration attachment could not be copied.');
+        }
+    } elseif (!move_uploaded_file((string)$info['file']['tmp_name'], $absolute)) {
         throw new RuntimeException('Upload could not be saved.');
     }
     chmod($absolute, 0600);
@@ -70,7 +77,18 @@ function register_applicant(array $values, string $email, string $password, stri
     if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190) $errors[] = 'Enter a valid email address.';
     if ($message = check_password_strength($password)) $errors[] = $message;
     if ($password !== $confirmation) $errors[] = 'Passwords do not match.';
-    $attachments = registration_attachment_batch($attachmentInput, $files, true);
+    // When AJAX draft files exist, use ONLY those validated, session-owned files.
+    // Reject pending unsaved inputs rather than silently ignoring new file selections.
+    $hasDrafts = count(registration_draft_list()) > 0;
+    if ($hasDrafts) {
+        $attachments = registration_draft_submission();
+        if (registration_draft_has_unstaged_files($files)) {
+            $errors[] = 'One selected attachment was not saved yet. Upload it before submitting.';
+        }
+    } else {
+        // Graceful fallback for browsers without JavaScript.
+        $attachments = registration_attachment_batch($attachmentInput, $files, true);
+    }
     $errors = array_merge($errors, $attachments['errors']);
     if ($errors) return $errors;
     $pdo = db();
@@ -105,6 +123,14 @@ function register_applicant(array $values, string $email, string $password, stri
             'review_queue'
         );
         $pdo->commit();
+        // Only after DB commit: purge temporary upload originals, not permanent copies.
+        if ($hasDrafts) {
+            try {
+                registration_draft_consume();
+            } catch (Throwable $draftError) {
+                error_log('Registration draft cleanup after commit: ' . $draftError->getMessage());
+            }
+        }
         // The registration is durable before attempting SMTP; mail problems never undo it.
         try {
             $sent = send_registration_acknowledgment_email(strtolower(trim($email)), $values['representative_name']);
