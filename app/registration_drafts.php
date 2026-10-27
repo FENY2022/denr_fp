@@ -84,7 +84,8 @@ function registration_draft_list_html(string $kind = 'id'): string
             . '<button class="selected-file-remove" type="button" data-remove-draft '
             . 'aria-label="Remove saved attachment: ' . e($doc['original_name']) . '" title="Remove file">'
             . '<i class="bi bi-x-lg" aria-hidden="true"></i></button>'
-            . '<span class="selected-file-progress" aria-hidden="true"><span style="width:100%"></span></span></li>';
+            . '<progress class="selected-file-progress" max="100" value="100" '
+            . 'aria-label="Upload complete">100%</progress></li>';
     }
     return $html . '</ul>'
         . '<p class="selected-files-empty" data-draft-empty'
