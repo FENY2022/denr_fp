@@ -159,63 +159,119 @@ function reviewer_login_hint_email(string $hint): ?string
 /** Notify each eligible LPDD-FUS reviewer after verified registration is committed. */
 function send_lpdd_fus_registration_alerts(int $registrationId, string $applicantName, string $companyName): void
 {
+    // Individual reviewer login emails are available only for activated LPDD/FUS users.
     $reviewers = query_all(
-        "SELECT DISTINCT u.id,u.email FROM users u
+        "SELECT DISTINCT u.id, u.email FROM users u
          JOIN user_roles ur ON ur.user_id=u.id
          JOIN roles r ON r.id=ur.role_id
-         WHERE r.code='lpdd_fus' AND u.status='active'"
+         WHERE r.code='lpdd_fus' AND u.user_kind='internal' AND u.status='active'"
     );
+
+    // The office contact address is not a user login. Notify it independently even
+    // while its LPDD/FUS staff accounts are pending setup. Office assignment is
+    // recognized as well as role membership because imported users may not yet
+    // have completed role provisioning.
+    $officeContacts = query_all(
+        "SELECT DISTINCT u.reference_email
+         FROM users u
+         WHERE u.user_kind='internal'
+           AND u.status IN ('active','pending_setup')
+           AND u.reference_email IS NOT NULL
+           AND TRIM(u.reference_email) <> ''
+           AND (
+               UPPER(TRIM(u.office_station))='LPDD/FUS'
+               OR EXISTS (
+                   SELECT 1 FROM user_roles ur
+                   JOIN roles r ON r.id=ur.role_id
+                   WHERE ur.user_id=u.id AND r.code='lpdd_fus'
+               )
+           )"
+    );
+
+    // Key recipients by normalized address. Sending office mail first prevents
+    // duplicate deliveries and avoids attaching an individual's signed login
+    // hint to a mailbox shared by multiple staff.
+    $recipients = [];
+    foreach ($officeContacts as $office) {
+        $email = strtolower(trim((string)($office['reference_email'] ?? '')));
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $recipients[$email] = ['email' => $email, 'scope' => 'office'];
+        }
+    }
+    foreach ($reviewers as $reviewer) {
+        $email = strtolower(trim((string)($reviewer['email'] ?? '')));
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) && !isset($recipients[$email])) {
+            $recipients[$email] = [
+                'email' => $email, 'scope' => 'reviewer',
+                'reviewer_id' => (int)$reviewer['id']
+            ];
+        }
+    }
+    if (!$recipients) {
+        error_log('FP-OMS LPDD/FUS email alert skipped: no valid active reviewer or office contact addresses.');
+        return;
+    }
+
     $subject = 'New Applicant Registration – Pending Validation | DENR CARAGA FP-OMS';
-    // Use only an explicitly configured public HTTPS origin; never email localhost links.
+    // Public HTTPS links work from emailed notifications. Never send localhost
+    // links to office mailboxes that may be opened from other devices.
     $base = rtrim(trim(env_value('APP_URL')), '/');
     $parts = parse_url($base);
     $host = strtolower((string)($parts['host'] ?? ''));
-    // Domain names are accepted; private IP addresses are not public deployment URLs.
     $isIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
     $publicUrl = ($parts !== false && ($parts['scheme'] ?? '') === 'https'
         && $host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)
         && (!$isIp || filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false)
         && empty($parts['user']) && empty($parts['pass']) && empty($parts['query']) && empty($parts['fragment']));
     $baseLoginUrl = $publicUrl ? $base . '/login?next=review-queue' : null;
+
     $safeApplicant = htmlspecialchars($applicantName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $safeCompany = htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $body = '<p>A new verified applicant registration is awaiting DENR CARAGA LPDD-FUS review.</p>'
+    $body = '<p>A new verified applicant registration is awaiting DENR CARAGA LPDD/FUS review.</p>'
         . '<p><strong>Applicant:</strong> ' . $safeApplicant . '<br><strong>Company:</strong> '
         . $safeCompany . '<br><strong>Registration ID:</strong> ' . $registrationId . '</p>'
         . '<p>Sign in to DENR CARAGA FP-OMS and open the Applicant Review Queue to validate the registration.</p>'
         . '<p>This notification does not indicate approval or permit issuance. '
         . 'Review supporting documents only through the authenticated system.</p>';
-    $plain = "New verified registration awaiting LPDD-FUS review.\nApplicant: {$applicantName}\n"
-        . "Company: {$companyName}\nRegistration ID: {$registrationId}\n"
-        . "Sign in through your organization-approved FP-OMS website and open the Applicant Review Queue.";
-    foreach ($reviewers as $reviewer) {
+
+    foreach ($recipients as $recipient) {
         $sent = false;
+        $scope = $recipient['scope'];
         try {
-            $email = trim((string)($reviewer['email'] ?? ''));
-            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $hint = reviewer_login_hint_create((int)$reviewer['id']);
-                $loginUrl = $baseLoginUrl === null ? null : $baseLoginUrl
-                    . ($hint !== null ? '&hint=' . rawurlencode($hint) : '');
-                $safeUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                $button = $loginUrl !== null
-                    ? '<p style="margin:24px 0"><a href="' . $safeUrl . '" style="background:#08783f;color:#fff;padding:13px 22px;text-decoration:none;border-radius:6px;font-weight:bold">Login to FP-OMS – Review Application</a></p>'
-                        . '<p>Alternatively, open: <a href="' . $safeUrl . '">' . $safeUrl . '</a></p>'
-                    : '<p>Open your organization-approved FP-OMS website and sign in.</p>';
-                $sent = smtp_send_html($email, $subject,
-                    registration_email_layout('New Applicant Registration – Pending Validation',
-                        'LPDD-FUS Reviewing Personnel', $body . $button),
-                    $plain . ($loginUrl !== null ? "\\nLogin to review: " . $loginUrl : ''));
-            }
+            // Signed email prefill is strictly for a unique active reviewer;
+            // a shared LPDD/FUS office mailbox receives a generic login link.
+            $hint = $scope === 'reviewer'
+                ? reviewer_login_hint_create((int)$recipient['reviewer_id']) : null;
+            $loginUrl = $baseLoginUrl === null ? null : $baseLoginUrl
+                . ($hint !== null ? '&hint=' . rawurlencode($hint) : '');
+            $safeUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $button = $loginUrl !== null
+                ? '<p style="margin:24px 0"><a href="' . $safeUrl . '" style="background:#08783f;color:#fff;padding:13px 22px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Login to FP-OMS – Review Application</a></p>'
+                    . '<p>If the button does not work, open: <a href="' . $safeUrl . '">' . $safeUrl . '</a></p>'
+                : '<p>Open your organization-approved FP-OMS website and sign in to review the application.</p>';
+            $plain = "New verified registration awaiting LPDD/FUS review.\n"
+                . "Applicant: {$applicantName}\nCompany: {$companyName}\nRegistration ID: {$registrationId}\n"
+                . ($loginUrl !== null ? "Login to review: {$loginUrl}"
+                    : "Sign in through your organization-approved FP-OMS website and open the Applicant Review Queue.");
+            $sent = smtp_send_html(
+                $recipient['email'], $subject,
+                registration_email_layout('New Applicant Registration – Pending Validation',
+                    'LPDD/FUS Reviewing Personnel', $body . $button),
+                $plain
+            );
         } catch (Throwable $error) {
-            error_log('FP-OMS LPDD-FUS email notification failure for reviewer ID '
-                . (int)$reviewer['id'] . ': ' . $error->getMessage());
+            error_log('FP-OMS LPDD/FUS email alert failed (' . $scope . '): ' . $error->getMessage());
         }
         try {
-            audit_client(null, 'registration.reviewer_email_notification', 'registration',
-                $registrationId, ['reviewer_id'=>(int)$reviewer['id'],
-                    'delivery'=>$sent ? 'smtp' : 'not_sent']);
+            $auditData = ['delivery' => $sent ? 'smtp' : 'not_sent', 'channel' => $scope];
+            if ($scope === 'reviewer') $auditData['reviewer_id'] = (int)$recipient['reviewer_id'];
+            audit_client(
+                null,
+                $scope === 'office' ? 'registration.office_email_notification' : 'registration.reviewer_email_notification',
+                'registration', $registrationId, $auditData
+            );
         } catch (Throwable $error) {
-            error_log('FP-OMS reviewer notification audit failure: ' . $error->getMessage());
+            error_log('FP-OMS LPDD/FUS email notification audit failure: ' . $error->getMessage());
         }
     }
 }
