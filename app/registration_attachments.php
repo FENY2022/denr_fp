@@ -250,12 +250,18 @@ function registration_attachment_form_fields(bool $new): string
         $html .= registration_id_upload_row($index, $selected, $new);
     }
 
-    $html .= '</div><button class="btn btn-sm btn-outline-primary mb-4" type="button" data-add-id>'
+    $html .= '</div>'
+        . ($new && function_exists('registration_draft_list_html')
+            ? registration_draft_list_html('id') : '')
+        . '<button class="btn btn-sm btn-outline-primary mb-4 mt-3" type="button" data-add-id>'
         . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Another Valid ID</button>'
         . '<h4 class="h6 mb-2">Other Supporting Documents (Optional)</h4>'
         . '<div id="supporting-document-rows">'
         . registration_supporting_upload_row(0)
-        . '</div><button class="btn btn-sm btn-outline-primary mb-2" type="button" data-add-supporting>'
+        . '</div>'
+        . ($new && function_exists('registration_draft_list_html')
+            ? registration_draft_list_html('supporting') : '')
+        . '<button class="btn btn-sm btn-outline-primary mb-2 mt-3" type="button" data-add-supporting>'
         . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Supporting Document</button>'
         . '<p class="small text-secondary mb-0" id="attachment-feedback" role="status" aria-live="polite"></p>'
         . '</div>';
