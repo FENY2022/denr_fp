@@ -172,19 +172,9 @@ function registration_otp_verify(string $submitted): array
         $pdo->commit();
         unset($_SESSION['registration_pending_client_id'], $_SESSION['registration_otp_delivery_failed']);
 
-        try {
-            notify_role(
-                'lpdd_fus', 'New Applicant Registration',
-                (string)$locked['name'] . ' submitted a verified registration for '
-                    . (string)$reg['company_name'] . '.',
-                'person-plus', 'info', 'review_queue'
-            );
-        } catch (Throwable $notifyError) {
-            error_log('Post-OTP reviewer notification failure: ' . $notifyError->getMessage());
-        }
-
-        // Email transport failures do not reverse successful verification;
-        // show the client a truthful delivery warning instead of implying receipt.
+        // The client acknowledgment is the FIRST post-verification notification.
+        // Verification has committed; attempt SMTP synchronously before notifying FUU.
+        // A transport failure does not undo verification and is shown in the modal.
         $acknowledgmentSent = false;
         try {
             $acknowledgmentSent = send_registration_acknowledgment_email(
@@ -196,6 +186,17 @@ function registration_otp_verify(string $submitted): array
         } catch (Throwable $mailError) {
             error_log('Post-OTP acknowledgment email failed: ' . $mailError->getMessage());
         }
+        try {
+            notify_role(
+                'lpdd_fus', 'New Applicant Registration',
+                (string)$locked['name'] . ' submitted a verified registration for '
+                    . (string)$reg['company_name'] . '.',
+                'person-plus', 'info', 'review_queue'
+            );
+        } catch (Throwable $notifyError) {
+            error_log('Post-OTP reviewer notification failure: ' . $notifyError->getMessage());
+        }
+
         $_SESSION['registration_ack_delivery_failed'] = !$acknowledgmentSent;
         return [];
     } catch (Throwable $e) {
