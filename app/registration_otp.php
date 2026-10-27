@@ -117,8 +117,8 @@ function registration_otp_resend(): array
 }
 
 /**
- * On success, move to FUU review BEFORE attempting acknowledgment SMTP.
- * No acknowledgment or FUU review notification is issued for invalid OTP.
+ * On success, commit Forest Utilization Section (FUU) review status, then attempt acknowledgment SMTP before notifying staff.
+ * No acknowledgment or Forest Utilization Section (FUU) review notification is issued for invalid OTP.
  */
 function registration_otp_verify(string $submitted): array
 {
@@ -173,7 +173,7 @@ function registration_otp_verify(string $submitted): array
         unset($_SESSION['registration_pending_client_id'], $_SESSION['registration_otp_delivery_failed']);
 
         // The client acknowledgment is the FIRST post-verification notification.
-        // Verification has committed; attempt SMTP synchronously before notifying FUU.
+        // Verification has committed; attempt SMTP synchronously before notifying Forest Utilization Section (FUU) reviewers.
         // A transport failure does not undo verification and is shown in the modal.
         $acknowledgmentSent = false;
         try {
