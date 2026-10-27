@@ -84,6 +84,35 @@ function audit(?int $actorId, string $action, string $type, ?int $id = null, arr
     $stmt->execute([$actorId,$action,$type,$id,$metadata ? json_encode($metadata, JSON_THROW_ON_ERROR) : null,client_ip()]);
 }
 
+/** Client audit actors reference user_client, never the DENR users table. */
+function audit_client(
+    ?int $clientId, string $action, string $type, ?int $id = null, array $metadata = []
+): void {
+    $targetType = $type === 'user' ? 'client' : $type;
+    db()->prepare(
+        'INSERT INTO audit_logs (actor_client_id,action,target_type,target_id,metadata_json,ip_address) VALUES (?,?,?,?,?,?)'
+    )->execute([
+        $clientId, $action, $targetType, $id,
+        $metadata ? json_encode($metadata, JSON_THROW_ON_ERROR) : null, client_ip()
+    ]);
+}
+
+/** Do not use a numeric ID alone to infer the account table. */
+function principal_table(array $user): string
+{
+    return ($user['user_kind'] ?? '') === 'applicant' ? 'user_client' : 'users';
+}
+
+function email_assigned_to_other_account(string $email, string $kind, int $selfId = 0): bool
+{
+    $selfTable = $kind === 'applicant' ? 'user_client' : 'users';
+    $otherTable = $kind === 'applicant' ? 'users' : 'user_client';
+    if (query_one("SELECT id FROM {$selfTable} WHERE email=? AND id<>? LIMIT 1", [$email,$selfId])) {
+        return true;
+    }
+    return query_one("SELECT id FROM {$otherTable} WHERE email=? LIMIT 1", [$email]) !== null;
+}
+
 function query_one(string $sql, array $params = []): ?array
 {
     $stmt = db()->prepare($sql);
@@ -113,15 +142,28 @@ function show_error(string $message, int $status = 403): never
 
 function user_by_id(int $id): ?array
 {
-    return query_one('SELECT * FROM users WHERE id = ?', [$id]);
+    return query_one("SELECT * FROM users WHERE id = ? AND user_kind='internal'", [$id]);
+}
+
+function client_by_id(int $id): ?array
+{
+    return query_one("SELECT * FROM user_client WHERE id = ? AND user_kind='applicant'", [$id]);
 }
 
 function current_user(): ?array
 {
-    if (!isset($_SESSION['user_id'])) return null;
-    $user = user_by_id((int)$_SESSION['user_id']);
+    // A browser has ONE authenticated principal at a time, never both.
+    $isClient = isset($_SESSION['client_id']);
+    if (!$isClient && !isset($_SESSION['user_id'])) return null;
+    if ($isClient && isset($_SESSION['user_id'])) {
+        unset($_SESSION['user_id'], $_SESSION['client_id']);
+        return null;
+    }
+    $user = $isClient
+        ? client_by_id((int)$_SESSION['client_id'])
+        : user_by_id((int)$_SESSION['user_id']);
     if (!$user || in_array($user['status'], ['suspended', 'pending_setup'], true)) {
-        unset($_SESSION['user_id']);
+        unset($_SESSION['user_id'], $_SESSION['client_id']);
         return null;
     }
     return $user;
@@ -136,12 +178,18 @@ function require_user(): array
 
 function user_roles(int $userId): array
 {
+    if (isset($_SESSION['client_id']) && !isset($_SESSION['user_id'])
+        && (int)$_SESSION['client_id'] === $userId) {
+        return ['applicant'];
+    }
     $rows = query_all('SELECT roles.code FROM roles JOIN user_roles ur ON ur.role_id=roles.id WHERE ur.user_id=?', [$userId]);
     return array_column($rows, 'code');
 }
 
 function has_role(array $user, string $code): bool
 {
+    if (($user['user_kind'] ?? '') === 'applicant') return $code === 'applicant';
+    if (($user['user_kind'] ?? '') !== 'internal') return false;
     return in_array($code, user_roles((int)$user['id']), true);
 }
 
