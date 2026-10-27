@@ -278,6 +278,7 @@ function view_login(array $errors = []): void
         . errors_html($errors) . '<p class="text-secondary">Sign in to your applicant or DENR internal account.</p>'
         . '<form method="post" action="' . url('login') . '">' . csrf_field()
         . ($next !== '' ? '<input type="hidden" name="next" value="review-queue">' : '')
+        . ($hint !== '' ? '<input type="hidden" name="hint" value="' . e($hint) . '">' : '')
         . ($prefilledEmail !== null ? field('email','Email',$prefilledEmail,'email',true,'autocomplete="username" maxlength="190" readonly') : field('email','Email',form_value('email'),'email',true,'autocomplete="username" maxlength="190"'))
         . field('password','Password','','password',true,'autocomplete="current-password"')
         . '<button class="btn btn-primary w-100" type="submit">Sign in</button>'
