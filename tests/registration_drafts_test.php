@@ -39,6 +39,12 @@ assert_draft(str_contains($html, 'id="registration-draft-list"'),
     'Refresh-persistent draft section renders even with no files');
 assert_draft(str_contains($html, 'No saved files yet'),
     'Empty state tells users that uploads have not been saved');
+assert_draft(str_contains($html, 'SELECTED FILES'),
+    'Registration upload section follows the requested Selected Files design');
+assert_draft(str_contains($html, 'data-upload-queue'),
+    'Live upload progress cards have a dedicated queue');
+assert_draft(str_contains($html, 'data-draft-count'),
+    'Saved files counter persists in the rendered page');
 assert_draft(str_contains($html, 'expire in 24 hours'),
     'Drafts are disclosed as temporary');
 
@@ -59,6 +65,11 @@ assert_draft(str_contains($router, "case 'register_draft_upload':")
     'Draft upload and deletion routes are present');
 assert_draft(str_contains($js, 'savedList') && str_contains($js, 'postDraft(') && str_contains($js, 'uploadWithProgress('),
     'Browser stages files immediately and shows server-backed list');
+assert_draft(str_contains($js, "xhr.upload.addEventListener('progress'")
+    && str_contains($js, 'selectedFileCard('),
+    'Selected Files cards display real browser upload progress');
+assert_draft(str_contains($js, 'remove-draft') && str_contains($js, 'Saved — ready for submission'),
+    'Saved uploads are visibly confirmed and removable');
 assert_draft(str_contains($js, 'pendingUploads > 0'),
     'Form cannot submit while draft upload is in progress');
 assert_draft(str_contains($registration, 'registration_draft_submission()'),
