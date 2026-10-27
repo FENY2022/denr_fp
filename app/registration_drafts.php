@@ -52,25 +52,30 @@ function registration_draft_public_list(): array
 function registration_draft_list_html(): string
 {
     $docs = registration_draft_public_list();
-    $html = '<div class="border rounded-3 p-3 mt-3" id="registration-draft-list" aria-live="polite">'
-        . '<h4 class="h6 mb-2"><i class="bi bi-cloud-check me-1"></i>Saved Attachments '
-        . '<span class="badge text-bg-light border text-dark" data-draft-count>' . count($docs) . '</span></h4>'
-        . '<p class="small text-secondary mb-2">Uploaded files remain saved when you refresh this page in '
-        . 'the same browser session. They are attached permanently only after you submit registration. '
-        . 'Unsubmitted drafts expire after 24 hours.</p>'
-        . '<ul class="list-group" data-draft-items>';
+    $html = '<section class="registration-selected-files" id="registration-draft-list" aria-live="polite">'
+        . '<div class="selected-files-heading"><span>SELECTED FILES</span>'
+        . '<span class="selected-files-total" data-draft-count>' . count($docs) . '</span></div>'
+        . '<p class="selected-files-guidance">Files are securely saved as you select them and stay here '
+        . 'if you refresh this page in the same browser session. Unsubmitted uploads expire in 24 hours.</p>'
+        . '<div class="selected-upload-queue" data-upload-queue></div>'
+        . '<ul class="selected-file-list" data-draft-items>';
     foreach ($docs as $doc) {
-        $html .= '<li class="list-group-item d-flex align-items-center justify-content-between gap-2 flex-wrap" '
-            . 'data-draft-document data-draft-type="' . e($doc['document_type']) . '" '
-            . 'data-draft-id="' . $doc['id'] . '">'
-            . '<span><strong>' . e($doc['id_label']) . '</strong><span class="small text-secondary d-block">'
-            . e($doc['original_name']) . ' · ' . number_format($doc['size']/1048576, 2) . ' MB</span></span>'
-            . '<button type="button" class="btn btn-sm btn-outline-danger" '
-            . 'data-remove-draft aria-label="Remove saved attachment">'
-            . '<i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button></li>';
+        $html .= '<li class="selected-file-card is-saved" data-draft-document data-draft-type="'
+            . e($doc['document_type']) . '" data-draft-id="' . (int)$doc['id'] . '">'
+            . '<span class="selected-file-icon" aria-hidden="true"><i class="bi bi-file-earmark-text-fill"></i></span>'
+            . '<div class="selected-file-info"><strong class="selected-file-name">'
+            . e($doc['original_name']) . '</strong>'
+            . '<span class="selected-file-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> '
+            . 'Saved — ready for submission · ' . e($doc['id_label']) . '</span></div>'
+            . '<button class="selected-file-remove" type="button" data-remove-draft '
+            . 'aria-label="Remove saved attachment: ' . e($doc['original_name']) . '" title="Remove file">'
+            . '<i class="bi bi-x-lg" aria-hidden="true"></i></button>'
+            . '<span class="selected-file-progress" aria-hidden="true"><span style="width:100%"></span></span></li>';
     }
-    return $html . '</ul><p class="small text-secondary mt-2 mb-0" data-draft-empty'
-        . ($docs ? ' hidden' : '') . '>No saved uploads yet. Select a file above to save it.</p></div>';
+    return $html . '</ul>'
+        . '<p class="selected-files-empty" data-draft-empty'
+        . ($docs ? ' hidden' : '') . '>No saved files yet. Select a file above to begin uploading.</p>'
+        . '</section>';
 }
 
 /** Never accept arbitrary paths from a browser or a forged SQL response. */
