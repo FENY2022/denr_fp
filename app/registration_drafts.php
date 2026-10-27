@@ -179,6 +179,23 @@ function registration_draft_delete(int $id): array
     }
 }
 
+/** Detect raw file inputs still pending AJAX upload at final submit time. */
+function registration_draft_has_unstaged_files(array $files): bool
+{
+    foreach (['valid_id','supporting_document','id_files','supporting_files'] as $field) {
+        if (!isset($files[$field]) || !is_array($files[$field])) continue;
+        $errors = $files[$field]['error'] ?? UPLOAD_ERR_NO_FILE;
+        if (is_array($errors)) {
+            foreach ($errors as $status) {
+                if ((int)$status !== UPLOAD_ERR_NO_FILE) return true;
+            }
+        } elseif ((int)$errors !== UPLOAD_ERR_NO_FILE) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** Draft files have already passed the same MIME, size and ID-type checks. */
 function registration_draft_submission(): array
 {
