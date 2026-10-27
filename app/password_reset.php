@@ -53,13 +53,16 @@ function request_password_reset(string $email): void
         return;
     }
 
-    $user = query_one('SELECT id,name,email,status FROM users WHERE email=?', [$email]);
-    if (!$user || $user['status'] === 'suspended') {
-        return;
-    }
+    $staff = query_one("SELECT id,name,email,status FROM users WHERE email=? AND user_kind='internal'", [$email]);
+    $client = query_one("SELECT id,name,email,status FROM user_client WHERE email=? AND user_kind='applicant'", [$email]);
+    if (($staff && $client) || (!$staff && !$client)) return;
+    $isClient = $client !== null;
+    $user = $staff ?? $client;
+    if (in_array($user['status'], ['suspended', 'pending_setup'], true)) return;
 
+    $column = $isClient ? 'client_id' : 'user_id';
     $recent = query_one(
-        'SELECT COUNT(*) AS n FROM password_reset_tokens WHERE user_id=? AND created_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)',
+        "SELECT COUNT(*) AS n FROM password_reset_tokens WHERE {$column}=? AND created_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE)",
         [(int)$user['id']]
     );
     if ((int)($recent['n'] ?? 0) >= 3) {
@@ -69,13 +72,19 @@ function request_password_reset(string $email): void
     $token = bin2hex(random_bytes(32));
     $hash = hash('sha256', $token);
     db()->prepare(
-        'INSERT INTO password_reset_tokens (user_id,token_hash,requested_ip,expires_at) VALUES (?,?,?,DATE_ADD(NOW(), INTERVAL 30 MINUTE))'
+        "INSERT INTO password_reset_tokens ({$column},token_hash,requested_ip,expires_at) VALUES (?,?,?,DATE_ADD(NOW(), INTERVAL 30 MINUTE))"
     )->execute([(int)$user['id'], $hash, $ip]);
 
     $sent = send_password_reset_email($user, password_reset_url($token));
-    audit((int)$user['id'], 'auth.password_reset_requested', 'user', (int)$user['id'], [
-        'delivery' => $sent ? 'smtp' : 'not_sent'
-    ]);
+    if ($isClient) {
+        audit_client((int)$user['id'], 'auth.password_reset_requested', 'client', (int)$user['id'], [
+            'delivery' => $sent ? 'smtp' : 'not_sent'
+        ]);
+    } else {
+        audit((int)$user['id'], 'auth.password_reset_requested', 'user', (int)$user['id'], [
+            'delivery' => $sent ? 'smtp' : 'not_sent'
+        ]);
+    }
 }
 
 function valid_password_reset(string $token): ?array
@@ -85,13 +94,16 @@ function valid_password_reset(string $token): ?array
     }
 
     return query_one(
-        "SELECT prt.id AS reset_id,prt.user_id,u.name,u.email
+        "SELECT prt.id AS reset_id,prt.user_id,prt.client_id,
+                COALESCE(u.name,c.name) AS name,COALESCE(u.email,c.email) AS email
          FROM password_reset_tokens prt
-         INNER JOIN users u ON u.id=prt.user_id
+         LEFT JOIN users u ON u.id=prt.user_id
+         LEFT JOIN user_client c ON c.id=prt.client_id
          WHERE prt.token_hash=?
            AND prt.used_at IS NULL
            AND prt.expires_at > NOW()
-           AND u.status <> 'suspended'
+           AND ((u.id IS NOT NULL AND u.status NOT IN ('suspended','pending_setup'))
+             OR (c.id IS NOT NULL AND c.status NOT IN ('suspended','pending_setup')))
          LIMIT 1",
         [hash('sha256', $token)]
     );
@@ -118,15 +130,20 @@ function complete_password_reset(string $token, string $password, string $confir
     $pdo = db();
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?')
-            ->execute([password_hash($password, PASSWORD_DEFAULT), (int)$reset['user_id']]);
-        $pdo->prepare('UPDATE password_reset_tokens SET used_at=NOW() WHERE user_id=? AND used_at IS NULL')
-            ->execute([(int)$reset['user_id']]);
-        audit((int)$reset['user_id'], 'auth.password_reset_completed', 'user', (int)$reset['user_id']);
+        $isClient = $reset['client_id'] !== null;
+        $accountId = (int)($isClient ? $reset['client_id'] : $reset['user_id']);
+        $table = $isClient ? 'user_client' : 'users';
+        $owner = $isClient ? 'client_id' : 'user_id';
+        $pdo->prepare("UPDATE {$table} SET password_hash=?,must_change_password=0 WHERE id=?")
+            ->execute([password_hash($password, PASSWORD_DEFAULT), $accountId]);
+        $pdo->prepare("UPDATE password_reset_tokens SET used_at=NOW() WHERE {$owner}=? AND used_at IS NULL")
+            ->execute([$accountId]);
+        if ($isClient) audit_client($accountId, 'auth.password_reset_completed', 'client', $accountId);
+        else audit($accountId, 'auth.password_reset_completed', 'user', $accountId);
         $pdo->commit();
 
-        if ((int)($_SESSION['user_id'] ?? 0) === (int)$reset['user_id']) {
-            unset($_SESSION['user_id']);
+        if ((int)($_SESSION[$isClient ? 'client_id' : 'user_id'] ?? 0) === $accountId) {
+            unset($_SESSION[$isClient ? 'client_id' : 'user_id']);
         }
         session_regenerate_id(true);
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
