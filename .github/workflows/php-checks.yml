@@ -34,3 +34,5 @@ jobs:
           php tests/user_setup_modal_test.php
           php tests/user_edit_modal_test.php
           php tests/user_office_email_test.php
+          php tests/client_separation_test.php
+          php tests/registration_drafts_test.php
