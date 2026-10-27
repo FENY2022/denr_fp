@@ -236,7 +236,7 @@ function registration_verified_modal_html(bool $ackDeliveryFailed): string
         . '<p class="text-success fw-semibold small mb-3">DENR CARAGA FP-OMS</p>'
         . '<p class="mb-3" id="otp-verification-success-description">'
         . 'Your email address has been successfully verified, and your registration '
-        . 'has been submitted for <strong>FUU validation</strong>.</p>'
+        . 'has been submitted to the <strong>Forest Utilization Section (FUU)</strong> for validation.</p>'
         . '<p class="text-secondary small mb-0">Please wait for the review and approval '
         . 'of your registration. You will receive an email notification regarding its status.</p>'
         . $warning
