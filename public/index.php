@@ -89,39 +89,36 @@ try {
                 $values = registration_input();
                 $errors = register_applicant($values,safe_post('email',190),(string)($_POST['password'] ?? ''),(string)($_POST['password_confirm'] ?? ''),$_FILES,$_POST);
                 if (!$errors) {
-                    flash('info', 'Please enter the verification code sent to your registered email.');
+                    flash('info', 'Please open the verification email and click the confirmation link.');
                     go('verify_registration_otp');
                 }
                 view_register($errors);
             } else view_register();
             break;
+        case 'confirm_registration_email':
+            if ($post) show_error('Email confirmation requires a link.',405);
+            $errors = registration_otp_verify(strtolower(trim((string)($_GET['token'] ?? ''))));
+            if ($errors) {
+                flash('warning',$errors[0]);
+                go('login');
+            }
+            $_SESSION['registration_verified_modal'] = [
+                'ack_delivery_failed'=>!empty($_SESSION['registration_ack_delivery_failed']),
+                'applicant_name'=>(string)($_SESSION['registration_verified_applicant_name'] ?? '')
+            ];
+            unset($_SESSION['registration_ack_delivery_failed'],$_SESSION['registration_verified_applicant_name']);
+            go('login');
         case 'verify_registration_otp':
             if ($loggedIn) go('dashboard');
             if ($post) {
                 check_csrf();
-                $otpAction = (string)($_POST['otp_action'] ?? '');
-                if ($otpAction === 'verify') {
-                    $errors = registration_otp_verify(trim((string)($_POST['otp_code'] ?? '')));
-                    if (!$errors) {
-                        // One-time modal on the login page (PRG): do not show a success toast.
-                        $_SESSION['registration_verified_modal'] = [
-                            'ack_delivery_failed' => !empty($_SESSION['registration_ack_delivery_failed']),
-                            'applicant_name' => (string)($_SESSION['registration_verified_applicant_name'] ?? '')
-                        ];
-                        unset($_SESSION['registration_ack_delivery_failed'], $_SESSION['registration_verified_applicant_name']);
-                        go('login');
-                    }
-                    view_verify_registration_otp($errors);
-                } elseif ($otpAction === 'resend') {
-                    $errors = registration_otp_resend();
-                    if (!$errors) {
-                        flash('info', 'A new verification code has been sent.');
-                        go('verify_registration_otp');
-                    }
-                    view_verify_registration_otp($errors);
-                } else {
-                    view_verify_registration_otp(['Unknown action.']);
+                if (($_POST['otp_action'] ?? '') !== 'resend') show_error('Invalid verification action.',400);
+                $errors = registration_otp_resend();
+                if (!$errors) {
+                    flash('info','A new verification link has been sent to your email.');
+                    go('verify_registration_otp');
                 }
+                view_verify_registration_otp($errors);
             } else view_verify_registration_otp();
             break;
         case 'register_draft_upload':
