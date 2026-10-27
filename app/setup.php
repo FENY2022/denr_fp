@@ -52,7 +52,7 @@ function create_initial_super_admin(array $input): array
     if ($setupKey === '' || !hash_equals($configuredKey, $setupKey)) {
         $errors[] = 'The one-time setup key is invalid.';
     }
-    if ($email !== '' && query_one('SELECT id FROM users WHERE email=?', [$email])) {
+    if ($email !== '' && email_assigned_to_other_account($email, 'internal')) {
         $errors[] = 'A user account already exists with this email address.';
     }
     if ($errors) {
