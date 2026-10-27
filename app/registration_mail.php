@@ -132,6 +132,30 @@ function send_registration_decision_email(string $email, string $name, string $d
     return smtp_send_html($email, $subject, registration_email_layout($heading, $name, $body), $plain);
 }
 
+
+/** Expiring HMAC-signed reviewer login hint; never authenticates or grants access. */
+function reviewer_login_hint_create(int $userId): ?string
+{
+    $key = env_value('FPOMS_REVIEW_LINK_KEY');
+    if (strlen($key) < 32) return null;
+    $payload = $userId . '.' . (time() + 86400);
+    return $payload . '.' . hash_hmac('sha256', $payload, $key);
+}
+
+function reviewer_login_hint_email(string $hint): ?string
+{
+    $key = env_value('FPOMS_REVIEW_LINK_KEY');
+    if (strlen($key) < 32 || !preg_match('/^([1-9][0-9]*)\.([0-9]{10})\.([a-f0-9]{64})$/D', $hint, $matches)) return null;
+    if ((int)$matches[2] < time() || (int)$matches[2] > time() + 86400) return null;
+    $payload = $matches[1] . '.' . $matches[2];
+    if (!hash_equals(hash_hmac('sha256', $payload, $key), $matches[3])) return null;
+    $user = query_one("SELECT u.email FROM users u JOIN user_roles ur ON ur.user_id=u.id
+        JOIN roles r ON r.id=ur.role_id
+        WHERE u.id=? AND u.user_kind='internal' AND u.status='active' AND r.code='lpdd_fus'
+        LIMIT 1", [(int)$matches[1]]);
+    return $user && filter_var($user['email'], FILTER_VALIDATE_EMAIL) ? (string)$user['email'] : null;
+}
+
 /** Notify each eligible LPDD-FUS reviewer after verified registration is committed. */
 function send_lpdd_fus_registration_alerts(int $registrationId, string $applicantName, string $companyName): void
 {
@@ -139,7 +163,7 @@ function send_lpdd_fus_registration_alerts(int $registrationId, string $applican
         "SELECT DISTINCT u.id,u.email FROM users u
          JOIN user_roles ur ON ur.user_id=u.id
          JOIN roles r ON r.id=ur.role_id
-         WHERE r.code='lpdd_fus' AND u.status <> 'suspended'"
+         WHERE r.code='lpdd_fus' AND u.status='active'"
     );
     $subject = 'New Applicant Registration – Pending Validation | DENR CARAGA FP-OMS';
     // Use only an explicitly configured public HTTPS origin; never email localhost links.
@@ -152,31 +176,35 @@ function send_lpdd_fus_registration_alerts(int $registrationId, string $applican
         && $host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)
         && (!$isIp || filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false)
         && empty($parts['user']) && empty($parts['pass']) && empty($parts['query']) && empty($parts['fragment']));
-    $loginUrl = $publicUrl ? $base . '/login?next=review-queue' : null;
-    $safeLoginUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $baseLoginUrl = $publicUrl ? $base . '/login?next=review-queue' : null;
     $safeApplicant = htmlspecialchars($applicantName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $safeCompany = htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $body = '<p>A new verified applicant registration is awaiting DENR CARAGA LPDD-FUS review.</p>'
         . '<p><strong>Applicant:</strong> ' . $safeApplicant . '<br><strong>Company:</strong> '
         . $safeCompany . '<br><strong>Registration ID:</strong> ' . $registrationId . '</p>'
         . '<p>Sign in to DENR CARAGA FP-OMS and open the Applicant Review Queue to validate the registration.</p>'
-        . ($loginUrl !== null
-            ? '<p style="margin:24px 0"><a href="' . $safeLoginUrl . '" style="background:#08783f;color:#ffffff;padding:13px 22px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Login to FP-OMS – Review Application</a></p>'
-                . '<p>If the button does not work, open: <a href="' . $safeLoginUrl . '">' . $safeLoginUrl . '</a></p>'
-            : '<p>Open your organization-approved FP-OMS website and sign in to access the Applicant Review Queue.</p>')
         . '<p>This notification does not indicate approval or permit issuance. '
         . 'Review supporting documents only through the authenticated system.</p>';
     $plain = "New verified registration awaiting LPDD-FUS review.\nApplicant: {$applicantName}\n"
         . "Company: {$companyName}\nRegistration ID: {$registrationId}\n"
-        . ($loginUrl !== null ? "Login to review: {$loginUrl}" : "Sign in through your organization-approved FP-OMS website and open the Applicant Review Queue.");
+        . "Sign in through your organization-approved FP-OMS website and open the Applicant Review Queue.";
     foreach ($reviewers as $reviewer) {
         $sent = false;
         try {
             $email = trim((string)($reviewer['email'] ?? ''));
             if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $hint = reviewer_login_hint_create((int)$reviewer['id']);
+                $loginUrl = $baseLoginUrl === null ? null : $baseLoginUrl
+                    . ($hint !== null ? '&hint=' . rawurlencode($hint) : '');
+                $safeUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $button = $loginUrl !== null
+                    ? '<p style="margin:24px 0"><a href="' . $safeUrl . '" style="background:#08783f;color:#fff;padding:13px 22px;text-decoration:none;border-radius:6px;font-weight:bold">Login to FP-OMS – Review Application</a></p>'
+                        . '<p>Alternatively, open: <a href="' . $safeUrl . '">' . $safeUrl . '</a></p>'
+                    : '<p>Open your organization-approved FP-OMS website and sign in.</p>';
                 $sent = smtp_send_html($email, $subject,
                     registration_email_layout('New Applicant Registration – Pending Validation',
-                        'LPDD-FUS Reviewing Personnel', $body), $plain);
+                        'LPDD-FUS Reviewing Personnel', $body . $button),
+                    $plain . ($loginUrl !== null ? "\\nLogin to review: " . $loginUrl : ''));
             }
         } catch (Throwable $error) {
             error_log('FP-OMS LPDD-FUS email notification failure for reviewer ID '
