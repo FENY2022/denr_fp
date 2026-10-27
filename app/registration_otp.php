@@ -183,15 +183,20 @@ function registration_otp_verify(string $submitted): array
             error_log('Post-OTP reviewer notification failure: ' . $notifyError->getMessage());
         }
 
+        // Email transport failures do not reverse successful verification;
+        // show the client a truthful delivery warning instead of implying receipt.
+        $acknowledgmentSent = false;
         try {
-            $sent = send_registration_acknowledgment_email(
+            $acknowledgmentSent = send_registration_acknowledgment_email(
                 (string)$locked['email'],(string)$locked['name']
             );
             audit_client((int)$locked['id'], 'registration.email_acknowledgment',
-                'registration', (int)$reg['id'], ['delivery'=>$sent?'smtp':'not_sent']);
+                'registration', (int)$reg['id'],
+                ['delivery'=>$acknowledgmentSent ? 'smtp' : 'not_sent']);
         } catch (Throwable $mailError) {
             error_log('Post-OTP acknowledgment email failed: ' . $mailError->getMessage());
         }
+        $_SESSION['registration_ack_delivery_failed'] = !$acknowledgmentSent;
         return [];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
