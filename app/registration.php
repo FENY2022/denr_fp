@@ -39,10 +39,11 @@ function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $rev
         throw new RuntimeException('Storage directory could not be created.');
     }
     if (isset($info['draft_path'])) {
-        $safePath = registration_draft_real_path(str_replace(
-            PROJECT_ROOT . '/storage/', '', (string)$info['draft_path']
-        ));
-        if (!$safePath || $safePath !== $info['draft_path'] || !copy($safePath, $absolute)) {
+        $safePath = realpath((string)$info['draft_path']);
+        $draftRoot = realpath(PROJECT_ROOT . '/storage/registration_drafts');
+        if (!$safePath || !$draftRoot
+            || !str_starts_with($safePath, $draftRoot . DIRECTORY_SEPARATOR)
+            || !is_file($safePath) || !copy($safePath, $absolute)) {
             throw new RuntimeException('Saved registration attachment could not be copied.');
         }
     } elseif (!move_uploaded_file((string)$info['file']['tmp_name'], $absolute)) {
