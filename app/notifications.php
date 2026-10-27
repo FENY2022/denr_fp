@@ -8,7 +8,8 @@ function create_notification(
     string $icon = 'bell',
     string $level = 'info',
     ?string $routePage = null,
-    array $routeQuery = []
+    array $routeQuery = [],
+    string $ownerKind = 'internal'
 ): void {
     $title = trim($title);
     $message = trim($message);
@@ -23,9 +24,10 @@ function create_notification(
     }
 
     $queryJson = $routeQuery ? json_encode($routeQuery, JSON_THROW_ON_ERROR) : null;
+    $ownerColumn = $ownerKind === 'applicant' ? 'client_id' : 'user_id';
     try {
         db()->prepare(
-            'INSERT INTO notifications (user_id,title,message,icon,level,route_page,route_query_json) VALUES (?,?,?,?,?,?,?)'
+            "INSERT INTO notifications ({$ownerColumn},title,message,icon,level,route_page,route_query_json) VALUES (?,?,?,?,?,?,?)"
         )->execute([
             $userId,
             substr($title, 0, 180),
@@ -38,6 +40,21 @@ function create_notification(
     } catch (PDOException $e) {
         error_log('FP-OMS notification write skipped: ' . $e->getMessage());
     }
+}
+
+/** Write to user_client notifications even if client ID overlaps a staff ID. */
+function create_client_notification(
+    int $clientId, string $title, string $message, string $icon='bell',
+    string $level='info', ?string $routePage=null, array $routeQuery=[]
+): void {
+    create_notification($clientId,$title,$message,$icon,$level,$routePage,$routeQuery,'applicant');
+}
+
+/** All current-user notification queries use an explicitly namespaced owner. */
+function notification_owner_column(): string
+{
+    return isset($_SESSION['client_id']) && !isset($_SESSION['user_id'])
+        ? 'client_id' : 'user_id';
 }
 
 function notify_role(
@@ -66,7 +83,8 @@ function notify_role(
 function notification_unread_count(int $userId): int
 {
     try {
-        $row = query_one('SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND read_at IS NULL', [$userId]);
+        $column = notification_owner_column();
+        $row = query_one("SELECT COUNT(*) AS n FROM notifications WHERE {$column}=? AND read_at IS NULL", [$userId]);
         return (int)($row['n'] ?? 0);
     } catch (PDOException $e) {
         return 0;
@@ -77,9 +95,10 @@ function latest_notifications(int $userId, int $limit = 5): array
 {
     $limit = max(1, min(20, $limit));
     try {
+        $column = notification_owner_column();
         return query_all(
             "SELECT * FROM notifications
-             WHERE user_id=?
+             WHERE {$column}=?
              ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
              LIMIT {$limit}",
             [$userId]
@@ -93,9 +112,10 @@ function all_notifications(int $userId, int $limit = 100): array
 {
     $limit = max(1, min(200, $limit));
     try {
+        $column = notification_owner_column();
         return query_all(
             "SELECT * FROM notifications
-             WHERE user_id=?
+             WHERE {$column}=?
              ORDER BY (read_at IS NULL) DESC, created_at DESC, id DESC
              LIMIT {$limit}",
             [$userId]
@@ -130,11 +150,12 @@ function notification_destination(array $notification): string
 
 function notification_open(array $user, int $notificationId): never
 {
-    $notification = query_one('SELECT * FROM notifications WHERE id=? AND user_id=?', [$notificationId, (int)$user['id']]);
+    $column = ($user['user_kind'] ?? '') === 'applicant' ? 'client_id' : 'user_id';
+    $notification = query_one("SELECT * FROM notifications WHERE id=? AND {$column}=?", [$notificationId, (int)$user['id']]);
     if (!$notification) show_error('Notification not found.', 404);
 
     if ($notification['read_at'] === null) {
-        db()->prepare('UPDATE notifications SET read_at=NOW() WHERE id=? AND user_id=?')
+        db()->prepare("UPDATE notifications SET read_at=NOW() WHERE id=? AND {$column}=?")
             ->execute([$notificationId, (int)$user['id']]);
     }
 
@@ -144,7 +165,8 @@ function notification_open(array $user, int $notificationId): never
 
 function mark_all_notifications_read(array $user): void
 {
-    db()->prepare('UPDATE notifications SET read_at=NOW() WHERE user_id=? AND read_at IS NULL')
+    $column = ($user['user_kind'] ?? '') === 'applicant' ? 'client_id' : 'user_id';
+    db()->prepare("UPDATE notifications SET read_at=NOW() WHERE {$column}=? AND read_at IS NULL")
         ->execute([(int)$user['id']]);
 }
 
