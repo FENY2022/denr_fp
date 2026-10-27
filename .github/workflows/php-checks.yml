@@ -36,3 +36,4 @@ jobs:
           php tests/user_office_email_test.php
           php tests/client_separation_test.php
           php tests/registration_drafts_test.php
+          php tests/registration_otp_test.php
