@@ -263,7 +263,7 @@ function view_applicant_registration(array $user, array $errors = []): void
 function view_review_queue(): void
 {
     require_role('lpdd_fus');
-    $queue = query_all("SELECT ar.id,ar.company_name,ar.representative_name,ar.submitted_at,ar.revision,u.email,u.status FROM applicant_registrations ar JOIN users u ON u.id=ar.user_id WHERE u.status='pending_review' ORDER BY ar.submitted_at ASC, ar.id ASC LIMIT 200");
+    $queue = query_all("SELECT ar.id,ar.company_name,ar.representative_name,ar.submitted_at,ar.revision,u.email,u.status FROM applicant_registrations ar JOIN user_client u ON u.id=ar.client_id WHERE u.status='pending_review' ORDER BY ar.submitted_at ASC, ar.id ASC LIMIT 200");
     $html = '<div class="panel"><h2 class="h5">Pending Account Reviews <span class="badge text-bg-primary">' . count($queue) . '</span></h2>'
         . '<p class="text-secondary small">Approve valid registrations or return incomplete registrations with specific correction instructions.</p>';
     if (!$queue) $html .= '<div class="alert alert-success mb-0">No registrations are currently awaiting review.</div>';
@@ -281,7 +281,7 @@ function view_review_queue(): void
 function view_review_case(int $id, array $errors = []): void
 {
     require_role('lpdd_fus');
-    $reg = query_one('SELECT ar.*,u.email,u.status,u.activated_at FROM applicant_registrations ar JOIN users u ON u.id=ar.user_id WHERE ar.id=?',[$id]);
+    $reg = query_one('SELECT ar.*,u.email,u.status,u.activated_at FROM applicant_registrations ar JOIN user_client u ON u.id=ar.client_id WHERE ar.id=?',[$id]);
     if (!$reg) show_error('Registration not found.', 404);
     $html = '<div class="mb-3"><a href="' . url('review_queue') . '">← Back to review queue</a></div><div class="row g-4"><div class="col-lg-7"><div class="panel">' . errors_html($errors)
         . '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><h2 class="h5">Registration #' . (int)$reg['id'] . '</h2>' . status_badge($reg['status']) . '</div>'
@@ -361,7 +361,7 @@ function view_dashboard(): void
         . '<div><h2 class="h5 mb-1">Welcome, ' . e($user['name']) . '</h2><p class="text-secondary mb-0">Assigned: ' . e($rolesText) . '</p></div>'
         . status_badge($user['status']) . '</div><hr><div class="row g-3">';
     if (has_role($user,'lpdd_fus')) {
-        $pending = query_one("SELECT COUNT(*) AS n FROM users WHERE user_kind='applicant' AND status='pending_review'");
+        $pending = query_one("SELECT COUNT(*) AS n FROM user_client WHERE user_kind='applicant' AND status='pending_review'");
         $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('review_queue') . '"><strong>Applicant Reviews</strong><span class="metric">' . (int)$pending['n'] . '</span><small>Awaiting LPDD-FUS action</small></a></div>';
     }
     if (has_role($user,'super_admin')) $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('user_management') . '"><strong>User Management</strong><span class="metric">RICTU</span><small>Create role-assigned accounts</small></a></div>';
