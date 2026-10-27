@@ -58,7 +58,7 @@ function request_password_reset(string $email): void
     if (($staff && $client) || (!$staff && !$client)) return;
     $isClient = $client !== null;
     $user = $staff ?? $client;
-    if (in_array($user['status'], ['suspended', 'pending_setup'], true)) return;
+    if (in_array($user['status'], ['suspended', 'pending_setup', 'pending_email_verification'], true)) return;
 
     $column = $isClient ? 'client_id' : 'user_id';
     $recent = query_one(
