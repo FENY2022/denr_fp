@@ -4,6 +4,11 @@ declare(strict_types=1);
 function view_landing(): void
 {
     $user = current_user();
+    $submission = ($_GET['registration'] ?? '') === 'success'
+        && isset($_SESSION['registration_submission'])
+        && is_array($_SESSION['registration_submission'])
+        ? $_SESSION['registration_submission'] : null;
+    if ($submission !== null) unset($_SESSION['registration_submission']);
     $isLoggedIn = is_array($user);
     $primaryHref = $isLoggedIn ? url('dashboard') : url('register');
     $primaryLabel = $isLoggedIn ? 'Go to Dashboard' : 'Apply / Register';
@@ -29,7 +34,7 @@ function view_landing(): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css" rel="stylesheet">'
-        . '<link href="assets/landing.css" rel="stylesheet">'
+        . '<link href="assets/landing.css?v=2" rel="stylesheet">'
         . '<script src="assets/app-shell.js" defer></script></head><body class="landing-body">';
 
     echo '<nav class="navbar navbar-expand-lg landing-nav sticky-top"><div class="container-xl">'
@@ -108,8 +113,35 @@ function view_landing(): void
     echo '<footer class="landing-footer" id="contact"><div class="container-xl"><div class="row g-4"><div class="col-lg-5"><div class="footer-brand"><span class="landing-brand-mark"><img src="assets/fpoms-icon.svg" alt=""></span><div><strong>' . $appName . '</strong><small>Feasibility Permit Online Management System</small></div></div><p>Department of Environment and Natural Resources<br>Caraga Region XIII</p></div>'
         . '<div class="col-sm-6 col-lg-3"><h3>Office</h3><p>DENR-XIII<br>Ambago, Butuan City, Philippines</p></div>'
         . '<div class="col-sm-6 col-lg-4"><h3>Contact</h3><p><i class="bi bi-telephone me-2"></i>0981-017-3551<br><i class="bi bi-envelope me-2"></i>r13@denr.gov.ph</p></div></div>'
-        . '<div class="footer-bottom"><span>&copy; ' . date('Y') . ' DENR Caraga Region XIII. All rights reserved.</span><span>FP-OMS · Digital Permit Processing</span></div></div></footer>'
-        . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script></body></html>';
+        . '<div class="footer-bottom"><span>&copy; ' . date('Y') . ' DENR Caraga Region XIII. All rights reserved.</span><span>FP-OMS · Digital Permit Processing</span></div></div></footer>';
+
+    if ($submission !== null) {
+        $email = e((string)($submission['email'] ?? 'your email address'));
+        $emailSent = !empty($submission['email_sent']);
+        echo '<div class="modal fade registration-success-modal" id="registration-success-modal" tabindex="-1" aria-labelledby="registration-success-title" aria-hidden="true">'
+            . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+            . '<div class="modal-body text-center"><span class="registration-success-icon"><i class="bi bi-check-lg" aria-hidden="true"></i></span>'
+            . '<div class="registration-success-kicker">Registration Submitted</div>'
+            . '<h2 id="registration-success-title">Check Your Email</h2>'
+            . '<p>Your registration has been submitted. ' . ($emailSent
+                ? 'An acknowledgment email has been sent to <strong>' . $email . '</strong>.'
+                : 'Your acknowledgment email to <strong>' . $email . '</strong> may be delayed.')
+            . ' LPDD-FUS will review your registration and notify you of its status.</p>'
+            . '<div class="registration-success-note"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span>'
+            . ($emailSent
+                ? 'If you do not see the email in your inbox, please check your spam or junk folder.'
+                : 'Your registration was saved successfully even though the email could not be delivered right now.')
+            . '</span></div>'
+            . '<a class="btn btn-primary registration-success-home" href="' . e(url('landing')) . '">Return to Home</a>'
+            . '</div></div></div></div>';
+    }
+
+    echo '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>';
+    if ($submission !== null) {
+        echo '<script>try{localStorage.removeItem("fpoms.registration.form.v1")}catch(e){};'
+            . 'new bootstrap.Modal(document.getElementById("registration-success-modal"),{backdrop:"static",keyboard:false}).show();</script>';
+    }
+    echo '</body></html>';
 }
 
 function process_card(string $number, string $icon, string $title, string $text): string

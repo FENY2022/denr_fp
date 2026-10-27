@@ -133,14 +133,20 @@ function register_applicant(array $values, string $email, string $password, stri
             }
         }
         // The registration is durable before attempting SMTP; mail problems never undo it.
+        $normalizedEmail = strtolower(trim($email));
+        $sent = false;
         try {
-            $sent = send_registration_acknowledgment_email(strtolower(trim($email)), $values['representative_name']);
+            $sent = send_registration_acknowledgment_email($normalizedEmail, $values['representative_name']);
             audit_client($uid, 'registration.email_acknowledgment', 'registration', $regId, [
                 'delivery' => $sent ? 'smtp' : 'not_sent'
             ]);
         } catch (Throwable $mailError) {
             error_log('Registration acknowledgment email failed after commit: ' . $mailError->getMessage());
         }
+        $_SESSION['registration_submission'] = [
+            'email'=>$normalizedEmail,
+            'email_sent'=>$sent,
+        ];
         return [];
     } catch (PDOException $ex) {
         if ($pdo->inTransaction()) $pdo->rollBack();

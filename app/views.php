@@ -229,8 +229,7 @@ function view_login(array $errors = []): void
         . '<div><strong>Install DENR FP-OMS</strong><small>Use FP-OMS like a desktop or mobile app</small></div></div>'
         . '<button type="button" id="installAppButton" class="btn btn-sm btn-outline-primary"><i class="bi bi-display me-1"></i>Install</button></div>'
         . '<p id="installAppHelp" class="install-help" role="status" aria-live="polite"></p>'
-        . '</div></div></div>'
-        . '<script src="assets/registration-form-draft.js?v=2" defer></script>';
+        . '</div></div></div>';
     render_page('Sign In', $html);
 }
 

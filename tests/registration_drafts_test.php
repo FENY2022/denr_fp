@@ -59,6 +59,7 @@ $js = file_get_contents(__DIR__ . '/../public/assets/registration-attachments.js
 $formDraftJs = file_get_contents(__DIR__ . '/../public/assets/registration-form-draft.js');
 $registration = file_get_contents(__DIR__ . '/../app/registration.php');
 $views = file_get_contents(__DIR__ . '/../app/views.php');
+$landing = file_get_contents(__DIR__ . '/../app/landing.php');
 $migration = file_get_contents(__DIR__ . '/../database/012_registration_draft_uploads.sql');
 
 assert_draft(str_contains($draftSource, 'move_uploaded_file'),
@@ -108,6 +109,11 @@ assert_draft(str_contains($views, 'id="clear-registration-modal"')
     && str_contains($formDraftJs, '[data-confirm-clear-registration]')
     && !str_contains($formDraftJs, 'window.confirm('),
     'Clear Form uses an accessible confirmation modal instead of a browser prompt');
+assert_draft(str_contains($landing, 'id="registration-success-modal"')
+    && str_contains($landing, 'Registration Submitted')
+    && str_contains($landing, 'Check Your Email')
+    && str_contains($landing, 'registration_submission'),
+    'Successful registration opens the email acknowledgment modal on the landing page');
 assert_draft(str_contains($registration, 'registration_draft_submission()'),
     'Final registration commits saved drafts');
 assert_draft(str_contains($registration, 'registration_draft_consume()'),
