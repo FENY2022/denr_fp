@@ -43,6 +43,11 @@ assert_draft(str_contains($html, 'SELECTED FILES'),
     'Registration upload section follows the requested Selected Files design');
 assert_draft(str_contains($html, 'data-upload-queue'),
     'Live upload progress cards have a dedicated queue');
+$supportingPanel = registration_draft_list_html('supporting');
+assert_draft(str_contains($supportingPanel, 'id="registration-supporting-draft-list"'),
+    'Supporting attachments have a separate persisted Selected Files panel');
+assert_draft(str_contains($html, 'data-draft-list-kind="id"'),
+    'Valid ID Selected Files panel is independently identifiable');
 assert_draft(str_contains($html, 'data-draft-count'),
     'Saved files counter persists in the rendered page');
 assert_draft(str_contains($html, 'expire in 24 hours'),
@@ -74,6 +79,17 @@ assert_draft(str_contains($js, 'showWaitingForIdType(row, selected)')
     && str_contains($js, 'clearWaitingForIdType(row)')
     && str_contains($js, 'Waiting for ID Type'),
     'Valid ID file displays a pending card before ID Type is selected');
+assert_draft(str_contains($js, "uploadQueueFor('id')")
+    && str_contains($js, "uploadQueueFor(kind)")
+    && str_contains($js, "savedListFor('supporting')"),
+    'Waiting/progress status renders next to its correct uploader');
+$attachmentSource = file_get_contents(__DIR__ . '/../app/registration_attachments.php');
+assert_draft(strpos($attachmentSource, "registration_draft_list_html('id')")
+    < strpos($attachmentSource, 'data-add-id'),
+    'Saved Valid IDs list appears before Add Another Valid ID');
+assert_draft(strpos($attachmentSource, "registration_draft_list_html('supporting')")
+    < strpos($attachmentSource, 'data-add-supporting'),
+    'Supporting Documents have their own local saved list');
 assert_draft(str_contains($js, 'pendingUploads > 0'),
     'Form cannot submit while draft upload is in progress');
 assert_draft(str_contains($registration, 'registration_draft_submission()'),
