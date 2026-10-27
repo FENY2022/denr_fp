@@ -64,6 +64,7 @@ require_once __DIR__ . '/staff.php';
 require_once __DIR__ . '/user_management.php';
 require_once __DIR__ . '/profile.php';
 require_once __DIR__ . '/views.php';
+require_once __DIR__ . '/registration_otp_views.php';
 require_once __DIR__ . '/user_management_views.php';
 require_once __DIR__ . '/setup.php';
 require_once __DIR__ . '/landing.php';
