@@ -118,3 +118,47 @@ function send_registration_decision_email(string $email, string $name, string $d
         . "This is a system-generated email. Please do not reply directly to this message.";
     return smtp_send_html($email, $subject, registration_email_layout($heading, $name, $body), $plain);
 }
+
+/** Notify each eligible LPDD-FUS reviewer after verified registration is committed. */
+function send_lpdd_fus_registration_alerts(int $registrationId, string $applicantName, string $companyName): void
+{
+    $reviewers = query_all(
+        "SELECT DISTINCT u.id,u.email FROM users u
+         JOIN user_roles ur ON ur.user_id=u.id
+         JOIN roles r ON r.id=ur.role_id
+         WHERE r.code='lpdd_fus' AND u.status <> 'suspended'"
+    );
+    $subject = 'New Applicant Registration – Pending Validation | DENR CARAGA FP-OMS';
+    $safeApplicant = htmlspecialchars($applicantName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $safeCompany = htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $body = '<p>A new verified applicant registration is awaiting DENR CARAGA LPDD-FUS review.</p>'
+        . '<p><strong>Applicant:</strong> ' . $safeApplicant . '<br><strong>Company:</strong> '
+        . $safeCompany . '<br><strong>Registration ID:</strong> ' . $registrationId . '</p>'
+        . '<p>Sign in to DENR CARAGA FP-OMS and open the Applicant Review Queue to validate the registration.</p>'
+        . '<p>This notification does not indicate approval or permit issuance. '
+        . 'Review supporting documents only through the authenticated system.</p>';
+    $plain = "New verified registration awaiting LPDD-FUS review.\nApplicant: {$applicantName}\n"
+        . "Company: {$companyName}\nRegistration ID: {$registrationId}\n"
+        . "Sign in to FP-OMS and open the Applicant Review Queue.";
+    foreach ($reviewers as $reviewer) {
+        $sent = false;
+        try {
+            $email = trim((string)($reviewer['email'] ?? ''));
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $sent = smtp_send_html($email, $subject,
+                    registration_email_layout('New Applicant Registration – Pending Validation',
+                        'LPDD-FUS Reviewing Personnel', $body), $plain);
+            }
+        } catch (Throwable $error) {
+            error_log('FP-OMS LPDD-FUS email notification failure for reviewer ID '
+                . (int)$reviewer['id'] . ': ' . $error->getMessage());
+        }
+        try {
+            audit_client(null, 'registration.reviewer_email_notification', 'registration',
+                $registrationId, ['reviewer_id'=>(int)$reviewer['id'],
+                    'delivery'=>$sent ? 'smtp' : 'not_sent']);
+        } catch (Throwable $error) {
+            error_log('FP-OMS reviewer notification audit failure: ' . $error->getMessage());
+        }
+    }
+}
