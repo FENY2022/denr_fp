@@ -101,10 +101,10 @@ try {
                 if ($otpAction === 'verify') {
                     $errors = registration_otp_verify(trim((string)($_POST['otp_code'] ?? '')));
                     if (!$errors) {
-                        flash('success', 'Email verified; registration submitted for FUU validation.');
-                        if (!empty($_SESSION['registration_ack_delivery_failed'])) {
-                            flash('warning', 'Your email is verified, but delivery of the registration acknowledgment could not be confirmed. Please check your inbox and contact the system administrator if it does not arrive.');
-                        }
+                        // One-time modal on the login page (PRG): do not show a success toast.
+                        $_SESSION['registration_verified_modal'] = [
+                            'ack_delivery_failed' => !empty($_SESSION['registration_ack_delivery_failed'])
+                        ];
                         unset($_SESSION['registration_ack_delivery_failed']);
                         go('login');
                     }
