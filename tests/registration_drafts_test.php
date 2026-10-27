@@ -37,7 +37,7 @@ unset($_SESSION['registration_draft_token']);
 $html = registration_draft_list_html();
 assert_draft(str_contains($html, 'id="registration-draft-list"'),
     'Refresh-persistent draft section renders even with no files');
-assert_draft(str_contains($html, 'No saved uploads yet'),
+assert_draft(str_contains($html, 'No saved files yet'),
     'Empty state tells users that uploads have not been saved');
 assert_draft(str_contains($html, 'expire after 24 hours'),
     'Drafts are disclosed as temporary');
@@ -57,7 +57,7 @@ assert_draft(str_contains($draftSource, 'registration_draft_consume'),
 assert_draft(str_contains($router, "case 'register_draft_upload':")
     && str_contains($router, "case 'register_draft_delete':"),
     'Draft upload and deletion routes are present');
-assert_draft(str_contains($js, 'savedList') && str_contains($js, 'postDraft('),
+assert_draft(str_contains($js, 'savedList') && str_contains($js, 'postDraft(') && str_contains($js, 'uploadWithProgress('),
     'Browser stages files immediately and shows server-backed list');
 assert_draft(str_contains($js, 'pendingUploads > 0'),
     'Form cannot submit while draft upload is in progress');
