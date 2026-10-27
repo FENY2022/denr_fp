@@ -1,0 +1,244 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Anonymous registration attachments are staged outside /public before the final
+ * registration is posted. A cryptographically random token exists only in the
+ * server-side PHP session. The browser receives only opaque document IDs.
+ */
+function registration_draft_hash(bool $create = true): ?string
+{
+    $token = $_SESSION['registration_draft_token'] ?? null;
+    if ((!is_string($token) || !preg_match('/^[a-f0-9]{64}$/D', $token)) && $create) {
+        $token = bin2hex(random_bytes(32));
+        $_SESSION['registration_draft_token'] = $token;
+    }
+    return is_string($token) && preg_match('/^[a-f0-9]{64}$/D', $token)
+        ? hash('sha256', $token) : null;
+}
+
+function registration_draft_list(): array
+{
+    $hash = registration_draft_hash(false);
+    if ($hash === null) return [];
+    return query_all(
+        'SELECT id,document_type,id_type,original_name,mime_type,file_size,sha256,stored_path,expires_at
+         FROM registration_draft_documents
+         WHERE draft_hash=? AND expires_at>NOW()
+         ORDER BY id ASC', [$hash]
+    );
+}
+
+function registration_draft_count(array $documents, string $type): int
+{
+    return count(array_filter($documents,
+        static fn(array $row): bool => ($row['document_type'] ?? '') === $type
+    ));
+}
+
+function registration_draft_public_list(): array
+{
+    return array_map(static fn(array $row): array => [
+        'id'=>(int)$row['id'],
+        'document_type'=>(string)$row['document_type'],
+        'id_type'=>$row['id_type'] === null ? null : (string)$row['id_type'],
+        'id_label'=>($row['document_type'] === 'valid_id'
+            ? registration_id_type_label((string)$row['id_type']) : 'Supporting Document'),
+        'original_name'=>(string)$row['original_name'],
+        'size'=>(int)$row['file_size'],
+    ], registration_draft_list());
+}
+
+function registration_draft_list_html(): string
+{
+    $docs = registration_draft_public_list();
+    $html = '<div class="border rounded-3 p-3 mt-3" id="registration-draft-list" aria-live="polite">'
+        . '<h4 class="h6 mb-2"><i class="bi bi-cloud-check me-1"></i>Saved Attachments '
+        . '<span class="badge text-bg-light border text-dark" data-draft-count>' . count($docs) . '</span></h4>'
+        . '<p class="small text-secondary mb-2">Uploaded files remain saved when you refresh this page in '
+        . 'the same browser session. They are attached permanently only after you submit registration. '
+        . 'Unsubmitted drafts expire after 24 hours.</p>'
+        . '<ul class="list-group" data-draft-items>';
+    foreach ($docs as $doc) {
+        $html .= '<li class="list-group-item d-flex align-items-center justify-content-between gap-2 flex-wrap" '
+            . 'data-draft-document data-draft-type="' . e($doc['document_type']) . '" '
+            . 'data-draft-id="' . $doc['id'] . '">'
+            . '<span><strong>' . e($doc['id_label']) . '</strong><span class="small text-secondary d-block">'
+            . e($doc['original_name']) . ' · ' . number_format($doc['size']/1048576, 2) . ' MB</span></span>'
+            . '<button type="button" class="btn btn-sm btn-outline-danger" '
+            . 'data-remove-draft aria-label="Remove saved attachment">'
+            . '<i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button></li>';
+    }
+    return $html . '</ul><p class="small text-secondary mt-2 mb-0" data-draft-empty'
+        . ($docs ? ' hidden' : '') . '>No saved uploads yet. Select a file above to save it.</p></div>';
+}
+
+/** Never accept arbitrary paths from a browser or a forged SQL response. */
+function registration_draft_real_path(string $relative): ?string
+{
+    if (!str_starts_with($relative, 'registration_drafts/')
+        || str_contains($relative, '..') || str_contains($relative, '\\')) return null;
+    $root = realpath(PROJECT_ROOT . '/storage/registration_drafts');
+    $full = realpath(PROJECT_ROOT . '/storage/' . $relative);
+    return $root && $full && str_starts_with($full, $root . DIRECTORY_SEPARATOR)
+        && is_file($full) ? $full : null;
+}
+
+function registration_draft_upload(array $post, array $files): array
+{
+    $kind = (string)($post['document_type'] ?? '');
+    if (!in_array($kind, ['valid_id','supporting_document'], true)) {
+        return ['error'=>'Choose the correct attachment category.'];
+    }
+    $idType = trim((string)($post['id_type'] ?? ''));
+    if ($kind === 'valid_id' && !isset(registration_id_type_choices()[$idType])) {
+        return ['error'=>'Select a valid ID type before uploading.'];
+    }
+    if ($kind === 'supporting_document') $idType = '';
+
+    $info = upload_details($files['attachment'] ?? null, true);
+    if (isset($info['error'])) return ['error'=>$info['error']];
+    $hash = registration_draft_hash();
+    if ($hash === null) return ['error'=>'Your registration session expired. Refresh and retry.'];
+
+    $ipHash = hash('sha256', client_ip());
+    $pdo = db();
+    $stored = null;
+    try {
+        $pdo->beginTransaction();
+        $docs = registration_draft_list();
+        if (registration_draft_count($docs,$kind) >= 5 || count($docs) >= 10) {
+            $pdo->rollBack();
+            return ['error'=>'The maximum is 5 Valid IDs and 5 supporting documents. Remove a saved file first.'];
+        }
+        // Limit anonymous file storage abuse in addition to 5 MB/file and 10/session.
+        $recent = query_one(
+            'SELECT COUNT(*) AS n FROM registration_draft_documents
+             WHERE ip_hash=? AND created_at>=DATE_SUB(NOW(), INTERVAL 1 DAY)', [$ipHash]
+        );
+        if ((int)($recent['n'] ?? 0) >= 100) {
+            $pdo->rollBack();
+            return ['error'=>'Upload limit reached for this connection. Try again later.'];
+        }
+
+        $folder = 'registration_drafts/' . substr($hash, 0, 12);
+        $absoluteDir = PROJECT_ROOT . '/storage/' . $folder;
+        if (!is_dir($absoluteDir) && !mkdir($absoluteDir,0700,true) && !is_dir($absoluteDir)) {
+            throw new RuntimeException('Private draft storage is unavailable.');
+        }
+        $relative = $folder . '/' . bin2hex(random_bytes(22)) . '.' . $info['extension'];
+        $stored = PROJECT_ROOT . '/storage/' . $relative;
+        if (!move_uploaded_file((string)$info['file']['tmp_name'], $stored)) {
+            throw new RuntimeException('The selected attachment could not be saved.');
+        }
+        @chmod($stored,0600);
+        $digest = hash_file('sha256',$stored);
+        $pdo->prepare(
+            'INSERT INTO registration_draft_documents
+              (draft_hash,document_type,id_type,original_name,stored_path,mime_type,file_size,sha256,ip_hash,expires_at)
+             VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(NOW(), INTERVAL 24 HOUR))'
+        )->execute([
+            $hash,$kind,$kind === 'valid_id' ? $idType : null,$info['name'],
+            $relative,$info['mime'],$info['size'],$digest,$ipHash
+        ]);
+        $pdo->commit();
+        return ['documents'=>registration_draft_public_list()];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($stored !== null && is_file($stored)) @unlink($stored);
+        error_log('FP-OMS draft upload failure: ' . $e->getMessage());
+        return ['error'=>'Attachment could not be saved. Try again.'];
+    }
+}
+
+function registration_draft_delete(int $id): array
+{
+    $hash = registration_draft_hash(false);
+    if ($hash === null || $id < 1) return ['error'=>'Saved attachment not found.'];
+    $pdo = db();
+    try {
+        $pdo->beginTransaction();
+        $row = query_one(
+            'SELECT stored_path FROM registration_draft_documents WHERE id=? AND draft_hash=? FOR UPDATE',
+            [$id,$hash]
+        );
+        if (!$row) {
+            $pdo->rollBack();
+            return ['error'=>'Saved attachment not found.'];
+        }
+        $pdo->prepare('DELETE FROM registration_draft_documents WHERE id=? AND draft_hash=?')
+            ->execute([$id,$hash]);
+        $pdo->commit();
+        $path = registration_draft_real_path((string)$row['stored_path']);
+        if ($path) @unlink($path);
+        return ['documents'=>registration_draft_public_list()];
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('FP-OMS draft removal failure: '.$e->getMessage());
+        return ['error'=>'Could not remove the saved attachment.'];
+    }
+}
+
+/** Draft files have already passed the same MIME, size and ID-type checks. */
+function registration_draft_submission(): array
+{
+    $items = [];
+    $errors = [];
+    $docs = registration_draft_list();
+    if (registration_draft_count($docs, 'valid_id') < 1) {
+        $errors[] = 'Upload at least one valid ID to complete registration.';
+    }
+    if (registration_draft_count($docs,'valid_id') > 5
+        || registration_draft_count($docs,'supporting_document') > 5) {
+        $errors[] = 'Too many saved registration attachments.';
+    }
+    $extensions = ['application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png'];
+    foreach ($docs as $doc) {
+        $path = registration_draft_real_path((string)$doc['stored_path']);
+        $mime = (string)$doc['mime_type'];
+        if (!$path || !isset($extensions[$mime]) || filesize($path) !== (int)$doc['file_size']
+            || !hash_equals((string)$doc['sha256'],(string)hash_file('sha256',$path))) {
+            $errors[] = 'One saved attachment is unavailable or changed. Remove it and upload again.';
+            continue;
+        }
+        if ($doc['document_type'] === 'valid_id'
+            && !isset(registration_id_type_choices()[(string)$doc['id_type']])) {
+            $errors[] = 'One saved Valid ID has an invalid ID Type.';
+            continue;
+        }
+        $items[] = [
+            'document_type'=>(string)$doc['document_type'],
+            'id_type'=>$doc['id_type'] === null ? null : (string)$doc['id_type'],
+            'info'=>[
+                'draft_path'=>$path,'extension'=>$extensions[$mime],
+                'name'=>(string)$doc['original_name'],
+                'mime'=>$mime,'size'=>(int)$doc['file_size']
+            ]
+        ];
+    }
+    return ['items'=>$items,'errors'=>$errors];
+}
+
+/** After COMMIT only: DB rows become permanent; draft originals are removed. */
+function registration_draft_consume(): void
+{
+    $hash = registration_draft_hash(false);
+    if ($hash === null) return;
+    $rows = registration_draft_list();
+    db()->prepare('DELETE FROM registration_draft_documents WHERE draft_hash=?')->execute([$hash]);
+    unset($_SESSION['registration_draft_token']);
+    foreach ($rows as $row) {
+        $path = registration_draft_real_path((string)$row['stored_path']);
+        if ($path) @unlink($path);
+    }
+}
+
+/** Used by the HTTP router; generic errors never expose filesystem locations. */
+function registration_draft_json(array $result, int $http = 200): never
+{
+    http_response_code($http);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode($result, JSON_THROW_ON_ERROR);
+    exit;
+}
