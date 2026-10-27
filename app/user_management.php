@@ -180,9 +180,10 @@ function user_management_create(array $admin, array $input): array
                 return ['This person already appears in User Management. Edit their existing or Pending Setup record instead.'];
             }
         }
-        if (user_management_is_shared_office_email($values['email'])) {
+        if (user_management_is_shared_office_email($values['email'])
+            || email_assigned_to_other_account($values['email'], 'internal')) {
             $pdo->rollBack();
-            return ['This email is shared by multiple designated employees. Provide an individual login email.'];
+            return ['That email is shared or is already registered to another DENR/client account. Use a unique individual login email.'];
         }
         $roleId = user_management_role_id($values['role']);
         if (!$roleId) {
@@ -246,9 +247,10 @@ function user_management_activate(array $admin, int $userId, array $input): arra
             $pdo->rollBack();
             return ['This account is not awaiting setup. Reload User Management.'];
         }
-        if (user_management_is_shared_office_email($values['email'])) {
+        if (user_management_is_shared_office_email($values['email'])
+            || email_assigned_to_other_account($values['email'], 'internal')) {
             $pdo->rollBack();
-            return ['This email is shared by multiple designated employees. Provide an individual login email.'];
+            return ['That email is shared or is already registered to another DENR/client account. Use a unique individual login email.'];
         }
         $roleId = user_management_role_id($values['role']);
         if (!$roleId) {
@@ -312,7 +314,8 @@ function user_management_update(array $admin, int $userId, array $input): array
             return ['Complete the pending account setup, including a password, before changing its status.'];
         }
         if (strcasecmp((string)$target['email'], $values['email']) !== 0
-            && user_management_is_shared_office_email($values['email'])) {
+            && (user_management_is_shared_office_email($values['email'])
+                || email_assigned_to_other_account($values['email'], 'internal', $userId))) {
             $pdo->rollBack();
             return ['This email is shared by several designated employees. Choose an individual login email.'];
         }
