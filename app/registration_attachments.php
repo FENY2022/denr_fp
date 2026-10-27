@@ -243,7 +243,7 @@ function registration_attachment_form_fields(bool $new): string
         . '<p class="small text-secondary">Upload at least one government-issued ID for a new registration. Select the ID Type for each file. '
         . 'You may upload up to <strong>5 Valid IDs</strong> and <strong>5 supporting documents</strong>. '
         . 'PDF, JPG and PNG only; maximum ' . e((string)$maxMb) . ' MB per file. Files are stored securely outside the public web directory.</p>'
-        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="5" data-max-file-bytes="' . $maxBytes . '">'
+        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-draft-mode="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="5" data-max-file-bytes="' . $maxBytes . '">'
         . '<h4 class="h6 mt-3 mb-2">Valid Identification Cards ' . ($new ? '<span class="text-danger">*</span>' : '(optional new uploads)') . '</h4>'
         . '<div id="valid-id-rows">';
     foreach ($ids as $index => $selected) {
