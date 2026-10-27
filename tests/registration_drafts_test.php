@@ -39,7 +39,7 @@ assert_draft(str_contains($html, 'id="registration-draft-list"'),
     'Refresh-persistent draft section renders even with no files');
 assert_draft(str_contains($html, 'No saved files yet'),
     'Empty state tells users that uploads have not been saved');
-assert_draft(str_contains($html, 'expire after 24 hours'),
+assert_draft(str_contains($html, 'expire in 24 hours'),
     'Drafts are disclosed as temporary');
 
 $draftSource = file_get_contents(__DIR__ . '/../app/registration_drafts.php');
