@@ -6,9 +6,14 @@
 
   const form = root.closest('form');
   const draftMode = root.dataset.draftMode === '1';
-  const savedList = draftMode ? document.getElementById('registration-draft-list') : null;
+  // Both file groups have their own visible Selected Files list underneath.
+  const savedLists = {
+    id: draftMode ? root.querySelector('#registration-draft-list') : null,
+    supporting: draftMode ? root.querySelector('#registration-supporting-draft-list') : null
+  };
   const csrf = form?.querySelector('input[name="csrf_token"]')?.value || '';
-  const uploadQueue = savedList?.querySelector('[data-upload-queue]') || null;
+  function savedListFor(kind) { return savedLists[kind] || null; }
+  function uploadQueueFor(kind) { return savedListFor(kind)?.querySelector('[data-upload-queue]') || null; }
   const containers = {
     id: root.querySelector('#valid-id-rows'),
     supporting: root.querySelector('#supporting-document-rows')
@@ -32,10 +37,8 @@
   }
 
   function savedCount(kind) {
-    if (!savedList) return 0;
-    const docType = kind === 'id' ? 'valid_id' : 'supporting_document';
-    return [...savedList.querySelectorAll('[data-draft-document]')]
-      .filter(row => row.dataset.draftType === docType).length;
+    const list = savedListFor(kind);
+    return list ? list.querySelectorAll('[data-draft-document]').length : 0;
   }
 
   function setFeedback(message, invalid = false) {
@@ -174,6 +177,7 @@
   }
 
   function showWaitingForIdType(row, file) {
+    const uploadQueue = uploadQueueFor('id');
     if (!uploadQueue) return;
     clearWaitingForIdType(row);
     const waiting = selectedFileCard({
@@ -198,25 +202,31 @@
   }
 
   function renderDrafts(documents) {
-    if (!savedList || !Array.isArray(documents)) return;
-    const list = savedList.querySelector('[data-draft-items]');
-    const count = savedList.querySelector('[data-draft-count]');
-    const empty = savedList.querySelector('[data-draft-empty]');
-    if (!list) return;
-    list.replaceChildren();
-    for (const doc of documents) {
-      const item = selectedFileCard({
-        id: doc.id,
-        name: doc.original_name,
-        type: doc.document_type,
-        status: 'Saved — ready for submission · ' + (doc.id_label || 'Attachment'),
-        percent: 100,
-        isSaved: true
-      });
-      list.append(item.card);
+    if (!Array.isArray(documents)) return;
+    for (const kind of ['id', 'supporting']) {
+      const savedList = savedListFor(kind);
+      if (!savedList) continue;
+      const selectedType = kind === 'id' ? 'valid_id' : 'supporting_document';
+      const displayed = documents.filter(doc => doc.document_type === selectedType);
+      const list = savedList.querySelector('[data-draft-items]');
+      const count = savedList.querySelector('[data-draft-count]');
+      const empty = savedList.querySelector('[data-draft-empty]');
+      if (!list) continue;
+      list.replaceChildren();
+      for (const doc of displayed) {
+        const item = selectedFileCard({
+          id: doc.id,
+          name: doc.original_name,
+          type: doc.document_type,
+          status: 'Saved — ready for submission · ' + (doc.id_label || 'Attachment'),
+          percent: 100,
+          isSaved: true
+        });
+        list.append(item.card);
+      }
+      if (count) count.textContent = String(displayed.length);
+      if (empty) empty.hidden = displayed.length > 0;
     }
-    if (count) count.textContent = String(documents.length);
-    if (empty) empty.hidden = documents.length > 0;
     refresh();
   }
 
@@ -257,7 +267,7 @@
   }
 
   async function stageFile(kind, row) {
-    if (!draftMode || !savedList || !csrf || row.dataset.uploading === '1') return;
+    if (!draftMode || !savedListFor(kind) || !csrf || row.dataset.uploading === '1') return;
     const input = row.querySelector('[data-attachment-file]');
     const selected = input?.files?.[0];
     if (!input || !selected) return;
@@ -287,6 +297,7 @@
       status: 'Preparing file…',
       percent: 2
     });
+    const uploadQueue = uploadQueueFor(kind);
     if (uploadQueue) uploadQueue.append(progress.card);
     row.dataset.uploading = '1';
     pendingUploads++;
@@ -322,26 +333,30 @@
     }
   }
 
-  if (draftMode && savedList) {
-    savedList.addEventListener('click', async event => {
-      const button = event.target.closest('[data-remove-draft]');
-      const row = button?.closest('[data-draft-document]');
-      if (!button || !row || !csrf || pendingUploads > 0) return;
-      const id = Number(row.dataset.draftId);
-      if (!Number.isSafeInteger(id) || id < 1) return;
-      const data = new FormData();
-      data.set('csrf_token', csrf);
-      data.set('id', String(id));
-      button.disabled = true;
-      try {
-        const result = await postDraft('register-draft-delete', data);
-        renderDrafts(result.documents);
-        setFeedback('Saved attachment removed.');
-      } catch (error) {
-        button.disabled = false;
-        setFeedback(error.message || 'Could not remove attachment.', true);
-      }
-    });
+  if (draftMode) {
+    for (const kind of ['id', 'supporting']) {
+      const savedList = savedListFor(kind);
+      if (!savedList) continue;
+      savedList.addEventListener('click', async event => {
+        const button = event.target.closest('[data-remove-draft]');
+        const row = button?.closest('[data-draft-document]');
+        if (!button || !row || !csrf || pendingUploads > 0) return;
+        const id = Number(row.dataset.draftId);
+        if (!Number.isSafeInteger(id) || id < 1) return;
+        const data = new FormData();
+        data.set('csrf_token', csrf);
+        data.set('id', String(id));
+        button.disabled = true;
+        try {
+          const result = await postDraft('register-draft-delete', data);
+          renderDrafts(result.documents);
+          setFeedback('Saved attachment removed.');
+        } catch (error) {
+          button.disabled = false;
+          setFeedback(error.message || 'Could not remove attachment.', true);
+        }
+      });
+    }
   }
 
   for (const kind of ['id', 'supporting']) {
@@ -372,7 +387,7 @@
 
   form?.addEventListener('submit', event => {
     refresh();
-    if (draftMode && savedList) {
+    if (draftMode && savedListFor('id') && savedListFor('supporting')) {
       if (pendingUploads > 0) {
         event.preventDefault();
         setFeedback('An attachment is still uploading. Submit after it is saved.', true);
