@@ -32,6 +32,7 @@ function registration_validation(array $data): array
 function status_label(string $status): string
 {
     return match ($status) {
+        'pending_email_verification' => 'Pending Email Verification',
         'pending_review' => 'Pending LPDD-FUS Review',
         'needs_correction' => 'Corrections Required',
         'active' => 'Account Activated',
