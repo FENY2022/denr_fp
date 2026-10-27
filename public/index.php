@@ -86,8 +86,8 @@ try {
                 $values = registration_input();
                 $errors = register_applicant($values,safe_post('email',190),(string)($_POST['password'] ?? ''),(string)($_POST['password_confirm'] ?? ''),$_FILES,$_POST);
                 if (!$errors) {
-                    flash('success','Registration submitted. Sign in to check LPDD-FUS review status.');
-                    go('login', ['registration'=>'success']);
+                    flash('info', 'Please enter the verification code sent to your registered email.');
+                    go('verify_registration_otp');
                 }
                 view_register($errors);
             } else view_register();
