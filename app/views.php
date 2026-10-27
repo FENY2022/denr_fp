@@ -117,6 +117,8 @@ function render_page(string $title, string $content): void
         . '<span>DENR Regional Office XIII — Feasibility Permit Online Management System</span>'
         . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer></div></div>'
         . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>'
+        . (str_contains($content, 'id="otp-verification-success-modal"')
+            ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
         . '</body></html>';
 }
 
@@ -211,6 +213,38 @@ function view_register(array $errors = []): void
     render_page('Applicant Registration', $html);
 }
 
+/**
+ * One-time OTP success confirmation. The registration was already committed
+ * before this page loads; this UI never changes verification or review state.
+ */
+function registration_verified_modal_html(bool $ackDeliveryFailed): string
+{
+    $warning = $ackDeliveryFailed
+        ? '<div class="alert alert-warning text-start small mt-3 mb-0" role="alert">'
+            . '<i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>'
+            . 'Your email is verified, but delivery of the registration acknowledgment '
+            . 'could not be confirmed. Please check your inbox or spam folder and '
+            . 'contact the system administrator if it does not arrive.</div>'
+        : '';
+    return '<div class="modal fade" id="otp-verification-success-modal" tabindex="-1" '
+        . 'aria-labelledby="otp-verification-success-title" aria-describedby="otp-verification-success-description" '
+        . 'aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">'
+        . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-body p-4 p-md-5 text-center">'
+        . '<div class="mb-3"><i class="bi bi-check-circle-fill text-success display-3" aria-hidden="true"></i></div>'
+        . '<h2 class="h4 mb-1" id="otp-verification-success-title">Email Successfully Verified!</h2>'
+        . '<p class="text-success fw-semibold small mb-3">DENR CARAGA FP-OMS</p>'
+        . '<p class="mb-3" id="otp-verification-success-description">'
+        . 'Your email address has been successfully verified, and your registration '
+        . 'has been submitted for <strong>FUU validation</strong>.</p>'
+        . '<p class="text-secondary small mb-0">Please wait for the review and approval '
+        . 'of your registration. You will receive an email notification regarding its status.</p>'
+        . $warning
+        . '<button class="btn btn-primary w-100 mt-4" type="button" '
+        . 'data-bs-dismiss="modal">Continue to Login</button>'
+        . '</div></div></div></div>';
+}
+
 function view_login(array $errors = []): void
 {
     if (current_user()) go('dashboard');
@@ -230,6 +264,14 @@ function view_login(array $errors = []): void
         . '<button type="button" id="installAppButton" class="btn btn-sm btn-outline-primary"><i class="bi bi-display me-1"></i>Install</button></div>'
         . '<p id="installAppHelp" class="install-help" role="status" aria-live="polite"></p>'
         . '</div></div></div>';
+    // Consume the success state once so refreshing /login never reopens it.
+    $verificationModal = $_SESSION['registration_verified_modal'] ?? null;
+    unset($_SESSION['registration_verified_modal']);
+    if (is_array($verificationModal)) {
+        $html .= registration_verified_modal_html(
+            !empty($verificationModal['ack_delivery_failed'])
+        );
+    }
     render_page('Sign In', $html);
 }
 
