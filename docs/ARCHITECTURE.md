@@ -91,3 +91,22 @@ After migration 011, future permit ownership is `permit_applications.client_id`,
 3. Refreshing `/register` renders the current session's staged file list from the server. The user can remove saved attachments. Submission requires at least one saved valid ID and an allowed ID Type. If registration validation fails, staged files are retained; on transaction success, files are copied to permanent `registration_documents` then temporary copies are removed. For non-JavaScript browsers, the previous multipart POST upload remains supported.
 4. Drafts expire 24 hours after upload. Schedule `scripts/cleanup_registration_drafts.php` daily. A separate CLI `scripts/verify_client_separation.php` verifies account isolation and the draft table. These checks are not a substitute for actual XAMPP staging acceptance tests.
 
+
+
+## Email OTP gate for new client registrations (migration 013)
+
+After a successful client registration transaction, `user_client.status` is
+`pending_email_verification`; a hashed six-digit OTP and expiry are persisted in
+`registration_email_otps`. The first mail contains the OTP only. Its lifetime is
+10 minutes, five incorrect attempts, a 60-second resend cooldown, and at most
+five sends per issuance hour. Only the session-bound client can use the public
+`/verify-registration-otp` verification form; a client may return to it through
+password-confirmed login without receiving an authenticated dashboard session.
+
+After correct OTP, a locked transaction writes `email_verified_at`, transitions
+the account to `pending_review`, removes the OTP and records the verification
+audit event. Only following that commit does FP-OMS send the original
+`Acknowledgment of Registration – DENR CARAGA FP-OMS` and notify the LPDD-FUS
+role. Legacy accounts are grandfathered without a retroactive OTP claim; the
+migration leaves their `email_verified_at` field null. SMTP delivery requires
+an enabled private server mail configuration and a real end-to-end test.
