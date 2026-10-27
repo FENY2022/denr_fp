@@ -63,6 +63,19 @@ function send_registration_otp_email(string $email, string $name, string $code):
     );
 }
 
+/** Send a single-use email confirmation link instead of a six-digit OTP. */
+function send_registration_verification_link_email(string $email, string $name, string $link): bool
+{
+    $safeLink = htmlspecialchars($link, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $subject = 'Confirm Your Email Address – DENR CARAGA FP-OMS';
+    $body = '<p>Thank you for registering with DENR CARAGA FP-OMS. Please confirm your email address to submit your registration for Forest Utilization Section (FUU) validation.</p>'
+        . '<p style="margin:24px 0"><a href="' . $safeLink . '" style="background:#08783f;color:#fff;padding:14px 24px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Verify My Email Address</a></p>'
+        . '<p>If the button does not work, copy this link into your browser:<br><a href="' . $safeLink . '">' . $safeLink . '</a></p>'
+        . '<p>This one-time link expires in <strong>30 minutes</strong>. If you did not register, ignore this message.</p>';
+    $plain = "Confirm your DENR CARAGA FP-OMS registration email using this one-time link (expires in 30 minutes):\n{$link}\n\nIf you did not register, ignore this message.";
+    return smtp_send_html($email,$subject,registration_email_layout('Confirm Your Email Address',$name,$body),$plain);
+}
+
 /** Send only AFTER successful OTP verification for a committed registration. Never include passwords or ID attachments. */
 function send_registration_acknowledgment_email(string $email, string $name): bool
 {
