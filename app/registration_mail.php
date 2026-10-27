@@ -129,17 +129,36 @@ function send_lpdd_fus_registration_alerts(int $registrationId, string $applican
          WHERE r.code='lpdd_fus' AND u.status <> 'suspended'"
     );
     $subject = 'New Applicant Registration – Pending Validation | DENR CARAGA FP-OMS';
+    // Use only an explicitly configured public HTTPS origin; never email localhost links.
+    $base = rtrim(trim(env_value('APP_URL')), '/');
+    $parts = parse_url($base);
+    $host = strtolower((string)($parts['host'] ?? ''));
+    $publicUrl = ($parts !== false && ($parts['scheme'] ?? '') === 'https'
+        && $host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+        && !filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false);
+    // Domain names are accepted; private IP addresses are not public deployment URLs.
+    $isIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
+    $publicUrl = ($parts !== false && ($parts['scheme'] ?? '') === 'https'
+        && $host !== '' && !in_array($host, ['localhost', '127.0.0.1', '::1'], true)
+        && (!$isIp || filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false)
+        && empty($parts['user']) && empty($parts['pass']) && empty($parts['query']) && empty($parts['fragment']));
+    $loginUrl = $publicUrl ? $base . '/login?next=review-queue' : null;
+    $safeLoginUrl = $loginUrl === null ? '' : htmlspecialchars($loginUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $safeApplicant = htmlspecialchars($applicantName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $safeCompany = htmlspecialchars($companyName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $body = '<p>A new verified applicant registration is awaiting DENR CARAGA LPDD-FUS review.</p>'
         . '<p><strong>Applicant:</strong> ' . $safeApplicant . '<br><strong>Company:</strong> '
         . $safeCompany . '<br><strong>Registration ID:</strong> ' . $registrationId . '</p>'
         . '<p>Sign in to DENR CARAGA FP-OMS and open the Applicant Review Queue to validate the registration.</p>'
+        . ($loginUrl !== null
+            ? '<p style="margin:24px 0"><a href="' . $safeLoginUrl . '" style="background:#08783f;color:#ffffff;padding:13px 22px;text-decoration:none;border-radius:6px;font-weight:bold;display:inline-block">Login to FP-OMS – Review Application</a></p>'
+                . '<p>If the button does not work, open: <a href="' . $safeLoginUrl . '">' . $safeLoginUrl . '</a></p>'
+            : '<p>Open your organization-approved FP-OMS website and sign in to access the Applicant Review Queue.</p>')
         . '<p>This notification does not indicate approval or permit issuance. '
         . 'Review supporting documents only through the authenticated system.</p>';
     $plain = "New verified registration awaiting LPDD-FUS review.\nApplicant: {$applicantName}\n"
         . "Company: {$companyName}\nRegistration ID: {$registrationId}\n"
-        . "Sign in to FP-OMS and open the Applicant Review Queue.";
+        . ($loginUrl !== null ? "Login to review: {$loginUrl}" : "Sign in through your organization-approved FP-OMS website and open the Applicant Review Queue.");
     foreach ($reviewers as $reviewer) {
         $sent = false;
         try {
