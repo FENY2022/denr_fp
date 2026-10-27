@@ -70,6 +70,10 @@ assert_draft(str_contains($js, "xhr.upload.addEventListener('progress'")
     'Selected Files cards display real browser upload progress');
 assert_draft(str_contains($js, 'remove-draft') && str_contains($js, 'Saved — ready for submission'),
     'Saved uploads are visibly confirmed and removable');
+assert_draft(str_contains($js, 'showWaitingForIdType(row, selected)')
+    && str_contains($js, 'clearWaitingForIdType(row)')
+    && str_contains($js, 'Waiting for ID Type'),
+    'Valid ID file displays a pending card before ID Type is selected');
 assert_draft(str_contains($js, 'pendingUploads > 0'),
     'Form cannot submit while draft upload is in progress');
 assert_draft(str_contains($registration, 'registration_draft_submission()'),
