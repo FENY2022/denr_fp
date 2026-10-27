@@ -311,8 +311,6 @@
           : 'Finishing secure upload…';
       });
       input.value = '';
-      const typeSelect = row.querySelector('[data-id-type]');
-      if (typeSelect) typeSelect.value = '';
       progress.bar.style.width = '100%';
       progress.message.textContent = 'Saved — ready for submission';
       progress.card.classList.remove('is-uploading');

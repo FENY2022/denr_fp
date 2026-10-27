@@ -56,7 +56,9 @@ assert_draft(str_contains($html, 'expire in 24 hours'),
 $draftSource = file_get_contents(__DIR__ . '/../app/registration_drafts.php');
 $router = file_get_contents(__DIR__ . '/../public/index.php');
 $js = file_get_contents(__DIR__ . '/../public/assets/registration-attachments.js');
+$formDraftJs = file_get_contents(__DIR__ . '/../public/assets/registration-form-draft.js');
 $registration = file_get_contents(__DIR__ . '/../app/registration.php');
+$views = file_get_contents(__DIR__ . '/../app/views.php');
 $migration = file_get_contents(__DIR__ . '/../database/012_registration_draft_uploads.sql');
 
 assert_draft(str_contains($draftSource, 'move_uploaded_file'),
@@ -66,8 +68,9 @@ assert_draft(str_contains($draftSource, "hash_file('sha256'"),
 assert_draft(str_contains($draftSource, 'registration_draft_consume'),
     'Successful registration cleans up staged originals');
 assert_draft(str_contains($router, "case 'register_draft_upload':")
-    && str_contains($router, "case 'register_draft_delete':"),
-    'Draft upload and deletion routes are present');
+    && str_contains($router, "case 'register_draft_delete':")
+    && str_contains($router, "case 'register_draft_clear':"),
+    'Draft upload, deletion and clear routes are present');
 assert_draft(str_contains($js, 'savedList') && str_contains($js, 'postDraft(') && str_contains($js, 'uploadWithProgress('),
     'Browser stages files immediately and shows server-backed list');
 assert_draft(str_contains($js, "xhr.upload.addEventListener('progress'")
@@ -92,6 +95,19 @@ assert_draft(strpos($attachmentSource, "registration_draft_list_html('supporting
     'Supporting Documents have their own local saved list');
 assert_draft(str_contains($js, 'pendingUploads > 0'),
     'Form cannot submit while draft upload is in progress');
+assert_draft(!str_contains($js, "typeSelect.value = ''"),
+    'Successful upload preserves the selected ID Type');
+assert_draft(str_contains($formDraftJs, 'window.localStorage')
+    && str_contains($formDraftJs, 'restoreDraft()')
+    && str_contains($formDraftJs, "registration') === 'success'"),
+    'Registration values persist across reloads and clear after successful submission');
+assert_draft(!str_contains($formDraftJs, "'password',")
+    && !str_contains($formDraftJs, "'password_confirm'"),
+    'Registration passwords are never stored in browser draft data');
+assert_draft(str_contains($views, 'id="clear-registration-modal"')
+    && str_contains($formDraftJs, '[data-confirm-clear-registration]')
+    && !str_contains($formDraftJs, 'window.confirm('),
+    'Clear Form uses an accessible confirmation modal instead of a browser prompt');
 assert_draft(str_contains($registration, 'registration_draft_submission()'),
     'Final registration commits saved drafts');
 assert_draft(str_contains($registration, 'registration_draft_consume()'),

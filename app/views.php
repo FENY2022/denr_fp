@@ -70,7 +70,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=19" rel="stylesheet">'
+        . '<link href="assets/style.css?v=20" rel="stylesheet">'
         . '<script src="assets/app-shell.js?v=19" defer></script></head><body>';
 
     if ($user) {
@@ -187,14 +187,27 @@ function view_register(array $errors = []): void
         . '<p class="text-secondary">Create a one-time applicant account. LPDD-FUS will review the submitted information before activation.</p>'
         . '<form id="applicant-registration-form" method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
         . registration_fields()
-        . '<div class="mt-4 d-flex gap-3 align-items-center flex-wrap"><button class="btn btn-primary" type="submit">Submit for review</button>'
+        . '<p class="small text-secondary mb-0">Your entries are saved in this browser until submission or clearing. Passwords are not saved.</p>'
+        . '<div class="mt-3 d-flex gap-3 align-items-center flex-wrap"><button class="btn btn-primary" type="submit">Submit for review</button>'
+        . '<button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#clear-registration-modal">Clear Form</button>'
         . '<a href="' . url('login') . '">Already registered? Sign in</a></div></form></div></div>'
         . '<div class="col-lg-4"><div class="panel soft"><h2 class="h5">Account activation</h2>'
         . '<ol class="small"><li>Register and upload a valid ID.</li><li>LPDD-FUS checks information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
         . '</div></div></div>'
+        . '<div class="modal fade" id="clear-registration-modal" tabindex="-1" aria-labelledby="clear-registration-modal-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-header"><h2 class="modal-title fs-5" id="clear-registration-modal-title">Clear registration form?</h2>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+        . '<div class="modal-body"><p class="mb-2">This will permanently clear all registration details and uploaded files.</p>'
+        . '<p class="small text-secondary mb-0">This action cannot be undone.</p>'
+        . '<div class="alert alert-danger mt-3 mb-0 d-none" role="alert" data-clear-registration-error></div></div>'
+        . '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        . '<button type="button" class="btn btn-danger" data-confirm-clear-registration>Clear Form</button></div>'
+        . '</div></div></div>'
         . '<script src="assets/register-password.js?v=1" defer></script>'
-        . '<script src="assets/registration-attachments.js?v=5" defer></script>';
+        . '<script src="assets/registration-attachments.js?v=6" defer></script>'
+        . '<script src="assets/registration-form-draft.js?v=2" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
@@ -216,7 +229,8 @@ function view_login(array $errors = []): void
         . '<div><strong>Install DENR FP-OMS</strong><small>Use FP-OMS like a desktop or mobile app</small></div></div>'
         . '<button type="button" id="installAppButton" class="btn btn-sm btn-outline-primary"><i class="bi bi-display me-1"></i>Install</button></div>'
         . '<p id="installAppHelp" class="install-help" role="status" aria-live="polite"></p>'
-        . '</div></div></div>';
+        . '</div></div></div>'
+        . '<script src="assets/registration-form-draft.js?v=2" defer></script>';
     render_page('Sign In', $html);
 }
 
@@ -255,7 +269,7 @@ function view_applicant_registration(array $user, array $errors = []): void
             . '<form action="' . url('registration_update') . '" method="post" enctype="multipart/form-data">' . csrf_field()
             . registration_fields($reg, false)
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
-            . '<script src="assets/registration-attachments.js?v=5" defer></script>';
+            . '<script src="assets/registration-attachments.js?v=6" defer></script>';
     }
     render_page('My Registration', $html);
 }

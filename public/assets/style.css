@@ -432,6 +432,8 @@ body.page-loading{overflow:hidden}
   border-radius:0 4px 4px 0;transition:width .15s ease}
 .selected-file-card.is-saved .selected-file-status{color:#357953}
 .selected-file-card.has-error{border-color:#e6bdbb}
+
+[data-file-name]{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
 .selected-file-card.has-error .selected-file-status{color:#ad4a4a}
 .selected-files-empty{margin:.3rem 0 0;font-size:.78rem;color:#738b7e}
 @media(max-width:575.98px){

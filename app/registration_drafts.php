@@ -198,6 +198,18 @@ function registration_draft_delete(int $id): array
     }
 }
 
+/** Remove every staged attachment when the applicant explicitly clears the form. */
+function registration_draft_clear(): array
+{
+    try {
+        registration_draft_consume();
+        return ['documents'=>[]];
+    } catch (Throwable $e) {
+        error_log('FP-OMS draft clear failure: '.$e->getMessage());
+        return ['error'=>'Could not clear the registration form.'];
+    }
+}
+
 /** Detect raw file inputs still pending AJAX upload at final submit time. */
 function registration_draft_has_unstaged_files(array $files): bool
 {
