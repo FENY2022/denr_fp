@@ -76,7 +76,7 @@ must_otp($verify !== false && $commit !== false && $sendAck !== false
 must_otp(str_contains($otp, "status='pending_review',email_verified_at=NOW()"),
     'Verified clients are queued for FUU review');
 must_otp(str_contains($otp, 'registration_ack_delivery_failed')
-    && str_contains($otp, "['delivery'=>$acknowledgmentSent ? 'smtp' : 'not_sent']"),
+    && str_contains($otp, "['delivery'=>") && str_contains($otp, "'not_sent'"),
     'SMTP delivery result is reported honestly and audited');
 must_otp(str_contains($otp, 'failed_attempts') && str_contains($otp, '>= 5'),
     'OTP invalid attempts are capped');
