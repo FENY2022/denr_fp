@@ -103,9 +103,10 @@ try {
                     if (!$errors) {
                         // One-time modal on the login page (PRG): do not show a success toast.
                         $_SESSION['registration_verified_modal'] = [
-                            'ack_delivery_failed' => !empty($_SESSION['registration_ack_delivery_failed'])
+                            'ack_delivery_failed' => !empty($_SESSION['registration_ack_delivery_failed']),
+                            'applicant_name' => (string)($_SESSION['registration_verified_applicant_name'] ?? '')
                         ];
-                        unset($_SESSION['registration_ack_delivery_failed']);
+                        unset($_SESSION['registration_ack_delivery_failed'], $_SESSION['registration_verified_applicant_name']);
                         go('login');
                     }
                     view_verify_registration_otp($errors);
