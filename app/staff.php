@@ -14,6 +14,9 @@ function create_internal_user(array $admin, array $data): array
     if ($password !== (string)($data['confirm_password'] ?? '')) $errors[] = 'Initial password confirmation does not match.';
     $roles = role_definitions();
     if (!isset($roles[$role]) || $role === 'applicant') $errors[] = 'Choose a valid internal role.';
+    if ($email !== '' && email_assigned_to_other_account($email, 'internal')) {
+        $errors[] = 'That email is already registered to a DENR or client account.';
+    }
     if ($errors) return $errors;
     $pdo = db();
     try {
