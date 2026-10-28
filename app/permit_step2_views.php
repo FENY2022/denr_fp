@@ -240,17 +240,26 @@ function view_step2_application(int $applicationId, array $errors = []): void
         $html .= '<div class="panel soft"><h3 class="h6">LPDD-FUS Technical Staff – Initial Review</h3>'
             . '<p class="small">Check initial documentary completeness. '
             . 'This is <strong>not</strong> Step 4 formal documentary evaluation.</p>'
-            . '<form method="post" action="' . e(url('permit_initial_decision',['id'=>$applicationId])) . '">'
+            . '<form method="post" action="' . e(url('permit_initial_decision',['id'=>$applicationId])) . '" '
+            . 'data-decision-confirm-form data-confirm-kind="step2" '
+            . 'data-confirm-reference="FP Application #' . (int)$applicationId . '" '
+            . 'data-confirm-applicant="' . e((string)$app['applicant_name']) . '">'
             . csrf_field()
+            . '<input type="hidden" name="decision" value="" data-confirm-decision-value>'
             . '<label class="form-label" for="step2_remarks">Deficiencies / Review Notes</label>'
-            . '<textarea class="form-control mb-3" id="step2_remarks" name="remarks" rows="6" '
+            . '<textarea class="form-control mb-2" id="step2_remarks" name="remarks" rows="6" '
             . 'maxlength="3000" placeholder="Required when returning to applicant">'
             . e((string)($_POST['remarks'] ?? '')) . '</textarea>'
+            . '<div class="alert alert-warning small d-none mb-3" role="alert" '
+            . 'data-decision-confirm-validation></div>'
             . '<div class="d-grid gap-2">'
-            . '<button class="btn btn-success" type="submit" name="decision" value="forward">'
+            . '<button class="btn btn-success" type="button" data-confirm-decision="forward">'
             . 'Complete – Forward to RO Receiving</button>'
-            . '<button class="btn btn-outline-danger" type="submit" name="decision" value="return">'
-            . 'Incomplete – Return for Correction</button></div></form></div>';
+            . '<button class="btn btn-outline-danger" type="button" data-confirm-decision="return">'
+            . 'Incomplete – Return for Correction</button></div>'
+            . '<noscript><p class="alert alert-warning small mt-3 mb-0">'
+            . 'Enable JavaScript to confirm and submit a review decision.</p></noscript>'
+            . '</form></div>';
     } else {
         $html .= '<div class="panel soft"><h3 class="h6">Routing Status</h3>'
             . '<p class="small mb-0">This application is '
@@ -258,7 +267,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '. RO Receiving may view forwarded documents; receiving actions are a separate Step 3 build.</p>'
             . '</div>';
     }
-    $html .= '</div></div>';
+    $html .= '</div></div>'
+        . ($reviewer && $app['status'] === 'submitted' ? decision_confirmation_modal_html() : '');
     render_page('FP Application Review – Step 2', $html);
 }
 
