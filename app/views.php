@@ -422,13 +422,56 @@ function view_staff(array $errors = []): void
 function view_change_password(array $errors = []): void
 {
     $user = require_user();
-    $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-6"><div class="panel">'
-        . errors_html($errors) . ($user['must_change_password'] ? '<div class="alert alert-warning">Change your initial password to continue.</div>' : '')
-        . '<form method="post" action="' . url('change_password') . '">' . csrf_field()
-        . field('current_password','Current password','','password',true,'autocomplete="current-password"')
-        . field('new_password','New password','','password',true,'autocomplete="new-password" minlength="12"')
-        . field('confirm_password','Confirm new password','','password',true,'autocomplete="new-password" minlength="12"')
-        . '<button class="btn btn-primary" type="submit">Update Password</button></form></div></div></div>';
+    $html = '<div class="row justify-content-center"><div class="col-md-9 col-lg-8"><div class="panel">'
+        . errors_html($errors)
+        . ($user['must_change_password']
+            ? '<div class="alert alert-warning">Change your initial password to continue.</div>' : '')
+        . '<p class="text-secondary small">Use a secure new password that follows the requirements below. '
+        . 'Your current password is required to confirm this change.</p>'
+        . '<form id="change-password-form" method="post" action="' . url('change_password') . '">' . csrf_field()
+        . field('current_password','Current password','','password',true,
+            'autocomplete="current-password"')
+        . '<div class="row g-3 mb-3"><div class="col-md-6">'
+        . '<label class="form-label" for="new_password">New password <span class="text-danger">*</span></label>'
+        . '<div class="input-group"><input class="form-control" id="new_password" name="new_password" '
+        . 'type="password" required autocomplete="new-password" minlength="12" maxlength="200" '
+        . 'aria-describedby="change-password-rules change-password-feedback">'
+        . '<button class="btn btn-outline-secondary" type="button" data-change-password-toggle="new_password" '
+        . 'aria-controls="new_password" aria-pressed="false" aria-label="Show password" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div class="small fw-semibold mt-3 mb-1">Password requirements</div>'
+        . '<ul class="list-unstyled small mb-0" id="change-password-rules" aria-label="Password validation requirements">'
+        . '<li class="text-secondary mb-1" data-change-password-rule="minimum">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>At least 12 characters '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-change-password-rule="letter">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>At least one letter (A–Z) '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-change-password-rule="number">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>At least one number (0–9) '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-change-password-rule="maximum">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>Maximum 200 characters '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-change-password-rule="different">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>Different from current password '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '</ul><div id="change-password-feedback" class="small text-secondary mt-2" '
+        . 'role="status" aria-live="polite">Enter a new password to check its requirements.</div>'
+        . '</div><div class="col-md-6">'
+        . '<label class="form-label" for="confirm_password">Confirm new password <span class="text-danger">*</span></label>'
+        . '<div class="input-group"><input class="form-control" id="confirm_password" name="confirm_password" '
+        . 'type="password" required autocomplete="new-password" minlength="12" maxlength="200" '
+        . 'aria-describedby="change-confirm-feedback">'
+        . '<button class="btn btn-outline-secondary" type="button" data-change-password-toggle="confirm_password" '
+        . 'aria-controls="confirm_password" aria-pressed="false" aria-label="Show password" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div id="change-confirm-feedback" class="small text-secondary mt-2" '
+        . 'role="status" aria-live="polite">Re-enter your new password to confirm.</div>'
+        . '</div></div>'
+        . '<button class="btn btn-primary" type="submit">Update Password</button></form>'
+        . '</div></div></div>'
+        . '<script src="assets/change-password.js?v=1" defer></script>';
     render_page('Change Password', $html);
 }
 
