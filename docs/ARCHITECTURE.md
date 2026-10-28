@@ -26,6 +26,29 @@ flowchart TD
 
 `user_client.status` is the authoritative applicant account-activation state; `users.status` applies only to DENR personnel. Each correction increments `applicant_registrations.revision` and a review record stores the reviewed revision. Historical uploads and decisions are retained for traceability. Registration documents store one row per uploaded file, with a nullable `id_type` added by `007_registration_id_types.sql`. All uploaded files across revisions are shown (rather than only one per category); legacy IDs without a recorded type remain identifiable. A new submission requires at least one Valid ID with a chosen ID type; corrected submissions may add further IDs and supporting documents. A reviewer cannot approve a registration that is no longer pending.
 
+## Step 2 state machine — Annex A second diagram (approved for FP-OMS development)
+
+```mermaid
+flowchart TD
+    Active[Active applicant account after Step 1] --> Submit[Applicant submits FP application and files]
+    Submit --> Submitted[submitted: LPDD-FUS initial queue]
+    Submitted --> Check{LPDD-FUS Technical Staff: complete?}
+    Check -->|No: written deficiencies| Correction[corrections_required]
+    Correction --> Resubmit[Applicant edits and resubmits documents]
+    Resubmit --> Submitted
+    Check -->|Yes: initial check complete| Forwarded[forwarded_to_ro]
+    Forwarded --> Inbox[RO Receiving read-only handoff inbox]
+    Inbox --> Step3[Step 3 receiving actions: NOT IMPLEMENTED]
+```
+
+The currently selected **second Annex A image** inserts the LPDD-FUS Technical Staff **initial** check before RO Receiving in Step 2. This is **not** the formal Step 4 documentary evaluation. If incomplete, reviewers must enter actionable remarks; resubmission increments the application revision, retains previous documents and records a new event. If complete, an authorized LPDD/FUS reviewer forwards it to RO Receiving. Role-scoped bell and best-effort SMTP notices are emitted after submission or review, without allowing mail failure to reverse committed business state. The RO inbox is read-only and exposes only forwarded applications.
+
+Step 2 is implemented in `app/permit_step2.php` and `app/permit_step2_views.php` with `public/index.php` routes and migration `database/014_step2_initial_application_review.sql`. No automatic 15-day clock is started, and no official FP document-category checklist or RED-signed deficiency-letter template has been inferred from Annex A. The current generic file submission must be refined by LPDD/FUS before production use.
+
+**Step 2 schema:** `permit_step2_applications` (owner, status, revision, project identification, reviewer timestamps), `permit_step2_documents` (immutable revisions, MIME/size/hash, private-path metadata), and `permit_step2_events` (append-only submit/return/resubmit/forward audit trail). This is additive and isolated from the earlier Step 3–11 scaffold; Step 1 `user_client` credentials/registration documents stay unchanged. Applicant IDs and DENR staff IDs are separated by explicit foreign keys/actor columns.
+
+**Security rules:** only an activated applicant can submit or resubmit their own application; only active `lpdd_fus` reviewers can decide; only active `ro_receiving` users can view forwarded handoffs; documents are accessible only to their owning applicant, authorized reviewer, or RO receiving after forwarding. State transitions require database transactions and row locks; all mutations require CSRF protection and create immutable business events and audit records. Files are stored outside the public document root using randomized filenames. Admin identity does not implicitly grant Step 2 reviewer rights.
+
 ## Core data entities
 
 | Entity | Purpose | Relationship |
@@ -71,7 +94,9 @@ After migration 011, future permit ownership is `permit_applications.client_id`,
 | Review registrations and activate applicant | — | — | ✓ | — | — |
 | Download applicant registration docs | — | Own | ✓ | ✓ | — |
 | Provision internal users | — | — | — | ✓ | — |
-| File permit application (Step 2) | — | Not implemented | — | — | — |
+| Submit FP application (Step 2) | — | ✓ active only | — | — | — |
+| Initial completeness review / return / forward (Step 2) | — | — | ✓ | — | — |
+| View forwarded FP applications (RO handoff) | — | — | — | — | ✓ RO Receiving only |
 
 *Sign-in is public; password changes require an authenticated user.
 
