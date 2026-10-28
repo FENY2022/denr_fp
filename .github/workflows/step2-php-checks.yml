@@ -34,3 +34,5 @@ jobs:
             xargs -0 -n 1 php -l
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
+      - name: Step 2 schema compatibility checks
+        run: php tests/step2_schema_check_test.php
