@@ -24,3 +24,25 @@ html{scroll-behavior:smooth;scroll-padding-top:86px}
 @media(max-width:991.98px){.landing-nav-actions{margin-top:.75rem;padding-top:.75rem;border-top:1px solid #edf1ef}.landing-hero{padding-top:4rem}.hero-visual{max-width:600px;margin:0 auto}.requirements-card{grid-template-columns:1fr 1fr}.user-role-grid{grid-template-columns:repeat(3,1fr)}.cta-panel{align-items:flex-start;flex-direction:column}.cta-actions{justify-content:flex-start}}
 @media(max-width:767.98px){.process-grid{grid-template-columns:repeat(2,1fr)}.requirements-card{grid-template-columns:1fr}.user-role-grid{grid-template-columns:repeat(2,1fr)}.hero-trust{gap:.65rem 1rem}.landing-hero h1{font-size:clamp(2.4rem,12vw,3.65rem)}}
 @media(max-width:575.98px){.landing-nav .container-xl{min-height:64px}.landing-brand-mark{width:38px;height:38px;flex-basis:38px}.landing-brand strong{font-size:.9rem}.landing-brand small{font-size:.55rem}.landing-hero{padding:3.2rem 0}.hero-actions .btn{width:100%}.hero-kicker{font-size:.6rem;line-height:1.4}.process-grid,.user-role-grid{grid-template-columns:1fr}.process-card{min-height:auto}.cta-actions,.cta-actions .btn{width:100%}.footer-bottom{flex-direction:column}.landing-section{padding:3.5rem 0}.registration-success-modal .modal-body{padding:1.7rem 1.25rem 1.4rem}.registration-success-modal h2{font-size:1.45rem}}
+
+/* Annex 1 official FP checklist: accessible, complete 10-item overview. */
+.landing-requirements .section-heading{max-width:790px}
+.fp-checklist-meta{display:flex;align-items:flex-start;gap:.75rem;max-width:790px;margin:0 auto 1.7rem;padding:1rem 1.15rem;border:1px solid #dcece2;border-radius:13px;background:#f3faf5;color:#365d48;font-size:.86rem;line-height:1.6}
+.fp-checklist-meta>i{color:var(--amsos-green);font-size:1.2rem;flex-shrink:0}
+.fp-requirements-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;padding:0;counter-reset:none}
+.fp-requirement-item{display:flex;align-items:flex-start;gap:.9rem;min-width:0;padding:1.25rem;border:1px solid #e1e9e4;border-radius:16px;background:#fff;box-shadow:0 9px 27px rgba(20,45,61,.045)}
+.fp-requirement-number{display:flex;align-items:center;justify-content:center;flex:0 0 38px;width:38px;height:38px;border-radius:11px;background:var(--amsos-green-soft);color:var(--amsos-green);font-size:.94rem;font-weight:800}
+.fp-requirement-copy{flex:1;min-width:0}
+.fp-requirement-copy h3{font-size:.98rem;font-weight:750;line-height:1.45;margin:0;color:#163d29;overflow-wrap:anywhere}
+.fp-requirement-details{margin:.55rem 0 0;padding-left:1.1rem;color:#596f61;font-size:.81rem;line-height:1.6}
+.fp-requirement-details li+li{margin-top:.25rem}
+.fp-requirement-note{display:flex;align-items:flex-start;gap:.5rem;margin:.75rem 0 0;padding:.7rem .8rem;background:#edf7f0;border:1px solid #d9ebdf;border-radius:9px;color:#315942;font-size:.77rem;line-height:1.5}
+.fp-requirement-note>i{flex-shrink:0;color:var(--amsos-green);margin-top:.05rem}
+.fp-checklist-footer{max-width:none;margin-top:1.4rem;font-size:.82rem}
+@media(max-width:767.98px){
+  .fp-requirements-grid{grid-template-columns:1fr;gap:.7rem}
+  .fp-requirement-item{padding:1rem;border-radius:13px}
+  .fp-requirement-number{flex-basis:34px;width:34px;height:34px}
+  .fp-checklist-meta{font-size:.78rem;padding:.85rem}
+  .fp-requirement-copy h3{font-size:.91rem}
+}
