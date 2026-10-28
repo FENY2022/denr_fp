@@ -1,6 +1,101 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Annex 1 - Checklist of Requirements for Feasibility Permit.
+ * Display-only public landing content; upload validation remains unchanged.
+ * Wording, conditional applicant types and timing notes follow the provided
+ * DENR CARAGA Annex 1 checklist.
+ */
+function landing_fp_requirements(): array
+{
+    return [
+        [
+            'title' => 'Letter of Intent',
+            'details' => [],
+            'note' => null,
+        ],
+        [
+            'title' => 'Duly accomplished and notarized application form (Annex 1A)',
+            'details' => [],
+            'note' => null,
+        ],
+        [
+            'title' => 'Proof of payment of application fee',
+            'details' => ['Amount and OR No. are recorded in the Annex 1 checklist.'],
+            'note' => 'After being evaluated as complete by the Technical Staff.',
+        ],
+        [
+            'title' => 'GIS Generated map of the subject area for feasibility study',
+            'details' => [],
+            'note' => null,
+        ],
+        [
+            'title' => 'For corporation, cooperatives and association',
+            'details' => [
+                'a. Certified true copy of certificate of Registration from registering agency; and',
+                'b. Secretary’s Certification authorizing the representative to transact with DENR on behalf of the company.',
+            ],
+            'note' => 'During Account Registration.',
+        ],
+        [
+            'title' => 'For National Government Agencies, Government Owned and Controlled Corporations (GOCCs) and its instrumentalities',
+            'details' => [
+                'Authorization to apply for the FP from the Head of Agency.',
+            ],
+            'note' => 'During Account Registration.',
+        ],
+        [
+            'title' => 'Feasibility Study Proposal (Annex 1B)',
+            'details' => [],
+            'note' => null,
+        ],
+        [
+            'title' => 'Environmental Compliance Certificate (ECC)/Certificate of Non-Coverage (CNC)',
+            'details' => [],
+            'note' => 'ECC/CNC shall be secured within six (6) months upon issuance of FP.',
+        ],
+        [
+            'title' => 'NCIP Clearance or proof of application for NCIP Clearance, stamped received by NCIP',
+            'details' => [],
+            'note' => 'NCIP Clearance shall be secured within one (1) year upon issuance of FP.',
+        ],
+        [
+            'title' => 'Energy Service Contract (ESC) or Certificate of Authority (COA) from DOE',
+            'details' => [],
+            'note' => null,
+        ],
+    ];
+}
+
+/** Render the complete public Annex 1 checklist, with conditions clearly visible. */
+function landing_fp_requirements_html(): string
+{
+    $html = '<ol class="fp-requirements-grid list-unstyled mb-0" '
+        . 'aria-label="Annex 1 - Feasibility Permit documentary checklist">';
+    foreach (landing_fp_requirements() as $index => $requirement) {
+        $html .= '<li class="fp-requirement-item">'
+            . '<span class="fp-requirement-number" aria-hidden="true">'
+            . e((string)($index + 1)) . '</span>'
+            . '<div class="fp-requirement-copy"><h3>'
+            . e((string)$requirement['title']) . '</h3>';
+        if ($requirement['details']) {
+            $html .= '<ul class="fp-requirement-details">';
+            foreach ($requirement['details'] as $detail) {
+                $html .= '<li>' . e((string)$detail) . '</li>';
+            }
+            $html .= '</ul>';
+        }
+        if ($requirement['note'] !== null) {
+            $html .= '<p class="fp-requirement-note">'
+                . '<i class="bi bi-info-circle" aria-hidden="true"></i><span>'
+                . e((string)$requirement['note']) . '</span></p>';
+        }
+        $html .= '</div></li>';
+    }
+    return $html . '</ol>';
+}
+
 function view_landing(): void
 {
     $user = current_user();
@@ -34,7 +129,7 @@ function view_landing(): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css" rel="stylesheet">'
-        . '<link href="assets/landing.css?v=2" rel="stylesheet">'
+        . '<link href="assets/landing.css?v=3" rel="stylesheet">'
         . '<script src="assets/app-shell.js" defer></script></head><body class="landing-body">';
 
     echo '<nav class="navbar navbar-expand-lg landing-nav sticky-top"><div class="container-xl">'
@@ -87,15 +182,26 @@ function view_landing(): void
         . process_card('06','patch-check','Approve & Release','The authorized approving official acts on the permit and the approved records are released and archived.')
         . '</div></div></section>';
 
-    echo '<section class="landing-section" id="requirements"><div class="container-xl"><div class="row g-5 align-items-center"><div class="col-lg-5"><div class="section-heading mb-0"><span class="section-kicker">APPLICATION PREPARATION</span><h2>Prepare the core application documents</h2><p>The system will guide applicants through the documentary requirements defined by DENR policy and the prescribed Feasibility Permit templates.</p></div>'
-        . '<div class="requirement-note"><i class="bi bi-info-circle"></i><span>Final documentary acceptance remains subject to current DENR rules, evaluation, and official instructions.</span></div></div>'
-        . '<div class="col-lg-7"><div class="requirements-card"><div class="requirement-item"><i class="bi bi-envelope-paper"></i><div><strong>Letter of Intent</strong><small>Signed by the company representative.</small></div></div>'
-        . '<div class="requirement-item"><i class="bi bi-file-earmark-text"></i><div><strong>Application Form</strong><small>Properly accomplished and duly notarized.</small></div></div>'
-        . '<div class="requirement-item"><i class="bi bi-receipt"></i><div><strong>Application Fee</strong><small>Proof of payment in accordance with the applicable FP guidelines.</small></div></div>'
-        . '<div class="requirement-item"><i class="bi bi-building-check"></i><div><strong>Company Registration & Authority</strong><small>SEC/CDA registration and authority of the representative to transact with DENR.</small></div></div>'
-        . '<div class="requirement-item"><i class="bi bi-journal-text"></i><div><strong>Feasibility Study Proposal</strong><small>Prepared using the prescribed DENR template.</small></div></div>'
-        . '<div class="requirement-item"><i class="bi bi-lightning-charge"></i><div><strong>DOE Authority</strong><small>Applicable Energy Service Contract or Certificate of Authority.</small></div></div>'
-        . '</div></div></div></div></section>';
+    echo '<section class="landing-section landing-requirements" id="requirements">'
+        . '<div class="container-xl">'
+        . '<div class="section-heading mx-auto text-center">'
+        . '<span class="section-kicker">ANNEX 1 · APPLICATION REQUIREMENTS</span>'
+        . '<h2>Checklist of Requirements for Feasibility Permit</h2>'
+        . '<p>Review the documentary requirements below before submitting your application. '
+        . 'Requirements for certain applicant types and their prescribed timing '
+        . 'are noted individually.</p></div>'
+        . '<div class="fp-checklist-meta" role="note">'
+        . '<i class="bi bi-clipboard-check" aria-hidden="true"></i>'
+        . '<span>The Annex 1 checklist also identifies the <strong>Applicant Name</strong>, '
+        . '<strong>Location</strong>, and <strong>Size of the Area</strong>.</span></div>'
+        . landing_fp_requirements_html()
+        . '<div class="requirement-note fp-checklist-footer">'
+        . '<i class="bi bi-info-circle" aria-hidden="true"></i>'
+        . '<span>Timing and conditional requirements are taken from Annex 1. '
+        . 'The application-fee proof follows a complete Technical Staff evaluation; '
+        . 'the ECC/CNC and NCIP Clearance have the post-permit deadlines shown above. '
+        . 'Documentary acceptance remains subject to LPDD-FUS evaluation and applicable DENR instructions.</span>'
+        . '</div></div></section>';
 
     echo '<section class="landing-section section-soft" id="users"><div class="container-xl"><div class="section-heading text-center"><span class="section-kicker">SYSTEM USERS</span><h2>Built for applicants and DENR processing offices</h2><p>Each group sees only the functions needed for its responsibility in the Feasibility Permit workflow.</p></div>'
         . '<div class="user-role-grid"><div class="role-card"><i class="bi bi-person-workspace"></i><strong>Applicants</strong><span>Registration, submission, corrections, and status tracking</span></div>'
