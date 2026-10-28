@@ -13,13 +13,20 @@ declare(strict_types=1);
 
 function step2_schema_ready(): bool
 {
+    // Avoid information_schema: some local XAMPP/MariaDB accounts are denied
+    // metadata access even though they can read the application tables.
+    // These fixed, trusted table names are not derived from user input.
+    // SELECT ... LIMIT 0 succeeds even for empty tables and checks the SELECT
+    // permission the Step 2 module actually needs.
     try {
-        $row = query_one(
-            "SELECT COUNT(*) AS n FROM information_schema.tables
-             WHERE table_schema=DATABASE()
-               AND table_name IN ('permit_step2_applications','permit_step2_documents','permit_step2_events')"
-        );
-        return (int)($row['n'] ?? 0) === 3;
+        foreach ([
+            'permit_step2_applications',
+            'permit_step2_documents',
+            'permit_step2_events'
+        ] as $table) {
+            db()->query('SELECT 1 FROM `' . $table . '` LIMIT 0');
+        }
+        return true;
     } catch (Throwable $error) {
         error_log('FP-OMS Step 2 schema preflight failed: ' . $error->getMessage());
         return false;
