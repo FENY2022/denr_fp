@@ -71,8 +71,7 @@ CREATE TABLE IF NOT EXISTS permit_step2_events (
         REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Read-only verification (should show all three new tables):
-SELECT table_name FROM information_schema.tables
-WHERE table_schema = DATABASE()
-AND table_name IN ('permit_step2_applications','permit_step2_documents','permit_step2_events')
-ORDER BY table_name;
+-- Read-only verification (should show all three new tables).
+-- Use SHOW TABLES instead of information_schema, which may be restricted
+-- on some local XAMPP / MariaDB accounts:
+SHOW TABLES LIKE 'permit_step2_%';
