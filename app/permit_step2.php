@@ -1,0 +1,514 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Annex A - Step 2 only:
+ * Active applicant submits FP documentary package -> LPDD/FUS Technical Staff
+ * initial completeness check -> correction/resubmission OR forwarding to RO.
+ *
+ * No formal Step 4 documentary evaluation, payment, hardcopy or SLA starts here.
+ * The Annex does not enumerate required FP document types; an approved official
+ * checklist must be added before this stage is used in production.
+ */
+
+function step2_schema_ready(): bool
+{
+    try {
+        $row = query_one(
+            "SELECT COUNT(*) AS n FROM information_schema.tables
+             WHERE table_schema=DATABASE()
+               AND table_name IN ('permit_step2_applications','permit_step2_documents','permit_step2_events')"
+        );
+        return (int)($row['n'] ?? 0) === 3;
+    } catch (Throwable $error) {
+        error_log('FP-OMS Step 2 schema preflight failed: ' . $error->getMessage());
+        return false;
+    }
+}
+
+function step2_require_schema(): void
+{
+    if (!step2_schema_ready()) {
+        show_error('The Step 2 application module requires migration 014. Ask RICTU to install the Step 2 database update before submitting documents.', 503);
+    }
+}
+
+function step2_require_applicant(): array
+{
+    $client = require_user();
+    require_kind($client, 'applicant');
+    if (($client['status'] ?? '') !== 'active') {
+        show_error('FP applications can be submitted only after LPDD/FUS activates your applicant account.');
+    }
+    step2_require_schema();
+    return $client;
+}
+
+function step2_require_reviewer(): array
+{
+    $reviewer = require_role('lpdd_fus');
+    step2_require_schema();
+    return $reviewer;
+}
+
+function step2_require_receiving(): array
+{
+    $staff = require_role('ro_receiving');
+    step2_require_schema();
+    return $staff;
+}
+
+function step2_application(int $applicationId): ?array
+{
+    return query_one(
+        'SELECT a.*, c.name AS applicant_name, c.email AS applicant_email
+         FROM permit_step2_applications a
+         JOIN user_client c ON c.id=a.client_id WHERE a.id=?', [$applicationId]
+    );
+}
+
+function step2_application_for_view(array $viewer, int $applicationId): array
+{
+    step2_require_schema();
+    $app = step2_application($applicationId);
+    if (!$app) show_error('Permit application not found.', 404);
+
+    $mine = ($viewer['user_kind'] ?? '') === 'applicant'
+        && (int)$viewer['id'] === (int)$app['client_id'];
+    $reviewer = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer, 'lpdd_fus');
+    $receiving = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer, 'ro_receiving')
+        && $app['status'] === 'forwarded_to_ro';
+    if (!$mine && !$reviewer && !$receiving) {
+        show_error('You do not have permission to access this application.', 404);
+    }
+    return $app;
+}
+
+function step2_documents(int $applicationId): array
+{
+    return query_all(
+        'SELECT * FROM permit_step2_documents WHERE application_id=?
+         ORDER BY revision ASC, id ASC', [$applicationId]
+    );
+}
+
+function step2_events(int $applicationId): array
+{
+    return query_all(
+        'SELECT e.*, c.name AS applicant_actor, u.name AS staff_actor
+         FROM permit_step2_events e
+         LEFT JOIN user_client c ON c.id=e.actor_client_id
+         LEFT JOIN users u ON u.id=e.actor_user_id
+         WHERE e.application_id=? ORDER BY e.id DESC', [$applicationId]
+    );
+}
+
+function step2_uploads(array $files, bool $required): array
+{
+    $group = $files['application_files'] ?? null;
+    $errors = [];
+    $items = [];
+    if ($group === null) {
+        return ['items'=>[], 'errors'=>$required ? ['Upload at least one FP supporting document.'] : []];
+    }
+    if (!is_array($group) || !isset($group['name'], $group['tmp_name'], $group['error'], $group['size'])
+        || !is_array($group['name']) || !is_array($group['tmp_name'])
+        || !is_array($group['error']) || !is_array($group['size'])) {
+        return ['items'=>[], 'errors'=>['Document upload data is invalid.']];
+    }
+
+    $keys = array_unique(array_merge(
+        array_keys($group['name']), array_keys($group['tmp_name']),
+        array_keys($group['error']), array_keys($group['size'])
+    ));
+    if (count($keys) > 10) return ['items'=>[], 'errors'=>['Maximum 10 documents per submission.']];
+
+    foreach ($keys as $key) {
+        if (!array_key_exists($key, $group['name']) || !array_key_exists($key, $group['tmp_name'])
+            || !array_key_exists($key, $group['error']) || !array_key_exists($key, $group['size'])) {
+            $errors[] = 'One document upload is incomplete.';
+            continue;
+        }
+        $file = [
+            'name' => $group['name'][$key], 'tmp_name' => $group['tmp_name'][$key],
+            'error' => $group['error'][$key], 'size' => $group['size'][$key]
+        ];
+        if (!is_string($file['name']) || !is_string($file['tmp_name'])
+            || !is_int($file['error']) || !is_int($file['size'])) {
+            $errors[] = 'One document upload is invalid.';
+            continue;
+        }
+        if ($file['error'] === UPLOAD_ERR_NO_FILE) continue;
+        $info = upload_details($file, false);
+        if (isset($info['error'])) $errors[] = 'Document "' . substr($file['name'], 0, 80) . '": ' . $info['error'];
+        elseif (!isset($info['none'])) $items[] = $info;
+    }
+    if ($required && !$items) $errors[] = 'Upload at least one FP supporting document.';
+    return ['items'=>$items, 'errors'=>$errors];
+}
+
+function step2_input(): array
+{
+    return [
+        'project_title'=>safe_post('project_title',180),
+        'project_location'=>safe_post('project_location',300),
+        'purpose'=>safe_post('purpose',2000)
+    ];
+}
+
+function step2_validate_input(array $data): array
+{
+    $errors = [];
+    if (strlen(trim((string)($data['project_title'] ?? ''))) < 5
+        || strlen((string)($data['project_title'] ?? '')) > 180) {
+        $errors[] = 'Application / Project Title must be 5 to 180 characters.';
+    }
+    if (strlen(trim((string)($data['project_location'] ?? ''))) < 5
+        || strlen((string)($data['project_location'] ?? '')) > 300) {
+        $errors[] = 'Project Location must be 5 to 300 characters.';
+    }
+    if (strlen((string)($data['purpose'] ?? '')) > 2000) {
+        $errors[] = 'Project Description must not exceed 2,000 characters.';
+    }
+    return $errors;
+}
+
+/**
+ * Submit once or resubmit an application returned for correction.
+ * Uploaded files are immutable and kept outside the web root.
+ */
+function step2_submit(array $client, array $data, array $files, int $applicationId = 0): array
+{
+    if (($client['user_kind'] ?? '') !== 'applicant' || ($client['status'] ?? '') !== 'active') {
+        return ['An activated applicant account is required.'];
+    }
+    if (!step2_schema_ready()) return ['Step 2 database migration 014 has not been installed.'];
+    $errors = step2_validate_input($data);
+    $uploads = step2_uploads($files, $applicationId === 0);
+    $errors = array_merge($errors, $uploads['errors']);
+    if ($errors) return $errors;
+
+    $pdo = db();
+    $stored = [];
+    try {
+        $pdo->beginTransaction();
+        $clientId = (int)$client['id'];
+        $revision = 1;
+        if ($applicationId !== 0) {
+            $locked = query_one(
+                'SELECT * FROM permit_step2_applications WHERE id=? AND client_id=? FOR UPDATE',
+                [$applicationId,$clientId]
+            );
+            if (!$locked || $locked['status'] !== 'corrections_required') {
+                $pdo->rollBack();
+                return ['This application is not currently available for corrections. Refresh the page.'];
+            }
+            $revision = (int)$locked['revision'] + 1;
+            $pdo->prepare(
+                "UPDATE permit_step2_applications
+                 SET project_title=?,project_location=?,purpose=?,revision=?,
+                     status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
+                     reviewer_user_id=NULL,forwarded_at=NULL WHERE id=? AND client_id=?"
+            )->execute([
+                $data['project_title'],$data['project_location'],$data['purpose'] ?: null,
+                $revision,$applicationId,$clientId
+            ]);
+            $action = 'resubmitted';
+        } else {
+            $pdo->prepare(
+                "INSERT INTO permit_step2_applications
+                    (client_id,project_title,project_location,purpose,status)
+                 VALUES (?,?,?,?,'submitted')"
+            )->execute([$clientId,$data['project_title'],$data['project_location'],$data['purpose'] ?: null]);
+            $applicationId = (int)$pdo->lastInsertId();
+            $action = 'submitted';
+        }
+
+        foreach ($uploads['items'] as $info) {
+            $relative = 'fp_step2/' . $clientId . '/' . $applicationId . '/'
+                . bin2hex(random_bytes(18)) . '.' . $info['extension'];
+            $absolute = PROJECT_ROOT . '/storage/' . $relative;
+            $dir = dirname($absolute);
+            if (!is_dir($dir) && !mkdir($dir,0700,true) && !is_dir($dir)) {
+                throw new RuntimeException('Could not create private FP document directory.');
+            }
+            if (!move_uploaded_file((string)$info['file']['tmp_name'],$absolute)) {
+                throw new RuntimeException('Could not save uploaded FP document.');
+            }
+            $stored[] = $absolute;
+            chmod($absolute,0600);
+            $hash = hash_file('sha256',$absolute);
+            if ($hash === false) throw new RuntimeException('Could not verify uploaded FP document.');
+            $pdo->prepare(
+                'INSERT INTO permit_step2_documents
+                    (application_id,client_id,revision,original_name,stored_path,mime_type,file_size,sha256)
+                 VALUES (?,?,?,?,?,?,?,?)'
+            )->execute([
+                $applicationId,$clientId,$revision,$info['name'],$relative,
+                $info['mime'],$info['size'],$hash
+            ]);
+        }
+        $pdo->prepare(
+            'INSERT INTO permit_step2_events
+                (application_id,actor_client_id,action,revision)
+             VALUES (?,?,?,?)'
+        )->execute([$applicationId,$clientId,$action,$revision]);
+        audit_client($clientId, 'permit.step2.' . $action, 'permit_step2_application',
+            $applicationId, ['revision'=>$revision,'documents_added'=>count($uploads['items'])]);
+        $pdo->commit();
+
+        try {
+            notify_role(
+                'lpdd_fus',
+                $action === 'submitted' ? 'New FP Application for Initial Review' : 'FP Application Resubmitted',
+                'FP application #' . $applicationId . ' from ' . (string)$client['name']
+                    . ' is awaiting LPDD-FUS initial review.',
+                'file-earmark-text','info','permit_initial_queue'
+            );
+            step2_email_reviewer_alert($applicationId, (string)$client['name'], $action);
+        } catch (Throwable $notifyError) {
+            error_log('FP-OMS Step 2 staff alert failed: ' . $notifyError->getMessage());
+        }
+        return [];
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        foreach ($stored as $path) @unlink($path);
+        error_log('FP-OMS Step 2 submission failure: ' . $error->getMessage());
+        return ['Application could not be submitted. Please contact the ICT administrator.'];
+    }
+}
+
+function step2_review(array $reviewer, int $applicationId, string $decision, string $remarks): array
+{
+    if (($reviewer['user_kind'] ?? '') !== 'internal' || ($reviewer['status'] ?? '') !== 'active'
+        || !has_role($reviewer,'lpdd_fus')) return ['LPDD-FUS reviewer authorization is required.'];
+    if (!step2_schema_ready()) return ['Step 2 database migration 014 has not been installed.'];
+    if (!in_array($decision, ['return','forward'],true)) return ['Invalid Step 2 decision.'];
+    $remarks = trim($remarks);
+    if (strlen($remarks) > 3000) return ['Remarks must be 3,000 characters or fewer.'];
+    if ($decision === 'return' && strlen($remarks) < 10) {
+        return ['Specify the lacking documentary requirements (minimum 10 characters).'];
+    }
+
+    $pdo = db();
+    try {
+        $pdo->beginTransaction();
+        $app = query_one(
+            "SELECT a.*, c.name AS applicant_name,c.email AS applicant_email
+             FROM permit_step2_applications a
+             JOIN user_client c ON c.id=a.client_id WHERE a.id=? FOR UPDATE",
+            [$applicationId]
+        );
+        if (!$app || $app['status'] !== 'submitted') {
+            $pdo->rollBack();
+            return ['Application is no longer awaiting initial review. Refresh the queue.'];
+        }
+        $docCount = query_one(
+            'SELECT COUNT(*) AS n FROM permit_step2_documents WHERE application_id=?',
+            [$applicationId]
+        );
+        if ((int)($docCount['n'] ?? 0) < 1) {
+            $pdo->rollBack();
+            return ['At least one submitted supporting document must exist before review.'];
+        }
+        $forwarded = $decision === 'forward';
+        $status = $forwarded ? 'forwarded_to_ro' : 'corrections_required';
+        $action = $forwarded ? 'forwarded_to_ro' : 'returned_for_correction';
+        $pdo->prepare(
+            'UPDATE permit_step2_applications SET status=?,reviewed_at=NOW(),
+                forwarded_at=IF(?=1,NOW(),NULL),reviewer_user_id=? WHERE id=?'
+        )->execute([$status,$forwarded ? 1 : 0,(int)$reviewer['id'],$applicationId]);
+        $pdo->prepare(
+            'INSERT INTO permit_step2_events
+                (application_id,actor_user_id,action,revision,remarks)
+             VALUES (?,?,?,?,?)'
+        )->execute([
+            $applicationId,(int)$reviewer['id'],$action,(int)$app['revision'],
+            $remarks !== '' ? $remarks : null
+        ]);
+        create_client_notification(
+            (int)$app['client_id'],
+            $forwarded ? 'FP Application Forwarded to RO Receiving' : 'FP Application Corrections Required',
+            $forwarded
+                ? 'Your FP application #' . $applicationId . ' passed LPDD-FUS initial review and was forwarded to RO Receiving.'
+                : 'Your FP application #' . $applicationId . ' requires corrections. Open My FP Applications for details.',
+            $forwarded ? 'check-circle' : 'exclamation-circle',
+            $forwarded ? 'success' : 'warning',
+            'permit_application',['id'=>$applicationId]
+        );
+        if ($forwarded) {
+            notify_role(
+                'ro_receiving','FP Application Forwarded for RO Receiving',
+                'FP application #' . $applicationId . ' passed LPDD-FUS initial review and is ready for RO Receiving.',
+                'inbox','info','permit_ro_inbox'
+            );
+        }
+        audit((int)$reviewer['id'],'permit.step2.' . $action,'permit_step2_application',
+            $applicationId,['revision'=>(int)$app['revision'],'remarks'=>$remarks]);
+        $pdo->commit();
+
+        try {
+            step2_email_applicant_decision(
+                (string)$app['applicant_email'],(string)$app['applicant_name'],
+                $applicationId,$forwarded,$remarks
+            );
+            if ($forwarded) step2_email_ro_alert($applicationId);
+        } catch (Throwable $emailError) {
+            error_log('FP-OMS Step 2 post-review email failed: ' . $emailError->getMessage());
+        }
+        return [];
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('FP-OMS Step 2 review failed: ' . $error->getMessage());
+        return ['Review could not be saved. Please try again.'];
+    }
+}
+
+/** Recipient addresses used for notification only; never authenticate shared mailboxes. */
+function step2_staff_recipients(string $roleCode): array
+{
+    $role = $roleCode === 'ro_receiving' ? 'ro_receiving' : 'lpdd_fus';
+    $members = query_all(
+        "SELECT DISTINCT u.email,u.reference_email,u.office_station,u.status FROM users u
+         JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id
+         WHERE r.code=? AND u.user_kind='internal' AND u.status IN ('active','pending_setup')",
+        [$role]
+    );
+    // Imported LPDD/FUS pending users may not have received role assignments yet.
+    if ($role === 'lpdd_fus') {
+        $members = array_merge($members, query_all(
+            "SELECT email,reference_email,office_station,status FROM users
+             WHERE user_kind='internal' AND status IN ('active','pending_setup')
+               AND UPPER(TRIM(office_station))='LPDD/FUS'"
+        ));
+    }
+    $emails = [];
+    foreach ($members as $member) {
+        if ($member['status'] === 'active') {
+            $personal = strtolower(trim((string)($member['email'] ?? '')));
+            if (filter_var($personal,FILTER_VALIDATE_EMAIL)) $emails[$personal] = $personal;
+        }
+        $office = strtolower(trim((string)($member['reference_email'] ?? '')));
+        if (filter_var($office,FILTER_VALIDATE_EMAIL)) $emails[$office] = $office;
+    }
+    return array_values($emails);
+}
+
+function step2_email_base_url(): ?string
+{
+    // Reuse existing verified scheme/host handling used for applicant emails.
+    return registration_applicant_login_url();
+}
+
+function step2_email_reviewer_alert(int $applicationId, string $applicantName, string $action): void
+{
+    $login = step2_email_base_url();
+    $url = $login !== null ? $login . '?next=permit-initial-queue' : null;
+    $safeUrl = $url === null ? '' : e($url);
+    $safeName = e($applicantName);
+    $subject = 'FP Application – LPDD-FUS Initial Review Required | DENR CARAGA FP-OMS';
+    $body = '<p>FP application <strong>#' . $applicationId . '</strong> '
+        . ($action === 'resubmitted' ? 'has been resubmitted' : 'has been submitted')
+        . ' by <strong>' . $safeName . '</strong>.</p>'
+        . '<p>Log in to FP-OMS and open <strong>Initial FP Review Queue</strong> to check documentary completeness.</p>'
+        . ($url !== null ? '<p><a href="' . $safeUrl . '">Login to FP-OMS – Initial Review Queue</a></p>' : '');
+    foreach (step2_staff_recipients('lpdd_fus') as $address) {
+        try {
+            smtp_send_html($address,$subject,
+                registration_email_layout('FP Application for Initial Review','LPDD/FUS Reviewing Personnel',$body),
+                "FP application #{$applicationId} from {$applicantName} awaits LPDD-FUS initial review.\n"
+                    . ($url ?? 'Open the approved FP-OMS website to log in.'));
+        } catch (Throwable $error) {
+            error_log('FP-OMS Step 2 reviewer email failed: ' . $error->getMessage());
+        }
+    }
+}
+
+function step2_email_applicant_decision(
+    string $email, string $name, int $applicationId, bool $forwarded, string $remarks
+): void {
+    $login = step2_email_base_url();
+    $url = $login !== null ? $login . '?next=permit-applications' : null;
+    $subject = $forwarded
+        ? 'FP Application Forwarded to RO Receiving – DENR CARAGA'
+        : 'Action Required: FP Application Documents – DENR CARAGA';
+    $body = '<p>FP application <strong>#' . $applicationId . '</strong> '
+        . ($forwarded
+            ? 'has passed LPDD/FUS initial review and was forwarded to RO Receiving for the next processing step.'
+            : 'was returned for correction after LPDD/FUS initial documentary review.')
+        . '</p>'
+        . (!$forwarded ? '<p><strong>Lacking requirements / reviewer remarks:</strong></p><p>'
+            . nl2br(e($remarks)) . '</p><p>Please sign in and resubmit your corrected documents.</p>' : '')
+        . ($url !== null ? '<p><a href="' . e($url)
+            . '">Login to FP-OMS – View FP Application</a></p>' : '');
+    if (filter_var($email,FILTER_VALIDATE_EMAIL)) {
+        smtp_send_html($email,$subject,
+            registration_email_layout($forwarded ? 'FP Application Forwarded' : 'FP Application Corrections Required',$name,$body),
+            "FP application #{$applicationId}: " . ($forwarded ? 'Forwarded to RO Receiving.' : "Corrections required:\n{$remarks}")
+                . "\n" . ($url ?? 'Sign in to your FP-OMS account.'));
+    }
+}
+
+function step2_email_ro_alert(int $applicationId): void
+{
+    $login = step2_email_base_url();
+    $url = $login !== null ? $login . '?next=permit-ro-inbox' : null;
+    $subject = 'FP Application Ready for RO Receiving – DENR CARAGA FP-OMS';
+    $body = '<p>FP application <strong>#' . $applicationId
+        . '</strong> has passed the LPDD/FUS Step 2 initial check.</p>'
+        . '<p>It has been forwarded to the RO Receiving inbox for the next step.</p>'
+        . ($url !== null ? '<p><a href="' . e($url)
+            . '">Login to FP-OMS – RO Receiving Inbox</a></p>' : '');
+    foreach (step2_staff_recipients('ro_receiving') as $address) {
+        try {
+            smtp_send_html($address,$subject,
+                registration_email_layout('FP Application for RO Receiving','RO Receiving/Releasing Personnel',$body),
+                "FP application #{$applicationId} forwarded by LPDD/FUS.\n"
+                . ($url ?? 'Open FP-OMS to view the receiving inbox.'));
+        } catch (Throwable $error) {
+            error_log('FP-OMS RO inbox email failed: ' . $error->getMessage());
+        }
+    }
+}
+
+function step2_send_document(array $viewer, int $documentId): never
+{
+    step2_require_schema();
+    $doc = query_one(
+        'SELECT d.*, a.status AS application_status, a.client_id AS owner_client_id
+         FROM permit_step2_documents d
+         JOIN permit_step2_applications a ON a.id=d.application_id WHERE d.id=?',
+        [$documentId]
+    );
+    if (!$doc) show_error('Document not found.',404);
+    $mine = ($viewer['user_kind'] ?? '') === 'applicant'
+        && (int)$doc['owner_client_id'] === (int)$viewer['id'];
+    $lpdd = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'lpdd_fus');
+    $ro = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'ro_receiving')
+        && $doc['application_status'] === 'forwarded_to_ro';
+    if (!$mine && !$lpdd && !$ro) show_error('Document not found or access denied.',404);
+
+    $storageRoot = realpath(PROJECT_ROOT . '/storage/fp_step2');
+    $path = realpath(PROJECT_ROOT . '/storage/' . (string)$doc['stored_path']);
+    if (!$storageRoot || !$path || !str_starts_with($path,$storageRoot . DIRECTORY_SEPARATOR)
+        || !is_file($path)) show_error('Document not available.',404);
+    $preview = (string)($_GET['preview'] ?? '') === '1';
+    $mime = (string)$doc['mime_type'];
+    if (!in_array($mime,['application/pdf','image/jpeg','image/png'],true)) {
+        show_error('File type not supported.',415);
+    }
+    if ($preview) {
+        header('X-Frame-Options: SAMEORIGIN');
+        header('Content-Security-Policy: default-src \'none\'; frame-ancestors \'self\'; sandbox');
+    }
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . filesize($path));
+    header('Content-Disposition: ' . ($preview ? 'inline' : 'attachment')
+        . '; filename="fp-document"; filename*=UTF-8\'\'' . rawurlencode((string)$doc['original_name']));
+    readfile($path);
+    exit;
+}
