@@ -16,14 +16,23 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         . shell_nav_item('dashboard', 'Dashboard', 'grid-1x2-fill', $active);
     if ($user['user_kind'] === 'applicant') {
         $html .= shell_nav_item('my_registration', 'My Registration', 'person-vcard', $active)
-            . '<div class="sidebar-section-title">Permit Application</div>'
-            . '<span class="sidebar-link" aria-disabled="true" title="Available in Phase 2"><i class="bi bi-file-earmark-plus"></i><span>Submit FP Application · Soon</span></span>';
+            . '<div class="sidebar-section-title">Permit Application</div>';
+        if ($user['status'] === 'active') {
+            $html .= shell_nav_item('permit_applications', 'My FP Applications', 'folder2-open', $active)
+                . shell_nav_item('permit_apply', 'Submit FP Application', 'file-earmark-plus', $active);
+        } else {
+            $html .= '<span class="sidebar-link" aria-disabled="true" title="Activate your account first"><i class="bi bi-file-earmark-plus"></i><span>Submit FP Application · Account Activation Required</span></span>';
+        }
     } else {
         $html .= '<div class="sidebar-section-title">Permit Processing</div>';
         if (in_array('lpdd_fus', $roles, true)) {
-            $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active);
+            $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active)
+                . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active);
         }
-        foreach ([['file-earmark-text','FP Applications'],['clipboard-data','Document Evaluation'],['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
+        if (in_array('ro_receiving', $roles, true)) {
+            $html .= shell_nav_item('permit_ro_inbox', 'RO Receiving Inbox', 'inboxes', $active);
+        }
+        foreach ([['clipboard-data','Document Evaluation'],['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
             $html .= '<span class="sidebar-link" aria-disabled="true" title="Available in a later phase"><i class="bi bi-' . e($icon) . '"></i><span>' . e($label) . ' · Soon</span></span>';
         }
         if (in_array('super_admin', $roles, true)) {
@@ -267,17 +276,25 @@ function view_login(array $errors = []): void
 {
     if (current_user()) {
         $loggedIn = current_user();
-        if (($_GET['next'] ?? '') === 'review-queue' && has_role($loggedIn, 'lpdd_fus')) go('review_queue');
+        $nextPage = (string)($_GET['next'] ?? '');
+        if (in_array($nextPage, ['review-queue','permit-initial-queue'], true)
+            && has_role($loggedIn, 'lpdd_fus')) go(str_replace('-', '_', $nextPage));
+        if ($nextPage === 'permit-ro-inbox' && has_role($loggedIn, 'ro_receiving')) go('permit_ro_inbox');
+        if ($nextPage === 'permit-applications' && $loggedIn['user_kind'] === 'applicant'
+            && $loggedIn['status'] === 'active') go('permit_applications');
         go('dashboard');
     }
-    $next = (($_GET['next'] ?? $_POST['next'] ?? '') === 'review-queue') ? 'review-queue' : '';
+    $requestedNext = (string)($_GET['next'] ?? $_POST['next'] ?? '');
+    $next = in_array($requestedNext,
+        ['review-queue','permit-initial-queue','permit-ro-inbox','permit-applications'], true)
+        ? $requestedNext : '';
     $hint = (string)($_GET['hint'] ?? $_POST['hint'] ?? '');
     $prefilledEmail = reviewer_login_hint_email($hint);
     if ($prefilledEmail === null) $hint = '';
     $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel">'
         . errors_html($errors) . '<p class="text-secondary">Sign in to your applicant or DENR internal account.</p>'
         . '<form method="post" action="' . url('login') . '">' . csrf_field()
-        . ($next !== '' ? '<input type="hidden" name="next" value="review-queue">' : '')
+        . ($next !== '' ? '<input type="hidden" name="next" value="' . e($next) . '">' : '')
         . ($hint !== '' ? '<input type="hidden" name="hint" value="' . e($hint) . '">' : '')
         . ($prefilledEmail !== null ? field('email','Email',$prefilledEmail,'email',true,'autocomplete="username" maxlength="190" readonly') : field('email','Email',form_value('email'),'email',true,'autocomplete="username" maxlength="190"'))
         . field('password','Password','','password',true,'autocomplete="current-password"')
@@ -329,7 +346,10 @@ function view_applicant_registration(array $user, array $errors = []): void
     $docs = registration_documents((int)$reg['id']);
     $html .= '<h3 class="h6">Submitted documents</h3>' . registration_documents_html($docs);
     if ($user['status'] === 'active') {
-        $html .= '<div class="alert alert-success mb-0"><strong>Your account is activated.</strong> Step 2 application submission will be enabled in a later development phase; no application has been filed by this registration.</div>';
+        $html .= '<div class="alert alert-success mb-0"><strong>Your account is activated.</strong> '
+            . 'You may now submit an FP application and supporting documents for LPDD-FUS initial review. '
+            . '<a class="btn btn-sm btn-success ms-2" href="' . e(url('permit_applications'))
+            . '">My FP Applications</a></div>';
     } elseif ($user['status'] === 'pending_review') {
         $html .= '<div class="alert alert-info mb-0">Your registration is awaiting DENR CARAGA LPDD-FUS review. Log back in to check its status.</div>';
     }
@@ -491,7 +511,19 @@ function view_dashboard(): void
         $pending = query_one("SELECT COUNT(*) AS n FROM user_client WHERE user_kind='applicant' AND status='pending_review'");
         $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('review_queue') . '"><strong>Applicant Reviews</strong><span class="metric">' . (int)$pending['n'] . '</span><small>Awaiting LPDD-FUS action</small></a></div>';
     }
+    if (step2_schema_ready() && has_role($user,'lpdd_fus')) {
+        $pendingFp = query_one("SELECT COUNT(*) AS n FROM permit_step2_applications WHERE status='submitted'");
+        $html .= '<div class="col-md-6"><a class="quick-action" href="' . e(url('permit_initial_queue'))
+            . '"><strong>FP Initial Reviews – Step 2</strong><span class="metric">'
+            . (int)($pendingFp['n'] ?? 0) . '</span><small>Awaiting initial documentary completeness check</small></a></div>';
+    }
+    if (step2_schema_ready() && has_role($user,'ro_receiving')) {
+        $forwardedFp = query_one("SELECT COUNT(*) AS n FROM permit_step2_applications WHERE status='forwarded_to_ro'");
+        $html .= '<div class="col-md-6"><a class="quick-action" href="' . e(url('permit_ro_inbox'))
+            . '"><strong>RO Receiving Inbox</strong><span class="metric">'
+            . (int)($forwardedFp['n'] ?? 0) . '</span><small>Applications forwarded after LPDD-FUS initial review</small></a></div>';
+    }
     if (has_role($user,'super_admin')) $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('user_management') . '"><strong>User Management</strong><span class="metric">RICTU</span><small>Create role-assigned accounts</small></a></div>';
-    $html .= '</div><div class="alert alert-info mt-3 mb-0">This is the Phase 1 dashboard. Permit submission, receiving, evaluation, field validation, RRDC deliberation, RED approval and release (Steps 2–11) are not yet implemented.</div></div>';
+    $html .= '</div><div class="alert alert-info mt-3 mb-0">Step 2 FP application submission, initial LPDD-FUS review and RO handoff are implemented. Formal receiving and document evaluation through permit release (Steps 3–11) remain future development.</div></div>';
     render_page('Dashboard', $html);
 }
