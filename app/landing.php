@@ -12,26 +12,31 @@ function landing_fp_requirements(): array
     return [
         [
             'title' => 'Letter of Intent',
+            'icon' => 'envelope-paper',
             'details' => [],
             'note' => null,
         ],
         [
             'title' => 'Duly accomplished and notarized application form (Annex 1A)',
+            'icon' => 'file-earmark-check',
             'details' => [],
             'note' => null,
         ],
         [
             'title' => 'Proof of payment of application fee',
+            'icon' => 'receipt',
             'details' => ['Amount and OR No. are recorded in the Annex 1 checklist.'],
             'note' => 'After being evaluated as complete by the Technical Staff.',
         ],
         [
             'title' => 'GIS Generated map of the subject area for feasibility study',
+            'icon' => 'geo-alt',
             'details' => [],
             'note' => null,
         ],
         [
             'title' => 'For corporation, cooperatives and association',
+            'icon' => 'building-check',
             'details' => [
                 'a. Certified true copy of certificate of Registration from registering agency; and',
                 'b. Secretary’s Certification authorizing the representative to transact with DENR on behalf of the company.',
@@ -40,6 +45,7 @@ function landing_fp_requirements(): array
         ],
         [
             'title' => 'For National Government Agencies, Government Owned and Controlled Corporations (GOCCs) and its instrumentalities',
+            'icon' => 'bank',
             'details' => [
                 'Authorization to apply for the FP from the Head of Agency.',
             ],
@@ -47,21 +53,25 @@ function landing_fp_requirements(): array
         ],
         [
             'title' => 'Feasibility Study Proposal (Annex 1B)',
+            'icon' => 'journal-text',
             'details' => [],
             'note' => null,
         ],
         [
             'title' => 'Environmental Compliance Certificate (ECC)/Certificate of Non-Coverage (CNC)',
+            'icon' => 'tree',
             'details' => [],
             'note' => 'ECC/CNC shall be secured within six (6) months upon issuance of FP.',
         ],
         [
             'title' => 'NCIP Clearance or proof of application for NCIP Clearance, stamped received by NCIP',
+            'icon' => 'people',
             'details' => [],
             'note' => 'NCIP Clearance shall be secured within one (1) year upon issuance of FP.',
         ],
         [
             'title' => 'Energy Service Contract (ESC) or Certificate of Authority (COA) from DOE',
+            'icon' => 'lightning-charge',
             'details' => [],
             'note' => null,
         ],
@@ -77,6 +87,8 @@ function landing_fp_requirements_html(): string
         $html .= '<li class="fp-requirement-item">'
             . '<span class="fp-requirement-number" aria-hidden="true">'
             . e((string)($index + 1)) . '</span>'
+            . '<span class="fp-requirement-icon" aria-hidden="true"><i class="bi bi-'
+            . e((string)$requirement['icon']) . '"></i></span>'
             . '<div class="fp-requirement-copy"><h3>'
             . e((string)$requirement['title']) . '</h3>';
         if ($requirement['details']) {
@@ -129,7 +141,7 @@ function view_landing(): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css" rel="stylesheet">'
-        . '<link href="assets/landing.css?v=3" rel="stylesheet">'
+        . '<link href="assets/landing.css?v=4" rel="stylesheet">'
         . '<script src="assets/app-shell.js" defer></script></head><body class="landing-body">';
 
     echo '<nav class="navbar navbar-expand-lg landing-nav sticky-top"><div class="container-xl">'
