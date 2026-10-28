@@ -1,0 +1,30 @@
+/* Applicant Dashboard - Annex 1 FP Checklist.
+   Scoped to the dashboard panel to avoid affecting the public landing or staff UI. */
+.applicant-fp-requirements{overflow:hidden}
+.applicant-fp-requirements-header{display:flex;justify-content:space-between;align-items:start;gap:1rem;margin-bottom:1.2rem}
+.applicant-fp-requirements-kicker{display:inline-block;color:var(--amsos-green);font-size:.68rem;font-weight:800;letter-spacing:.11em}
+.applicant-fp-requirements-count{flex-shrink:0;white-space:nowrap;align-self:center}
+.applicant-fp-requirements-notice{display:flex;align-items:flex-start;gap:.65rem;padding:.85rem 1rem;margin-bottom:1.2rem;border:1px solid #dcece2;border-radius:11px;background:#f4faf6;color:#355b46;font-size:.82rem;line-height:1.55}
+.applicant-fp-requirements-notice i{flex-shrink:0;color:var(--amsos-green);font-size:1.1rem}
+.applicant-fp-requirements .fp-requirements-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.85rem;padding:0;margin:0}
+.applicant-fp-requirements .fp-requirement-item{display:flex;gap:.7rem;align-items:flex-start;min-width:0;padding:1rem;border:1px solid #e3ebe6;border-radius:13px;background:#fbfdfc}
+.applicant-fp-requirements .fp-requirement-number,.applicant-fp-requirements .fp-requirement-icon{display:flex;align-items:center;justify-content:center;flex:0 0 35px;width:35px;height:35px;border-radius:9px}
+.applicant-fp-requirements .fp-requirement-number{background:#eaf7f0;color:var(--amsos-green-dark);font-size:.85rem;font-weight:800}
+.applicant-fp-requirements .fp-requirement-icon{background:#eff8f2;border:1px solid #d5e9dc;color:var(--amsos-green);font-size:1.1rem}
+.applicant-fp-requirements .fp-requirement-icon i{line-height:1}
+.applicant-fp-requirements .fp-requirement-copy{flex:1;min-width:0}
+.applicant-fp-requirements .fp-requirement-copy h3{font-size:.89rem;font-weight:750;line-height:1.5;color:#173e2a;margin:0;overflow-wrap:anywhere}
+.applicant-fp-requirements .fp-requirement-details{margin:.5rem 0 0;padding-left:1rem;color:#566d61;font-size:.78rem;line-height:1.55}
+.applicant-fp-requirements .fp-requirement-details li+li{margin-top:.3rem}
+.applicant-fp-requirements .fp-requirement-note{display:flex;align-items:flex-start;gap:.5rem;margin:.7rem 0 0;padding:.65rem .75rem;background:#eef8f1;border:1px solid #d9ebdf;border-radius:9px;color:#345d46;font-size:.75rem;line-height:1.5}
+.applicant-fp-requirements .fp-requirement-note i{flex-shrink:0;color:var(--amsos-green)}
+.applicant-fp-requirements-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:1.3rem;padding-top:1rem;border-top:1px solid #e4eee7}
+.applicant-fp-requirements-footer p{flex:1 1 460px;line-height:1.6}
+@media(max-width:1199.98px){.applicant-fp-requirements .fp-requirements-grid{grid-template-columns:1fr}}
+@media(max-width:575.98px){
+  .applicant-fp-requirements-header{flex-direction:column;align-items:flex-start}
+  .applicant-fp-requirements-count{align-self:flex-start}
+  .applicant-fp-requirements .fp-requirement-item{padding:.8rem;gap:.5rem}
+  .applicant-fp-requirements .fp-requirement-number,.applicant-fp-requirements .fp-requirement-icon{flex-basis:30px;width:30px;height:30px;font-size:.9rem}
+  .applicant-fp-requirements-footer .btn{width:100%}
+}
