@@ -135,6 +135,42 @@ function render_page(string $title, string $content): void
         . '</body></html>';
 }
 
+/**
+ * Shared confirmation modal for authorized LPDD-FUS review decisions.
+ * Text is filled with textContent, not dynamic innerHTML.
+ */
+function decision_confirmation_modal_html(): string
+{
+    return '<div class="modal fade" id="decision-confirm-modal" tabindex="-1" '
+        . 'aria-labelledby="decision-confirm-title" aria-describedby="decision-confirm-description" '
+        . 'aria-hidden="true" data-bs-backdrop="static">'
+        . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-header">'
+        . '<h2 class="modal-title h5" id="decision-confirm-title">Confirm Review Decision</h2>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
+        . '</div><div class="modal-body">'
+        . '<p id="decision-confirm-description" class="mb-3"></p>'
+        . '<dl class="row details small mb-0">'
+        . '<dt class="col-sm-4">Reference</dt>'
+        . '<dd class="col-sm-8" id="decision-confirm-reference"></dd>'
+        . '<dt class="col-sm-4">Applicant</dt>'
+        . '<dd class="col-sm-8" id="decision-confirm-applicant"></dd>'
+        . '<dt class="col-sm-4">New Status</dt>'
+        . '<dd class="col-sm-8 fw-semibold" id="decision-confirm-status"></dd>'
+        . '</dl>'
+        . '<div class="border rounded-3 bg-light p-3 mt-3 d-none" id="decision-confirm-remarks-group">'
+        . '<div class="small fw-semibold mb-1">Review Remarks / Deficiencies</div>'
+        . '<p class="small text-break mb-0" id="decision-confirm-remarks"></p>'
+        . '</div>'
+        . '<p class="small text-secondary mt-3 mb-0">The applicant will be notified '
+        . 'according to the current notification settings after the decision is saved.</p>'
+        . '</div><div class="modal-footer">'
+        . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        . '<button type="button" class="btn btn-success" id="decision-confirm-submit">'
+        . 'Confirm Decision</button>'
+        . '</div></div></div></div>';
+}
+
 function errors_html(array $errors): string
 {
     if (!$errors) return '';
