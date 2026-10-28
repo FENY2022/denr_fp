@@ -29,6 +29,17 @@ foreach ($expected as $index => $title) {
     }
 }
 
+$expectedIcons = [
+    'envelope-paper', 'file-earmark-check', 'receipt', 'geo-alt',
+    'building-check', 'bank', 'journal-text', 'tree', 'people',
+    'lightning-charge',
+];
+foreach ($expectedIcons as $index => $icon) {
+    if (($items[$index]['icon'] ?? '') !== $icon) {
+        throw new RuntimeException('Annex 1 requirement #' . ($index + 1) . ' has an incorrect icon.');
+    }
+}
+
 if (!str_contains((string)$items[2]['note'], 'After being evaluated as complete by the Technical Staff')
     || $items[4]['note'] !== 'During Account Registration.'
     || $items[5]['note'] !== 'During Account Registration.'
@@ -40,6 +51,7 @@ if (!str_contains((string)$items[2]['note'], 'After being evaluated as complete 
 
 $html = landing_fp_requirements_html();
 if (substr_count($html, 'class="fp-requirement-item"') !== 10
+    || substr_count($html, 'class="fp-requirement-icon"') !== 10
     || !str_contains($html, 'aria-label="Annex 1 - Feasibility Permit documentary checklist"')
     || !str_contains($html, 'Secretary’s Certification')
     || !str_contains($html, 'Authorization to apply for the FP from the Head of Agency')
@@ -47,4 +59,4 @@ if (substr_count($html, 'class="fp-requirement-item"') !== 10
     throw new RuntimeException('The public checklist HTML is incomplete.');
 }
 
-echo "Landing Annex 1 checklist passed: 10 exact requirements, correct special remarks, and full HTML.\n";
+echo "Landing Annex 1 checklist passed: 10 exact requirements, correct special remarks, 10 distinct icons, and full HTML.\n";
