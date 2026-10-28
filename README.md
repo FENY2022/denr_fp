@@ -61,6 +61,7 @@ This migration creates `permit_step2_applications`, `permit_step2_documents`, an
 
 - The site root `/` now opens a public DENR FP-OMS landing page instead of the authenticated dashboard.
 - Landing sections cover the system overview, permit process, **all 10 items of the provided Annex 1 Feasibility Permit checklist** (including payment-after-review, account-registration documents, ECC/CNC six-month and NCIP one-year timing notes), system user groups, contact information, and calls to register/sign in. The public checklist is informational; Step 2 upload validation is unchanged.
+- **Applicant Dashboard** (`/dashboard` with an applicant account) also displays the same 10 Annex 1 requirements, numbered and paired with the same Bootstrap icons, condition notes, and post-issuance timelines as the public landing page. The dashboard reuses `landing_fp_requirements_html()` and loads its own scoped responsive stylesheet `public/assets/applicant-requirements.css`; staff dashboards and the separate `/my-registration` view are not altered. The checklist is informational and does not imply that documents have been submitted or accepted. An active applicant sees a shortcut to My FP Applications; pending applicants do not. No DB migration or Step 2 upload-policy change is required.
 - Logged-in users see a direct **Go to Dashboard** action; applicants can also jump to **My Registration**.
 - The landing page reuses the existing PWA installer, DENR/AMSOS-inspired green theme, Bootstrap 5, and clean URLs without `.php`.
 
