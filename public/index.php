@@ -48,7 +48,14 @@ try {
                 $email = $hintEmail ?? safe_post('email',190);
                 if (authenticate($email,(string)($_POST['password'] ?? ''))) {
                     $loggedIn = current_user();
-                    if (($_POST['next'] ?? '') === 'review-queue' && $loggedIn && has_role($loggedIn, 'lpdd_fus')) go('review_queue');
+                    $nextPage = (string)($_POST['next'] ?? '');
+                    if ($loggedIn && in_array($nextPage, ['review-queue','permit-initial-queue'],true)
+                        && has_role($loggedIn,'lpdd_fus')) go(str_replace('-', '_', $nextPage));
+                    if ($loggedIn && $nextPage === 'permit-ro-inbox'
+                        && has_role($loggedIn,'ro_receiving')) go('permit_ro_inbox');
+                    if ($loggedIn && $nextPage === 'permit-applications'
+                        && $loggedIn['user_kind'] === 'applicant'
+                        && $loggedIn['status'] === 'active') go('permit_applications');
                     go('dashboard');
                 }
                 if (registration_otp_pending_client()) go('verify_registration_otp');
