@@ -36,7 +36,7 @@ function step2_schema_ready(): bool
 function step2_require_schema(): void
 {
     if (!step2_schema_ready()) {
-        show_error('The Step 2 application module requires migration 014. Ask RICTU to install the Step 2 database update before submitting documents.', 503);
+        show_error('Step 2 cannot access its required database tables. Confirm that migration 014 created all three permit_step2 tables and that the FP-OMS database account has SELECT permission.', 503);
     }
 }
 
@@ -191,7 +191,7 @@ function step2_submit(array $client, array $data, array $files, int $application
     if (($client['user_kind'] ?? '') !== 'applicant' || ($client['status'] ?? '') !== 'active') {
         return ['An activated applicant account is required.'];
     }
-    if (!step2_schema_ready()) return ['Step 2 database migration 014 has not been installed.'];
+    if (!step2_schema_ready()) return ['Step 2 tables are missing or inaccessible. Verify migration 014 and SELECT permissions.'];
     $errors = step2_validate_input($data);
     $uploads = step2_uploads($files, $applicationId === 0);
     $errors = array_merge($errors, $uploads['errors']);
@@ -291,7 +291,7 @@ function step2_review(array $reviewer, int $applicationId, string $decision, str
 {
     if (($reviewer['user_kind'] ?? '') !== 'internal' || ($reviewer['status'] ?? '') !== 'active'
         || !has_role($reviewer,'lpdd_fus')) return ['LPDD-FUS reviewer authorization is required.'];
-    if (!step2_schema_ready()) return ['Step 2 database migration 014 has not been installed.'];
+    if (!step2_schema_ready()) return ['Step 2 tables are missing or inaccessible. Verify migration 014 and SELECT permissions.'];
     if (!in_array($decision, ['return','forward'],true)) return ['Invalid Step 2 decision.'];
     $remarks = trim($remarks);
     if (strlen($remarks) > 3000) return ['Remarks must be 3,000 characters or fewer.'];
