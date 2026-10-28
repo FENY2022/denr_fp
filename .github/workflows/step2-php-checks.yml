@@ -1,0 +1,36 @@
+name: FP-OMS PHP Build Checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'public/**'
+      - 'tests/**'
+      - '.github/workflows/step2-php-checks.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-lint-and-step2-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout FP-OMS
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: fileinfo, pdo_mysql, mbstring, openssl, zlib
+          coverage: none
+      - name: Lint all PHP source files
+        shell: bash
+        run: |
+          find app public scripts tests -type f -name '*.php' -print0 |
+            xargs -0 -n 1 php -l
+      - name: Step 2 DB-free unit checks
+        run: php tests/step2_domain_test.php
