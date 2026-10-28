@@ -130,6 +130,8 @@ function render_page(string $title, string $content): void
             ? '<script src="assets/registration-document-preview.js?v=1" defer></script>' : '')
         . (str_contains($content, 'id="otp-verification-success-modal"')
             ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
+        . (str_contains($content, 'data-decision-confirm-form')
+            ? '<script src="assets/decision-confirm.js?v=1" defer></script>' : '')
         . '</body></html>';
 }
 
