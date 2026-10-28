@@ -433,16 +433,31 @@ function step2_email_applicant_decision(
     $url = $login !== null ? $login . '?next=permit-applications' : null;
     $subject = $forwarded
         ? 'FP Application Forwarded to RO Receiving – DENR CARAGA'
-        : 'Action Required: FP Application Documents – DENR CARAGA';
-    $body = '<p>FP application <strong>#' . $applicationId . '</strong> '
-        . ($forwarded
-            ? 'has passed LPDD/FUS initial review and was forwarded to RO Receiving for the next processing step.'
-            : 'was returned for correction after LPDD/FUS initial documentary review.')
-        . '</p>'
-        . (!$forwarded ? '<p><strong>Lacking requirements / reviewer remarks:</strong></p><p>'
-            . nl2br(e($remarks)) . '</p><p>Please sign in and resubmit your corrected documents.</p>' : '')
-        . ($url !== null ? '<p><a href="' . e($url)
-            . '">Login to FP-OMS – View FP Application</a></p>' : '');
+        : 'Notice of Lacking Documentary Requirements – FP Application #' . $applicationId;
+    $body = '<p><strong>Reference:</strong> FP Application #' . $applicationId
+        . '<br><strong>Date:</strong> ' . e(date('F j, Y')) . '</p>'
+        . '<p>' . ($forwarded
+            ? 'Your FP application has passed LPDD-FUS Technical Staff initial review and '
+                . 'has been forwarded to RO Receiving for the next processing step.'
+            : 'This letter serves as formal notification that your FP application was found '
+                . 'incomplete during the LPDD-FUS Technical Staff initial completeness review '
+                . 'under Annex A Step 2.') . '</p>'
+        . (!$forwarded
+            ? '<p><strong>Lacking documentary requirements / reviewer remarks:</strong></p>'
+                . '<div style="background:#fff8e7;border-left:4px solid #c68a20;padding:12px 15px">'
+                . nl2br(e($remarks)) . '</div>'
+                . '<p>Kindly correct the identified deficiencies, upload the required '
+                . 'documents and resubmit through FP-OMS for revalidation.</p>'
+            : '<p>This notice acknowledges the Step 2 handoff only; '
+                . 'it does not indicate formal documentary approval or issuance of a permit.</p>')
+        . ($url !== null
+            ? '<p style="margin:22px 0"><a href="' . e($url)
+                . '" style="background:#08783f;color:#ffffff;padding:12px 20px;'
+                . 'text-decoration:none;border-radius:6px;font-weight:bold">'
+                . 'Login to FP-OMS – View FP Application</a></p>'
+                . '<p>Alternatively, open: <a href="' . e($url) . '">'
+                . e($url) . '</a></p>'
+            : '');
     if (filter_var($email,FILTER_VALIDATE_EMAIL)) {
         smtp_send_html($email,$subject,
             registration_email_layout($forwarded ? 'FP Application Forwarded' : 'FP Application Corrections Required',$name,$body),
