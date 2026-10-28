@@ -80,6 +80,8 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css?v=21" rel="stylesheet">'
+        . (str_contains($content, 'id="applicant-fp-requirements"')
+            ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
         . '<script src="assets/app-shell.js?v=19" defer></script></head><body>';
 
     if ($user) {
@@ -365,7 +367,45 @@ function status_badge(string $status): string
     return '<span class="badge text-bg-' . ($colors[$status] ?? 'secondary') . '">' . e(status_label($status)) . '</span>';
 }
 
-function view_applicant_registration(array $user, array $errors = []): void
+/**
+ * Applicant-dashboard-only Annex 1 checklist. Uses the exact same requirement
+ * names, icons, notes and conditional timing as the public landing page.
+ * This is an informational checklist, not an uploaded/approved-documents state.
+ */
+function applicant_dashboard_requirements_html(bool $canSubmit): string
+{
+    $html = '<section class="panel applicant-fp-requirements mt-4" '
+        . 'id="applicant-fp-requirements" aria-labelledby="applicant-fp-requirements-title">'
+        . '<div class="applicant-fp-requirements-header">'
+        . '<div><span class="applicant-fp-requirements-kicker">ANNEX 1 · DOCUMENTARY CHECKLIST</span>'
+        . '<h2 class="h5 mt-1 mb-2" id="applicant-fp-requirements-title">'
+        . 'Requirements for Feasibility Permit</h2>'
+        . '<p class="small text-secondary mb-0">Review the ten Annex 1 requirements '
+        . 'before submitting your Feasibility Permit application. '
+        . 'Read the remarks carefully for requirements submitted during account registration '
+        . 'or after the relevant evaluation or permit issuance.</p></div>'
+        . '<span class="badge text-bg-success applicant-fp-requirements-count">'
+        . '<i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>10 Requirements</span></div>'
+        . '<div class="applicant-fp-requirements-notice" role="note">'
+        . '<i class="bi bi-info-circle" aria-hidden="true"></i>'
+        . '<span>Items below describe Annex 1 documentary requirements, '
+        . 'not a record of documents already uploaded or approved. '
+        . 'Applicable items are subject to LPDD-FUS review and DENR instructions.</span></div>'
+        . landing_fp_requirements_html()
+        . '<div class="applicant-fp-requirements-footer">'
+        . '<p class="small text-secondary mb-0"><strong>Important:</strong> '
+        . 'Proof of payment of the application fee is requested after Technical Staff '
+        . 'evaluation of documentary completeness. The ECC/CNC and NCIP Clearance '
+        . 'post-issuance deadlines are stated in the checklist above.</p>';
+    if ($canSubmit) {
+        $html .= '<a class="btn btn-primary btn-sm" href="' . e(url('permit_applications')) . '">'
+            . '<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>'
+            . 'My FP Applications</a>';
+    }
+    return $html . '</div></section>';
+}
+
+function view_applicant_registration(array $user, array $errors = [], bool $showDashboardChecklist = false): void
 {
     require_kind($user, 'applicant');
     $reg = registration_for_user((int)$user['id']);
@@ -399,7 +439,10 @@ function view_applicant_registration(array $user, array $errors = []): void
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
             . '<script src="assets/registration-attachments.js?v=7" defer></script>';
     }
-    render_page('My Registration', $html);
+    if ($showDashboardChecklist) {
+        $html .= applicant_dashboard_requirements_html(($user['status'] ?? '') === 'active');
+    }
+    render_page($showDashboardChecklist ? 'Applicant Dashboard' : 'My Registration', $html);
 }
 
 function view_review_queue(): void
@@ -553,7 +596,7 @@ function view_dashboard(): void
 {
     $user = require_user();
     if ($user['user_kind'] === 'applicant') {
-        view_applicant_registration($user);
+        view_applicant_registration($user, [], true);
         return;
     }
     $roles = user_roles((int)$user['id']);
