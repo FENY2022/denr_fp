@@ -438,18 +438,34 @@ function view_review_case(int $id, array $errors = []): void
         . registration_documents_html(registration_documents($id))
         . '</div></div><div class="col-lg-5"><div class="panel soft"><h2 class="h5">LPDD-FUS Decision</h2>';
     if ($reg['status'] === 'pending_review') {
-        $html .= '<form method="post" action="' . url('review',['id'=>$id]) . '">' . csrf_field()
+        $html .= '<form method="post" action="' . e(url('review',['id'=>$id])) . '" '
+            . 'data-decision-confirm-form data-confirm-kind="registration" '
+            . 'data-confirm-reference="Registration #' . (int)$id . '" '
+            . 'data-confirm-applicant="' . e((string)$reg['representative_name']) . '">'
+            . csrf_field()
+            . '<input type="hidden" name="decision" value="" data-confirm-decision-value>'
             . '<label class="form-label" for="remarks">Remarks / Corrections to address</label>'
-            . '<textarea class="form-control mb-3" name="remarks" id="remarks" rows="5" maxlength="5000" placeholder="Required if returning for correction"></textarea>'
-            . '<div class="d-flex gap-2 flex-wrap"><button class="btn btn-success" type="submit" name="decision" value="approved">Approve & Activate</button>'
-            . '<button class="btn btn-outline-danger" type="submit" name="decision" value="needs_correction">Return for Correction</button></div></form>';
+            . '<textarea class="form-control mb-2" name="remarks" id="remarks" rows="5" maxlength="5000" '
+            . 'placeholder="Required if returning for correction">'
+            . e((string)($_POST['remarks'] ?? '')) . '</textarea>'
+            . '<div class="alert alert-warning small d-none mb-3" role="alert" '
+            . 'data-decision-confirm-validation></div>'
+            . '<div class="d-flex gap-2 flex-wrap">'
+            . '<button class="btn btn-success" type="button" data-confirm-decision="approved">'
+            . 'Approve &amp; Activate</button>'
+            . '<button class="btn btn-outline-danger" type="button" data-confirm-decision="needs_correction">'
+            . 'Return for Correction</button></div>'
+            . '<noscript><p class="alert alert-warning small mt-3 mb-0">'
+            . 'Enable JavaScript to confirm and submit a review decision.</p></noscript>'
+            . '</form>';
     } else $html .= '<p class="text-secondary mb-0">This registration is no longer awaiting review.</p>';
     $html .= '</div><div class="panel mt-3"><h3 class="h6">Previous review decisions</h3>';
     $history = query_all('SELECT rr.*,u.name AS reviewer FROM registration_reviews rr JOIN users u ON u.id=rr.reviewer_user_id WHERE rr.registration_id=? ORDER BY rr.id DESC',[$id]);
     if (!$history) $html .= '<p class="text-secondary small mb-0">No earlier reviews.</p>';
     foreach ($history as $event) $html .= '<div class="history"><strong>' . e(ucwords(str_replace('_',' ',$event['decision']))) . '</strong> · Revision ' . (int)$event['revision']
         . '<div class="small text-secondary">' . e($event['reviewer']) . ' · ' . e($event['reviewed_at']) . '</div><p class="small mb-0">' . nl2br(e($event['remarks'] ?? '')) . '</p></div>';
-    $html .= '</div></div></div>';
+    $html .= '</div></div></div>'
+        . ($reg['status'] === 'pending_review' ? decision_confirmation_modal_html() : '');
     render_page('Review Registration', $html);
 }
 
