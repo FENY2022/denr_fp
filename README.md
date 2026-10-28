@@ -60,7 +60,7 @@ This migration creates `permit_step2_applications`, `permit_step2_documents`, an
 ## Public Landing Page
 
 - The site root `/` now opens a public DENR FP-OMS landing page instead of the authenticated dashboard.
-- Landing sections cover the system overview, permit process, core application preparation, system user groups, contact information, and calls to register/sign in.
+- Landing sections cover the system overview, permit process, **all 10 items of the provided Annex 1 Feasibility Permit checklist** (including payment-after-review, account-registration documents, ECC/CNC six-month and NCIP one-year timing notes), system user groups, contact information, and calls to register/sign in. The public checklist is informational; Step 2 upload validation is unchanged.
 - Logged-in users see a direct **Go to Dashboard** action; applicants can also jump to **My Registration**.
 - The landing page reuses the existing PWA installer, DENR/AMSOS-inspired green theme, Bootstrap 5, and clean URLs without `.php`.
 
