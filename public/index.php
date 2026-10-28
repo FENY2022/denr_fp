@@ -205,6 +205,66 @@ try {
                 go('my_registration');
             }
             break;
+        // Annex A Step 2: activated applicant -> LPDD-FUS initial review.
+        case 'permit_applications':
+            if ($post) show_error('This page is read-only.',405);
+            view_step2_applications();
+            break;
+        case 'permit_apply':
+            $client = step2_require_applicant();
+            $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+            if (isset($_GET['id']) && !$id) show_error('Invalid FP application ID.',400);
+            if ($post) {
+                check_csrf();
+                $errors = step2_submit($client,step2_input(),$_FILES,(int)$id);
+                if ($errors) view_step2_form((int)$id,$errors);
+                else {
+                    flash('success','FP application submitted for LPDD-FUS Technical Staff initial review.');
+                    go('permit_applications');
+                }
+            } else {
+                view_step2_form((int)$id);
+            }
+            break;
+        case 'permit_application':
+            if ($post) show_error('Use the review form to submit a decision.',405);
+            $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            view_step2_application((int)$id);
+            break;
+        case 'permit_initial_queue':
+            if ($post) show_error('This page is read-only.',405);
+            view_step2_review_queue();
+            break;
+        case 'permit_initial_decision':
+            $reviewer = step2_require_reviewer();
+            if (!$post) show_error('Initial-review decisions require a form submission.',405);
+            check_csrf();
+            $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            $decision = safe_post('decision',20);
+            $remarks = safe_post('remarks',3000);
+            $errors = step2_review($reviewer,(int)$id,$decision,$remarks);
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                flash('success',$decision === 'forward'
+                    ? 'Initial review passed; application forwarded to RO Receiving.'
+                    : 'Incomplete application returned to the applicant with required corrections.');
+                go('permit_initial_queue');
+            }
+            break;
+        case 'permit_ro_inbox':
+            if ($post) show_error('This page is read-only.',405);
+            view_step2_ro_inbox();
+            break;
+        case 'permit_document':
+            if ($post) show_error('Download requires a GET request.',405);
+            $viewer = require_user();
+            $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP document ID.',400);
+            step2_send_document($viewer,(int)$id);
+            break;
+
         case 'review_queue':
             view_review_queue();
             break;
