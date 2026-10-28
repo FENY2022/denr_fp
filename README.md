@@ -20,6 +20,17 @@
 
 **Not yet available:** RO Receiving Step 3 processing actions, formal document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, RED approval/permit release, and service-clock automation. Annex A Step 2 permit submission and LPDD-FUS initial review are implemented in an isolated add-on module (see below). Its RO Receiving inbox is read-only for handoff; it does not constitute Step 3 processing. Password-reset and permit notification emails require working SMTP configuration.
 
+## Review Decisions — Mandatory Confirmation Modals
+
+LPDD-FUS review pages use a shared **Bootstrap 5 confirmation modal** for all final decision buttons (not for ordinary navigation):
+
+- **Registration Review** (`/review?id=N`): **Approve & Activate** opens *Confirm Account Approval* (new status **Active**); **Return for Correction** requires nonblank remarks and opens *Confirm Return for Correction* (new status **Needs Correction**).
+- **Step 2 Initial FP Review** (`/permit-application?id=N` as LPDD-FUS): **Complete – Forward to RO Receiving** opens *Confirm Forwarding to RO Receiving*; **Incomplete – Return for Correction** requires at least **10 characters** of deficiency remarks and opens *Confirm Incomplete Application*.
+
+The dialog shows record reference, applicant, proposed status and entered remarks, with **Cancel** and an action-specific **Confirm** button. No POST or DB changes occur before the reviewer explicitly confirms. Cancel or close discards the pending action. Double-click submission is blocked in the UI. Decision values are set in a hidden form input and submitted using `requestSubmit()` only after confirmation. If JavaScript or Bootstrap is unavailable, the buttons do not silently submit; the reviewer sees a notice to enable JavaScript or reload. The strict CSP is respected (external `public/assets/decision-confirm.js`, no inline event handlers).
+
+**Server security unchanged:** Review handlers still validate CSRF, role authorization, valid decision/state, mandatory remarks, audit events and notification dispatch. The confirmation modal is a UX safeguard, not a replacement for server authorization. This update does **not** require any database changes. The registration review and Step 2 decision tests must be repeated on staging with an LPDD-FUS account before production use.
+
 ## Annex A Step 2 — Applicant Submission and LPDD-FUS Initial Review
 
 **Approved process reference:** the second Annex A flowchart supplied for this project, which routes **Applicant → LPDD-FUS Technical Staff initial review → RO Receiving/Releasing (Admin)**. An incomplete initial submission returns to the applicant with a letter/instructions describing the lacking requirements and can be resubmitted for review; a complete one forwards to RO Receiving. Step 2 initial review and Step 4 formal documentary evaluation are distinct. Step 1 account registration and activation remain unchanged.
