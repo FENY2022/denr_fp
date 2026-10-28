@@ -40,3 +40,5 @@ jobs:
         run: node --check public/assets/decision-confirm.js
       - name: Validate public Annex 1 FP requirements
         run: php tests/landing_requirements_test.php
+      - name: Validate applicant dashboard Annex 1 checklist
+        run: php tests/applicant_dashboard_requirements_test.php
