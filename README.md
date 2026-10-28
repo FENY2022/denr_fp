@@ -18,7 +18,31 @@
 - Clickable user Profile page plus a topbar notification bell with unread count, unread-first latest items, mark-all-read, and View All Notifications.
 - Permission checks on each protected route; Bootstrap 5 responsive UI.
 
-**Not yet available:** application submission (Step 2), document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, approval/release, service-clock automation, and general SMS/email notifications beyond the implemented registration and password-reset messages. Password-reset email and registration emails require working server mail delivery. The future-workflow SQL file only creates possible foundational tables for later work; it does not implement those screens or actions.
+**Not yet available:** RO Receiving Step 3 processing actions, formal document evaluation (Step 4), CENRO assessment, RRDC scheduling/deliberation, TOR/FP generation, electronic signatures, RED approval/permit release, and service-clock automation. Annex A Step 2 permit submission and LPDD-FUS initial review are implemented in an isolated add-on module (see below). Its RO Receiving inbox is read-only for handoff; it does not constitute Step 3 processing. Password-reset and permit notification emails require working SMTP configuration.
+
+## Annex A Step 2 — Applicant Submission and LPDD-FUS Initial Review
+
+**Approved process reference:** the second Annex A flowchart supplied for this project, which routes **Applicant → LPDD-FUS Technical Staff initial review → RO Receiving/Releasing (Admin)**. An incomplete initial submission returns to the applicant with a letter/instructions describing the lacking requirements and can be resubmitted for review; a complete one forwards to RO Receiving. Step 2 initial review and Step 4 formal documentary evaluation are distinct. Step 1 account registration and activation remain unchanged.
+
+**Deployment:** Before opening Step 2, back up the `denr_fp_oms` database and private `storage/` directory, then apply the one-time additive migration:
+
+```bash
+mysql -u root -p denr_fp_oms < database/014_step2_initial_application_review.sql
+```
+
+This migration creates `permit_step2_applications`, `permit_step2_documents`, and `permit_step2_events`, separate from the future-workflow scaffold tables. It does not modify existing Step 1 accounts, permit scaffold, documents or notification tables. **Database Changes: YES—SQL migration required on the deployment server; committed SQL does not automatically run on XAMPP.** The module displays a setup notice when the three new tables have not been installed.
+
+**Applicant (activated accounts only):** My FP Applications → New FP Application. Enter a project title and location, optionally describe the project, attach supporting PDFs/JPGs/PNGs (max 10 per submission; each limited by `MAX_UPLOAD_BYTES`, default 5 MB) and submit. Files are checked server-side for upload validity/MIME and are stored in randomized names beneath private `storage/fp_step2/` with 0600 permissions. Step 2 files and registration ID uploads use separate tables and access rules. Corrections can be submitted only when the application is in `corrections_required` state; earlier file revisions are retained. No submission is made without the user's POST and CSRF validation.
+
+**LPDD-FUS Technical Staff (active `lpdd_fus` role):** FP Initial Review – Step 2. Review submission and documents, then either (a) Return for Correction with required written deficiencies or (b) Complete – Forward to RO Receiving. The decision is transactionally locked to ensure it applies only to the currently submitted revision. Individual and office-level reviewer email alerts and role-targeted bell notifications are best-effort; a mail transport failure does not undo a committed business action.
+
+**Applicant after decision:** The applicant gets a bell alert and an attempted email. A correction decision shows the remarks on the application page, with a Resubmit Corrections action; forwarding results in `forwarded_to_ro`. Document revisions and review events are retained as a history. The server checks that applicants only see their own application files.
+
+**RO Receiving/Releasing (active `ro_receiving` role):** A read-only RO Receiving Inbox displays forwarded applications and their documents, plus bell/email alerts. This is a handoff checkpoint only. RO receiving acknowledgment, official document evaluation, hardcopy requirements, payment, field assessment, RRDC, signing, approval and permit release are separate Steps 3–11 and are not implemented by this migration.
+
+**Important documentary-rule limitation:** Annex A does not enumerate the full official FP documentary checklist. Consequently, the Step 2 form accepts general supporting files and technical staff assess completeness manually. The project title and location are basic identifiers, **not a claim of formally approved documentary sufficiency**. Before real-world deployment, LPDD/FUS must approve the official document checklist, rejection-letter template, intake policy and acceptance testing. The 15-day statutory/service processing tracker is not started or calculated by Step 2, because the time allocations in the supplied flowchart still require reconciliation.
+
+**Step 2 QA scenarios:** active vs pending applicant; submit with PDF/JPG/PNG; reject file exceeding server size limit or invalid MIME; verify non-owner cannot view/download; reviewer return with mandatory remarks; applicant resubmission preserving file history; reviewer forwards; RO reads forwarded case only; duplicated/stale POST cannot repeat a review; unauthorized staff cannot decide; test applicant and staff bells independently of SMTP. Perform real PHP/MariaDB integration and email tests on a staging server before production.
 
 ## Public Landing Page
 
@@ -392,9 +416,9 @@ Typical smoke test:
 | Role code | Assigned function | Phase 1 UI |
 |---|---|---|
 | `super_admin` | RICTU: configuration and account administration | User Management |
-| `applicant` | External applicant | Registration/status/correction |
-| `lpdd_fus` | LPDD-FUS: registration/document review, drafting | Registration review queue |
-| `ro_receiving` | RO Receiving/Releasing | Placeholder dashboard |
+| `applicant` | External applicant | Registration/status/correction; Step 2 FP submission/resubmission (active only) |
+| `lpdd_fus` | LPDD-FUS: account activation and initial FP review | Registration review + Step 2 initial review queue |
+| `ro_receiving` | RO Receiving/Releasing | Read-only Step 2 handoff inbox (Step 3 actions pending) |
 | `lpdd_chief` | LPDD Chief | Placeholder dashboard |
 | `ard_ts` | ARD Technical Services | Placeholder dashboard |
 | `red` | Regional Executive Director | Placeholder dashboard |
