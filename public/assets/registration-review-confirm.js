@@ -17,6 +17,7 @@
   if (!reviewed || !acknowledged || !emailCheck || !confirm) return;
 
   let confirmed = false;
+  let revealingInvalidField = false;
   const organizationNames = {
     individual: 'Individual / Sole Proprietorship',
     corporation: 'Corporation / Cooperative / Association',
@@ -36,6 +37,25 @@
     const field = form.elements.namedItem(name);
     return typeof field?.value === 'string' ? field.value.trim() : '';
   }
+
+  function revealInvalidField(field) {
+    if (!(field instanceof HTMLElement)) return;
+    field.focus({preventScroll:true});
+    field.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+
+  // Native constraint validation can stop submission before a submit event fires.
+  // Capture its first invalid control and bring that exact field into view.
+  form.addEventListener('invalid', event => {
+    form.classList.add('was-validated');
+    if (revealingInvalidField) return;
+    revealingInvalidField = true;
+    const field = event.target;
+    requestAnimationFrame(() => {
+      revealInvalidField(field);
+      window.setTimeout(() => { revealingInvalidField = false; }, 0);
+    });
+  }, true);
 
   function setText(selector, value) {
     const node = modalElement.querySelector(selector);
@@ -186,7 +206,10 @@
       return;
     }
     const valid = form.reportValidity();
-    if (!valid) return;
+    if (!valid) {
+      revealInvalidField(form.querySelector(':invalid'));
+      return;
+    }
     renderDetails();
     window.bootstrap.Modal.getOrCreateInstance(modalElement).show();
   });
@@ -194,6 +217,7 @@
   confirm.addEventListener('click', () => {
     if (confirmed || !emailCheck.checked) return;
     if (!form.reportValidity()) {
+      revealInvalidField(form.querySelector(':invalid'));
       if (errorArea) {
         errorArea.textContent = 'Please complete the required information before confirming.';
         errorArea.classList.remove('d-none');

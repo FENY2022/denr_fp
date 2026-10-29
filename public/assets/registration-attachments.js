@@ -52,6 +52,16 @@
     feedback.classList.toggle('text-secondary', !invalid);
   }
 
+  function revealProblem(target) {
+    if (!(target instanceof HTMLElement)) return;
+    if (target.matches('input,select,textarea')) target.classList.add('is-invalid');
+    if (typeof target.focus === 'function') target.focus({preventScroll:true});
+    target.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+
+  form?.addEventListener('input', event => event.target.classList?.remove('is-invalid'));
+  form?.addEventListener('change', event => event.target.classList?.remove('is-invalid'));
+
   function checkFile(input, selectedFile = null) {
     const files = [...(input.files || [])];
     const file = selectedFile || files[0];
@@ -490,6 +500,7 @@
     }[selected];
     if (!required) {
       setFeedback('Select an Applicant / Organization Type.',true);
+      revealProblem(form?.querySelector('[data-registration-organization-type]'));
       return false;
     }
     const missing=required.filter(key=>!saved.has(key));
@@ -500,6 +511,8 @@
         head_authorization:'Authorization from the Head of Agency'
       };
       setFeedback('Please upload the required documents: '+missing.map(x=>labels[x]).join('; ')+'.',true);
+      revealProblem(containers.supporting?.querySelector('[data-supporting-category]')
+        || containers.supporting);
       return false;
     }
     return true;
@@ -511,6 +524,7 @@
       if (pendingUploads > 0) {
         event.preventDefault();
         setFeedback('An attachment is still uploading. Submit after it is saved.', true);
+        revealProblem(root.querySelector('[data-uploading="1"]') || feedback);
         return;
       }
       const pendingFile = [...root.querySelectorAll('[data-attachment-file]')]
@@ -520,12 +534,15 @@
       if (hasUnstaged) {
         event.preventDefault();
         setFeedback('An attachment is selected but not saved. Choose its ID Type and retry.', true);
-        pendingFile?.focus();
+        revealProblem(pendingFile);
         return;
       }
       if (requireIds && savedCount('id') === 0) {
         event.preventDefault();
         setFeedback('Save at least one Valid ID with its ID Type before submitting.', true);
+        const idType = containers.id?.querySelector('[data-id-type]');
+        revealProblem(idType?.value
+          ? containers.id?.querySelector('[data-attachment-file]') : idType || containers.id);
         return;
       }
       if (requireIds && !requirementsMet(new Set(
@@ -543,6 +560,7 @@
     if (requireIds && idCount === 0) {
       event.preventDefault();
       setFeedback('Please upload at least one Valid ID and select its ID Type.', true);
+      revealProblem(containers.id?.querySelector('[data-id-type]') || containers.id);
       return;
     }
     if (requireIds && !requirementsMet(new Set(
@@ -556,6 +574,7 @@
       if (!input.checkValidity()) {
         event.preventDefault();
         setFeedback('Please complete the ID Type selections and check uploaded files.', true);
+        revealProblem(input);
         input.reportValidity();
         return;
       }

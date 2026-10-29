@@ -6,11 +6,10 @@
 
   const password = form.querySelector('#password');
   const confirmation = form.querySelector('#password_confirm');
-  const submit = form.querySelector('[type="submit"]');
   const passwordFeedback = form.querySelector('#password-feedback');
   const confirmationFeedback = form.querySelector('#password-confirm-feedback');
   const rules = [...form.querySelectorAll('[data-password-rule]')];
-  if (!password || !confirmation || !submit || !passwordFeedback || !confirmationFeedback) return;
+  if (!password || !confirmation || !passwordFeedback || !confirmationFeedback) return;
 
   const byteLength = value => new TextEncoder().encode(value).length;
 
@@ -51,7 +50,6 @@
       : matches ? 'Passwords match.' : 'Passwords do not match.';
     confirmationFeedback.className = 'small mt-2 ' + (!confirmationEntered ? 'text-secondary' : matches ? 'text-success' : 'text-danger');
 
-    submit.disabled = !(validPassword && matches);
     return {validPassword, matches};
   }
 

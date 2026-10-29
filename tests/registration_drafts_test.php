@@ -57,6 +57,7 @@ $draftSource = file_get_contents(__DIR__ . '/../app/registration_drafts.php');
 $router = file_get_contents(__DIR__ . '/../public/index.php');
 $js = file_get_contents(__DIR__ . '/../public/assets/registration-attachments.js');
 $formDraftJs = file_get_contents(__DIR__ . '/../public/assets/registration-form-draft.js');
+$reviewJs = file_get_contents(__DIR__ . '/../public/assets/registration-review-confirm.js');
 $registration = file_get_contents(__DIR__ . '/../app/registration.php');
 $views = file_get_contents(__DIR__ . '/../app/views.php');
 $landing = file_get_contents(__DIR__ . '/../app/landing.php');
@@ -104,6 +105,12 @@ assert_draft(strpos($attachmentSource, "registration_draft_list_html('supporting
     'Supporting Documents have their own local saved list');
 assert_draft(str_contains($js, 'pendingUploads > 0'),
     'Form cannot submit while draft upload is in progress');
+assert_draft(str_contains($js, 'revealProblem(')
+    && str_contains($js, "containers.id?.querySelector('[data-id-type]')"),
+    'Attachment errors scroll to and focus the incomplete upload control');
+assert_draft(str_contains($reviewJs, "form.addEventListener('invalid'")
+    && str_contains($reviewJs, "scrollIntoView({behavior:'smooth',block:'center'})"),
+    'Required field errors scroll to and focus the first invalid control');
 assert_draft(!str_contains($js, "typeSelect.value = ''"),
     'Successful upload preserves the selected ID Type');
 assert_draft(str_contains($formDraftJs, 'window.localStorage')

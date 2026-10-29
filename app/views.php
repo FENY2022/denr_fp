@@ -389,11 +389,11 @@ function view_register(array $errors = []): void
         . '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
         . '<button type="button" class="btn btn-danger" data-confirm-clear-registration>Clear Form</button></div>'
         . '</div></div></div>'
-        . '<script src="assets/register-password.js?v=1" defer></script>'
-        . '<script src="assets/registration-attachments.js?v=8" defer></script>'
+        . '<script src="assets/register-password.js?v=2" defer></script>'
+        . '<script src="assets/registration-attachments.js?v=10" defer></script>'
             . '<script src="assets/registration-requirements.js?v=2" defer></script>'
         . '<script src="assets/registration-form-draft.js?v=3" defer></script>'
-        . '<script src="assets/registration-review-confirm.js?v=1" defer></script>';
+        . '<script src="assets/registration-review-confirm.js?v=3" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
@@ -603,7 +603,7 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
             . registration_fields($reg, false)
             . registration_section_heading_html(5,'Review and Resubmit Registration')
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
-            . '<script src="assets/registration-attachments.js?v=8" defer></script>'
+            . '<script src="assets/registration-attachments.js?v=10" defer></script>'
             . '<script src="assets/registration-requirements.js?v=2" defer></script>';
     }
     if ($showDashboardChecklist) {
