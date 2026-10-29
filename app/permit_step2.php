@@ -112,7 +112,7 @@ function step2_events(int $applicationId): array
     );
 }
 
-function step2_uploads(array $files, bool $required): array
+function step2_uploads(array $files, bool $required, array $categories = []): array
 {
     $group = $files['application_files'] ?? null;
     $errors = [];
@@ -149,8 +149,18 @@ function step2_uploads(array $files, bool $required): array
         }
         if ($file['error'] === UPLOAD_ERR_NO_FILE) continue;
         $info = upload_details($file, false);
-        if (isset($info['error'])) $errors[] = 'Document "' . substr($file['name'], 0, 80) . '": ' . $info['error'];
-        elseif (!isset($info['none'])) $items[] = $info;
+        if (isset($info['error'])) {
+            $errors[] = 'Document "' . substr($file['name'], 0, 80) . '": ' . $info['error'];
+        } elseif (!isset($info['none'])) {
+            $category = $categories[$key] ?? '';
+            if (!is_string($category) || !step2_requirement_valid($category)) {
+                $errors[] = 'Select a valid documentary requirement for file: '
+                    . substr($file['name'],0,80);
+            } else {
+                $info['requirement_type'] = $category;
+                $items[] = $info;
+            }
+        }
     }
     if ($required && !$items) $errors[] = 'Upload at least one FP supporting document.';
     return ['items'=>$items, 'errors'=>$errors];
@@ -234,6 +244,9 @@ function step2_submit(array $client, array $data, array $files, int $application
         return ['An activated applicant account is required.'];
     }
     if (!step2_schema_ready()) return ['Step 2 tables are missing or inaccessible. Verify migration 014 and SELECT permissions.'];
+    if (!step2_category_schema_ready()) {
+        return ['FP document categories require database migration 019. Contact the ICT administrator.'];
+    }
     $errors = step2_validate_input($data);
     $coordsReady = step2_location_schema_ready();
     $lat = trim((string)($data['project_latitude'] ?? ''));
@@ -244,7 +257,10 @@ function step2_submit(array $client, array $data, array $files, int $application
     // When installed, only server-staged files can be submitted.
     $draftMode = step2_drafts_schema_ready();
     $uploads = $draftMode ? ['items'=>[], 'errors'=>[]]
-        : step2_uploads($files,$applicationId === 0);
+        : step2_uploads($files,$applicationId === 0,
+            is_array($_POST['application_file_categories'] ?? null)
+                ? $_POST['application_file_categories']
+                : array_fill(0,10,(string)($_POST['document_category'] ?? '')));
     $errors = array_merge($errors,$uploads['errors']);
     if ($draftMode && $files) $errors[] = 'Use the secure Selected Files uploader.';
     if ($errors) return $errors;
@@ -266,6 +282,13 @@ function step2_submit(array $client, array $data, array $files, int $application
                 return $staged['errors'];
             }
             $draftRows = $staged['rows'];
+            foreach ($draftRows as $draft) {
+                if (!step2_requirement_valid((string)($draft['requirement_type'] ?? ''))) {
+                    $pdo->rollBack();
+                    return ['An existing saved file has no recognized requirement category. '
+                        . 'Remove it and upload under its correct requirement.'];
+                }
+            }
         }
         $revision = 1;
         if ($applicationId !== 0) {
@@ -343,11 +366,11 @@ function step2_submit(array $client, array $data, array $files, int $application
             if ($hash === false) throw new RuntimeException('Could not verify uploaded FP document.');
             $pdo->prepare(
                 'INSERT INTO permit_step2_documents
-                    (application_id,client_id,revision,original_name,stored_path,mime_type,file_size,sha256)
-                 VALUES (?,?,?,?,?,?,?,?)'
+                    (application_id,client_id,revision,requirement_type,original_name,stored_path,mime_type,file_size,sha256)
+                 VALUES (?,?,?,?,?,?,?,?,?)'
             )->execute([
-                $applicationId,$clientId,$revision,$info['name'],$relative,
-                $info['mime'],$info['size'],$hash
+                $applicationId,$clientId,$revision,(string)$info['requirement_type'],
+                $info['name'],$relative,$info['mime'],$info['size'],$hash
             ]);
         }
         // Copies from validated staged files are part of this transaction.
@@ -378,10 +401,11 @@ function step2_submit(array $client, array $data, array $files, int $application
             }
             $pdo->prepare(
                 'INSERT INTO permit_step2_documents
-                    (application_id,client_id,revision,original_name,stored_path,mime_type,file_size,sha256)
-                 VALUES (?,?,?,?,?,?,?,?)'
+                    (application_id,client_id,revision,requirement_type,original_name,stored_path,mime_type,file_size,sha256)
+                 VALUES (?,?,?,?,?,?,?,?,?)'
             )->execute([
-                $applicationId,$clientId,$revision,(string)$draft['original_name'],$relative,
+                $applicationId,$clientId,$revision,(string)$draft['requirement_type'],
+                (string)$draft['original_name'],$relative,
                 (string)$draft['mime_type'],(int)$draft['file_size'],$digest
             ]);
             $draftFilesToRemove[] = $source;

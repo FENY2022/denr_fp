@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../app/core.php';
+require_once __DIR__ . '/../app/permit_step2_requirements.php';
 require_once __DIR__ . '/../app/permit_step2_drafts.php';
 
 function check_step2_draft(bool $ok, string $reason): void
@@ -30,7 +31,7 @@ check_step2_draft(str_contains($direct,'will be lost if you refresh'),'fallback 
 check_step2_draft(!str_contains($direct,'is-saved'),'fallback does not mark files saved');
 $viewSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 check_step2_draft(str_contains($viewSource,"step2_direct_selected_files_html()"),'fallback is rendered');
-check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=7'),'current script loads in both modes');
+check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=8'),'current script loads in both modes');
 check_step2_draft(str_contains($viewSource,'data-step2-js-warning'),'JavaScript unavailable notice exists');
 check_step2_draft(str_contains($viewSource,'data-draft-key="fpoms.permit.'),'form draft is scoped to applicant and application');
 $modalSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
@@ -71,9 +72,11 @@ check_step2_draft(str_contains($uploadSource,"'project_title','project_location'
 check_step2_draft(str_contains($bootstrapSource,"worker-src \\'self\\' blob:"),'PDF.js worker CSP');
 
 $modern = step2_draft_list_html([
-    ['id'=>19,'original_name'=>'document.pdf','mime_type'=>'application/pdf','size'=>1000]
+    ['id'=>19,'original_name'=>'document.pdf','mime_type'=>'application/pdf','size'=>1000,'requirement_type'=>'annex_1a']
 ],true);
 check_step2_draft(str_contains($modern,'Rearrange Pages'),'saved PDF can be edited again');
+check_step2_draft(str_contains($modern,'notarized application form (Annex 1A)'),
+    'saved staged PDF shows exact selected documentary category');
 check_step2_draft(str_contains($modern,'until you submit'),'persistent draft notice');
 check_step2_draft(!str_contains($modern,'expire in 24 hours'),'modern draft does not expire');
 $view = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');

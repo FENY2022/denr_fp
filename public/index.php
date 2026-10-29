@@ -252,7 +252,8 @@ try {
             $draftId = filter_var($_POST['id'] ?? null,FILTER_VALIDATE_INT,
                 ['options'=>['min_range'=>1]]) ?: 0;
             if ($page === 'permit_draft_upload') {
-                $result = step2_draft_upload($client,(int)$scope,$_FILES);
+                $result = step2_draft_upload($client,(int)$scope,$_FILES,
+                    (string)($_POST['document_category'] ?? ''));
             } elseif ($page === 'permit_draft_delete') {
                 $result = step2_draft_delete($client,(int)$scope,(int)$draftId);
             } elseif ($page === 'permit_draft_save') {

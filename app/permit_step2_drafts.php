@@ -42,7 +42,9 @@ function step2_draft_list(int $clientId, int $applicationId, bool $lock = false)
     $hash = $persistent ? null : step2_draft_hash(false);
     if (!$persistent && $hash === null) return [];
     $stmt = db()->prepare(
-        'SELECT id,client_id,application_id,original_name,stored_path,mime_type,
+        'SELECT id,client_id,application_id,'
+        . (step2_category_schema_ready() ? 'requirement_type,' : "'other' AS requirement_type,")
+        . 'original_name,stored_path,mime_type,
                 file_size,sha256,expires_at FROM permit_step2_draft_documents
          WHERE client_id=? AND application_id=?'
         . ($persistent ? '' : ' AND draft_hash=? AND expires_at>NOW()')
@@ -58,7 +60,9 @@ function step2_draft_public_list(int $clientId, int $applicationId): array
 {
     return array_map(static fn(array $d): array => [
         'id'=>(int)$d['id'],'original_name'=>(string)$d['original_name'],
-        'size'=>(int)$d['file_size'],'mime_type'=>(string)$d['mime_type']
+        'size'=>(int)$d['file_size'],'mime_type'=>(string)$d['mime_type'],
+        'requirement_type'=>(string)($d['requirement_type'] ?? 'other'),
+        'requirement_label'=>step2_requirement_label((string)($d['requirement_type'] ?? 'other'))
     ],step2_draft_list($clientId,$applicationId));
 }
 
@@ -108,7 +112,9 @@ function step2_draft_list_html(array $docs, bool $persistent=false): string
             . '<span class="selected-file-icon" aria-hidden="true"><i class="bi bi-file-earmark-text-fill"></i></span>'
             . '<div class="selected-file-info"><strong class="selected-file-name">'.$name.'</strong>'
             . '<span class="selected-file-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> '
-            . 'Saved — ready for submission · Supporting Document</span></div>'
+            . 'Saved — ready for submission · '
+            . e(step2_requirement_label((string)($doc['requirement_type'] ?? 'other')))
+            . '</span></div>'
             . ($persistent && (string)($doc['mime_type'] ?? '') === 'application/pdf'
                 ? '<button class="btn btn-sm btn-outline-primary me-1" type="button" '
                     . 'data-step2-rearrange aria-label="Rearrange pages again in '
@@ -126,8 +132,15 @@ function step2_draft_list_html(array $docs, bool $persistent=false): string
         . '>No saved files yet. Select files above to begin uploading.</p></section>';
 }
 
-function step2_draft_upload(array $client, int $applicationId, array $files): array
+function step2_draft_upload(array $client, int $applicationId, array $files,
+    string $category = ''): array
 {
+    if (!step2_category_schema_ready()) {
+        return ['error'=>'Please ask the ICT administrator to install Step 2 document migration 019.'];
+    }
+    if (!step2_requirement_valid($category)) {
+        return ['error'=>'Select the correct FP documentary requirement before uploading.'];
+    }
     if (!step2_drafts_schema_ready()) return ['error'=>'FP draft storage unavailable; apply migration 015.'];
     if (!step2_draft_scope_allowed($client,$applicationId)) return ['error'=>'Application not available for upload.'];
     $info = upload_details($files['attachment'] ?? null,true);
@@ -161,10 +174,10 @@ function step2_draft_upload(array $client, int $applicationId, array $files): ar
         if ($sha === false) throw new RuntimeException('Could not hash draft file.');
         $pdo->prepare(
             'INSERT INTO permit_step2_draft_documents
-            (client_id,draft_hash,application_id,original_name,stored_path,mime_type,file_size,sha256,expires_at)
-            VALUES (?,?,?,?,?,?,?,?,' . ($persistent ? 'NULL' : 'DATE_ADD(NOW(),INTERVAL 24 HOUR)') . ')'
+            (client_id,draft_hash,application_id,requirement_type,original_name,stored_path,mime_type,file_size,sha256,expires_at)
+            VALUES (?,?,?,?,?,?,?,?,?,' . ($persistent ? 'NULL' : 'DATE_ADD(NOW(),INTERVAL 24 HOUR)') . ')'
         )->execute([
-            $clientId,$hash,$applicationId,$info['name'],$relative,
+            $clientId,$hash,$applicationId,$category,$info['name'],$relative,
             $info['mime'],$info['size'],$sha
         ]);
         $pdo->commit();

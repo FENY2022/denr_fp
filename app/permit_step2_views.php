@@ -32,7 +32,9 @@ function step2_documents_html(array $docs): string
         $url = url('permit_document',['id'=>(int)$doc['id'],'preview'=>1]);
         $html .= '<li class="list-group-item d-flex justify-content-between align-items-center gap-2 flex-wrap">'
             . '<div class="small"><strong>' . e((string)$doc['original_name']) . '</strong>'
-            . '<div class="text-secondary">Revision ' . (int)$doc['revision'] . ' · '
+            . '<div class="text-secondary">'
+            . e(step2_requirement_label((string)($doc['requirement_type'] ?? 'other')))
+            . ' · Revision ' . (int)$doc['revision'] . ' · '
             . e(round(((int)$doc['file_size']) / 1024, 1) . ' KB') . '</div></div>'
             . '<a class="btn btn-sm btn-outline-primary" data-document-preview '
             . 'data-document-mime="' . e((string)$doc['mime_type']) . '" '
@@ -323,6 +325,11 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             . nl2br(e((string)($latest['remarks'] ?? 'Please follow the review instructions.')))
             . '</p></div>';
     }
+    if (!step2_category_schema_ready()) {
+        $html .= '<div class="alert alert-warning"><strong>Database migration 019 '
+            . 'is required.</strong> Ask the ICT administrator to install it before '
+            . 'uploading or submitting classified FP documents.</div>';
+    }
     $html .= '<form id="permit-step2-form" method="post" action="' . e($formUrl)
         . '" enctype="multipart/form-data" data-draft-key="fpoms.permit.'
         . (int)$client['id'] . '.' . $applicationId . '.v1">'
@@ -343,19 +350,46 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . 'maxlength="2000">' . e($purpose) . '</textarea></div>'
         . '<div class="mb-3"><label class="form-label" for="application_files">FP Supporting Documents '
         . ($editing ? '(optional additional files)' : '<span class="text-danger">*</span>') . '</label>'
+        . '<div class="border rounded-3 p-3 mb-3" data-fp-requirement-guide>'
+        . '<h3 class="h6 text-success">FP Supporting Documentary Requirements</h3>'
+        . '<p class="small text-secondary">Select a requirement and upload the matching '
+        . 'PDF/JPG/PNG. Multiple files may be uploaded per requirement, subject '
+        . 'to the existing 10-file total. The * and ** markers are preserved '
+        . 'as supplied; LPDD-FUS determines applicability.</p>'
+        . '<div class="row g-2">';
+    foreach (step2_requirement_types() as $type => $label) {
+        $html .= '<div class="col-md-6"><div class="border rounded-3 p-3 h-100" '
+            . 'data-step2-requirement-card="' . e($type) . '">'
+            . '<div class="small fw-semibold mb-2">' . e($label) . '</div>'
+            . '<button class="btn btn-sm btn-outline-success" type="button" '
+            . 'data-step2-pick-requirement="' . e($type) . '">'
+            . '<i class="bi bi-upload me-1" aria-hidden="true"></i>'
+            . 'Upload for This Requirement</button></div></div>';
+    }
+    $html .= '</div></div>'
         . '<div id="step2-draft-uploader" data-step2-mode="'
         . ($draftMode ? 'saved' : 'direct') . '" data-persistent="'
         . ($persistent ? '1' : '0') . '" data-application-id="'
         . $applicationId . '" data-max-bytes="'
         . max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880')) . '">'
 
+        . '<label for="step2_requirement_type" class="form-label">'
+        . 'Document Category <span class="text-danger">*</span></label>'
+        . '<select class="form-select mb-2" id="step2_requirement_type" '
+        . 'name="document_category" data-step2-category-select>'
+        . '<option value="">Choose the matching requirement before selecting files</option>';
+    foreach (step2_requirement_types() as $type => $label) {
+        $html .= '<option value="' . e($type) . '">' . e($label) . '</option>';
+    }
+    $html .= '</select>'
+        . '<div data-step2-direct-categories></div>'
         . '<input class="form-control" type="file" id="application_files" '
         . ($draftMode ? '' : 'name="application_files[]" ')
         . 'accept=".pdf,.jpg,.jpeg,.png" multiple '
         . (!$editing && !$draftMode ? 'required ' : '') . '>'
         . '<div class="form-text">Up to 10 files per submission. PDF/JPG/PNG, maximum '
         . e((string)$maxMb) . ' MB each. Documents are saved privately outside the website. '
-        . 'The exact required file types must be agreed with LPDD-FUS.</div>'
+        . 'Each saved file retains its selected category for LPDD-FUS review.</div>'
         . ($draftMode ? step2_draft_list_html($savedDocs,$persistent)
             : step2_direct_selected_files_html())
         . '<p class="small text-secondary mt-2" role="status" data-step2-feedback></p>'
@@ -392,6 +426,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<p class="small text-secondary mb-0">Step 4 formal documentary evaluation and '
         . 'the 15-day processing tracker are not part of this release.</p></div>';
     if ($docs) $html .= '<div class="panel mt-3"><h3 class="h6">Previously Uploaded Documents</h3>'
+        . step2_requirement_checklist_html($docs)
         . step2_documents_html($docs) . '</div>';
     $html .= '</div></div>' . step2_pdf_choice_modal_html()
         . step2_pdf_organizer_modal_html();
@@ -399,7 +434,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=7" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=8" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=1" defer></script>'
@@ -435,6 +470,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . '<dt class="col-sm-4">Last submitted</dt><dd class="col-sm-8">'
         . e((string)$app['last_submitted_at']) . '</dd></dl>'
         . '<h3 class="h6">Submitted Supporting Documents</h3>'
+        . step2_requirement_checklist_html(step2_documents($applicationId))
         . step2_documents_html(step2_documents($applicationId))
         . step2_history_html($applicationId)
         . '</div></div><div class="col-lg-4">';

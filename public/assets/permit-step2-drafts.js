@@ -4,6 +4,24 @@
   if (!root) return;
   const form = root.closest('form');
   const input = root.querySelector('#application_files');
+  const categoryInput = root.querySelector('[data-step2-category-select]');
+  const categoryFields = root.querySelector('[data-step2-direct-categories]');
+  if (!categoryInput) return;
+  const validCategories = new Set(
+    [...categoryInput.options].map(opt=>opt.value).filter(Boolean));
+  const categoryLabel = name =>
+    [...categoryInput.options].find(opt=>opt.value===name)?.textContent
+      || 'Other / Earlier Supporting Document';
+  const categoryIsValid = value => validCategories.has(value);
+  document.querySelectorAll('[data-step2-pick-requirement]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      const category=button.dataset.step2PickRequirement || '';
+      if (!categoryIsValid(category)) return;
+      categoryInput.value=category;
+      categoryInput.dispatchEvent(new Event('change',{bubbles:true}));
+      if (!input.disabled) input.click();
+    });
+  });
   const list = root.querySelector('[data-step2-items]');
   const queue = root.querySelector('[data-step2-queue]');
   const count = root.querySelector('[data-step2-count]');
@@ -126,7 +144,8 @@
       if (scope === '0' && selected.length === 0) {
         notice('Select at least one supporting document.',true); return false;
       }
-      if (selected.length>10 || selected.some(f=>!validFile(f))) {
+      if (selected.length>10 || selected.some(entry=>!validFile(entry.file)
+          || !categoryIsValid(entry.category))) {
         notice('Selected files are invalid. Maximum 10 PDF/JPG/PNG documents.',true); return false;
       }
     }
@@ -185,7 +204,7 @@
     input.disabled = busy || finalizing || n>=10;
     submit.disabled = busy || finalizing;
   }
-  function fileCard(name,id=null,mime='') {
+  function fileCard(name,id=null,mime='',category='other') {
     const item = document.createElement('li');
     item.className = 'selected-file-card ' + (id===null ? 'is-uploading' : 'is-saved');
     if (id!==null) item.dataset.step2DraftId = String(id);
@@ -201,7 +220,7 @@
     const status = document.createElement('span');
     status.className = 'selected-file-status';
     status.textContent = id===null ? 'Preparing secure upload…'
-      : 'Saved — ready for submission · Supporting Document';
+      : 'Saved — ready for submission · ' + categoryLabel(category);
     info.append(filename,status);
     item.append(icon,info);
     if (id!==null && persistent && mime==='application/pdf') {
@@ -233,7 +252,8 @@
   function render(docs) {
     list.replaceChildren();
     for (const doc of docs||[]) {
-      list.append(fileCard(String(doc.original_name),doc.id,String(doc.mime_type||'')).item);
+      list.append(fileCard(String(doc.original_name),doc.id,
+        String(doc.mime_type||''),String(doc.requirement_type||'other')).item);
     }
     refresh();
   }
@@ -243,15 +263,26 @@
   if (root.dataset.step2Mode === 'direct') {
     function syncInput() {
       const transfer = new DataTransfer();
-      for (const file of selected) transfer.items.add(file);
+      for (const entry of selected) transfer.items.add(entry.file);
       input.files = transfer.files;
+      if (categoryFields) {
+        categoryFields.replaceChildren();
+        for (const entry of selected) {
+          const hidden=document.createElement('input');
+          hidden.type='hidden';
+          hidden.name='application_file_categories[]';
+          hidden.value=entry.category;
+          categoryFields.append(hidden);
+        }
+      }
     }
     function showLocal() {
       list.replaceChildren();
-      selected.forEach((file,index)=>{
-        const row = fileCard(file.name);
+      selected.forEach((entry,index)=>{
+        const row = fileCard(entry.file.name,null,'',entry.category);
         row.item.className = 'selected-file-card is-pending';
-        row.status.textContent = 'Selected — uploads when you submit · Not saved yet';
+        row.status.textContent = 'Selected · ' + categoryLabel(entry.category)
+          + ' · uploads on final submission';
         row.progress.value = 0;
         const remove = row.item.querySelector('.selected-file-remove');
         remove.disabled = false;
@@ -263,7 +294,12 @@
     input.addEventListener('change',async ()=>{
       if (busy) return;
       const picked = Array.from(input.files||[]);
+      const category=categoryInput.value;
       input.value = '';
+      if (!categoryIsValid(category)) {
+        notice('Choose a documentary requirement before selecting files.',true);
+        return;
+      }
       busy = true; refresh();
       let rejected = 0;
       for (const original of picked) {
@@ -277,7 +313,7 @@
             file = await window.FPOMSChoosePdfUpload(original,maxBytes,'direct');
           } catch (error) { notice(error.message,true); rejected++;continue; }
         }
-        if (file && validFile(file)) selected.push(file);
+        if (file && validFile(file)) selected.push({file,category});
       }
       try {syncInput();}
       catch(error) {
@@ -307,7 +343,12 @@
   input.addEventListener('change',async ()=>{
     if (busy) return;
     const picked = Array.from(input.files||[]);
+    const category=categoryInput.value;
     input.value = '';
+    if (!categoryIsValid(category)) {
+      notice('Select the documentary requirement before uploading files.',true);
+      return;
+    }
     const room = Math.max(0,10-savedCount());
     if (picked.length>room) notice('Only '+room+' more file(s) can be saved.',true);
     busy = true;refresh();
@@ -324,14 +365,16 @@
       }
       if (!file) continue;
       if (!validFile(file)) {notice('Organized PDF is too large.',true);continue;}
-      const card = fileCard(file.name);
+      const card = fileCard(file.name,null,'',category);
       queue.append(card.item);refresh();
       const data = payload();
+      data.set('document_category',category);
       data.set('attachment',file);
       try {
         const result = await post('permit-draft-upload',data,pct=>{
           card.progress.value = Math.max(2,pct);
-          card.status.textContent = pct<100 ? 'Uploading… '+pct+'%' : 'Verifying saved upload…';
+          card.status.textContent = pct<100 ? 'Uploading ' + categoryLabel(category)
+            + '… '+pct+'%' : 'Verifying saved upload…';
         });
         render(result.documents);
         notice(persistent ? 'Document saved to your applicant draft.'
