@@ -620,6 +620,18 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
     render_page($showDashboardChecklist ? 'Applicant Dashboard' : 'My Registration', $html);
 }
 
+function review_queue_display_date(?string $value): string
+{
+    $value = trim((string)$value);
+    if ($value === '') return '';
+
+    try {
+        return (new DateTimeImmutable($value))->format('F j, Y g:i A');
+    } catch (Throwable) {
+        return $value;
+    }
+}
+
 function view_review_queue(): void
 {
     require_role('lpdd_fus');
@@ -630,7 +642,7 @@ function view_review_queue(): void
     else {
         $html .= '<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Applicant</th><th>Company</th><th>Submitted</th><th>Revision</th><th></th></tr></thead><tbody>';
         foreach ($queue as $row) $html .= '<tr><td><strong>' . e($row['representative_name']) . '</strong><div class="small text-secondary">' . e($row['email']) . '</div></td>'
-            . '<td>' . e($row['company_name']) . '</td><td>' . e($row['submitted_at']) . '</td><td>' . (int)$row['revision'] . '</td><td>'
+            . '<td>' . e($row['company_name']) . '</td><td>' . e(review_queue_display_date($row['submitted_at'])) . '</td><td>' . (int)$row['revision'] . '</td><td>'
             . '<a class="btn btn-sm btn-outline-primary" href="' . url('review',['id'=>(int)$row['id']]) . '">Review</a></td></tr>';
         $html .= '</tbody></table></div>';
     }
