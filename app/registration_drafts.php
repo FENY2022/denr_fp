@@ -336,6 +336,44 @@ function registration_draft_consume(): void
 }
 
 /** Used by the HTTP router; generic errors never expose filesystem locations. */
+/**
+ * Anonymous, same-session preview of one staged registration PDF/JPG/PNG.
+ * Files remain in private storage; an unrelated browser session cannot view
+ * them by guessing an integer document ID.
+ */
+function registration_draft_send_preview(int $id): never
+{
+    $hash = registration_draft_hash(false);
+    if (!$hash || $id < 1) show_error('Saved attachment not found.',404);
+    $doc = query_one(
+        'SELECT stored_path,mime_type,original_name,file_size,sha256 '
+        . 'FROM registration_draft_documents '
+        . 'WHERE id=? AND draft_hash=? AND expires_at>NOW()',
+        [$id,$hash]
+    );
+    if (!$doc) show_error('Saved attachment not found.',404);
+    $mime = (string)$doc['mime_type'];
+    if (!in_array($mime,['application/pdf','image/jpeg','image/png'],true)) {
+        show_error('Preview is not supported for this attachment.',415);
+    }
+    $path = registration_draft_real_path((string)$doc['stored_path']);
+    if (!$path || !is_readable($path)
+        || filesize($path) !== (int)$doc['file_size']
+        || !hash_equals((string)$doc['sha256'],(string)hash_file('sha256',$path))) {
+        show_error('Saved attachment is unavailable.',404);
+    }
+    header('X-Frame-Options: SAMEORIGIN');
+    header("Content-Security-Policy: default-src 'none'; frame-ancestors 'self'; sandbox");
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, no-store');
+    header('Content-Type: '.$mime);
+    header('Content-Length: '.filesize($path));
+    header('Content-Disposition: inline; filename="attachment"; filename*=UTF-8\'\''
+        .rawurlencode((string)$doc['original_name']));
+    readfile($path);
+    exit;
+}
+
 function registration_draft_json(array $result, int $http = 200): never
 {
     http_response_code($http);

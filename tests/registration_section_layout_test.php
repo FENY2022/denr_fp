@@ -3,6 +3,11 @@ declare(strict_types=1);
 
 // DB-free layout regression: all four groups share the same upload root while
 // the applicant can view and upload requirements before typing personal data.
+// Standalone DB-free rendering test: the real environment defines this in bootstrap.php.
+function env_value(string $key, string $fallback = ''): string
+{
+    return $fallback;
+}
 require_once __DIR__ . '/../app/core.php';
 require_once __DIR__ . '/../app/registration_requirements.php';
 require_once __DIR__ . '/../app/registration_attachments.php';

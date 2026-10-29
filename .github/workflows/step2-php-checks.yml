@@ -36,6 +36,10 @@ jobs:
         run: php tests/registration_requirements_test.php
       - name: Applicant registration section layout
         run: php tests/registration_section_layout_test.php
+      - name: Applicant review confirmation and private preview checks
+        run: php tests/registration_review_confirm_test.php
+      - name: Applicant review script syntax
+        run: node --check public/assets/registration-review-confirm.js
       - name: Registration requirements JS syntax
         run: node --check public/assets/registration-requirements.js
       - name: Step 2 DB-free unit checks

@@ -94,6 +94,12 @@ try {
         case 'register':
             if ($post) {
                 check_csrf();
+                if (($_POST['registration_review_confirmed'] ?? null) !== 'confirmed'
+                    || ($_POST['registration_email_acknowledged'] ?? null) !== '1') {
+                    view_register(['Review your information and saved documents, '
+                        . 'then confirm that you can access your email before submitting.']);
+                    break;
+                }
                 $values = registration_input();
                 $errors = register_applicant($values,safe_post('email',190),(string)($_POST['password'] ?? ''),(string)($_POST['password_confirm'] ?? ''),$_FILES,$_POST);
                 if (!$errors) {
@@ -129,6 +135,12 @@ try {
                 view_verify_registration_otp($errors);
             } else view_verify_registration_otp();
             break;
+        case 'register_draft_preview':
+            if ($post) show_error('Preview requires GET.',405);
+            if ($loggedIn) show_error('This preview is only for an unsigned registration.',403);
+            $draftId = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]) ?: 0;
+            registration_draft_send_preview((int)$draftId);
         case 'register_draft_upload':
             if (!$post) registration_draft_json(['error'=>'Upload requires POST.'],405);
             if ($loggedIn) registration_draft_json(['error'=>'Sign out before registering.'],403);

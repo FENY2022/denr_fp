@@ -86,6 +86,8 @@ function render_page(string $title, string $content): void
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="fp-pdf-organizer-modal"')
             ? '<link href="assets/permit-pdf-organizer.css?v=1" rel="stylesheet">' : '')
+        . (str_contains($content, 'id="registration-review-confirm-modal"')
+            ? '<link href="assets/registration-review-confirm.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'data-fp-location-map=')
             ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
                 . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
@@ -249,7 +251,12 @@ function registration_fields(array $values = [], bool $new = true): string
         . '</div></div>';
     if ($new) {
         $html .= field('email','Email for login',form_value('email'),'email',true,
-            'autocomplete="email" maxlength="190"');
+            'autocomplete="email" maxlength="190"')
+            . '<p class="small text-secondary mb-3">'
+            . '<i class="bi bi-envelope-check me-1" aria-hidden="true"></i>'
+            . '<strong>Use an active email address you can access.</strong> '
+            . 'Your email verification link and registration confirmation will be sent '
+            . 'there. Please check your Inbox and Spam/Junk folder.</p>';
     }
     $html .= '<div class="row"><div class="col-md-6">'
         . field('company_name','Company / Agency / Organization Name',form_value('company_name',$values),'text',true,'maxlength="220"')
@@ -283,23 +290,95 @@ function registration_fields(array $values = [], bool $new = true): string
     return $html;
 }
 
+/**
+ * Final applicant review summary. Values are rendered with DOM textContent,
+ * private staged uploads are previewed through the same-session draft route.
+ */
+function registration_review_confirmation_modal_html(): string
+{
+    return '<div class="modal fade" id="registration-review-confirm-modal" tabindex="-1" '
+        . 'aria-labelledby="registration-review-confirm-title" '
+        . 'aria-describedby="registration-review-confirm-description" aria-hidden="true">'
+        . '<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">'
+        . '<div class="modal-content">'
+        . '<div class="modal-header"><h2 class="modal-title h5" '
+        . 'id="registration-review-confirm-title">'
+        . '<i class="bi bi-clipboard-check text-success me-2" aria-hidden="true"></i>'
+        . 'Review &amp; Confirm Applicant Registration</h2>'
+        . '<button class="btn-close" type="button" data-bs-dismiss="modal" '
+        . 'aria-label="Back to editing"></button></div>'
+        . '<div class="modal-body">'
+        . '<p class="text-secondary small" id="registration-review-confirm-description">'
+        . 'Review all information and uploaded files carefully. Your registration '
+        . 'will not be submitted until you select Confirm &amp; Submit.</p>'
+        . '<h3 class="h6 text-success"><i class="bi bi-building me-1"></i>'
+        . 'Organization Type</h3><p data-review-organization></p>'
+        . '<hr><h3 class="h6 text-success"><i class="bi bi-person-vcard me-1"></i>'
+        . 'Applicant Information</h3><dl class="row small" data-review-fields></dl>'
+        . '<p class="small text-secondary"><i class="bi bi-shield-lock me-1"></i>'
+        . 'For security, your password is not displayed.</p>'
+        . '<hr><h3 class="h6 text-success"><i class="bi bi-files me-1"></i>'
+        . 'Supporting Documents</h3><ul class="list-group mb-2" data-review-supporting></ul>'
+        . '<hr><h3 class="h6 text-success"><i class="bi bi-person-badge me-1"></i>'
+        . 'Valid Identification Cards</h3><ul class="list-group mb-3" data-review-ids></ul>'
+        . '<div class="border rounded-3 p-3 d-none mb-3" data-review-preview-area>'
+        . '<div class="d-flex justify-content-between align-items-center gap-2 mb-2">'
+        . '<strong data-review-preview-title></strong>'
+        . '<button type="button" class="btn btn-sm btn-outline-secondary" '
+        . 'data-review-preview-close>Close Preview</button></div>'
+        . '<div data-review-preview-media class="text-center"></div></div>'
+        . '<div class="alert alert-warning" role="note">'
+        . '<h3 class="h6 mb-2"><i class="bi bi-envelope-exclamation me-1" '
+        . 'aria-hidden="true"></i>Important Email Verification Reminder</h3>'
+        . '<p class="small mb-2">Please ensure that the email address you entered '
+        . 'is valid, active and accessible to you. Your verification link '
+        . 'and registration confirmation will be sent to this address. '
+        . 'You must verify your email before LPDD-FUS can review the registration. '
+        . 'If no email arrives, check your Spam or Junk folder.</p>'
+        . '<p class="small mb-2"><strong>Email to verify:</strong> '
+        . '<span data-review-email></span></p>'
+        . '<div class="form-check"><input type="checkbox" class="form-check-input" '
+        . 'id="registration-email-access-confirm" data-review-email-check>'
+        . '<label for="registration-email-access-confirm" class="form-check-label">'
+        . 'I confirm that the email address I provided is correct, active, '
+        . 'and accessible to me.</label></div></div>'
+        . '<p class="text-danger small d-none" role="alert" data-review-error></p>'
+        . '</div><div class="modal-footer">'
+        . '<button type="button" class="btn btn-outline-secondary" '
+        . 'data-bs-dismiss="modal"><i class="bi bi-pencil me-1"></i>'
+        . 'Back to Edit</button>'
+        . '<button type="button" class="btn btn-success" '
+        . 'data-review-confirm disabled>'
+        . '<i class="bi bi-check-circle me-1"></i>Confirm &amp; Submit</button>'
+        . '</div></div></div></div>';
+}
+
 function view_register(array $errors = []): void
 {
     if (current_user()) go('dashboard');
     $html = '<div class="row g-4"><div class="col-lg-8"><div class="panel">'
         . errors_html($errors)
-        . '<p class="text-secondary">Register and verify your email with a six-digit code first. Your application is sent to LPDD-FUS only after email verification.</p>'
+        . '<p class="text-secondary">Complete the registration form and securely upload the required files. Review your information and documents before confirming. A verification link will be sent to your accessible email address.</p>'
         . '<form id="applicant-registration-form" method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
         . registration_fields()
         . registration_section_heading_html(5,'Review and Submit Registration')
         . '<p class="small text-secondary mb-0">Your entries are saved in this browser until submission or clearing. Passwords are not saved.</p>'
-        . '<div class="mt-3 d-flex gap-3 align-items-center flex-wrap"><button class="btn btn-primary" type="submit">Submit for review</button>'
+        . '<input type="hidden" name="registration_review_confirmed" value="0" '
+        . 'data-registration-reviewed>'
+        . '<input type="hidden" name="registration_email_acknowledged" value="0" '
+        . 'data-registration-email-acknowledged>'
+        . '<div class="mt-3 d-flex gap-3 align-items-center flex-wrap">'
+        . '<button class="btn btn-primary" type="submit" data-registration-review-open>'
+        . '<i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>Review Registration</button>'
         . '<button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#clear-registration-modal">Clear Form</button>'
         . '<a href="' . url('login') . '">Already registered? Sign in</a></div></form></div></div>'
         . '<div class="col-lg-4"><div class="panel soft"><h2 class="h5">Account activation</h2>'
-        . '<ol class="small"><li>Register and upload a valid ID.</li><li>Enter the emailed OTP to verify your registration.</li><li>Receive your registration acknowledgment after OTP verification.</li><li>LPDD-FUS checks information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
+        . '<ol class="small"><li>Complete registration and upload the required documents.</li><li>Review your information and saved attachments before confirming.</li><li>Open your email and click the verification link.</li><li>Receive your registration acknowledgment after email verification.</li><li>LPDD-FUS checks your information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
         . '</div></div></div>'
+        . registration_review_confirmation_modal_html()
+        . '<noscript><p class="alert alert-warning mt-3">JavaScript is required to review '
+        . 'and confirm registration before submission.</p></noscript>'
         . '<div class="modal fade" id="clear-registration-modal" tabindex="-1" aria-labelledby="clear-registration-modal-title" aria-hidden="true">'
         . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
         . '<div class="modal-header"><h2 class="modal-title fs-5" id="clear-registration-modal-title">Clear registration form?</h2>'
@@ -313,7 +392,8 @@ function view_register(array $errors = []): void
         . '<script src="assets/register-password.js?v=1" defer></script>'
         . '<script src="assets/registration-attachments.js?v=8" defer></script>'
             . '<script src="assets/registration-requirements.js?v=2" defer></script>'
-        . '<script src="assets/registration-form-draft.js?v=3" defer></script>';
+        . '<script src="assets/registration-form-draft.js?v=3" defer></script>'
+        . '<script src="assets/registration-review-confirm.js?v=1" defer></script>';
     render_page('Applicant Registration', $html);
 }
 

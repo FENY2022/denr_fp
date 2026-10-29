@@ -1,0 +1,12 @@
+/* Private registration review: keep PDF/JPG/PNG previews on the same page. */
+.registration-review-file-frame {
+  height: min(50vh, 520px);
+  min-height: 260px;
+  background: var(--bs-body-bg);
+}
+#registration-review-confirm-modal [data-review-fields] dd {
+  overflow-wrap: anywhere;
+}
+#registration-review-confirm-modal [data-review-preview-area] {
+  max-width: 100%;
+}
