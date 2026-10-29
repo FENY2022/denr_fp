@@ -407,11 +407,40 @@ function applicant_dashboard_requirements_html(bool $canSubmit): string
     return $html . '</div></section>';
 }
 
+/**
+ * Compose the applicant dashboard independently from the full My Registration page.
+ * The Annex 1 requirements are always the first panel; approved applicants
+ * see only a brief account-activation confirmation instead of registration records.
+ */
+function applicant_dashboard_content_html(string $status, string $registrationHtml): string
+{
+    $html = applicant_dashboard_requirements_html($status === 'active');
+    if ($status !== 'active') {
+        return $html . $registrationHtml;
+    }
+
+    return $html . '<section class="panel mt-4" aria-labelledby="applicant-activation-title">'
+        . '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">'
+        . '<h2 class="h5 m-0" id="applicant-activation-title">'
+        . '<i class="bi bi-patch-check-fill text-success me-2" aria-hidden="true"></i>'
+        . 'Account Activated</h2>' . status_badge('active') . '</div>'
+        . '<p class="text-secondary mb-3">Your account has been activated. '
+        . 'You may now submit Feasibility Permit applications for LPDD-FUS initial review. '
+        . 'Your complete registration record is still available under My Registration.</p>'
+        . '<a class="btn btn-outline-primary btn-sm" href="' . e(url('my_registration')) . '">'
+        . '<i class="bi bi-person-vcard me-1" aria-hidden="true"></i>'
+        . 'View My Registration</a></section>';
+}
+
 function view_applicant_registration(array $user, array $errors = [], bool $showDashboardChecklist = false): void
 {
     require_kind($user, 'applicant');
     $reg = registration_for_user((int)$user['id']);
     if (!$reg) show_error('Applicant registration data was not found.', 404);
+    if ($showDashboardChecklist && ($user['status'] ?? '') === 'active') {
+        render_page('Applicant Dashboard', applicant_dashboard_content_html('active', ''));
+        return;
+    }
     $latest = latest_review((int)$reg['id']);
     $html = '<div class="row g-4"><div class="col-lg-8"><div class="panel">' . errors_html($errors)
         . '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3"><h2 class="h5 m-0">Registration Details</h2>' . status_badge($user['status']) . '</div>'
@@ -442,7 +471,7 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
             . '<script src="assets/registration-attachments.js?v=7" defer></script>';
     }
     if ($showDashboardChecklist) {
-        $html .= applicant_dashboard_requirements_html(($user['status'] ?? '') === 'active');
+        $html = applicant_dashboard_content_html((string)($user['status'] ?? ''), $html);
     }
     render_page($showDashboardChecklist ? 'Applicant Dashboard' : 'My Registration', $html);
 }
