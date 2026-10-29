@@ -36,6 +36,10 @@ jobs:
         run: php tests/step2_domain_test.php
       - name: Step 2 schema compatibility checks
         run: php tests/step2_schema_check_test.php
+      - name: Validate FP supporting draft UI and path safety
+        run: php tests/step2_drafts_test.php
+      - name: JavaScript syntax check for FP supporting uploader
+        run: node --check public/assets/permit-step2-drafts.js
       - name: JavaScript syntax checks for review modals
         run: node --check public/assets/decision-confirm.js
       - name: Validate public Annex 1 FP requirements

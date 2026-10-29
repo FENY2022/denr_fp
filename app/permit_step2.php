@@ -193,15 +193,31 @@ function step2_submit(array $client, array $data, array $files, int $application
     }
     if (!step2_schema_ready()) return ['Step 2 tables are missing or inaccessible. Verify migration 014 and SELECT permissions.'];
     $errors = step2_validate_input($data);
-    $uploads = step2_uploads($files, $applicationId === 0);
-    $errors = array_merge($errors, $uploads['errors']);
+    // Preserve legacy direct upload only when the new draft migration is absent.
+    // When installed, only server-staged files can be submitted.
+    $draftMode = step2_drafts_schema_ready();
+    $uploads = $draftMode ? ['items'=>[], 'errors'=>[]]
+        : step2_uploads($files,$applicationId === 0);
+    $errors = array_merge($errors,$uploads['errors']);
+    if ($draftMode && $files) $errors[] = 'Use the secure Selected Files uploader.';
     if ($errors) return $errors;
 
     $pdo = db();
     $stored = [];
+    $draftRows = [];
+    $draftFilesToRemove = [];
+    $draftScope = $applicationId;
     try {
         $pdo->beginTransaction();
         $clientId = (int)$client['id'];
+        if ($draftMode) {
+            $staged = step2_draft_submission($clientId,$draftScope);
+            if ($staged['errors']) {
+                $pdo->rollBack();
+                return $staged['errors'];
+            }
+            $draftRows = $staged['rows'];
+        }
         $revision = 1;
         if ($applicationId !== 0) {
             $locked = query_one(
@@ -257,14 +273,60 @@ function step2_submit(array $client, array $data, array $files, int $application
                 $info['mime'],$info['size'],$hash
             ]);
         }
+        // Copies from validated staged files are part of this transaction.
+        // Originals are deleted only after a successful DB commit.
+        foreach ($draftRows as $draft) {
+            $source = step2_draft_real_path((string)$draft['stored_path']);
+            if ($source === null) throw new RuntimeException('A staged FP file is missing.');
+            $extension = [
+                'application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png'
+            ][(string)$draft['mime_type']] ?? null;
+            if ($extension === null) throw new RuntimeException('Unsupported saved FP file.');
+            $relative = 'fp_step2/'.$clientId.'/'.$applicationId.'/'
+                . bin2hex(random_bytes(18)).'.'.$extension;
+            $absolute = PROJECT_ROOT.'/storage/'.$relative;
+            if (!is_dir(dirname($absolute))
+                && !mkdir(dirname($absolute),0700,true) && !is_dir(dirname($absolute))) {
+                throw new RuntimeException('Could not create FP document directory.');
+            }
+            if (!copy($source,$absolute)) {
+                @unlink($absolute);
+                throw new RuntimeException('Could not copy saved FP file.');
+            }
+            $stored[] = $absolute;
+            @chmod($absolute,0600);
+            $digest = hash_file('sha256',$absolute);
+            if ($digest === false || !hash_equals((string)$draft['sha256'],$digest)) {
+                throw new RuntimeException('FP document integrity check failed.');
+            }
+            $pdo->prepare(
+                'INSERT INTO permit_step2_documents
+                    (application_id,client_id,revision,original_name,stored_path,mime_type,file_size,sha256)
+                 VALUES (?,?,?,?,?,?,?,?)'
+            )->execute([
+                $applicationId,$clientId,$revision,(string)$draft['original_name'],$relative,
+                (string)$draft['mime_type'],(int)$draft['file_size'],$digest
+            ]);
+            $draftFilesToRemove[] = $source;
+        }
+        if ($draftRows) {
+            $hash = step2_draft_hash(false);
+            if ($hash === null) throw new RuntimeException('Draft session expired.');
+            $pdo->prepare(
+                'DELETE FROM permit_step2_draft_documents
+                 WHERE client_id=? AND draft_hash=? AND application_id=?'
+            )->execute([$clientId,$hash,$draftScope]);
+        }
         $pdo->prepare(
             'INSERT INTO permit_step2_events
                 (application_id,actor_client_id,action,revision)
              VALUES (?,?,?,?)'
         )->execute([$applicationId,$clientId,$action,$revision]);
         audit_client($clientId, 'permit.step2.' . $action, 'permit_step2_application',
-            $applicationId, ['revision'=>$revision,'documents_added'=>count($uploads['items'])]);
+            $applicationId, ['revision'=>$revision,
+                'documents_added'=>count($uploads['items'])+count($draftRows)]);
         $pdo->commit();
+        foreach ($draftFilesToRemove as $source) @unlink($source);
 
         try {
             notify_role(

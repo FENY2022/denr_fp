@@ -137,6 +137,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $purpose = (string)($_POST['purpose'] ?? $app['purpose'] ?? '');
     $maxMb = round(max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880'))/1048576,1);
     $formUrl = url('permit_apply',$editing ? ['id'=>$applicationId] : []);
+    $draftMode = step2_drafts_schema_ready();
+    $savedDocs = $draftMode ? step2_draft_public_list((int)$client['id'],$applicationId) : [];
     $html = '<div class="mb-3"><a href="' . url('permit_applications')
         . '">← My FP Applications</a></div><div class="row g-3">'
         . '<div class="col-lg-8"><div class="panel">'
@@ -171,11 +173,23 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . 'maxlength="2000">' . e($purpose) . '</textarea></div>'
         . '<div class="mb-3"><label class="form-label" for="application_files">FP Supporting Documents '
         . ($editing ? '(optional additional files)' : '<span class="text-danger">*</span>') . '</label>'
-        . '<input class="form-control" type="file" id="application_files" name="application_files[]" '
-        . 'accept=".pdf,.jpg,.jpeg,.png" multiple ' . ($editing ? '' : 'required ') . '>'
+        . '<div' . ($draftMode
+            ? ' id="step2-draft-uploader" data-application-id="'.$applicationId
+                . '" data-max-bytes="'.max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880')).'"'
+            : '') . '>'
+        . '<input class="form-control" type="file" id="application_files" '
+        . ($draftMode ? '' : 'name="application_files[]" ')
+        . 'accept=".pdf,.jpg,.jpeg,.png" multiple '
+        . (!$editing && !$draftMode ? 'required ' : '') . '>'
         . '<div class="form-text">Up to 10 files per submission. PDF/JPG/PNG, maximum '
         . e((string)$maxMb) . ' MB each. Documents are saved privately outside the website. '
-        . 'The exact required file types must be agreed with LPDD-FUS.</div></div>'
+        . 'The exact required file types must be agreed with LPDD-FUS.</div>'
+        . ($draftMode
+            ? step2_draft_list_html($savedDocs)
+                . '<p class="small text-secondary mt-2" role="status" data-step2-feedback></p>'
+            : '<p class="small text-warning mt-2">Instant Selected Files uploads require '
+                . 'migration 015; standard upload is available until it is installed.</p>')
+        . '</div></div>'
         . '<button class="btn btn-primary" type="submit">'
         . ($editing ? 'Resubmit Corrections for Initial Review' : 'Submit to LPDD-FUS Initial Review')
         . '</button></form></div></div><div class="col-lg-4">'
@@ -189,6 +203,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     if ($docs) $html .= '<div class="panel mt-3"><h3 class="h6">Previously Uploaded Documents</h3>'
         . step2_documents_html($docs) . '</div>';
     $html .= '</div></div>';
+    if ($draftMode) $html .= '<script src="assets/permit-step2-drafts.js?v=1" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 

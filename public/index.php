@@ -217,6 +217,24 @@ try {
             if ($post) show_error('This page is read-only.',405);
             view_step2_applications();
             break;
+        case 'permit_draft_upload':
+        case 'permit_draft_delete':
+            $client = step2_require_applicant();
+            if (!$post) step2_draft_json(['error'=>'POST required.'],405);
+            check_csrf();
+            $scope = filter_var($_POST['application_id'] ?? 0,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>0]]);
+            if ($scope === false || $scope === null) {
+                step2_draft_json(['error'=>'Invalid FP application reference.'],400);
+            }
+            if ($page === 'permit_draft_upload') {
+                $result = step2_draft_upload($client,(int)$scope,$_FILES);
+            } else {
+                $draftId = filter_var($_POST['id'] ?? null,FILTER_VALIDATE_INT,
+                    ['options'=>['min_range'=>1]]) ?: 0;
+                $result = step2_draft_delete($client,(int)$scope,(int)$draftId);
+            }
+            step2_draft_json($result,isset($result['error']) ? 422 : 200);
         case 'permit_apply':
             $client = step2_require_applicant();
             $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
