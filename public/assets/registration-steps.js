@@ -43,6 +43,7 @@
       if (markerIndex === index) marker.setAttribute('aria-current', 'step');
       else marker.removeAttribute('aria-current');
     });
+    markers[index].scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
     if (scroll) progress.scrollIntoView({behavior:'smooth',block:'start'});
   }
 
@@ -75,6 +76,14 @@
       actions.append(previous);
     }
     if (index < steps.length - 1) {
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'btn btn-outline-secondary registration-step-clear';
+      clear.setAttribute('data-bs-toggle', 'modal');
+      clear.setAttribute('data-bs-target', '#clear-registration-modal');
+      clear.innerHTML = '<i class="bi bi-eraser me-1" aria-hidden="true"></i>Clear Form';
+      actions.append(clear);
+
       const next = document.createElement('button');
       next.type = 'button';
       next.className = 'btn btn-primary ms-auto';

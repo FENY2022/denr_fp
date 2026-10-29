@@ -457,25 +457,26 @@ body.page-loading{overflow:hidden}
 .registration-step-progress{
   position:relative;margin:0 0 1.75rem;padding:1rem 1.1rem;
   border:1px solid #dce8e0;border-radius:16px;background:#f8fbf9;
+  overflow-x:auto;scrollbar-width:thin;scrollbar-color:#a9c7b5 transparent;
 }
 .registration-step-progress ol{
-  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.55rem;
+  display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:.55rem;
   list-style:none;margin:0;padding:0;
 }
 .registration-step-progress li{
-  position:relative;display:flex;align-items:center;gap:.5rem;min-width:0;
-  color:#789084;font-size:.72rem;font-weight:700;
+  position:relative;display:flex;flex-direction:column;align-items:center;gap:.55rem;min-width:0;
+  color:#789084;font-size:.72rem;font-weight:700;text-align:center;
 }
 .registration-step-progress li:not(:last-child)::after{
-  content:"";position:absolute;z-index:0;left:calc(100% - .3rem);top:50%;
-  width:.85rem;height:2px;background:#d8e5dc;
+  content:"";position:absolute;z-index:0;left:calc(50% + 1rem);top:1rem;
+  width:calc(100% - 1.45rem);height:2px;background:#d8e5dc;
 }
 .registration-step-number{
   position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;
   width:2rem;height:2rem;flex:0 0 2rem;border:1px solid #cadbd0;border-radius:50%;
   background:#fff;color:#6f897b;font-size:.68rem;
 }
-.registration-step-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.registration-step-label{max-width:100%;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
 .registration-step-progress li.is-active{color:#08783f}
 .registration-step-progress li.is-active .registration-step-number{
   border-color:#08783f;background:#08783f;color:#fff;box-shadow:0 0 0 4px rgba(8,120,63,.1);
@@ -486,9 +487,10 @@ body.page-loading{overflow:hidden}
 [data-registration-step].is-active{animation:registration-step-enter .24s ease-out}
 [data-registration-step] > hr:first-child{display:none}
 .registration-step-actions{
-  display:flex;align-items:center;justify-content:space-between;gap:.75rem;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;
   margin-top:1.5rem;padding-top:1.1rem;border-top:1px solid #e3ebe6;
 }
+.registration-step-actions .registration-step-clear:first-child{margin-right:auto}
 .registration-step-actions:empty{display:none}
 @keyframes registration-step-enter{
   from{opacity:0;transform:translateY(7px)}
@@ -502,8 +504,8 @@ body.page-loading{overflow:hidden}
   .selected-file-card{gap:.45rem}
   .selected-file-name{font-size:.81rem}
   .registration-step-progress{padding:.8rem}
-  .registration-step-progress ol{gap:.35rem}
-  .registration-step-progress li{justify-content:center}
-  .registration-step-label{display:none}
-  .registration-step-progress li:not(:last-child)::after{left:calc(100% - .1rem);width:.55rem}
+  .registration-step-progress ol{min-width:650px;gap:.35rem}
+  .registration-step-progress li{font-size:.68rem}
+  .registration-step-progress li:not(:last-child)::after{width:calc(100% - 1.3rem)}
+  .registration-step-actions .btn{flex:1 1 auto}
 }

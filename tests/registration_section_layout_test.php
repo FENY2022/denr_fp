@@ -74,7 +74,7 @@ $views = (string)file_get_contents(__DIR__.'/../app/views.php');
 layout_assert(str_contains($views,"registration_section_heading_html(5,'Review and Submit Registration')"),
     'new registration has final review/submit divider');
 layout_assert(str_contains($views,'<section data-registration-step="5">')
-    && str_contains($views,'registration-steps.js?v=1'),
+    && str_contains($views,'registration-steps.js?v=3'),
     'new registration completes the five-step Previous/Next wizard');
 layout_assert(str_contains($views,"registration_section_heading_html(5,'Review and Resubmit Registration')"),
     'correction flow has final resubmit divider');
