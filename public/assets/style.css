@@ -442,6 +442,18 @@ body.page-loading{overflow:hidden}
 [data-file-name]{max-width:100%;overflow-wrap:anywhere;word-break:break-word}
 .selected-file-card.has-error .selected-file-status{color:#ad4a4a}
 .selected-files-empty{margin:.3rem 0 0;font-size:.78rem;color:#738b7e}
+
+/* Gently identify required registration fields until they are valid. */
+#applicant-registration-form .form-control:required:invalid,
+#applicant-registration-form .form-select:required:invalid{
+  border-color:#dfa6a6;
+  background-color:#fff7f7;
+}
+#applicant-registration-form .form-control:required:invalid:focus,
+#applicant-registration-form .form-select:required:invalid:focus{
+  border-color:#cf7777;
+  box-shadow:0 0 0 .2rem rgba(190,72,72,.12);
+}
 @media(max-width:575.98px){
   .registration-selected-files{padding:.85rem}
   .selected-file-card{gap:.45rem}
