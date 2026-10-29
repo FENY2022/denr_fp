@@ -45,7 +45,7 @@ foreach (['app/views.php', 'app/landing.php'] as $file) {
     if (!str_contains($source, 'rel="icon" type="image/png"')
         || !str_contains($source, 'fpoms-icon-512.png?v=24')
         || !str_contains($source, 'manifest.webmanifest?v=24')
-        || !str_contains($source, 'app-shell.js?v=21')) {
+        || !str_contains($source, 'app-shell.js?v=22')) {
         throw new RuntimeException('Favicon, manifest or JS version missing in ' . $file);
     }
 }

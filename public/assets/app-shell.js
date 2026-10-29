@@ -133,7 +133,8 @@
     if (target.origin !== window.location.origin) return;
     if (target.pathname === window.location.pathname && target.search === window.location.search && target.hash) return;
     const path = target.pathname.toLowerCase();
-    if (path.includes('/download-reg') || path.includes('/download_reg')) return;
+    if (path.includes('/download-reg') || path.includes('/download_reg')
+      || path.includes('/permit-document') || path.includes('/permit_document')) return;
     showPageLoader();
   }, true);
 
