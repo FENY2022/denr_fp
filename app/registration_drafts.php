@@ -78,12 +78,16 @@ function registration_draft_list_html(string $kind = 'id'): string
         . '<div class="selected-upload-queue" data-upload-queue></div>'
         . '<ul class="selected-file-list" data-draft-items>';
     foreach ($docs as $doc) {
+        $nameControl = $kind === 'supporting'
+            ? '<div class="d-flex align-items-center gap-2 flex-wrap"><input class="form-control form-control-sm selected-file-name flex-grow-1" type="text" data-draft-name '
+                . 'value="' . e($doc['original_name']) . '" maxlength="220" aria-label="Supporting document file name">'
+                . '<button class="btn btn-sm btn-outline-secondary" type="button" data-rename-draft>Save name</button></div>'
+            : '<strong class="selected-file-name">' . e($doc['original_name']) . '</strong>';
         $html .= '<li class="selected-file-card is-saved" data-draft-document data-draft-type="'
             . e($doc['document_type']) . '" data-draft-id="' . (int)$doc['id'] . '" data-draft-requirement="'
             . e((string)($doc['requirement_type'] ?? 'other')) . '">'
             . '<span class="selected-file-icon" aria-hidden="true"><i class="bi bi-file-earmark-text-fill"></i></span>'
-            . '<div class="selected-file-info"><strong class="selected-file-name">'
-            . e($doc['original_name']) . '</strong>'
+            . '<div class="selected-file-info">' . $nameControl
             . '<span class="selected-file-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> '
             . 'Saved — ready for submission · ' . e($doc['id_label']) . '</span></div>'
             . '<button class="selected-file-remove" type="button" data-remove-draft '
@@ -209,6 +213,33 @@ function registration_draft_delete(int $id): array
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('FP-OMS draft removal failure: '.$e->getMessage());
         return ['error'=>'Could not remove the saved attachment.'];
+    }
+}
+
+/** Rename only the user-visible label; the private randomized storage path never changes. */
+function registration_draft_rename(int $id, string $name): array
+{
+    $hash = registration_draft_hash(false);
+    $name = trim($name);
+    if ($hash === null || $id < 1) return ['error'=>'Saved attachment not found.'];
+    if ($name === '' || strlen($name) > 220 || preg_match('/[\x00-\x1F\x7F]/', $name)) {
+        return ['error'=>'Enter a file name between 1 and 220 characters.'];
+    }
+    $name = basename(str_replace('\\', '/', $name));
+    if ($name === '' || $name === '.' || $name === '..') return ['error'=>'Enter a valid file name.'];
+    try {
+        $document = query_one(
+            "SELECT id FROM registration_draft_documents
+             WHERE id=? AND draft_hash=? AND document_type='supporting_document' AND expires_at>NOW()",
+            [$id,$hash]
+        );
+        if (!$document) return ['error'=>'Saved supporting document not found.'];
+        db()->prepare('UPDATE registration_draft_documents SET original_name=? WHERE id=? AND draft_hash=?')
+            ->execute([$name,$id,$hash]);
+        return ['documents'=>registration_draft_public_list()];
+    } catch (Throwable $e) {
+        error_log('FP-OMS draft rename failure: '.$e->getMessage());
+        return ['error'=>'Could not update the supporting document name.'];
     }
 }
 

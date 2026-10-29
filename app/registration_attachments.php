@@ -256,7 +256,7 @@ function registration_supporting_upload_row(int $index, string $selected = 'othe
         . 'name="supporting_requirements[' . $suffix . ']" data-supporting-category>'
         . registration_requirement_options_html($selected) . '</select>'
         . '<label class="form-label" for="supporting_file_' . $suffix . '">Upload Document</label>'
-        . '<input class="form-control" type="file" id="supporting_file_' . $suffix . '" name="supporting_files[' . $suffix . ']" accept=".pdf,.jpg,.jpeg,.png" data-attachment-file>'
+        . '<input class="form-control" type="file" id="supporting_file_' . $suffix . '" name="supporting_files[' . $suffix . ']" accept=".pdf,.jpg,.jpeg,.png" data-attachment-file data-supporting-files>'
         . '<div class="form-text" data-file-name>No file selected</div></div>';
 }
 
@@ -281,7 +281,7 @@ function registration_attachment_form_fields(bool $new): string
         . '<p class="small text-secondary">Upload at least one government-issued ID for a new registration. Select the ID Type for each file. '
         . 'You may upload up to <strong>5 Valid IDs</strong> and <strong>10 supporting documents</strong>. '
         . 'PDF, JPG and PNG only; maximum ' . e((string)$maxMb) . ' MB per file. Files are stored securely outside the public web directory.</p>'
-        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-draft-mode="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="10" data-max-file-bytes="' . $maxBytes . '">'
+        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-draft-mode="' . ($new ? '1' : '0') . '" data-multiple-supporting="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="10" data-max-file-bytes="' . $maxBytes . '">'
         . '<h4 class="h6 mt-3 mb-2">Valid Identification Cards ' . ($new ? '<span class="text-danger">*</span>' : '(optional new uploads)') . '</h4>'
         . '<div id="valid-id-rows">';
     foreach ($ids as $index => $selected) {
@@ -296,7 +296,7 @@ function registration_attachment_form_fields(bool $new): string
         . '<h4 id="registration-supporting-document-upload" class="h6 mb-2">'
         . 'Supporting Documents (Category-based Requirements)</h4>'
         . '<p class="small text-secondary">Choose the appropriate category for each upload. '
-        . 'Use Add Supporting Document to upload multiple files per category.</p>'
+        . 'Select multiple files at once or use Add Supporting Document for another category. Saved file names can be edited below.</p>'
         . '<div id="registration-requirements-info" class="alert alert-info" '
         . 'data-registration-requirements-info aria-live="polite">'
         . 'For corporations, cooperatives and associations, upload a certified true copy '

@@ -32,6 +32,10 @@
   const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
   let pendingUploads = 0;
 
+  if (root.dataset.multipleSupporting === '1') {
+    root.querySelectorAll('[data-supporting-files]').forEach(input => { input.multiple = true; });
+  }
+
   function rows(kind) {
     return [...(containers[kind]?.querySelectorAll('[data-attachment-row]') || [])];
   }
@@ -48,15 +52,18 @@
     feedback.classList.toggle('text-secondary', !invalid);
   }
 
-  function checkFile(input) {
-    const file = input.files?.[0];
+  function checkFile(input, selectedFile = null) {
+    const files = [...(input.files || [])];
+    const file = selectedFile || files[0];
     const status = input.closest('[data-attachment-row]')?.querySelector('[data-file-name]');
     input.setCustomValidity('');
     if (!file) {
       if (status) status.textContent = 'No file selected';
       return;
     }
-    if (status) status.textContent = file.name + ' (' + (file.size / 1048576).toFixed(2) + ' MB)';
+    if (status) status.textContent = files.length > 1 && !selectedFile
+      ? files.length + ' files selected'
+      : file.name + ' (' + (file.size / 1048576).toFixed(2) + ' MB)';
     const extension = file.name.split('.').pop()?.toLowerCase();
     if (!allowedExtensions.includes(extension)) {
       input.setCustomValidity('Only PDF, JPG and PNG files are allowed.');
@@ -129,7 +136,7 @@
     row.querySelector('select,input')?.focus();
   }
 
-  function selectedFileCard({ id = null, name, type = '', status = '', percent = 0, isSaved = false }) {
+  function selectedFileCard({ id = null, name, type = '', status = '', percent = 0, isSaved = false, editable = false }) {
     const card = document.createElement('li');
     card.className = 'selected-file-card ' + (isSaved ? 'is-saved' : 'is-uploading');
     if (id !== null) {
@@ -146,13 +153,34 @@
 
     const text = document.createElement('div');
     text.className = 'selected-file-info';
-    const filename = document.createElement('strong');
-    filename.className = 'selected-file-name';
-    filename.textContent = name;
+    let filename;
+    if (editable) {
+      const nameRow = document.createElement('div');
+      nameRow.className = 'd-flex align-items-center gap-2 flex-wrap';
+      filename = document.createElement('input');
+      filename.type = 'text';
+      filename.className = 'form-control form-control-sm selected-file-name flex-grow-1';
+      filename.value = name;
+      filename.maxLength = 220;
+      filename.dataset.draftName = '';
+      filename.setAttribute('aria-label', 'Supporting document file name');
+      const saveName = document.createElement('button');
+      saveName.type = 'button';
+      saveName.className = 'btn btn-sm btn-outline-secondary';
+      saveName.dataset.renameDraft = '';
+      saveName.textContent = 'Save name';
+      nameRow.append(filename, saveName);
+      text.append(nameRow);
+    } else {
+      filename = document.createElement('strong');
+      filename.className = 'selected-file-name';
+      filename.textContent = name;
+      text.append(filename);
+    }
     const message = document.createElement('span');
     message.className = 'selected-file-status';
     message.textContent = status;
-    text.append(filename, message);
+    text.append(message);
 
     const close = document.createElement('button');
     close.type = 'button';
@@ -224,7 +252,8 @@
           type: doc.document_type,
           status: 'Saved — ready for submission · ' + (doc.id_label || 'Attachment'),
           percent: 100,
-          isSaved: true
+          isSaved: true,
+          editable: kind === 'supporting'
         });
         item.card.dataset.draftRequirement = String(doc.requirement_type || 'other');
         list.append(item.card);
@@ -272,12 +301,12 @@
     return result;
   }
 
-  async function stageFile(kind, row) {
+  async function stageFile(kind, row, selectedFile = null) {
     if (!draftMode || !savedListFor(kind) || !csrf || row.dataset.uploading === '1') return;
     const input = row.querySelector('[data-attachment-file]');
-    const selected = input?.files?.[0];
+    const selected = selectedFile || input?.files?.[0];
     if (!input || !selected) return;
-    checkFile(input);
+    checkFile(input, selected);
     if (!input.checkValidity()) {
       input.reportValidity();
       return;
@@ -323,7 +352,6 @@
           ? 'Uploading… ' + percent + '%'
           : 'Finishing secure upload…';
       });
-      input.value = '';
       progress.bar.value = 100;
       progress.message.textContent = 'Saved — ready for submission';
       progress.card.classList.remove('is-uploading');
@@ -344,11 +372,68 @@
     }
   }
 
+  async function stageSelectedFiles(kind, row) {
+    const input = row.querySelector('[data-attachment-file]');
+    const selected = [...(input?.files || [])];
+    if (!input || selected.length === 0) return;
+    const available = limit[kind] - savedCount(kind);
+    if (selected.length > available) {
+      input.value = '';
+      refresh();
+      setFeedback('You can add only ' + available + ' more supporting document' + (available === 1 ? '' : 's') + '.', true);
+      return;
+    }
+    for (const file of selected) {
+      checkFile(input, file);
+      if (!input.checkValidity()) {
+        input.reportValidity();
+        return;
+      }
+    }
+    checkFile(input);
+    for (const file of selected) await stageFile(kind, row, file);
+    input.value = '';
+    refresh();
+  }
+
   if (draftMode) {
     for (const kind of ['id', 'supporting']) {
       const savedList = savedListFor(kind);
       if (!savedList) continue;
+      savedList.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || !event.target.matches('[data-draft-name]')) return;
+        event.preventDefault();
+        event.target.closest('[data-draft-document]')?.querySelector('[data-rename-draft]')?.click();
+      });
       savedList.addEventListener('click', async event => {
+        const rename = event.target.closest('[data-rename-draft]');
+        if (rename) {
+          const row = rename.closest('[data-draft-document]');
+          const input = row?.querySelector('[data-draft-name]');
+          const id = Number(row?.dataset.draftId);
+          if (!row || !input || !Number.isSafeInteger(id) || id < 1 || pendingUploads > 0) return;
+          const name = input.value.trim();
+          if (!name) {
+            input.setCustomValidity('Enter a file name.');
+            input.reportValidity();
+            return;
+          }
+          input.setCustomValidity('');
+          const data = new FormData();
+          data.set('csrf_token', csrf);
+          data.set('id', String(id));
+          data.set('name', name);
+          rename.disabled = true;
+          try {
+            const result = await postDraft('register-draft-rename', data);
+            renderDrafts(result.documents);
+            setFeedback('Supporting document name updated.');
+          } catch (error) {
+            rename.disabled = false;
+            setFeedback(error.message || 'Could not update the file name.', true);
+          }
+          return;
+        }
         const button = event.target.closest('[data-remove-draft]');
         const row = button?.closest('[data-draft-document]');
         if (!button || !row || !csrf || pendingUploads > 0) return;
@@ -390,7 +475,7 @@
         const row = event.target.closest('[data-attachment-row]');
         if (row) {
           if (event.target.matches('[data-attachment-file]')) clearWaitingForIdType(row);
-          void stageFile(kind, row);
+          void stageSelectedFiles(kind, row);
         }
       }
     });

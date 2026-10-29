@@ -142,6 +142,13 @@ try {
             $draftId = filter_var($_POST['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
             $result = registration_draft_delete((int)$draftId);
             registration_draft_json($result, isset($result['error']) ? 422 : 200);
+        case 'register_draft_rename':
+            if (!$post) registration_draft_json(['error'=>'Rename requires POST.'],405);
+            if ($loggedIn) registration_draft_json(['error'=>'Sign out before registering.'],403);
+            check_csrf();
+            $draftId = filter_var($_POST['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
+            $result = registration_draft_rename((int)$draftId,(string)($_POST['name'] ?? ''));
+            registration_draft_json($result, isset($result['error']) ? 422 : 200);
         case 'register_draft_clear':
             if (!$post) registration_draft_json(['error'=>'Clear requires POST.'],405);
             if ($loggedIn) registration_draft_json(['error'=>'Sign out before registering.'],403);

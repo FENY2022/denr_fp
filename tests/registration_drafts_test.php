@@ -70,8 +70,9 @@ assert_draft(str_contains($draftSource, 'registration_draft_consume'),
     'Successful registration cleans up staged originals');
 assert_draft(str_contains($router, "case 'register_draft_upload':")
     && str_contains($router, "case 'register_draft_delete':")
+    && str_contains($router, "case 'register_draft_rename':")
     && str_contains($router, "case 'register_draft_clear':"),
-    'Draft upload, deletion and clear routes are present');
+    'Draft upload, rename, deletion and clear routes are present');
 assert_draft(str_contains($js, 'savedList') && str_contains($js, 'postDraft(') && str_contains($js, 'uploadWithProgress('),
     'Browser stages files immediately and shows server-backed list');
 assert_draft(str_contains($js, "xhr.upload.addEventListener('progress'")
@@ -79,6 +80,13 @@ assert_draft(str_contains($js, "xhr.upload.addEventListener('progress'")
     'Selected Files cards display real browser upload progress');
 assert_draft(str_contains($js, 'remove-draft') && str_contains($js, 'Saved — ready for submission'),
     'Saved uploads are visibly confirmed and removable');
+assert_draft(str_contains($js, 'input.multiple = true')
+    && str_contains($js, 'stageSelectedFiles(kind, row)')
+    && str_contains($js, "postDraft('register-draft-rename'"),
+    'Supporting documents support multi-select and editable saved names');
+assert_draft(str_contains($draftSource, 'function registration_draft_rename')
+    && str_contains($draftSource, "document_type='supporting_document'"),
+    'Server-side rename is restricted to session-owned supporting documents');
 assert_draft(str_contains($js, 'showWaitingForIdType(row, selected)')
     && str_contains($js, 'clearWaitingForIdType(row)')
     && str_contains($js, 'Waiting for ID Type'),

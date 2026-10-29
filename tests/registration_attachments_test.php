@@ -105,6 +105,10 @@ assertion(str_contains($markup, 'name="supporting_requirements[0]"'),
     'Supporting upload category is editable');
 assertion(str_contains($markup, 'data-max-supporting="10"'),
     'Supporting files may contain ten uploads');
+assertion(str_contains($markup, 'data-multiple-supporting="1"'),
+    'Public registration enables multiple supporting-file selection');
+assertion(str_contains($markup, 'Saved file names can be edited below'),
+    'Supporting upload explains editable file names');
 
 $corp = registration_attachment_batch(
     ['id_types'=>[0=>'passport'],
