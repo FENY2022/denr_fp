@@ -133,8 +133,10 @@ function view_landing(): void
         . '<meta name="description" content="DENR Caraga Region XIII Feasibility Permit Online Management System">'
         . '<meta name="theme-color" content="#075c32">'
         . '<title>Feasibility Permit Online Management System | DENR Caraga</title>'
-        . '<link rel="icon" href="assets/fpoms-icon.svg" type="image/svg+xml">'
-        . '<link rel="manifest" href="manifest.webmanifest">'
+        . '<link rel="icon" type="image/png" sizes="192x192" href="assets/fpoms-icon-192.png?v=23">'
+        . '<link rel="icon" type="image/png" sizes="512x512" href="assets/fpoms-icon-512.png?v=23">'
+        . '<link rel="apple-touch-icon" sizes="192x192" href="assets/fpoms-icon-192.png?v=23">'
+        . '<link rel="manifest" href="manifest.webmanifest?v=23">'
         . '<link rel="preconnect" href="https://fonts.googleapis.com">'
         . '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
@@ -142,11 +144,11 @@ function view_landing(): void
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css" rel="stylesheet">'
         . '<link href="assets/landing.css?v=4" rel="stylesheet">'
-        . '<script src="assets/app-shell.js" defer></script></head><body class="landing-body">';
+        . '<script src="assets/app-shell.js?v=20" defer></script></head><body class="landing-body">';
 
     echo '<nav class="navbar navbar-expand-lg landing-nav sticky-top"><div class="container-xl">'
         . '<a class="navbar-brand landing-brand" href="' . e(url('landing')) . '">'
-        . '<span class="landing-brand-mark"><img src="assets/fpoms-icon.svg" alt="DENR FP-OMS"></span>'
+        . '<span class="landing-brand-mark"><img src="assets/fpoms-icon-192.png?v=23" alt="DENR FP-OMS"></span>'
         . '<span><strong>DENR FP-OMS</strong><small>Caraga Region XIII</small></span></a>'
         . '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#landingNav" aria-controls="landingNav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>'
         . '<div class="collapse navbar-collapse" id="landingNav"><ul class="navbar-nav ms-auto align-items-lg-center gap-lg-1">'
@@ -169,7 +171,7 @@ function view_landing(): void
         . '<div class="hero-actions"><a class="btn btn-hero-primary btn-lg" href="' . e($primaryHref) . '"><i class="bi bi-file-earmark-check me-2"></i>' . e($primaryLabel) . '</a>'
         . '<a class="btn btn-hero-secondary btn-lg" href="' . e($secondaryHref) . '"><i class="bi bi-box-arrow-in-right me-2"></i>' . e($secondaryLabel) . '</a></div>'
         . '<div class="hero-trust"><span><i class="bi bi-shield-check"></i> Role-based access</span><span><i class="bi bi-clock-history"></i> Application tracking</span><span><i class="bi bi-file-earmark-lock"></i> Controlled records</span></div></div>'
-        . '<div class="col-lg-5"><div class="hero-visual"><div class="hero-visual-head"><span class="hero-mini-logo"><img src="assets/fpoms-icon.svg" alt=""></span><div><strong>DENR FP-OMS</strong><small>Permit Processing Workspace</small></div><span class="status-live"><i class="bi bi-circle-fill"></i> Online</span></div>'
+        . '<div class="col-lg-5"><div class="hero-visual"><div class="hero-visual-head"><span class="hero-mini-logo"><img src="assets/fpoms-icon-192.png?v=23" alt=""></span><div><strong>DENR FP-OMS</strong><small>Permit Processing Workspace</small></div><span class="status-live"><i class="bi bi-circle-fill"></i> Online</span></div>'
         . '<div class="hero-progress-card"><div class="hero-progress-title"><span>Permit Processing Flow</span><span>Digital</span></div>'
         . '<div class="flow-line"><span class="flow-dot active"><i class="bi bi-person-plus"></i></span><div><strong>Applicant Registration</strong><small>Create and validate account</small></div></div>'
         . '<div class="flow-line"><span class="flow-dot active"><i class="bi bi-files"></i></span><div><strong>Document Review</strong><small>Check completeness and sufficiency</small></div></div>'
@@ -228,7 +230,7 @@ function view_landing(): void
         . '<div class="cta-actions"><a class="btn btn-light btn-lg" href="' . e($primaryHref) . '">' . e($primaryLabel) . ' <i class="bi bi-arrow-right ms-1"></i></a>'
         . (!$isLoggedIn ? '<a class="btn btn-outline-light btn-lg" href="' . e(url('login')) . '">Existing user? Sign in</a>' : '') . '</div></div></div></section></main>';
 
-    echo '<footer class="landing-footer" id="contact"><div class="container-xl"><div class="row g-4"><div class="col-lg-5"><div class="footer-brand"><span class="landing-brand-mark"><img src="assets/fpoms-icon.svg" alt=""></span><div><strong>' . $appName . '</strong><small>Feasibility Permit Online Management System</small></div></div><p>Department of Environment and Natural Resources<br>Caraga Region XIII</p></div>'
+    echo '<footer class="landing-footer" id="contact"><div class="container-xl"><div class="row g-4"><div class="col-lg-5"><div class="footer-brand"><span class="landing-brand-mark"><img src="assets/fpoms-icon-192.png?v=23" alt=""></span><div><strong>' . $appName . '</strong><small>Feasibility Permit Online Management System</small></div></div><p>Department of Environment and Natural Resources<br>Caraga Region XIII</p></div>'
         . '<div class="col-sm-6 col-lg-3"><h3>Office</h3><p>DENR-XIII<br>Ambago, Butuan City, Philippines</p></div>'
         . '<div class="col-sm-6 col-lg-4"><h3>Contact</h3><p><i class="bi bi-telephone me-2"></i>0981-017-3551<br><i class="bi bi-envelope me-2"></i>r13@denr.gov.ph</p></div></div>'
         . '<div class="footer-bottom"><span>&copy; ' . date('Y') . ' DENR Caraga Region XIII. All rights reserved.</span><span>FP-OMS · Digital Permit Processing</span></div></div></footer>';

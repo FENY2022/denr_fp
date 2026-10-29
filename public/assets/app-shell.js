@@ -95,7 +95,7 @@
   loader.className = 'page-loader';
   loader.setAttribute('aria-hidden', 'true');
   loader.innerHTML = '<div class="page-loader-panel" role="status" aria-live="polite">'
-    + '<img class="page-loader-logo" src="assets/fpoms-icon.svg" alt="">'
+    + '<img class="page-loader-logo" src="assets/fpoms-icon-192.png?v=23" alt="">'
     + '<div class="page-loader-brand">DENR FP-OMS</div>'
     + '<div class="page-loader-subtitle">Feasibility Permit Online Management System</div>'
     + '<span class="page-loader-spinner" aria-hidden="true"></span>'

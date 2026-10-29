@@ -42,3 +42,5 @@ jobs:
         run: php tests/landing_requirements_test.php
       - name: Validate applicant dashboard Annex 1 checklist
         run: php tests/applicant_dashboard_requirements_test.php
+      - name: Validate PNG branding and PWA icon references
+        run: php tests/branding_icons_test.php
