@@ -641,51 +641,132 @@ function view_review_queue(): void
 function view_review_case(int $id, array $errors = []): void
 {
     require_role('lpdd_fus');
-    $reg = query_one('SELECT ar.*,u.email,u.status,u.activated_at FROM applicant_registrations ar JOIN user_client u ON u.id=ar.client_id WHERE ar.id=?',[$id]);
+    $reg = query_one('SELECT ar.*,u.email,u.status,u.activated_at,u.email_verified_at FROM applicant_registrations ar JOIN user_client u ON u.id=ar.client_id WHERE ar.id=?',[$id]);
     if (!$reg) show_error('Registration not found.', 404);
     $docs = registration_documents($id);
     $history = query_all('SELECT rr.*,u.name AS reviewer FROM registration_reviews rr JOIN users u ON u.id=rr.reviewer_user_id WHERE rr.registration_id=? ORDER BY rr.id DESC',[$id]);
-    $idCount = count(array_filter($docs, static fn(array $doc): bool => ($doc['document_type'] ?? '') === 'valid_id'));
-    $supportingCount = count($docs) - $idCount;
-    $organization = registration_organization_types()[(string)($reg['organization_type'] ?? 'individual')]
-        ?? 'Individual / Sole Proprietorship';
+    $revision = (int)$reg['revision'];
+    $organizationKey = (string)($reg['organization_type'] ?? 'individual');
+    $organization = registration_organization_types()[$organizationKey]
+        ?? ('Unknown organization type: ' . $organizationKey);
+    $currentDocuments = array_values(array_filter($docs,
+        static fn(array $d): bool => (int)($d['revision'] ?? 0) === $revision));
+    $previousDocuments = array_values(array_filter($docs,
+        static fn(array $d): bool => (int)($d['revision'] ?? 0) !== $revision));
+    $currentSupporting = array_values(array_filter($currentDocuments,
+        static fn(array $d): bool => ($d['document_type'] ?? '') === 'supporting_document'));
+    $previousSupporting = array_values(array_filter($previousDocuments,
+        static fn(array $d): bool => ($d['document_type'] ?? '') === 'supporting_document'));
+    $currentIds = array_values(array_filter($currentDocuments,
+        static fn(array $d): bool => ($d['document_type'] ?? '') === 'valid_id'));
+    $previousIds = array_values(array_filter($previousDocuments,
+        static fn(array $d): bool => ($d['document_type'] ?? '') === 'valid_id'));
+    $verifiedAt = isset($reg['email_verified_at']) && (string)$reg['email_verified_at'] !== ''
+        ? (string)$reg['email_verified_at'] : null;
 
-    $html = '<div class="reviewer-case-page"><a class="reviewer-case-back" href="' . e(url('review_queue')) . '">'
+    $html = '<div class="reviewer-case-page"><a class="reviewer-case-back" href="'
+        . e(url('review_queue')) . '">'
         . '<i class="bi bi-arrow-left" aria-hidden="true"></i>Back to review queue</a>'
-        . '<header class="reviewer-case-hero"><div><span class="reviewer-case-eyebrow">Account Registration Review</span>'
-        . '<h1>' . e((string)$reg['representative_name']) . '</h1>'
-        . '<p><i class="bi bi-building me-2" aria-hidden="true"></i>' . e((string)$reg['company_name']) . '</p></div>'
+        . '<header class="reviewer-case-hero"><div><span class="reviewer-case-eyebrow">'
+        . 'Account Registration Review</span><h1>'
+        . e((string)$reg['representative_name']) . '</h1>'
+        . '<p><i class="bi bi-building me-2" aria-hidden="true"></i>'
+        . e((string)$reg['company_name']) . '</p></div>'
         . '<div class="reviewer-case-hero-status">' . status_badge((string)$reg['status'])
         . '<span>Registration #' . (int)$reg['id'] . '</span></div>'
         . '<div class="reviewer-case-stats">'
-        . '<div><span>Revision</span><strong>' . (int)$reg['revision'] . '</strong></div>'
-        . '<div><span>Valid IDs</span><strong>' . $idCount . '</strong></div>'
-        . '<div><span>Supporting Files</span><strong>' . $supportingCount . '</strong></div>'
-        . '<div><span>Submitted</span><strong class="reviewer-stat-date">' . e((string)$reg['submitted_at']) . '</strong></div>'
+        . '<div><span>Current Revision</span><strong>' . $revision . '</strong></div>'
+        . '<div><span>Current Submission Files</span><strong>'
+        . count($currentDocuments) . '</strong></div>'
+        . '<div><span>Earlier Revision Files</span><strong>'
+        . count($previousDocuments) . '</strong></div>'
+        . '<div><span>Latest Submitted</span><strong class="reviewer-stat-date">'
+        . e((string)$reg['submitted_at']) . '</strong></div>'
         . '</div></header>' . errors_html($errors)
         . '<div class="row g-4 align-items-start"><div class="col-xl-8">'
-        . '<section class="panel reviewer-case-panel" aria-labelledby="reviewer-applicant-title">'
-        . '<div class="reviewer-section-heading"><div><span class="reviewer-section-kicker">Registration profile</span>'
-        . '<h2 class="h5 m-0" id="reviewer-applicant-title">Applicant and Organization Information</h2></div>'
-        . '<i class="bi bi-person-vcard" aria-hidden="true"></i></div>'
+
+        . '<section class="panel reviewer-case-panel" data-reviewer-step="1" '
+        . 'aria-label="Applicant / Organization Type">'
+        . registration_section_heading_html(1,'Applicant / Organization Type')
+        . '<div class="border rounded-3 p-3 bg-body-tertiary">'
+        . '<p class="small text-secondary mb-1">Selected by Applicant</p>'
+        . '<strong class="text-break" data-reviewer-organization-type>'
+        . e($organization) . '</strong>'
+        . '<p class="small text-secondary mb-0 mt-2">Read-only value from the submitted '
+        . 'registration. LPDD-FUS cannot change the applicant type here.</p>'
+        . '</div></section>'
+
+        . '<section class="panel reviewer-case-panel mt-4" data-reviewer-step="2" '
+        . 'aria-label="Documentary Requirements by Applicant Type">'
+        . registration_section_heading_html(2,'Documentary Requirements by Applicant Type')
+        . registration_reviewer_requirement_guide_html($organizationKey)
+        . registration_reviewer_requirements_html($organizationKey,$docs)
+        . '<h4 class="h6 mt-4 mb-2">Supporting Documents — Current Submission '
+        . '<span class="badge text-bg-light">' . count($currentSupporting) . '</span></h4>'
+        . '<p class="small text-secondary">Files submitted in the current revision. '
+        . 'Preview and Download show the original, saved file.</p>'
+        . registration_reviewer_documents_html($currentSupporting,'supporting_document',
+            false,'current',$revision);
+    if ($previousSupporting) {
+        $html .= '<details class="border rounded-3 p-3 mt-3" '
+            . 'data-reviewer-previous-supporting>'
+            . '<summary class="fw-semibold">Previous Supporting Documents ('
+            . count($previousSupporting) . ')</summary>'
+            . '<p class="small text-secondary mt-2">Earlier immutable submissions '
+            . 'remain available for reference and audit.</p>'
+            . registration_reviewer_documents_html($previousSupporting,'supporting_document',
+                false,'previous',$revision)
+            . '</details>';
+    }
+    $html .= '</section>'
+
+        . '<section class="panel reviewer-case-panel mt-4" data-reviewer-step="3" '
+        . 'aria-label="Applicant Information">'
+        . registration_section_heading_html(3,'Applicant Information')
         . '<div class="reviewer-info-grid">'
-        . '<div><span>Applicant</span><strong>' . e((string)$reg['representative_name']) . '</strong></div>'
-        . '<div><span>Position / Designation</span><strong>' . e((string)($reg['representative_position'] ?: 'Not provided')) . '</strong></div>'
-        . '<div><span>Email Address</span><a href="mailto:' . e((string)$reg['email']) . '">' . e((string)$reg['email']) . '</a></div>'
-        . '<div><span>Contact Number</span><strong>' . e((string)$reg['contact_number']) . '</strong></div>'
-        . '<div><span>Organization</span><strong>' . e((string)$reg['company_name']) . '</strong></div>'
-        . '<div><span>Organization Type</span><strong>' . e($organization) . '</strong></div>'
+        . '<div><span>Applicant Full Name</span><strong>'
+        . e((string)$reg['representative_name']) . '</strong></div>'
+        . '<div><span>Position / Designation</span><strong>'
+        . e((string)($reg['representative_position'] ?: 'Not provided')) . '</strong></div>'
+        . '<div><span>Email for Login</span><a href="mailto:'
+        . e((string)$reg['email']) . '">' . e((string)$reg['email']) . '</a></div>'
+        . '<div><span>Email Verification</span><strong>'
+        . ($verifiedAt !== null
+            ? '<span class="text-success">Verified — ' . e($verifiedAt) . '</span>'
+            : '<span class="text-warning-emphasis">Not Yet Verified</span>') . '</strong></div>'
+        . '<div><span>Contact Number</span><strong>'
+        . e((string)$reg['contact_number']) . '</strong></div>'
+        . '<div><span>Company / Agency / Organization Name</span><strong>'
+        . e((string)$reg['company_name']) . '</strong></div>'
         . '<div class="reviewer-info-wide"><span>Company / Agency Address</span><strong>'
-        . nl2br(e((string)$reg['company_address'])) . '</strong></div></div></section>'
-        . '<section class="panel reviewer-case-panel mt-4" aria-labelledby="reviewer-documents-title">'
-        . '<div class="reviewer-section-heading"><div><span class="reviewer-section-kicker">Client uploads</span>'
-        . '<h2 class="h5 m-0" id="reviewer-documents-title">Registration Documents</h2></div>'
-        . '<span class="badge rounded-pill text-bg-success">' . count($docs) . ' files</span></div>'
-        . '<p class="text-secondary small">Review every Valid ID and supporting document submitted by the client. '
-        . 'Earlier revisions remain visible for audit history.</p>'
-        . registration_reviewer_requirements_html(
-            (string)($reg['organization_type'] ?? 'individual'),$docs)
-        . registration_reviewer_documents_html($docs) . '</section></div>'
+        . nl2br(e((string)$reg['company_address'])) . '</strong></div></div>'
+        . '<p class="small text-secondary mt-3 mb-0">Passwords and credentials '
+        . 'are never displayed to LPDD-FUS.</p></section>'
+
+        . '<section class="panel reviewer-case-panel mt-4" data-reviewer-step="4" '
+        . 'aria-label="Valid Identification Cards">'
+        . registration_section_heading_html(4,'Valid Identification Cards')
+        . '<h4 class="h6 mb-2">Valid IDs — Current Submission '
+        . '<span class="badge text-bg-light">' . count($currentIds) . '</span></h4>'
+        . registration_reviewer_documents_html($currentIds,'valid_id',false,'current',$revision);
+    if ($previousIds) {
+        $html .= '<details class="border rounded-3 p-3 mt-3" data-reviewer-previous-ids>'
+            . '<summary class="fw-semibold">Previous Valid Identification Cards ('
+            . count($previousIds) . ')</summary>'
+            . '<p class="small text-secondary mt-2">Earlier uploaded IDs are retained '
+            . 'in the registration history.</p>'
+            . registration_reviewer_documents_html($previousIds,'valid_id',false,'previous',$revision)
+            . '</details>';
+    }
+    $html .= registration_reviewer_document_modal_html()
+        . '</section>'
+
+        . '<section class="panel reviewer-case-panel mt-4" data-reviewer-step="5" '
+        . 'aria-label="Registration Verification Summary">'
+        . registration_section_heading_html(5,'Registration Verification Summary')
+        . registration_reviewer_verification_summary_html(
+            $organizationKey,$docs,$revision,$verifiedAt,(string)$reg['status'])
+        . '</section></div>'
         . '<div class="col-xl-4"><div class="panel soft reviewer-decision-panel"><div class="reviewer-section-heading mb-3">'
         . '<div><span class="reviewer-section-kicker">Reviewer action</span><h2 class="h5 m-0">LPDD-FUS Decision</h2></div>'
         . '<i class="bi bi-clipboard-check" aria-hidden="true"></i></div>';

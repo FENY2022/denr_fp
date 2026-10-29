@@ -36,6 +36,8 @@ jobs:
         run: php tests/registration_requirements_test.php
       - name: Client uploads matched to LPDD-FUS review
         run: php tests/registration_reviewer_uploads_test.php
+      - name: LPDD-FUS mirrored five-section reviewer layout
+        run: php tests/registration_reviewer_layout_test.php
       - name: Reviewer document preview JavaScript syntax
         run: node --check public/assets/registration-document-preview.js
       - name: Registration document Previous/Next, counter and download behavior

@@ -31,6 +31,7 @@ jobs:
           php tests/domain_test.php
           php tests/registration_attachments_test.php
           php tests/registration_reviewer_uploads_test.php
+          php tests/registration_reviewer_layout_test.php
           node --check public/assets/registration-document-preview.js
           node tests/registration_document_navigation_test.js
           php tests/registration_requirements_test.php

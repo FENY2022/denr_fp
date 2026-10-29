@@ -101,8 +101,11 @@ $uploader=(string)file_get_contents(__DIR__.'/../public/assets/registration-atta
 $guide=(string)file_get_contents(__DIR__.'/../public/assets/registration-requirements.js');
 $preview=(string)file_get_contents(__DIR__.'/../public/assets/registration-document-preview.js');
 review_assert(str_contains($views,'registration_reviewer_requirements_html(')
-    && str_contains($views,'registration_reviewer_documents_html($docs)'),
-    'review page draws checklist and documents from same permanent record list');
+    && str_contains($views,'registration_reviewer_documents_html($currentSupporting')
+    && str_contains($views,'registration_reviewer_documents_html($currentIds')
+    && str_contains($views,'registration_reviewer_documents_html($previousSupporting')
+    && str_contains($views,'registration_reviewer_documents_html($previousIds'),
+    'review page lists Supporting Documents and Valid IDs separately by revision');
 review_assert(str_contains($registration,'SELECT * FROM registration_documents WHERE registration_id=?')
     && str_contains($registration,'$attachment[\'requirement_type\']'),
     'permanent submitted docs are queried by registration and category is stored');

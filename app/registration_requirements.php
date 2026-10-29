@@ -90,6 +90,59 @@ function registration_requirement_guide_html(): string
         . '</section>';
 }
 
+
+/**
+ * Read-only version of the public applicant-type requirements cards.
+ * Labels and document requirements come from the same definitions used by /register.
+ */
+function registration_reviewer_requirement_guide_html(string $selected): string
+{
+    $labels = registration_organization_types();
+    $current = $labels[$selected] ?? 'Unknown organization type';
+    $rows = [
+        'corporation' => [
+            'For Corporations, Cooperatives and Associations',
+            registration_required_categories('corporation')
+        ],
+        'government' => [
+            'For National Government Agencies, GOCCs and Government Instrumentalities',
+            registration_required_categories('government')
+        ],
+        'individual' => [
+            'For Individual / Sole Proprietorship',
+            []
+        ],
+    ];
+    $html = '<div class="mb-3" data-reviewer-organization-requirements>'
+        . '<h3 class="h6 text-success mb-2">Documentary Requirements by Applicant Type</h3>'
+        . '<p class="small text-secondary">These are the same rules displayed on the '
+        . 'client registration form. The highlighted group is based on the '
+        . 'saved Applicant / Organization Type.</p>'
+        . '<div class="row g-3">';
+    foreach ($rows as $type => [$title, $categories]) {
+        $active = $type === $selected;
+        $html .= '<div class="col-md-6"><div class="border rounded-3 p-3 h-100'
+            . ($active ? ' border-success bg-success-subtle' : '') . '" '
+            . 'data-reviewer-requirement-type="' . e($type) . '">'
+            . '<h4 class="h6 mb-2">' . e($title)
+            . ($active ? ' <span class="badge text-bg-success">Selected Type</span>' : '')
+            . '</h4>';
+        if ($categories) {
+            $html .= '<ol class="small ps-3 mb-0" type="a">';
+            foreach ($categories as $category) {
+                $html .= '<li>' . e(registration_requirement_label($category)) . '</li>';
+            }
+            $html .= '</ol>';
+        } else {
+            $html .= '<p class="small mb-0">Existing registration requirements and '
+                . 'Valid ID apply. No new category-specific supporting document is mandated.</p>';
+        }
+        $html .= '</div></div>';
+    }
+    return $html . '</div><p class="small mb-3"><strong>Saved applicant type:</strong> '
+        . e($current) . '</p></div>';
+}
+
 function registration_requirement_errors(string $organization,array $documents): array
 {
     $errors = [];

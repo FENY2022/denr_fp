@@ -269,20 +269,74 @@ function registration_reviewer_requirements_html(string $organization, array $do
     return $html . '</div>';
 }
 
+
+/**
+ * Counts and validation are facts about saved metadata, not proof that the
+ * document contents have been checked by LPDD-FUS.
+ */
+function registration_reviewer_verification_summary_html(
+    string $organization, array $documents, int $revision, ?string $verifiedAt, string $status
+): string {
+    $idCount = count(array_filter($documents,
+        static fn(array $doc): bool => ($doc['document_type'] ?? '') === 'valid_id'));
+    $current = count(array_filter($documents,
+        static fn(array $doc): bool => (int)($doc['revision'] ?? 0) === $revision));
+    $historical = count($documents) - $current;
+    $missing = registration_requirement_errors($organization,$documents);
+    if ($idCount === 0) $missing[] = 'No saved Valid Identification Card.';
+    $verified = $verifiedAt !== null && trim($verifiedAt) !== '';
+    $html = '<div class="border rounded-3 p-3" data-reviewer-verification-summary>'
+        . '<dl class="row small mb-0">'
+        . '<dt class="col-sm-5">Email Verification</dt><dd class="col-sm-7">'
+        . ($verified
+            ? '<span class="text-success fw-semibold">Verified</span> — ' . e($verifiedAt)
+            : '<span class="text-warning-emphasis fw-semibold">Not yet verified</span>')
+        . '</dd>'
+        . '<dt class="col-sm-5">Account Status</dt><dd class="col-sm-7">' . status_badge($status) . '</dd>'
+        . '<dt class="col-sm-5">Current Revision</dt><dd class="col-sm-7">' . $revision . '</dd>'
+        . '<dt class="col-sm-5">Files in Current Revision</dt><dd class="col-sm-7">'
+        . $current . '</dd>'
+        . '<dt class="col-sm-5">Files from Earlier Revisions</dt><dd class="col-sm-7">'
+        . $historical . '</dd>'
+        . '<dt class="col-sm-5">Valid IDs across submissions</dt><dd class="col-sm-7">'
+        . $idCount . '</dd></dl>';
+    if ($missing) {
+        $html .= '<div class="alert alert-warning small mt-3 mb-0">'
+            . '<strong>Missing or unclassified required metadata:</strong><ul class="mb-0 mt-2">';
+        foreach ($missing as $item) $html .= '<li>' . e($item) . '</li>';
+        $html .= '</ul></div>';
+    } else {
+        $html .= '<div class="alert alert-info small mt-3 mb-0">'
+            . 'Required document categories and a Valid ID are recorded. '
+            . 'LPDD-FUS must still examine the actual documents; this is not '
+            . 'content verification or approval.</div>';
+    }
+    return $html . '</div>';
+}
+
 /** Reviewer-focused document cards grouped by registration requirement. */
-function registration_reviewer_documents_html(array $documents): string
+function registration_reviewer_documents_html(array $documents, string $group = 'all',
+    bool $includeModal = true, string $suffix = '', ?int $currentRevision = null): string
 {
     if (!$documents) {
-        return '<div class="alert alert-warning mb-0">'
-            . '<i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>'
-            . 'No registration documents have been uploaded.</div>';
+        return '<div class="alert alert-light border small mb-0">'
+            . '<i class="bi bi-info-circle me-2" aria-hidden="true"></i>'
+            . ($group === 'all'
+                ? 'No registration documents have been uploaded.'
+                : 'No new files in this category for this submission. '
+                    . 'Earlier files, if any, are listed under Previous Submissions.')
+            . '</div>';
     }
 
     $groups = [
         'valid_id' => ['Valid Identification Cards', 'person-badge'],
         'supporting_document' => ['Supporting Documents', 'files'],
     ];
-    $latestRevision = max(array_map(
+    if ($group !== 'all') {
+        if (!isset($groups[$group])) throw new InvalidArgumentException('Invalid document group.');
+        $groups = [$group => $groups[$group]];
+    }
+    $latestRevision = $currentRevision ?? max(array_map(
         static fn(array $document): int => (int)($document['revision'] ?? 0),
         $documents
     ));
@@ -292,7 +346,8 @@ function registration_reviewer_documents_html(array $documents): string
             $documents,
             static fn(array $document): bool => ($document['document_type'] ?? '') === $type
         ));
-        $headingId = 'reviewer-documents-' . str_replace('_', '-', $type);
+        $headingId = 'reviewer-documents-' . str_replace('_', '-', $type)
+            . ($suffix !== '' ? '-' . preg_replace('/[^a-z0-9-]/', '', strtolower($suffix)) : '');
         $html .= '<section class="reviewer-document-group" aria-labelledby="' . $headingId . '">'
             . '<div class="reviewer-document-group-heading">'
             . '<h3 class="h6 m-0" id="' . $headingId . '"><i class="bi bi-' . $icon
@@ -352,7 +407,13 @@ function registration_reviewer_documents_html(array $documents): string
         $html .= '</section>';
     }
     return $html . '</div>'
-        . '<div class="modal fade" id="registration-document-modal" tabindex="-1" '
+        . ($includeModal ? registration_reviewer_document_modal_html() : '');
+}
+
+/** One shared modal is used by all reviewer file lists on the same page. */
+function registration_reviewer_document_modal_html(): string
+{
+    return '<div class="modal fade" id="registration-document-modal" tabindex="-1" '
         . 'aria-labelledby="registration-document-modal-title" aria-hidden="true">'
         . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
         . '<div class="modal-content"><div class="modal-header">'
