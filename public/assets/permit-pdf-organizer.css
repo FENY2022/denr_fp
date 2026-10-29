@@ -1,0 +1,18 @@
+/* FP-OMS Step 2 browser-side PDF page organizer (no inline styles). */
+.fp-pdf-organizer .modal-dialog{max-width:min(1180px,96vw)}
+.fp-pdf-organizer .modal-body{min-height:300px;max-height:75vh;overflow-y:auto}
+.fp-pdf-organizer-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(205px,32%);gap:1rem}
+.fp-pdf-organizer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.8rem;align-content:start}
+.fp-pdf-page{min-width:0;cursor:grab;padding:.65rem;border:1px solid #d9e8de;border-radius:12px;background:#fafdfb}
+.fp-pdf-page:focus-visible,.fp-pdf-page.is-selected{outline:2px solid #08783f;outline-offset:2px}
+.fp-pdf-page:active{cursor:grabbing}
+.fp-pdf-page-thumbnail{height:160px;display:flex;justify-content:center;align-items:center;border-radius:8px;background:#edf4ef;overflow:hidden;color:#6e887b;font-size:.8rem}
+.fp-pdf-page-thumbnail img{max-height:100%;max-width:100%;object-fit:contain;box-shadow:0 1px 5px #0002}
+.fp-pdf-page-label{margin:.5rem 0;font-size:.78rem;font-weight:700;color:#27543b;overflow-wrap:anywhere}
+.fp-pdf-page-actions{display:flex;gap:.22rem;flex-wrap:wrap}
+.fp-pdf-page-action{padding:.16rem .36rem;min-width:30px}
+.fp-pdf-preview-panel{position:sticky;top:0;align-self:start;background:#f6faf7;border:1px solid #dce9df;border-radius:12px;padding:.85rem;text-align:center;overflow:auto}
+.fp-pdf-preview-panel canvas{max-width:100%;height:auto;box-shadow:0 1px 8px #0002;background:white}
+.fp-pdf-preview-panel p{color:#26563d}
+.fp-pdf-organizer-summary{font-size:.85rem;color:#64766c}
+@media(max-width:760px){.fp-pdf-organizer-body{grid-template-columns:minmax(0,1fr)}.fp-pdf-preview-panel{position:static}}

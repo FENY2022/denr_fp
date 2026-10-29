@@ -22,6 +22,7 @@
   // form submission and make its selected files visible without calling them saved.
   if (root.dataset.step2Mode === 'direct') {
     let selected = Array.from(input.files || []);
+    let organizing = false;
     const valid = file => file.size > 0 && file.size <= maxBytes
       && /\.(pdf|jpe?g|png)$/i.test(file.name);
 
@@ -77,26 +78,52 @@
       empty.hidden = selected.length > 0;
       input.disabled = false;
     }
-    input.addEventListener('change', () => {
+    input.addEventListener('change', async () => {
+      if (organizing) return;
       const newlyPicked = Array.from(input.files || []);
-      // Preserve earlier picks when the user opens the chooser again.
-      // Repeated identical picks are kept as the user explicitly selected them.
-      const room = Math.max(0,10-selected.length);
-      let rejected = 0;
-      for (const file of newlyPicked) {
-        if (!valid(file) || selected.length >= 10) { rejected++; continue; }
-        selected.push(file);
-      }
+      input.value = '';
+      organizing = true;
+      input.disabled = true;
       try {
-        syncNativeFiles();
-      } catch (error) {
-        // Without DataTransfer support, use the native picker contents as-is.
-        selected = newlyPicked;
-        directNotice('This browser cannot edit the file selection. Re-select files to change them.', true);
+        let rejected = 0;
+        for (const original of newlyPicked) {
+          if (!valid(original) || selected.length >= 10) { rejected++; continue; }
+          let prepared = original;
+          if (/\.pdf$/i.test(original.name)) {
+            if (typeof window.FPOMSOrganizePdf !== 'function') {
+              directNotice('PDF organizer unavailable. Refresh the page before selecting PDFs.',true);
+              rejected++;
+              continue;
+            }
+            try {
+              prepared = await window.FPOMSOrganizePdf(original,maxBytes,'direct');
+            } catch (error) {
+              directNotice(error.message || 'PDF could not be organized.',true);
+              rejected++;
+              continue;
+            }
+          }
+          if (!prepared) continue; // User explicitly cancelled this PDF.
+          if (!valid(prepared)) { rejected++; continue; }
+          selected.push(prepared);
+        }
+        try {
+          syncNativeFiles();
+          drawDirectFiles();
+        } catch (error) {
+          selected = [];
+          input.value = '';
+          drawDirectFiles();
+          directNotice('This browser cannot add organized PDFs to the file input. Please use a current Edge/Chrome browser.',true);
+          return;
+        }
+        directNotice(rejected
+          ? 'Some files were not added. Check the limit, file type and PDF size.'
+          : 'Selected documents are not saved yet; they upload on final submission.',rejected > 0);
+      } finally {
+        organizing = false;
+        input.disabled = false;
       }
-      drawDirectFiles();
-      if (rejected) directNotice('Some files were not added: maximum 10, PDF/JPG/PNG, size limit applies.',true);
-      else directNotice('Selected files are not saved yet. They upload only on final submission.');
     });
     list.addEventListener('click', event => {
       const button = event.target.closest('[data-step2-local-index]');
@@ -116,7 +143,7 @@
       }
     });
     form.addEventListener('submit', event => {
-      if (selected.length > 10 || selected.some(file => !valid(file))
+      if (organizing || selected.length > 10 || selected.some(file => !valid(file))
           || (scope === '0' && selected.length === 0)) {
         event.preventDefault();
         directNotice('Select at least one valid supporting document (maximum 10).',true);
@@ -203,10 +230,28 @@
     if (files.length > free) notice('Only '+free+' more files can be saved.',true);
     busy = true;
     refresh();
-    for (const file of files.slice(0,free)) {
-      if (file.size < 1 || file.size > maxBytes || !/\.(pdf|jpe?g|png)$/i.test(file.name)) {
+    for (const original of files.slice(0,free)) {
+      if (original.size < 1 || original.size > maxBytes || !/\.(pdf|jpe?g|png)$/i.test(original.name)) {
         notice('Invalid file or file size. PDF/JPG/PNG only, up to the stated limit.',true);
         continue;
+      }
+      let file = original;
+      if (/\.pdf$/i.test(original.name)) {
+        if (typeof window.FPOMSOrganizePdf !== 'function') {
+          notice('PDF organizer did not load. Refresh and try again.',true);
+          continue;
+        }
+        try {
+          file = await window.FPOMSOrganizePdf(original,maxBytes,'saved');
+        } catch (error) {
+          notice(error.message || 'PDF could not be organized.',true);
+          continue;
+        }
+        if (!file) continue;
+        if (file.size > maxBytes) {
+          notice('The arranged PDF exceeds the upload size limit.',true);
+          continue;
+        }
       }
       const item = card(file.name);
       queue.append(item.li);

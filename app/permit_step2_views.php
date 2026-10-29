@@ -119,6 +119,46 @@ function view_step2_applications(): void
     render_page('My FP Applications', $html . '</div>');
 }
 
+/**
+ * Browser-side PDF organizer; no file is sent until the user confirms and
+ * the existing secure upload flow receives the resulting File.
+ */
+function step2_pdf_organizer_modal_html(): string
+{
+    return '<div class="modal fade fp-pdf-organizer" id="fp-pdf-organizer-modal" tabindex="-1" '
+        . 'aria-labelledby="fp-pdf-organizer-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
+        . '<div class="modal-content">'
+        . '<div class="modal-header"><div><h2 class="modal-title h5" id="fp-pdf-organizer-title">'
+        . '<i class="bi bi-file-earmark-pdf text-danger me-2" aria-hidden="true"></i>'
+        . 'Organize PDF Pages</h2><p class="small text-secondary mb-0" data-pdf-file-name></p></div>'
+        . '<button type="button" class="btn-close" data-pdf-cancel '
+        . 'aria-label="Cancel PDF organization"></button></div>'
+        . '<div class="modal-body">'
+        . '<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">'
+        . '<span class="badge text-bg-success" data-pdf-page-count>Loading pages…</span>'
+        . '<span class="fp-pdf-organizer-summary">Drag cards or use arrows to change order. '
+        . 'Duplicate, remove, or preview any page.</span></div>'
+        . '<div class="alert alert-warning small py-2">'
+        . '<i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>'
+        . 'Reorganizing a digitally signed PDF can invalidate signatures, links, '
+        . 'bookmarks or forms. Keep the signed original separately.</div>'
+        . '<div class="fp-pdf-organizer-body">'
+        . '<div class="fp-pdf-organizer-grid" data-pdf-page-grid role="group" '
+        . 'aria-label="Reorder or duplicate PDF pages"></div>'
+        . '<div class="fp-pdf-preview-panel" data-pdf-preview '
+        . 'aria-label="Selected PDF page preview"></div></div>'
+        . '<p class="small text-secondary mt-3 mb-0" role="status" aria-live="polite" '
+        . 'data-pdf-status></p></div>'
+        . '<div class="modal-footer">'
+        . '<button type="button" class="btn btn-outline-secondary" data-pdf-reset>'
+        . '<i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Reset</button>'
+        . '<button type="button" class="btn btn-secondary" data-pdf-cancel>Cancel</button>'
+        . '<button type="button" class="btn btn-primary" data-pdf-save>'
+        . '<i class="bi bi-check2-circle me-1" aria-hidden="true"></i><span data-pdf-save-label>Save &amp; Upload PDF</span></button>'
+        . '</div></div></div></div>';
+}
+
 function view_step2_form(int $applicationId = 0, array $errors = []): void
 {
     $client = step2_require_applicant();
@@ -213,8 +253,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . 'the 15-day processing tracker are not part of this release.</p></div>';
     if ($docs) $html .= '<div class="panel mt-3"><h3 class="h6">Previously Uploaded Documents</h3>'
         . step2_documents_html($docs) . '</div>';
-    $html .= '</div></div>';
-    $html .= '<script src="assets/permit-step2-drafts.js?v=2" defer></script>';
+    $html .= '</div></div>' . step2_pdf_organizer_modal_html();
+    $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
+        . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=3" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 

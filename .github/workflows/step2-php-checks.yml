@@ -40,6 +40,8 @@ jobs:
         run: php tests/step2_drafts_test.php
       - name: JavaScript syntax check for FP supporting uploader
         run: node --check public/assets/permit-step2-drafts.js
+      - name: JavaScript syntax check for PDF page organizer
+        run: node --check public/assets/permit-pdf-organizer.js
       - name: JavaScript syntax checks for review modals
         run: node --check public/assets/decision-confirm.js
       - name: Validate public Annex 1 FP requirements
