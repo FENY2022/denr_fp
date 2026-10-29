@@ -68,6 +68,21 @@ function step2_draft_real_path(string $relative): ?string
         && is_file($path) ? $path : null;
 }
 
+/** A visible list even before migration 015, without falsely claiming files were saved. */
+function step2_direct_selected_files_html(): string
+{
+    return '<section class="registration-selected-files" id="step2-selected-files" aria-live="polite">'
+        . '<div class="selected-files-heading"><span>SELECTED FILES</span>'
+        . '<span class="selected-files-total" data-step2-count>0</span></div>'
+        . '<p class="selected-files-guidance">Selected files will be uploaded when you submit the '
+        . 'application. They are not yet saved and will be lost if you refresh or leave this page. '
+        . 'For refresh-safe saved uploads, the ICT administrator must install migration 015.</p>'
+        . '<div class="selected-upload-queue" data-step2-queue></div>'
+        . '<ul class="selected-file-list" data-step2-items></ul>'
+        . '<p class="selected-files-empty" data-step2-empty>'
+        . 'No files selected yet. Choose files above to add them.</p></section>';
+}
+
 /** Server-rendered queue allows a page refresh to restore saved-file cards. */
 function step2_draft_list_html(array $docs): string
 {

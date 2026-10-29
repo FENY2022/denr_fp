@@ -15,6 +15,118 @@
   const maxBytes = Number(root.dataset.maxBytes || 5242880);
   let busy = false;
 
+  // Remove the no-JS notice only after the handlers have initialized.
+  const jsWarning = root.querySelector('[data-step2-js-warning]');
+
+  // Compatibility mode: migration 015 has not been installed. Keep native
+  // form submission and make its selected files visible without calling them saved.
+  if (root.dataset.step2Mode === 'direct') {
+    let selected = Array.from(input.files || []);
+    const valid = file => file.size > 0 && file.size <= maxBytes
+      && /\.(pdf|jpe?g|png)$/i.test(file.name);
+
+    function directNotice(value, isError = false) {
+      feedback.textContent = value;
+      feedback.classList.toggle('text-danger', isError);
+      feedback.classList.toggle('text-secondary', !isError);
+    }
+    function syncNativeFiles() {
+      const transfer = new DataTransfer();
+      for (const file of selected) transfer.items.add(file);
+      input.files = transfer.files;
+    }
+    function drawDirectFiles() {
+      list.replaceChildren();
+      for (const [index, file] of selected.entries()) {
+        const item = document.createElement('li');
+        item.className = 'selected-file-card is-pending';
+        const icon = document.createElement('span');
+        icon.className = 'selected-file-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        const glyph = document.createElement('i');
+        glyph.className = 'bi bi-file-earmark-text-fill';
+        icon.append(glyph);
+        const info = document.createElement('div');
+        info.className = 'selected-file-info';
+        const name = document.createElement('strong');
+        name.className = 'selected-file-name';
+        name.textContent = file.name;
+        const status = document.createElement('span');
+        status.className = 'selected-file-status';
+        status.textContent = 'Selected — uploads when you submit · Not saved yet';
+        info.append(name,status);
+        const remove = document.createElement('button');
+        remove.className = 'selected-file-remove';
+        remove.type = 'button';
+        remove.dataset.step2LocalIndex = String(index);
+        remove.setAttribute('aria-label','Remove selected file: '+file.name);
+        remove.title = 'Remove file';
+        const x = document.createElement('i');
+        x.className = 'bi bi-x-lg';
+        x.setAttribute('aria-hidden', 'true');
+        remove.append(x);
+        const progress = document.createElement('progress');
+        progress.className = 'selected-file-progress';
+        progress.max = 100;
+        progress.value = 0;
+        progress.setAttribute('aria-label', 'Not yet uploaded');
+        item.append(icon,info,remove,progress);
+        list.append(item);
+      }
+      count.textContent = String(selected.length);
+      empty.hidden = selected.length > 0;
+      input.disabled = false;
+    }
+    input.addEventListener('change', () => {
+      const newlyPicked = Array.from(input.files || []);
+      // Preserve earlier picks when the user opens the chooser again.
+      // Repeated identical picks are kept as the user explicitly selected them.
+      const room = Math.max(0,10-selected.length);
+      let rejected = 0;
+      for (const file of newlyPicked) {
+        if (!valid(file) || selected.length >= 10) { rejected++; continue; }
+        selected.push(file);
+      }
+      try {
+        syncNativeFiles();
+      } catch (error) {
+        // Without DataTransfer support, use the native picker contents as-is.
+        selected = newlyPicked;
+        directNotice('This browser cannot edit the file selection. Re-select files to change them.', true);
+      }
+      drawDirectFiles();
+      if (rejected) directNotice('Some files were not added: maximum 10, PDF/JPG/PNG, size limit applies.',true);
+      else directNotice('Selected files are not saved yet. They upload only on final submission.');
+    });
+    list.addEventListener('click', event => {
+      const button = event.target.closest('[data-step2-local-index]');
+      if (!button) return;
+      const index = Number(button.dataset.step2LocalIndex);
+      if (!Number.isSafeInteger(index) || index < 0 || index >= selected.length) return;
+      const next = selected.filter((_,i)=>i!==index);
+      const previous = selected;
+      selected = next;
+      try {
+        syncNativeFiles();
+        drawDirectFiles();
+        directNotice('File removed from this submission.');
+      } catch (error) {
+        selected = previous;
+        directNotice('Cannot remove a single file in this browser. Choose files again.',true);
+      }
+    });
+    form.addEventListener('submit', event => {
+      if (selected.length > 10 || selected.some(file => !valid(file))
+          || (scope === '0' && selected.length === 0)) {
+        event.preventDefault();
+        directNotice('Select at least one valid supporting document (maximum 10).',true);
+      }
+    });
+    drawDirectFiles();
+    if (jsWarning) jsWarning.hidden = true;
+    return;
+  }
+
   function notice(value, isError = false) {
     feedback.textContent = value;
     feedback.classList.toggle('text-danger', isError);
@@ -149,4 +261,5 @@
     }
   });
   refresh();
+  if (jsWarning) jsWarning.hidden = true;
 })();
