@@ -293,7 +293,8 @@ function registration_attachment_form_fields(bool $new): string
             ? registration_draft_list_html('id') : '')
         . '<button class="btn btn-sm btn-outline-primary mb-4 mt-3" type="button" data-add-id>'
         . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Another Valid ID</button>'
-        . '<h4 class="h6 mb-2">Supporting Documents (Category-based Requirements)</h4>'
+        . '<h4 id="registration-supporting-document-upload" class="h6 mb-2">'
+        . 'Supporting Documents (Category-based Requirements)</h4>'
         . '<p class="small text-secondary">Choose the appropriate category for each upload. '
         . 'Use Add Supporting Document to upload multiple files per category.</p>'
         . '<div id="registration-requirements-info" class="alert alert-info" '

@@ -6,6 +6,7 @@
   const type = form.querySelector('[data-registration-organization-type]');
   const info = form.querySelector('[data-registration-requirements-info]');
   const supporting = form.querySelector('#supporting-document-rows');
+  const guide = form.querySelector('[data-registration-entity-guide]');
   if (!type || !info || !supporting) return;
 
   const required = {
@@ -43,7 +44,28 @@
     select.value = desired.find(value => !already.has(value)) || 'other';
   }
 
+  function updateAlwaysVisibleGuide() {
+    if (!guide) return;
+    const selected = type.value;
+    for (const card of guide.querySelectorAll('[data-registration-requirement-card]')) {
+      const active = card.dataset.registrationRequirementCard === selected;
+      card.classList.toggle('border-success',active);
+      card.classList.toggle('bg-success-subtle',active);
+      card.querySelector('[data-entity-guide-badge]')?.classList.toggle('d-none',!active);
+    }
+    const status = guide.querySelector('[data-registration-entity-guide-status]');
+    if (status) {
+      status.textContent = selected === 'corporation'
+        ? 'Corporation / Cooperative / Association selected: both documents (a) and (b) are required.'
+        : selected === 'government'
+        ? 'Government Agency / GOCC selected: authorization from the Head of Agency is required.'
+        : selected === 'individual'
+        ? 'Individual / Sole Proprietorship selected: existing registration and Valid ID requirements apply.'
+        : 'Select your Applicant / Organization Type above to highlight the requirements that apply to you.';
+    }
+  }
   function render() {
+    updateAlwaysVisibleGuide();
     const typeValue = type.value;
     const needed = required[typeValue];
     info.replaceChildren();
@@ -91,6 +113,11 @@
   });
   supporting.addEventListener('change',render);
   form.addEventListener('registration:drafts-updated',render);
+  // Browser-restored or sessionStorage-restored selection should also highlight.
+  form.addEventListener('input',event => {
+    if (event.target === type) render();
+  });
+  window.addEventListener('pageshow',render);
   form.querySelector('#registration-supporting-draft-list')?.addEventListener('click',()=>{
     // Saved list updates asynchronously; the event only re-renders the static checklist.
     window.requestAnimationFrame(render);

@@ -36,4 +36,32 @@ entity_check(registration_requirement_errors('corporation',[
 entity_check(registration_requirement_label('head_authorization')
     ==='Authorization to Apply for the FP from the Head of Agency',
     'review labels are accurate');
-echo "PASS: Registration entity category requirements and multi-upload rules.\n";
+$guide = registration_requirement_guide_html();
+entity_check(str_contains($guide,'Documentary Requirements by Applicant Type'),
+    'always-visible guide heading');
+entity_check(str_contains($guide,'data-registration-requirement-card="corporation"'),
+    'corporation requirements appear without choosing a type');
+entity_check(str_contains($guide,'data-registration-requirement-card="government"'),
+    'government requirements appear without choosing a type');
+entity_check(str_contains($guide,registration_requirement_label('certificate_registration')),
+    'registration certificate is stated in the guide');
+entity_check(str_contains($guide,registration_requirement_label('secretary_certification')),
+    'Secretary’s Certification is stated in the guide');
+entity_check(str_contains($guide,registration_requirement_label('head_authorization')),
+    'Head of Agency authorization is stated in the guide');
+entity_check(str_contains($guide,'registration-supporting-document-upload'),
+    'guide links to the multiple-upload section');
+$registrationViewSource = (string)file_get_contents(__DIR__.'/../app/views.php');
+$uploadFormSource = (string)file_get_contents(__DIR__.'/../app/registration_attachments.php');
+$scriptSource = (string)file_get_contents(__DIR__.'/../public/assets/registration-requirements.js');
+entity_check(str_contains($registrationViewSource,'registration_requirement_guide_html()'),
+    'always-visible guide rendered directly below organization dropdown');
+entity_check(str_contains($registrationViewSource,'registration-requirements.js?v=2'),
+    'client-side highlight script is cache-busted in both registration forms');
+entity_check(str_contains($uploadFormSource,'id="registration-supporting-document-upload"'),
+    'supporting upload section is jump target');
+entity_check(str_contains($scriptSource,'updateAlwaysVisibleGuide()'),
+    'dynamic highlighting retains static guide');
+entity_check(!str_contains($scriptSource,'guide.replaceChildren('),
+    'JavaScript cannot erase the always-visible requirements');
+echo "PASS: Registration entity category requirements and always-visible guide.\n";

@@ -221,7 +221,8 @@ function registration_fields(array $values = [], bool $new = true): string
         . '<select class="form-select" id="organization_type" name="organization_type" '
         . 'required data-registration-organization-type>'.$organizationOptions.'</select>'
         . '<div class="form-text">Select the entity type to display its registration '
-        . 'documentary requirements.</div></div>';
+        . 'documentary requirements.</div></div>'
+        . registration_requirement_guide_html();
     $html .= '<div class="row"><div class="col-md-6">'
         . field('company_name','Company / Agency / Organization Name',form_value('company_name',$values),'text',true,'maxlength="220"')
         . '</div><div class="col-md-6">'
@@ -280,7 +281,7 @@ function view_register(array $errors = []): void
         . '</div></div></div>'
         . '<script src="assets/register-password.js?v=1" defer></script>'
         . '<script src="assets/registration-attachments.js?v=8" defer></script>'
-            . '<script src="assets/registration-requirements.js?v=1" defer></script>'
+            . '<script src="assets/registration-requirements.js?v=2" defer></script>'
         . '<script src="assets/registration-form-draft.js?v=3" defer></script>';
     render_page('Applicant Registration', $html);
 }
@@ -491,7 +492,7 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
             . registration_fields($reg, false)
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
             . '<script src="assets/registration-attachments.js?v=8" defer></script>'
-            . '<script src="assets/registration-requirements.js?v=1" defer></script>';
+            . '<script src="assets/registration-requirements.js?v=2" defer></script>';
     }
     if ($showDashboardChecklist) {
         $html = applicant_dashboard_content_html((string)($user['status'] ?? ''), $html);

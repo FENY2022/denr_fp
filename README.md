@@ -33,7 +33,7 @@ The dialog shows record reference, applicant, proposed status and entered remark
 
 ## Conditional Registration Documents — Migration 018
 
-The public /register form and applicant correction form now capture the Applicant / Organization Type. Individual / Sole Proprietorship has no extra category-specific requirement in this change; existing Valid ID rules still apply.
+The public /register form and applicant correction form now capture the Applicant / Organization Type. **The requirements for corporations/cooperatives/associations and government agencies/GOCCs are always visible immediately below the entity selector, even before the user selects a type and without JavaScript.** Selecting a type highlights the applicable requirements but never hides the other guidance. A link takes the applicant to the existing categorized Supporting Documents multiple-upload section. Individual / Sole Proprietorship has no extra category-specific requirement in this change; existing Valid ID rules still apply.
 
 For Corporation / Cooperative / Association, applicants must provide (a) a **certified true copy of the Certificate of Registration from the registering agency** and (b) **Secretary’s Certification authorizing the representative to transact with DENR on behalf of the company**.
 
