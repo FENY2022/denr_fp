@@ -32,6 +32,10 @@ jobs:
         run: |
           find app public scripts tests -type f -name '*.php' -print0 |
             xargs -0 -n 1 php -l
+      - name: Entity registration requirements checks
+        run: php tests/registration_requirements_test.php
+      - name: Registration requirements JS syntax
+        run: node --check public/assets/registration-requirements.js
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
       - name: Step 2 schema compatibility checks

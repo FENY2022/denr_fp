@@ -31,7 +31,7 @@ function upload_details(?array $file, bool $required): array
     ];
 }
 
-function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $revision, string $type, array $info, ?string $idType = null): string
+function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $revision, string $type, array $info, ?string $idType = null, string $requirementType = 'other'): string
 {
     $relative = 'registrations/' . $userId . '/' . bin2hex(random_bytes(18)) . '.' . $info['extension'];
     $absolute = PROJECT_ROOT . '/storage/' . $relative;
@@ -52,8 +52,8 @@ function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $rev
     chmod($absolute, 0600);
     $digest = hash_file('sha256', $absolute);
     try {
-        $stmt = $pdo->prepare('INSERT INTO registration_documents (registration_id,document_type,id_type,original_name,stored_path,mime_type,file_size,sha256,revision) VALUES (?,?,?,?,?,?,?,?,?)');
-        $stmt->execute([$registrationId,$type,$idType,$info['name'],$relative,$info['mime'],$info['size'],$digest,$revision]);
+        $stmt = $pdo->prepare('INSERT INTO registration_documents (registration_id,document_type,id_type,requirement_type,original_name,stored_path,mime_type,file_size,sha256,revision) VALUES (?,?,?,?,?,?,?,?,?,?)');
+        $stmt->execute([$registrationId,$type,$idType,$requirementType,$info['name'],$relative,$info['mime'],$info['size'],$digest,$revision]);
         return $absolute;
     } catch (Throwable $error) {
         @unlink($absolute);
@@ -67,6 +67,7 @@ function registration_input(): array
         'representative_name' => safe_post('representative_name', 180),
         'representative_position' => safe_post('representative_position', 150),
         'company_name' => safe_post('company_name', 220),
+        'organization_type' => safe_post('organization_type', 32),
         'company_address' => safe_post('company_address', 2000),
         'contact_number' => safe_post('contact_number', 40)
     ];
@@ -90,7 +91,9 @@ function register_applicant(array $values, string $email, string $password, stri
         // Graceful fallback for browsers without JavaScript.
         $attachments = registration_attachment_batch($attachmentInput, $files, true);
     }
-    $errors = array_merge($errors, $attachments['errors']);
+    $errors = array_merge($errors, $attachments['errors'],
+        registration_requirement_errors((string)($values['organization_type'] ?? ''),
+            $attachments['items']));
     if ($errors) return $errors;
 
     // Explain missing SQL 011/013 instead of masking it as a generic DB failure.
@@ -104,7 +107,7 @@ function register_applicant(array $values, string $email, string $password, stri
     if ($missing) {
         $ref = registration_failure_reference('migrations-011-013', null, $missing);
         return ['Registration database setup is incomplete. The system administrator must '
-            . 'check SQL migrations 011 and 013. Reference: ' . $ref . '.'];
+            . 'check SQL migrations 011, 013 and 018. Reference: ' . $ref . '.'];
     }
     $pdo = db();
     $stored = [];
@@ -124,14 +127,15 @@ function register_applicant(array $values, string $email, string $password, stri
         initialize_profile_account_fields($uid, 'applicant');
         // Client identity is inferred from user_client, not DENR user_roles.
         $stage = 'applicant-registration';
-        $stmt = $pdo->prepare('INSERT INTO applicant_registrations (client_id,company_name,company_address,representative_name,representative_position,contact_number) VALUES (?,?,?,?,?,?)');
-        $stmt->execute([$uid,$values['company_name'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number']]);
+        $stmt = $pdo->prepare('INSERT INTO applicant_registrations (client_id,company_name,organization_type,company_address,representative_name,representative_position,contact_number) VALUES (?,?,?,?,?,?,?)');
+        $stmt->execute([$uid,$values['company_name'],$values['organization_type'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number']]);
         $regId = (int)$pdo->lastInsertId();
         $stage = 'registration-documents';
         foreach ($attachments['items'] as $attachment) {
             $stored[] = store_reg_document(
                 $pdo, $regId, $uid, 1, $attachment['document_type'],
-                $attachment['info'], $attachment['id_type']
+                $attachment['info'], $attachment['id_type'],
+                (string)($attachment['requirement_type'] ?? 'other')
             );
         }
         $stage = 'verification-link-create';
@@ -215,14 +219,23 @@ function revise_registration(array $user, array $values, array $files, array $at
         }
         $reg = registration_for_user((int)$user['id']);
         if (!$reg) throw new RuntimeException('Missing registration record.');
+        $existingDocs = registration_documents((int)$reg['id']);
+        $missingDocs = registration_requirement_errors(
+            (string)$values['organization_type'],array_merge($existingDocs,$attachments['items'])
+        );
+        if ($missingDocs) {
+            $pdo->rollBack();
+            return $missingDocs;
+        }
         $revision = (int)$reg['revision'] + 1;
-        $pdo->prepare('UPDATE applicant_registrations SET company_name=?,company_address=?,representative_name=?,representative_position=?,contact_number=?,revision=?,submitted_at=NOW() WHERE id=?')
-            ->execute([$values['company_name'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number'],$revision,(int)$reg['id']]);
+        $pdo->prepare('UPDATE applicant_registrations SET company_name=?,organization_type=?,company_address=?,representative_name=?,representative_position=?,contact_number=?,revision=?,submitted_at=NOW() WHERE id=?')
+            ->execute([$values['company_name'],$values['organization_type'],$values['company_address'],$values['representative_name'],$values['representative_position'] ?: null,$values['contact_number'],$revision,(int)$reg['id']]);
         $pdo->prepare("UPDATE user_client SET name=?,status='pending_review' WHERE id=?")->execute([$values['representative_name'],(int)$user['id']]);
         foreach ($attachments['items'] as $attachment) {
             $stored[] = store_reg_document(
                 $pdo, (int)$reg['id'], (int)$user['id'], $revision,
-                $attachment['document_type'], $attachment['info'], $attachment['id_type']
+                $attachment['document_type'], $attachment['info'], $attachment['id_type'],
+                (string)($attachment['requirement_type'] ?? 'other')
             );
         }
         audit_client((int)$user['id'],'registration.resubmitted','registration',(int)$reg['id'],['revision'=>$revision]);
@@ -261,6 +274,15 @@ function decide_registration(array $reviewer, int $registrationId, string $decis
         if (!in_array('valid_id', array_column($docs,'document_type'), true)) {
             $pdo->rollBack();
             return ['A valid ID document must exist before approval.'];
+        }
+        if ($decision === 'approved') {
+            $missing = registration_requirement_errors(
+                (string)($reg['organization_type'] ?? 'individual'),$docs
+            );
+            if ($missing) {
+                $pdo->rollBack();
+                return $missing;
+            }
         }
         $pdo->prepare('INSERT INTO registration_reviews (registration_id,reviewer_user_id,revision,decision,remarks) VALUES (?,?,?,?,?)')
             ->execute([$registrationId,(int)$reviewer['id'],(int)$reg['revision'],$decision,$remarks ?: null]);

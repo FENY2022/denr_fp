@@ -61,6 +61,7 @@ require_once __DIR__ . '/registration_diagnostics.php';
 require_once __DIR__ . '/password_reset.php';
 require_once __DIR__ . '/registration.php';
 require_once __DIR__ . '/registration_attachments.php';
+require_once __DIR__ . '/registration_requirements.php';
 require_once __DIR__ . '/permit_step2.php';
 require_once __DIR__ . '/permit_step2_drafts.php';
 require_once __DIR__ . '/permit_step2_persistent.php';

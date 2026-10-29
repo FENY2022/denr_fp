@@ -21,8 +21,10 @@ function registration_draft_list(): array
 {
     $hash = registration_draft_hash(false);
     if ($hash === null) return [];
+    $category = registration_requirements_schema_ready()
+        ? 'requirement_type,' : '';
     return query_all(
-        'SELECT id,document_type,id_type,original_name,mime_type,file_size,sha256,stored_path,expires_at
+        'SELECT id,document_type,id_type,'.$category.'original_name,mime_type,file_size,sha256,stored_path,expires_at
          FROM registration_draft_documents
          WHERE draft_hash=? AND expires_at>NOW()
          ORDER BY id ASC', [$hash]
@@ -42,8 +44,10 @@ function registration_draft_public_list(): array
         'id'=>(int)$row['id'],
         'document_type'=>(string)$row['document_type'],
         'id_type'=>$row['id_type'] === null ? null : (string)$row['id_type'],
+        'requirement_type'=>(string)($row['requirement_type'] ?? 'other'),
         'id_label'=>($row['document_type'] === 'valid_id'
-            ? registration_id_type_label((string)$row['id_type']) : 'Supporting Document'),
+            ? registration_id_type_label((string)$row['id_type'])
+            : registration_requirement_label((string)($row['requirement_type'] ?? 'other'))),
         'original_name'=>(string)$row['original_name'],
         'size'=>(int)$row['file_size'],
     ], registration_draft_list());
@@ -75,7 +79,8 @@ function registration_draft_list_html(string $kind = 'id'): string
         . '<ul class="selected-file-list" data-draft-items>';
     foreach ($docs as $doc) {
         $html .= '<li class="selected-file-card is-saved" data-draft-document data-draft-type="'
-            . e($doc['document_type']) . '" data-draft-id="' . (int)$doc['id'] . '">'
+            . e($doc['document_type']) . '" data-draft-id="' . (int)$doc['id'] . '" data-draft-requirement="'
+            . e((string)($doc['requirement_type'] ?? 'other')) . '">'
             . '<span class="selected-file-icon" aria-hidden="true"><i class="bi bi-file-earmark-text-fill"></i></span>'
             . '<div class="selected-file-info"><strong class="selected-file-name">'
             . e($doc['original_name']) . '</strong>'
@@ -106,6 +111,9 @@ function registration_draft_real_path(string $relative): ?string
 
 function registration_draft_upload(array $post, array $files): array
 {
+    if (!registration_requirements_schema_ready()) {
+        return ['error'=>'Registration requirements need database migration 018. Contact the ICT administrator.'];
+    }
     $kind = (string)($post['document_type'] ?? '');
     if (!in_array($kind, ['valid_id','supporting_document'], true)) {
         return ['error'=>'Choose the correct attachment category.'];
@@ -115,6 +123,11 @@ function registration_draft_upload(array $post, array $files): array
         return ['error'=>'Select a valid ID type before uploading.'];
     }
     if ($kind === 'supporting_document') $idType = '';
+    $category = (string)($post['requirement_type'] ?? 'other');
+    if ($kind === 'supporting_document' && !isset(registration_requirement_choices()[$category])) {
+        return ['error'=>'Select a valid Supporting Document category before uploading.'];
+    }
+    if ($kind === 'valid_id') $category = 'other';
 
     $info = upload_details($files['attachment'] ?? null, true);
     if (isset($info['error'])) return ['error'=>$info['error']];
@@ -127,9 +140,9 @@ function registration_draft_upload(array $post, array $files): array
     try {
         $pdo->beginTransaction();
         $docs = registration_draft_list();
-        if (registration_draft_count($docs,$kind) >= 5 || count($docs) >= 10) {
+        if (registration_draft_count($docs,$kind) >= ($kind === 'valid_id' ? 5 : 10) || count($docs) >= 15) {
             $pdo->rollBack();
-            return ['error'=>'The maximum is 5 Valid IDs and 5 supporting documents. Remove a saved file first.'];
+            return ['error'=>'The maximum is 5 Valid IDs and 10 supporting documents. Remove a saved file first.'];
         }
         // Limit anonymous file storage abuse in addition to 5 MB/file and 10/session.
         $recent = query_one(
@@ -155,10 +168,10 @@ function registration_draft_upload(array $post, array $files): array
         $digest = hash_file('sha256',$stored);
         $pdo->prepare(
             'INSERT INTO registration_draft_documents
-              (draft_hash,document_type,id_type,original_name,stored_path,mime_type,file_size,sha256,ip_hash,expires_at)
-             VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(NOW(), INTERVAL 24 HOUR))'
+              (draft_hash,document_type,id_type,requirement_type,original_name,stored_path,mime_type,file_size,sha256,ip_hash,expires_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,DATE_ADD(NOW(), INTERVAL 24 HOUR))'
         )->execute([
-            $hash,$kind,$kind === 'valid_id' ? $idType : null,$info['name'],
+            $hash,$kind,$kind === 'valid_id' ? $idType : null,$category,$info['name'],
             $relative,$info['mime'],$info['size'],$digest,$ipHash
         ]);
         $pdo->commit();
@@ -231,6 +244,9 @@ function registration_draft_has_unstaged_files(array $files): bool
 /** Draft files have already passed the same MIME, size and ID-type checks. */
 function registration_draft_submission(): array
 {
+    if (!registration_requirements_schema_ready()) {
+        return ['items'=>[], 'errors'=>['Database migration 018 is needed before registration submission.']];
+    }
     $items = [];
     $errors = [];
     $docs = registration_draft_list();
@@ -238,7 +254,7 @@ function registration_draft_submission(): array
         $errors[] = 'Upload at least one valid ID to complete registration.';
     }
     if (registration_draft_count($docs,'valid_id') > 5
-        || registration_draft_count($docs,'supporting_document') > 5) {
+        || registration_draft_count($docs,'supporting_document') > 10) {
         $errors[] = 'Too many saved registration attachments.';
     }
     $extensions = ['application/pdf'=>'pdf','image/jpeg'=>'jpg','image/png'=>'png'];
@@ -255,9 +271,15 @@ function registration_draft_submission(): array
             $errors[] = 'One saved Valid ID has an invalid ID Type.';
             continue;
         }
+        $category = (string)($doc['requirement_type'] ?? 'other');
+        if (!isset(registration_requirement_choices()[$category])) {
+            $errors[] = 'One supporting document has an invalid category.';
+            continue;
+        }
         $items[] = [
             'document_type'=>(string)$doc['document_type'],
             'id_type'=>$doc['id_type'] === null ? null : (string)$doc['id_type'],
+            'requirement_type'=>$category,
             'info'=>[
                 'draft_path'=>$path,'extension'=>$extensions[$mime],
                 'name'=>(string)$doc['original_name'],

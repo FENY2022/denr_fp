@@ -81,6 +81,10 @@
         const uploading = row.dataset.uploading === '1';
         if (file) file.disabled = full || uploading;
 
+        if (kind === 'supporting') {
+          const category = row.querySelector('[data-supporting-category]');
+          if (category) category.disabled = full || uploading;
+        }
         if (kind === 'id') {
           const idType = row.querySelector('[data-id-type]');
           if (!idType || !file) return;
@@ -222,12 +226,14 @@
           percent: 100,
           isSaved: true
         });
+        item.card.dataset.draftRequirement = String(doc.requirement_type || 'other');
         list.append(item.card);
       }
       if (count) count.textContent = String(displayed.length);
       if (empty) empty.hidden = displayed.length > 0;
     }
     refresh();
+    form?.dispatchEvent(new Event('registration:drafts-updated'));
   }
 
   function uploadWithProgress(endpoint, data, onProgress) {
@@ -277,6 +283,12 @@
       return;
     }
     const selectedType = kind === 'id' ? (row.querySelector('[data-id-type]')?.value || '') : '';
+    const category = kind === 'supporting'
+      ? (row.querySelector('[data-supporting-category]')?.value || '') : 'other';
+    if (kind === 'supporting' && !category) {
+      setFeedback('Select a Document Category before uploading.',true);
+      return;
+    }
     if (kind === 'id' && !selectedType) {
       showWaitingForIdType(row, selected);
       setFeedback('Select the ID Type to start uploading this Valid ID.');
@@ -291,6 +303,7 @@
     data.set('csrf_token', csrf);
     data.set('document_type', kind === 'id' ? 'valid_id' : 'supporting_document');
     data.set('id_type', selectedType);
+    data.set('requirement_type',category);
     data.set('attachment', selected);
     const progress = selectedFileCard({
       name: selected.name,
@@ -383,6 +396,30 @@
     });
   }
 
+  function requirementsMet(saved) {
+    const selected = form?.querySelector('[data-registration-organization-type]')?.value || '';
+    const required = {
+      individual:[],
+      corporation:['certificate_registration','secretary_certification'],
+      government:['head_authorization']
+    }[selected];
+    if (!required) {
+      setFeedback('Select an Applicant / Organization Type.',true);
+      return false;
+    }
+    const missing=required.filter(key=>!saved.has(key));
+    if (missing.length) {
+      const labels={
+        certificate_registration:'Certificate of Registration',
+        secretary_certification:'Secretary’s Certification',
+        head_authorization:'Authorization from the Head of Agency'
+      };
+      setFeedback('Please upload the required documents: '+missing.map(x=>labels[x]).join('; ')+'.',true);
+      return false;
+    }
+    return true;
+  }
+
   form?.addEventListener('submit', event => {
     refresh();
     if (draftMode && savedListFor('id') && savedListFor('supporting')) {
@@ -406,6 +443,13 @@
         setFeedback('Save at least one Valid ID with its ID Type before submitting.', true);
         return;
       }
+      if (requireIds && !requirementsMet(new Set(
+        [...savedListFor('supporting').querySelectorAll('[data-draft-requirement]')]
+          .map(row=>row.dataset.draftRequirement)
+      ))) {
+        event.preventDefault();
+        return;
+      }
       return; // Other fields retain HTML/native and server-side validation.
     }
 
@@ -416,7 +460,14 @@
       setFeedback('Please upload at least one Valid ID and select its ID Type.', true);
       return;
     }
-    for (const input of root.querySelectorAll('[data-attachment-file], [data-id-type]')) {
+    if (requireIds && !requirementsMet(new Set(
+      rows('supporting').filter(row=>row.querySelector('[data-attachment-file]')?.files?.length)
+        .map(row=>row.querySelector('[data-supporting-category]')?.value)
+    ))) {
+      event.preventDefault();
+      return;
+    }
+    for (const input of root.querySelectorAll('[data-attachment-file], [data-id-type], [data-supporting-category]')) {
       if (!input.checkValidity()) {
         event.preventDefault();
         setFeedback('Please complete the ID Type selections and check uploaded files.', true);

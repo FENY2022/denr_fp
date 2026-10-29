@@ -30,6 +30,10 @@ jobs:
         run: |
           php tests/domain_test.php
           php tests/registration_attachments_test.php
+          php tests/registration_requirements_test.php
+          node --check public/assets/registration-attachments.js
+          node --check public/assets/registration-requirements.js
+          node --check public/assets/registration-form-draft.js
           php tests/user_management_test.php
           php tests/user_setup_modal_test.php
           php tests/user_edit_modal_test.php

@@ -9,7 +9,7 @@
 
 - Public external applicant registration now saves credentials in **user_client**, separate from DENR personnel in **users**, with distinct session identity and optional SMTP acknowledgment after submission.
 - Applicant name, company, contact details, and multiple Valid ID uploads with individual ID Type selections (PDF/JPEG/PNG).
-- Up to 5 Valid IDs and 5 supporting documents per submission. On public registration, each selected file uploads immediately to **private draft storage**, so it stays listed after reload in the same browser session. Drafts expire after 24 hours and successful registration moves their content into permanent private storage. Existing document revisions, MIME checks and download authorization remain.
+- Up to 5 Valid IDs and 10 categorized supporting documents per submission. On public registration, each selected file uploads immediately to **private draft storage**, so it stays listed after reload in the same browser session. Drafts expire after 24 hours and successful registration moves their content into permanent private storage. Existing document revisions, MIME checks and download authorization remain.
 - Email-address login, PHP password hashing, CSRF tokens, hardened session cookies, throttled login attempts, password-change workflow, and one-time password-reset links.
 - RICTU Super Administrator can provision DENR internal users and assign a primary role; passwords are forced to change at first login.
 - LPDD-FUS review queue and individual review details: approve/activate, or return with mandatory correction remarks.
@@ -30,6 +30,18 @@ LPDD-FUS review pages use a shared **Bootstrap 5 confirmation modal** for all fi
 The dialog shows record reference, applicant, proposed status and entered remarks, with **Cancel** and an action-specific **Confirm** button. No POST or DB changes occur before the reviewer explicitly confirms. Cancel or close discards the pending action. Double-click submission is blocked in the UI. Decision values are set in a hidden form input and submitted using `requestSubmit()` only after confirmation. If JavaScript or Bootstrap is unavailable, the buttons do not silently submit; the reviewer sees a notice to enable JavaScript or reload. The strict CSP is respected (external `public/assets/decision-confirm.js`, no inline event handlers).
 
 **Server security unchanged:** Review handlers still validate CSRF, role authorization, valid decision/state, mandatory remarks, audit events and notification dispatch. The confirmation modal is a UX safeguard, not a replacement for server authorization. This update does **not** require any database changes. The registration review and Step 2 decision tests must be repeated on staging with an LPDD-FUS account before production use.
+
+## Conditional Registration Documents — Migration 018
+
+The public /register form and applicant correction form now capture the Applicant / Organization Type. Individual / Sole Proprietorship has no extra category-specific requirement in this change; existing Valid ID rules still apply.
+
+For Corporation / Cooperative / Association, applicants must provide (a) a **certified true copy of the Certificate of Registration from the registering agency** and (b) **Secretary’s Certification authorizing the representative to transact with DENR on behalf of the company**.
+
+For National Government Agencies, Government-Owned and Controlled Corporations (GOCCs), and instrumentalities, applicants must provide **Authorization to apply for the FP from the Head of Agency**.
+
+Supporting-document rows carry an explicit Document Category, and multiple PDF/JPG/PNG files may be uploaded within a category. The limit is now 10 supporting files plus up to 5 Valid IDs, with the existing per-file size limit and secure temporary draft storage unchanged. The saved-file list identifies each file category. The required category checks are enforced on the server before registration submission, and on correction submission and LPDD-FUS approval; previously submitted document revisions remain unchanged. The organization type and categorized uploaded files are shown in applicant and LPDD-FUS registration details.
+
+**Deployment:** Back up the denr_fp_oms database and private storage folder, update code to the latest GitHub main branch, then import database/018_registration_entity_requirements.sql **once** after registration migrations 011–013. The additive migration adds applicant_registrations.organization_type, registration_draft_documents.requirement_type and registration_documents.requirement_type, all with historical defaults. Check whether the columns already exist before re-importing after any error; a Git pull never runs SQL on local XAMPP. Pending import, the form can display the new instructions but AJAX draft uploads refuse to store categorized files with an explicit migration-needed error. Test both new registration and correction flows, multiple uploads, Saved Files persistence, review and approval using a staging database before production use.
 
 ## FP Step 2 Project Location Map & Coordinates — Migration 017
 

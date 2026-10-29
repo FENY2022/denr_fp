@@ -136,24 +136,36 @@ function registration_attachment_batch(array $post, array $files, bool $requires
         }
     }
 
+    $selectedRequirements = $post['supporting_requirements'] ?? [];
+    if (!is_array($selectedRequirements)) {
+        $errors[] = 'Supporting document category selections are invalid.';
+        $selectedRequirements = [];
+    }
     if (array_key_exists('supporting_files', $files)) {
         if (isset($files['supporting_document'])) $errors[] = 'Use only one format for supporting documents.';
         $extras = registration_unpack_uploads($files['supporting_files'], 'Supporting document', $errors);
-        if (count($extras) > 5) $errors[] = 'Upload at most 5 supporting documents.';
-        foreach (array_slice($extras, 0, 6, true) as $key => $file) {
+        if (count($extras) > 10) $errors[] = 'Upload at most 10 supporting documents.';
+        foreach (array_slice($extras, 0, 11, true) as $key => $file) {
             if ($file['error'] === UPLOAD_ERR_NO_FILE) continue;
+            $category = $selectedRequirements[$key] ?? 'other';
+            if (!is_string($category) || !isset(registration_requirement_choices()[$category])) {
+                $errors[] = 'Choose a valid document category for Supporting Document #' . ((int)$key + 1) . '.';
+                continue;
+            }
             $info = upload_details($file, false);
             if (isset($info['error'])) {
                 $errors[] = 'Supporting document #' . ((int)$key + 1) . ': ' . $info['error'];
             } elseif (!isset($info['none'])) {
-                $items[] = ['document_type' => 'supporting_document', 'id_type' => null, 'info' => $info];
+                $items[] = ['document_type' => 'supporting_document', 'id_type' => null,
+                    'requirement_type' => $category, 'info' => $info];
             }
         }
     } else {
         $info = upload_details($files['supporting_document'] ?? null, false);
         if (isset($info['error'])) $errors[] = $info['error'];
         elseif (!isset($info['none'])) {
-            $items[] = ['document_type' => 'supporting_document', 'id_type' => null, 'info' => $info];
+            $items[] = ['document_type' => 'supporting_document', 'id_type' => null,
+                'requirement_type' => 'other', 'info' => $info];
         }
     }
 
@@ -172,7 +184,7 @@ function registration_documents_html(array $documents): string
     foreach ($documents as $document) {
         $label = ($document['document_type'] === 'valid_id')
             ? registration_id_type_label(isset($document['id_type']) ? (string)$document['id_type'] : null)
-            : 'Supporting Document';
+            : registration_requirement_label((string)($document['requirement_type'] ?? 'other'));
         $html .= '<li class="list-group-item d-flex justify-content-between align-items-start gap-2 flex-wrap">'
             . '<span><strong>' . e($label) . '</strong>'
             . '<small class="text-secondary d-block">Submission revision ' . (int)$document['revision'] . '</small></span>'
@@ -221,7 +233,17 @@ function registration_id_upload_row(int $index, string $selectedType, bool $requ
         . '</div></div></div>';
 }
 
-function registration_supporting_upload_row(int $index): string
+function registration_requirement_options_html(string $selected = 'other'): string
+{
+    $html = '';
+    foreach (registration_requirement_choices() as $value => $label) {
+        $html .= '<option value="'.e($value).'"'
+            . ($value === $selected ? ' selected' : '').'>'.e($label).'</option>';
+    }
+    return $html;
+}
+
+function registration_supporting_upload_row(int $index, string $selected = 'other'): string
 {
     $suffix = (string)$index;
     return '<div class="border rounded-3 p-3 mb-3" data-attachment-row="supporting" data-row-index="' . $suffix . '">'
@@ -229,7 +251,11 @@ function registration_supporting_upload_row(int $index): string
         . '<strong data-row-title>Supporting Document</strong>'
         . '<button class="btn btn-sm btn-outline-danger d-none" type="button" data-remove-attachment aria-label="Remove this supporting document">'
         . '<i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button></div>'
-        . '<label class="form-label" for="supporting_file_' . $suffix . '">Upload Document (optional)</label>'
+        . '<label class="form-label" for="supporting_requirement_' . $suffix . '">Document Category</label>'
+        . '<select class="form-select mb-2" id="supporting_requirement_' . $suffix . '" '
+        . 'name="supporting_requirements[' . $suffix . ']" data-supporting-category>'
+        . registration_requirement_options_html($selected) . '</select>'
+        . '<label class="form-label" for="supporting_file_' . $suffix . '">Upload Document</label>'
         . '<input class="form-control" type="file" id="supporting_file_' . $suffix . '" name="supporting_files[' . $suffix . ']" accept=".pdf,.jpg,.jpeg,.png" data-attachment-file>'
         . '<div class="form-text" data-file-name>No file selected</div></div>';
 }
@@ -253,9 +279,9 @@ function registration_attachment_form_fields(bool $new): string
     $maxMb = round($maxBytes / 1048576, 1);
     $html = '<hr><h3 class="h6">Registration Attachments</h3>'
         . '<p class="small text-secondary">Upload at least one government-issued ID for a new registration. Select the ID Type for each file. '
-        . 'You may upload up to <strong>5 Valid IDs</strong> and <strong>5 supporting documents</strong>. '
+        . 'You may upload up to <strong>5 Valid IDs</strong> and <strong>10 supporting documents</strong>. '
         . 'PDF, JPG and PNG only; maximum ' . e((string)$maxMb) . ' MB per file. Files are stored securely outside the public web directory.</p>'
-        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-draft-mode="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="5" data-max-file-bytes="' . $maxBytes . '">'
+        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-draft-mode="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="10" data-max-file-bytes="' . $maxBytes . '">'
         . '<h4 class="h6 mt-3 mb-2">Valid Identification Cards ' . ($new ? '<span class="text-danger">*</span>' : '(optional new uploads)') . '</h4>'
         . '<div id="valid-id-rows">';
     foreach ($ids as $index => $selected) {
@@ -267,9 +293,19 @@ function registration_attachment_form_fields(bool $new): string
             ? registration_draft_list_html('id') : '')
         . '<button class="btn btn-sm btn-outline-primary mb-4 mt-3" type="button" data-add-id>'
         . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Another Valid ID</button>'
-        . '<h4 class="h6 mb-2">Other Supporting Documents (Optional)</h4>'
+        . '<h4 class="h6 mb-2">Supporting Documents (Category-based Requirements)</h4>'
+        . '<p class="small text-secondary">Choose the appropriate category for each upload. '
+        . 'Use Add Supporting Document to upload multiple files per category.</p>'
+        . '<div id="registration-requirements-info" class="alert alert-info" '
+        . 'data-registration-requirements-info aria-live="polite">'
+        . 'For corporations, cooperatives and associations, upload a certified true copy '
+        . 'of the registration certificate and Secretary’s Certification. '
+        . 'For NGAs, GOCCs and instrumentalities, upload Head of Agency authorization. '
+        . 'Choose the correct category for each file.</div>'
         . '<div id="supporting-document-rows">'
-        . registration_supporting_upload_row(0)
+        . registration_supporting_upload_row(0,
+            is_string($_POST['supporting_requirements'][0] ?? null)
+                ? (string)$_POST['supporting_requirements'][0] : 'other')
         . '</div>'
         . ($new && function_exists('registration_draft_list_html')
             ? registration_draft_list_html('supporting') : '')

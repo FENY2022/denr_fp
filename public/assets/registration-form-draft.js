@@ -17,7 +17,7 @@
 
   const fieldNames = [
     'representative_name', 'representative_position', 'email',
-    'company_name', 'contact_number', 'company_address'
+    'company_name', 'contact_number', 'company_address', 'organization_type'
   ];
 
   function readDraft() {

@@ -26,6 +26,10 @@ function registration_validation(array $data): array
     if (!preg_match('/^[0-9+().\-\s]{7,40}$/', trim((string)($data['contact_number'] ?? '')))) {
         $errors[] = 'Contact number must be 7–40 characters and contain only phone characters.';
     }
+    if (!in_array((string)($data['organization_type'] ?? 'individual'),
+        ['individual','corporation','government'],true)) {
+        $errors[] = 'Select a valid Applicant / Organization Type.';
+    }
     return $errors;
 }
 

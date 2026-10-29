@@ -210,8 +210,20 @@ function registration_fields(array $values = [], bool $new = true): string
     if ($new) {
         $html .= field('email','Email for login',form_value('email'),'email',true,'autocomplete="email" maxlength="190"');
     }
+    $org = form_value('organization_type',$values);
+    $organizationOptions = '<option value="">Select Applicant / Organization Type</option>';
+    foreach (registration_organization_types() as $key => $label) {
+        $organizationOptions .= '<option value="'.e($key).'"'
+            . ($org === $key ? ' selected' : '').'>'.e($label).'</option>';
+    }
+    $html .= '<div class="mb-3"><label class="form-label" for="organization_type">'
+        . 'Applicant / Organization Type <span class="text-danger">*</span></label>'
+        . '<select class="form-select" id="organization_type" name="organization_type" '
+        . 'required data-registration-organization-type>'.$organizationOptions.'</select>'
+        . '<div class="form-text">Select the entity type to display its registration '
+        . 'documentary requirements.</div></div>';
     $html .= '<div class="row"><div class="col-md-6">'
-        . field('company_name','Company Name',form_value('company_name',$values),'text',true,'maxlength="220"')
+        . field('company_name','Company / Agency / Organization Name',form_value('company_name',$values),'text',true,'maxlength="220"')
         . '</div><div class="col-md-6">'
         . field('contact_number','Contact number',form_value('contact_number',$values),'tel',true,'maxlength="40"')
         . '</div></div><div class="mb-3"><label class="form-label" for="company_address">Company address <span class="text-danger">*</span></label>'
@@ -267,8 +279,9 @@ function view_register(array $errors = []): void
         . '<button type="button" class="btn btn-danger" data-confirm-clear-registration>Clear Form</button></div>'
         . '</div></div></div>'
         . '<script src="assets/register-password.js?v=1" defer></script>'
-        . '<script src="assets/registration-attachments.js?v=7" defer></script>'
-        . '<script src="assets/registration-form-draft.js?v=2" defer></script>';
+        . '<script src="assets/registration-attachments.js?v=8" defer></script>'
+            . '<script src="assets/registration-requirements.js?v=1" defer></script>'
+        . '<script src="assets/registration-form-draft.js?v=3" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
@@ -452,6 +465,9 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
         . '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3"><h2 class="h5 m-0">Registration Details</h2>' . status_badge($user['status']) . '</div>'
         . '<dl class="row details"><dt class="col-sm-4">Applicant</dt><dd class="col-sm-8">' . e($reg['representative_name']) . '</dd>'
         . '<dt class="col-sm-4">Company</dt><dd class="col-sm-8">' . e($reg['company_name']) . '</dd>'
+        . '<dt class="col-sm-4">Organization type</dt><dd class="col-sm-8">'
+        . e(registration_organization_types()[(string)($reg['organization_type'] ?? 'individual')]
+            ?? 'Individual / Sole Proprietorship') . '</dd>'
         . '<dt class="col-sm-4">Email</dt><dd class="col-sm-8">' . e($user['email']) . '</dd>'
         . '<dt class="col-sm-4">Contact</dt><dd class="col-sm-8">' . e($reg['contact_number']) . '</dd>'
         . '<dt class="col-sm-4">Revision</dt><dd class="col-sm-8">' . (int)$reg['revision'] . '</dd>'
@@ -474,7 +490,8 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
             . '<form action="' . url('registration_update') . '" method="post" enctype="multipart/form-data">' . csrf_field()
             . registration_fields($reg, false)
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
-            . '<script src="assets/registration-attachments.js?v=7" defer></script>';
+            . '<script src="assets/registration-attachments.js?v=8" defer></script>'
+            . '<script src="assets/registration-requirements.js?v=1" defer></script>';
     }
     if ($showDashboardChecklist) {
         $html = applicant_dashboard_content_html((string)($user['status'] ?? ''), $html);
@@ -510,6 +527,9 @@ function view_review_case(int $id, array $errors = []): void
         . '<dl class="row details"><dt class="col-sm-4">Applicant</dt><dd class="col-sm-8">' . e($reg['representative_name']) . '</dd>'
         . '<dt class="col-sm-4">Position</dt><dd class="col-sm-8">' . e($reg['representative_position'] ?? '') . '</dd>'
         . '<dt class="col-sm-4">Company</dt><dd class="col-sm-8">' . e($reg['company_name']) . '</dd>'
+        . '<dt class="col-sm-4">Organization type</dt><dd class="col-sm-8">'
+        . e(registration_organization_types()[(string)($reg['organization_type'] ?? 'individual')]
+            ?? 'Individual / Sole Proprietorship') . '</dd>'
         . '<dt class="col-sm-4">Company address</dt><dd class="col-sm-8">' . nl2br(e($reg['company_address'])) . '</dd>'
         . '<dt class="col-sm-4">Email</dt><dd class="col-sm-8">' . e($reg['email']) . '</dd>'
         . '<dt class="col-sm-4">Contact</dt><dd class="col-sm-8">' . e($reg['contact_number']) . '</dd>'
