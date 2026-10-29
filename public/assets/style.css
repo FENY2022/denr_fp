@@ -443,19 +443,67 @@ body.page-loading{overflow:hidden}
 .selected-file-card.has-error .selected-file-status{color:#ad4a4a}
 .selected-files-empty{margin:.3rem 0 0;font-size:.78rem;color:#738b7e}
 
-/* Gently identify required registration fields until they are valid. */
-#applicant-registration-form .form-control:required:invalid,
-#applicant-registration-form .form-select:required:invalid{
+/* Identify missing fields after the applicant attempts to continue. */
+#applicant-registration-form.was-validated .form-control:required:invalid,
+#applicant-registration-form.was-validated .form-select:required:invalid{
   border-color:#dfa6a6;
   background-color:#fff7f7;
 }
-#applicant-registration-form .form-control:required:invalid:focus,
-#applicant-registration-form .form-select:required:invalid:focus{
+#applicant-registration-form.was-validated .form-control:required:invalid:focus,
+#applicant-registration-form.was-validated .form-select:required:invalid:focus{
   border-color:#cf7777;
   box-shadow:0 0 0 .2rem rgba(190,72,72,.12);
+}
+.registration-step-progress{
+  position:relative;margin:0 0 1.75rem;padding:1rem 1.1rem;
+  border:1px solid #dce8e0;border-radius:16px;background:#f8fbf9;
+}
+.registration-step-progress ol{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.55rem;
+  list-style:none;margin:0;padding:0;
+}
+.registration-step-progress li{
+  position:relative;display:flex;align-items:center;gap:.5rem;min-width:0;
+  color:#789084;font-size:.72rem;font-weight:700;
+}
+.registration-step-progress li:not(:last-child)::after{
+  content:"";position:absolute;z-index:0;left:calc(100% - .3rem);top:50%;
+  width:.85rem;height:2px;background:#d8e5dc;
+}
+.registration-step-number{
+  position:relative;z-index:1;display:inline-flex;align-items:center;justify-content:center;
+  width:2rem;height:2rem;flex:0 0 2rem;border:1px solid #cadbd0;border-radius:50%;
+  background:#fff;color:#6f897b;font-size:.68rem;
+}
+.registration-step-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.registration-step-progress li.is-active{color:#08783f}
+.registration-step-progress li.is-active .registration-step-number{
+  border-color:#08783f;background:#08783f;color:#fff;box-shadow:0 0 0 4px rgba(8,120,63,.1);
+}
+.registration-step-progress li.is-complete .registration-step-number{
+  border-color:#79b993;background:#e9f6ee;color:#08783f;
+}
+[data-registration-step].is-active{animation:registration-step-enter .24s ease-out}
+[data-registration-step] > hr:first-child{display:none}
+.registration-step-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:.75rem;
+  margin-top:1.5rem;padding-top:1.1rem;border-top:1px solid #e3ebe6;
+}
+.registration-step-actions:empty{display:none}
+@keyframes registration-step-enter{
+  from{opacity:0;transform:translateY(7px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media(prefers-reduced-motion:reduce){
+  [data-registration-step].is-active{animation:none}
 }
 @media(max-width:575.98px){
   .registration-selected-files{padding:.85rem}
   .selected-file-card{gap:.45rem}
   .selected-file-name{font-size:.81rem}
+  .registration-step-progress{padding:.8rem}
+  .registration-step-progress ol{gap:.35rem}
+  .registration-step-progress li{justify-content:center}
+  .registration-step-label{display:none}
+  .registration-step-progress li:not(:last-child)::after{left:calc(100% - .1rem);width:.55rem}
 }

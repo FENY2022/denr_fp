@@ -40,6 +40,7 @@
 
   function revealInvalidField(field) {
     if (!(field instanceof HTMLElement)) return;
+    form.dispatchEvent(new CustomEvent('registration:reveal-field', {detail:{target:field}}));
     field.focus({preventScroll:true});
     field.scrollIntoView({behavior:'smooth',block:'center'});
   }

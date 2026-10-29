@@ -57,6 +57,8 @@ foreach ([true,false] as $isNew) {
         'no unnecessary jump link');
     layout_assert(substr_count($html,'border-success opacity-50')===3,
         'strong divider separates sections 1-4');
+    layout_assert(substr_count($html,'data-registration-step=')===4,
+        'registration fields expose four wizard steps');
     layout_assert((bool)preg_match('/<div id="registration-attachments"[^>]*>/',$html),
         'shared root begins before supporting uploads');
     layout_assert($isNew ? str_contains($html,'name="password"')
@@ -71,6 +73,9 @@ layout_assert(str_contains($default,'id="registration-attachments"')
 $views = (string)file_get_contents(__DIR__.'/../app/views.php');
 layout_assert(str_contains($views,"registration_section_heading_html(5,'Review and Submit Registration')"),
     'new registration has final review/submit divider');
+layout_assert(str_contains($views,'<section data-registration-step="5">')
+    && str_contains($views,'registration-steps.js?v=1'),
+    'new registration completes the five-step Previous/Next wizard');
 layout_assert(str_contains($views,"registration_section_heading_html(5,'Review and Resubmit Registration')"),
     'correction flow has final resubmit divider');
 echo "PASS: Numbered organization, supporting documents, applicant, Valid ID and submit sections.\n";

@@ -54,6 +54,7 @@
 
   function revealProblem(target) {
     if (!(target instanceof HTMLElement)) return;
+    form?.dispatchEvent(new CustomEvent('registration:reveal-field', {detail:{target}}));
     if (target.matches('input,select,textarea')) target.classList.add('is-invalid');
     if (typeof target.focus === 'function') target.focus({preventScroll:true});
     target.scrollIntoView({behavior:'smooth',block:'center'});

@@ -81,7 +81,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=22" rel="stylesheet">'
+        . '<link href="assets/style.css?v=23" rel="stylesheet">'
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="fp-pdf-organizer-modal"')
@@ -224,7 +224,8 @@ function registration_section_heading_html(int $number, string $title): string
 
 function registration_fields(array $values = [], bool $new = true): string
 {
-    $html = registration_section_heading_html(1,'Applicant / Organization Type');
+    $html = '<section data-registration-step="1">'
+        . registration_section_heading_html(1,'Applicant / Organization Type');
     $org = form_value('organization_type',$values);
     $organizationOptions = '<option value="">Select Applicant / Organization Type</option>';
     foreach (registration_organization_types() as $key => $label) {
@@ -236,11 +237,13 @@ function registration_fields(array $values = [], bool $new = true): string
         . '<select class="form-select" id="organization_type" name="organization_type" '
         . 'required data-registration-organization-type>'.$organizationOptions.'</select>'
         . '<div class="form-text">Choose your entity type. The required documents '
-        . 'are shown in the next section.</div></div>'
+        . 'are shown in the next section.</div></div></section>'
+        . registration_attachment_form_open($new)
+        . '<section data-registration-step="2">'
         . registration_section_heading_html(2,'Documentary Requirements & Supporting Documents')
         . registration_requirement_guide_html()
-        . registration_attachment_form_open($new)
         . registration_attachment_form_fields($new,'supporting')
+        . '</section><section data-registration-step="3">'
         . registration_section_heading_html(3,'Applicant Information')
         . '<div class="row"><div class="col-md-6">'
         . field('representative_name','Applicant Full Name',form_value('representative_name',$values),
@@ -284,9 +287,10 @@ function registration_fields(array $values = [], bool $new = true): string
             . '<div id="password-confirm-feedback" class="small text-secondary mt-2" role="status" aria-live="polite">Re-enter your password to confirm.</div>'
             . '</div></div>';
     }
-    $html .= registration_section_heading_html(4,'Valid Identification Cards')
+    $html .= '</section><section data-registration-step="4">'
+        . registration_section_heading_html(4,'Valid Identification Cards')
         . registration_attachment_form_fields($new,'id')
-        . '</div>';
+        . '</section></div>';
     return $html;
 }
 
@@ -361,6 +365,7 @@ function view_register(array $errors = []): void
         . '<p class="text-secondary">Complete the registration form and securely upload the required files. Review your information and documents before confirming. A verification link will be sent to your accessible email address.</p>'
         . '<form id="applicant-registration-form" method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
         . registration_fields()
+        . '<section data-registration-step="5">'
         . registration_section_heading_html(5,'Review and Submit Registration')
         . '<p class="small text-secondary mb-0">Your entries are saved in this browser until submission or clearing. Passwords are not saved.</p>'
         . '<input type="hidden" name="registration_review_confirmed" value="0" '
@@ -371,7 +376,7 @@ function view_register(array $errors = []): void
         . '<button class="btn btn-primary" type="submit" data-registration-review-open>'
         . '<i class="bi bi-clipboard-check me-1" aria-hidden="true"></i>Review Registration</button>'
         . '<button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#clear-registration-modal">Clear Form</button>'
-        . '<a href="' . url('login') . '">Already registered? Sign in</a></div></form></div></div>'
+        . '<a href="' . url('login') . '">Already registered? Sign in</a></div></section></form></div></div>'
         . '<div class="col-lg-4"><div class="panel soft"><h2 class="h5">Account activation</h2>'
         . '<ol class="small"><li>Complete registration and upload the required documents.</li><li>Review your information and saved attachments before confirming.</li><li>Open your email and click the verification link.</li><li>Receive your registration acknowledgment after email verification.</li><li>LPDD-FUS checks your information and documents.</li><li>Correct deficiencies if requested.</li><li>LPDD-FUS approves and activates the account.</li></ol>'
         . '<div class="alert alert-info small mb-0">Step 1 is a one-working-day activity and is not included in the 15-day permit-processing clock.</div>'
@@ -390,10 +395,11 @@ function view_register(array $errors = []): void
         . '<button type="button" class="btn btn-danger" data-confirm-clear-registration>Clear Form</button></div>'
         . '</div></div></div>'
         . '<script src="assets/register-password.js?v=2" defer></script>'
-        . '<script src="assets/registration-attachments.js?v=10" defer></script>'
+        . '<script src="assets/registration-attachments.js?v=11" defer></script>'
             . '<script src="assets/registration-requirements.js?v=2" defer></script>'
         . '<script src="assets/registration-form-draft.js?v=3" defer></script>'
-        . '<script src="assets/registration-review-confirm.js?v=3" defer></script>';
+        . '<script src="assets/registration-steps.js?v=1" defer></script>'
+        . '<script src="assets/registration-review-confirm.js?v=4" defer></script>';
     render_page('Applicant Registration', $html);
 }
 
@@ -603,7 +609,7 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
             . registration_fields($reg, false)
             . registration_section_heading_html(5,'Review and Resubmit Registration')
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
-            . '<script src="assets/registration-attachments.js?v=10" defer></script>'
+            . '<script src="assets/registration-attachments.js?v=11" defer></script>'
             . '<script src="assets/registration-requirements.js?v=2" defer></script>';
     }
     if ($showDashboardChecklist) {

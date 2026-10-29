@@ -51,7 +51,7 @@ review_check(str_contains($views,'data-registration-reviewed')
     'review and email acknowledgments are posted only after applicant selection');
 review_check(str_contains($views,'data-registration-review-open')
     && str_contains($views,'registration_review_confirmation_modal_html()')
-    && str_contains($views,'registration-review-confirm.js?v=3')
+    && str_contains($views,'registration-review-confirm.js?v=4')
     && str_contains($views,'registration-review-confirm.css?v=1'),
     'new applicant page loads modal, button, external script and stylesheet');
 
