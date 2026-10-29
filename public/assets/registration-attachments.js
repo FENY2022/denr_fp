@@ -479,13 +479,15 @@
       refresh();
     });
     containers[kind]?.addEventListener('change', event => {
-      if (!event.target.matches('[data-attachment-file], [data-id-type]')) return;
+      if (!event.target.matches('[data-attachment-file], [data-id-type], [data-supporting-category]')) return;
       setFeedback('');
       refresh();
       if (draftMode) {
         const row = event.target.closest('[data-attachment-row]');
         if (row) {
           if (event.target.matches('[data-attachment-file]')) clearWaitingForIdType(row);
+          // The category may be selected after a file; do not discard that file.
+          // Each staging request persists exactly the category currently shown.
           void stageSelectedFiles(kind, row);
         }
       }

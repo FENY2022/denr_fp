@@ -88,6 +88,8 @@ function render_page(string $title, string $content): void
             ? '<link href="assets/permit-pdf-organizer.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="registration-review-confirm-modal"')
             ? '<link href="assets/registration-review-confirm.css?v=1" rel="stylesheet">' : '')
+        . (str_contains($content, 'id="registration-document-modal"')
+            ? '<link href="assets/registration-document-preview.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'data-fp-location-map=')
             ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
                 . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
@@ -681,6 +683,8 @@ function view_review_case(int $id, array $errors = []): void
         . '<span class="badge rounded-pill text-bg-success">' . count($docs) . ' files</span></div>'
         . '<p class="text-secondary small">Review every Valid ID and supporting document submitted by the client. '
         . 'Earlier revisions remain visible for audit history.</p>'
+        . registration_reviewer_requirements_html(
+            (string)($reg['organization_type'] ?? 'individual'),$docs)
         . registration_reviewer_documents_html($docs) . '</section></div>'
         . '<div class="col-xl-4"><div class="panel soft reviewer-decision-panel"><div class="reviewer-section-heading mb-3">'
         . '<div><span class="reviewer-section-kicker">Reviewer action</span><h2 class="h5 m-0">LPDD-FUS Decision</h2></div>'

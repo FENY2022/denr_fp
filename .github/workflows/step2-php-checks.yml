@@ -34,6 +34,10 @@ jobs:
             xargs -0 -n 1 php -l
       - name: Entity registration requirements checks
         run: php tests/registration_requirements_test.php
+      - name: Client uploads matched to LPDD-FUS review
+        run: php tests/registration_reviewer_uploads_test.php
+      - name: Reviewer document preview JavaScript syntax
+        run: node --check public/assets/registration-document-preview.js
       - name: Applicant registration section layout
         run: php tests/registration_section_layout_test.php
       - name: Applicant review confirmation and private preview checks

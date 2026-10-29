@@ -24,15 +24,15 @@
       media = document.createElement(mime === 'application/pdf' ? 'iframe' : 'img');
       media.src = previewUrl;
       media.setAttribute('aria-label', title.textContent);
+      media.classList.add('registration-document-preview-media');
+      media.classList.add(mime === 'application/pdf'
+        ? 'registration-document-preview-pdf'
+        : 'registration-document-preview-image');
+      media.classList.add('registration-document-zoom-100');
       if (mime === 'application/pdf') {
         media.title = title.textContent;
-        media.style.width = '100%';
-        media.style.height = '65vh';
-        media.style.border = '0';
       } else {
         media.alt = title.textContent;
-        media.style.maxWidth = '100%';
-        media.style.height = 'auto';
       }
       media.addEventListener('error', () => error.classList.remove('d-none'));
       area.appendChild(media);
@@ -44,12 +44,10 @@
       if (!media) return;
       const action = button.dataset.documentZoom;
       scale = action === 'reset' ? 1 : Math.min(3, Math.max(0.5, scale + (action === 'in' ? 0.25 : -0.25)));
-      if (media.tagName === 'IMG') {
-        media.style.maxWidth = 'none';
-        media.style.width = (scale * 100) + '%';
-      } else {
-        media.style.width = (scale * 100) + '%';
+      for (let pct = 50; pct <= 300; pct += 25) {
+        media.classList.remove('registration-document-zoom-' + pct);
       }
+      media.classList.add('registration-document-zoom-' + Math.round(scale * 100));
     });
   });
   modal.addEventListener('hidden.bs.modal', () => { area.replaceChildren(); media = null; });

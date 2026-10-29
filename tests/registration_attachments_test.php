@@ -53,7 +53,8 @@ assertion(registration_id_type_label('passport') === 'Philippine Passport', 'Typ
 assertion(str_contains(registration_id_type_label(null), 'not recorded'), 'Historical ID fallback');
 
 $case = registration_attachment_batch(
-    ['id_types' => [0 => 'national_id', 3 => 'passport']],
+    ['id_types' => [0 => 'national_id', 3 => 'passport'],
+     'supporting_requirements' => [0 => 'other', 4 => 'other']],
     ['id_files' => file_group([0 => 'national.png', 3 => 'passport.png']),
      'supporting_files' => file_group([0 => 'extra.png', 4 => 'extra2.png'])],
     true
@@ -103,6 +104,10 @@ assertion(str_contains($markup, 'name="id_files[0]"'), 'Initial form has ID file
 assertion(str_contains($markup, 'name="supporting_files[0]"'), 'Supporting upload is present');
 assertion(str_contains($markup, 'name="supporting_requirements[0]"'),
     'Supporting upload category is editable');
+assertion(str_contains($markup,'Select Document Category (required for every supporting file)'),
+    'New supporting documents must have a user-selected category');
+assertion(str_contains($markup,'value="" selected'),
+    'The first upload row has an empty category rather than defaulting to other');
 assertion(str_contains($markup, 'data-max-supporting="10"'),
     'Supporting files may contain ten uploads');
 assertion(str_contains($markup, 'data-multiple-supporting="1"'),
@@ -134,6 +139,13 @@ $invalidCategory = registration_attachment_batch(
      'supporting_files'=>file_group([0=>'fake.png'])],true
 );
 assertion($invalidCategory['errors']!==[],'Forged document category rejected');
+$missingCategory = registration_attachment_batch(
+    ['id_types'=>[0=>'passport']],
+    ['id_files'=>file_group([0=>'id.png']),
+     'supporting_files'=>file_group([0=>'uncategorized.png'])],true
+);
+assertion($missingCategory['errors']!==[],
+    'Uploading a new supporting file without choosing the category is rejected');
 $many = registration_attachment_batch(
     ['id_types'=>[0=>'passport'],
      'supporting_requirements'=>array_fill(0,6,'other')],

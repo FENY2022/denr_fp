@@ -147,7 +147,7 @@ function registration_attachment_batch(array $post, array $files, bool $requires
         if (count($extras) > 10) $errors[] = 'Upload at most 10 supporting documents.';
         foreach (array_slice($extras, 0, 11, true) as $key => $file) {
             if ($file['error'] === UPLOAD_ERR_NO_FILE) continue;
-            $category = $selectedRequirements[$key] ?? 'other';
+            $category = $selectedRequirements[$key] ?? '';
             if (!is_string($category) || !isset(registration_requirement_choices()[$category])) {
                 $errors[] = 'Choose a valid document category for Supporting Document #' . ((int)$key + 1) . '.';
                 continue;
@@ -206,6 +206,56 @@ function registration_documents_html(array $documents): string
         . '</div></div></div>';
 }
 
+/**
+ * Reviewer checklist is computed ONLY from the permanently submitted documents
+ * belonging to this registration, never from the client's temporary drafts.
+ * Stored "other" files are visible but cannot satisfy a named mandatory group.
+ */
+function registration_reviewer_requirements_html(string $organization, array $documents): string
+{
+    $required = registration_required_categories($organization);
+    $counts = [];
+    $otherCount = 0;
+    foreach ($documents as $document) {
+        if (($document['document_type'] ?? '') !== 'supporting_document') continue;
+        $category = (string)($document['requirement_type'] ?? 'other');
+        $counts[$category] = ($counts[$category] ?? 0) + 1;
+        if ($category === 'other' || !isset(registration_requirement_choices()[$category])) {
+            ++$otherCount;
+        }
+    }
+    $html = '<div class="border rounded-3 p-3 mb-3" data-review-document-checklist>'
+        . '<h3 class="h6 mb-2"><i class="bi bi-card-checklist me-1" aria-hidden="true"></i>'
+        . 'Required Documents Check</h3>'
+        . '<p class="small text-secondary mb-2">Checked against actual submitted files. '
+        . 'The category is taken from the saved upload metadata; filenames alone are '
+        . 'not used to guess document types.</p>';
+    if (!$required) {
+        $html .= '<p class="small mb-2">No additional category-specific documents are '
+            . 'mandatory for this applicant type.</p>';
+    } else {
+        $html .= '<ul class="list-group mb-2">';
+        foreach ($required as $category) {
+            $count = (int)($counts[$category] ?? 0);
+            $html .= '<li class="list-group-item d-flex justify-content-between gap-2">'
+                . '<span>' . e(registration_requirement_label($category)) . '</span>'
+                . ($count
+                    ? '<span class="badge text-bg-success">Submitted: ' . $count . '</span>'
+                    : '<span class="badge text-bg-warning">Missing category</span>')
+                . '</li>';
+        }
+        $html .= '</ul>';
+    }
+    if ($otherCount > 0) {
+        $html .= '<div class="alert alert-warning small mb-0" role="note">'
+            . '<strong>' . $otherCount . ' Other/Unclassified supporting file(s).</strong> '
+            . 'They are listed individually below for Preview/Download, but their saved '
+            . 'category is "other". Do not assume they satisfy a named requirement based '
+            . 'on the filename. Request clarification/correction where applicable.</div>';
+    }
+    return $html . '</div>';
+}
+
 /** Reviewer-focused document cards grouped by registration requirement. */
 function registration_reviewer_documents_html(array $documents): string
 {
@@ -260,11 +310,18 @@ function registration_reviewer_documents_html(array $documents): string
                     : registration_requirement_label((string)($document['requirement_type'] ?? 'other'));
                 $previewUrl = url('download_reg', ['id'=>(int)$document['id'],'preview'=>1]);
                 $downloadUrl = url('download_reg', ['id'=>(int)$document['id']]);
-                $html .= '<div class="col-md-6"><article class="reviewer-document-card">'
+                $html .= '<div class="col-md-6"><article class="reviewer-document-card" '
+                    . 'data-submitted-document-id="' . (int)$document['id'] . '">'
                     . '<div class="reviewer-document-icon"><i class="bi bi-' . $fileIcon
                     . '" aria-hidden="true"></i></div><div class="reviewer-document-copy">'
                     . '<span class="reviewer-document-category">' . e($label) . '</span>'
                     . '<strong class="reviewer-document-name">' . e($name) . '</strong>'
+                    . '<span class="small text-secondary d-block">'
+                    . 'Document #' . (int)$document['id'] . ' · '
+                    . ($type === 'valid_id'
+                        ? 'Stored ID type: ' . e((string)($document['id_type'] ?? 'not_recorded'))
+                        : 'Stored category: ' . e((string)($document['requirement_type'] ?? 'other')))
+                    . '</span>'
                     . '<div class="reviewer-document-meta"><span>' . e($format) . '</span><span>'
                     . e($size) . '</span><span>Revision ' . $revision . '</span>'
                     . ($revision === $latestRevision
@@ -325,9 +382,10 @@ function registration_id_upload_row(int $index, string $selectedType, bool $requ
         . '</div></div></div>';
 }
 
-function registration_requirement_options_html(string $selected = 'other'): string
+function registration_requirement_options_html(string $selected = ''): string
 {
-    $html = '';
+    $html = '<option value=""' . ($selected === '' ? ' selected' : '')
+        . '>Select Document Category (required for every supporting file)</option>';
     foreach (registration_requirement_choices() as $value => $label) {
         $html .= '<option value="'.e($value).'"'
             . ($value === $selected ? ' selected' : '').'>'.e($label).'</option>';
@@ -335,7 +393,7 @@ function registration_requirement_options_html(string $selected = 'other'): stri
     return $html;
 }
 
-function registration_supporting_upload_row(int $index, string $selected = 'other'): string
+function registration_supporting_upload_row(int $index, string $selected = ''): string
 {
     $suffix = (string)$index;
     return '<div class="border rounded-3 p-3 mb-3" data-attachment-row="supporting" data-row-index="' . $suffix . '">'
@@ -343,7 +401,8 @@ function registration_supporting_upload_row(int $index, string $selected = 'othe
         . '<strong data-row-title>Supporting Document</strong>'
         . '<button class="btn btn-sm btn-outline-danger d-none" type="button" data-remove-attachment aria-label="Remove this supporting document">'
         . '<i class="bi bi-trash me-1" aria-hidden="true"></i>Remove</button></div>'
-        . '<label class="form-label" for="supporting_requirement_' . $suffix . '">Document Category</label>'
+        . '<label class="form-label" for="supporting_requirement_' . $suffix . '">Document Category '
+        . '<span class="text-danger">*</span></label>'
         . '<select class="form-select mb-2" id="supporting_requirement_' . $suffix . '" '
         . 'name="supporting_requirements[' . $suffix . ']" data-supporting-category>'
         . registration_requirement_options_html($selected) . '</select>'
@@ -412,8 +471,10 @@ function registration_attachment_form_fields(bool $new, string $part = 'all'): s
     $supportingHtml = '<h4 id="registration-supporting-document-upload" class="h6 mb-2">'
         . 'Supporting Documents (Category-based Requirements)</h4>'
         . '<p class="small text-secondary">Choose the category for each supporting file. '
-        . 'Select multiple files at once or use Add Supporting Document for another '
-        . 'category. Saved filenames may be edited in Selected Files.</p>'
+        . 'Select the correct category <strong>before uploading</strong>. '
+        . 'Choose Other Supporting Document only when that is accurate. '
+        . 'Select multiple files in the same category at once, or use Add Supporting Document '
+        . 'for a different category. Saved filenames may be edited in Selected Files.</p>'
         . '<div id="registration-requirements-info" class="alert alert-info" '
         . 'data-registration-requirements-info aria-live="polite">'
         . 'For corporations, cooperatives and associations, upload the certified true '
@@ -422,7 +483,7 @@ function registration_attachment_form_fields(bool $new, string $part = 'all'): s
         . '<div id="supporting-document-rows">'
         . registration_supporting_upload_row(0,
             is_string($_POST['supporting_requirements'][0] ?? null)
-                ? (string)$_POST['supporting_requirements'][0] : 'other')
+                ? (string)$_POST['supporting_requirements'][0] : '')
         . '</div>'
         . ($new && function_exists('registration_draft_list_html')
             ? registration_draft_list_html('supporting') : '')

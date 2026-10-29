@@ -30,19 +30,6 @@
       '#registration-supporting-draft-list [data-draft-requirement]')]
       .map(node => node.dataset.draftRequirement));
   }
-  function chooseForNewRow(row) {
-    const select = row?.querySelector('[data-supporting-category]');
-    if (!select || select.value !== 'other') return;
-    const desired = required[type.value] || [];
-    const already = savedKinds();
-    for (const item of supporting.querySelectorAll('[data-supporting-category]')) {
-      if (item === select) continue;
-      if (item.value && item.closest('[data-attachment-row]')?.querySelector('[data-attachment-file]')?.files?.length) {
-        already.add(item.value);
-      }
-    }
-    select.value = desired.find(value => !already.has(value)) || 'other';
-  }
 
   function updateAlwaysVisibleGuide() {
     if (!guide) return;
@@ -97,20 +84,10 @@
     info.append(list);
     const hint=document.createElement('p');
     hint.className='small mb-0 mt-2';
-    hint.textContent='Select the matching Document Category for every supporting file. Multiple uploads are permitted for each category, up to 10 supporting files total.';
+    hint.textContent='Choose the matching Document Category explicitly before uploading each file. The system will preserve that selected category in the LPDD-FUS review. Multiple uploads are allowed per category, up to 10 supporting files total.';
     info.append(hint);
   }
-  type.addEventListener('change',()=>{
-    render();
-    const first=supporting.querySelector('[data-attachment-row]');
-    if (first && !first.querySelector('[data-attachment-file]')?.files?.length) {
-      const select=first.querySelector('[data-supporting-category]');
-      if (select) select.value=(required[type.value]||[])[0]||'other';
-    }
-  });
-  form.querySelector('[data-add-supporting]')?.addEventListener('click',()=>{
-    chooseForNewRow(supporting.lastElementChild);
-  });
+  type.addEventListener('change', render);
   supporting.addEventListener('change',render);
   form.addEventListener('registration:drafts-updated',render);
   // Browser-restored or sessionStorage-restored selection should also highlight.
@@ -122,8 +99,6 @@
     // Saved list updates asynchronously; the event only re-renders the static checklist.
     window.requestAnimationFrame(render);
   });
+  // Applicant must explicitly choose a document category for each newly uploaded file.
   render();
-  if ((required[type.value]||[]).length && supporting.querySelectorAll('[data-attachment-row]').length===1) {
-    chooseForNewRow(supporting.firstElementChild);
-  }
 })();

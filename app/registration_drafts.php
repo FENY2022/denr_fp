@@ -127,7 +127,7 @@ function registration_draft_upload(array $post, array $files): array
         return ['error'=>'Select a valid ID type before uploading.'];
     }
     if ($kind === 'supporting_document') $idType = '';
-    $category = (string)($post['requirement_type'] ?? 'other');
+    $category = (string)($post['requirement_type'] ?? '');
     if ($kind === 'supporting_document' && !isset(registration_requirement_choices()[$category])) {
         return ['error'=>'Select a valid Supporting Document category before uploading.'];
     }

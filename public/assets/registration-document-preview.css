@@ -1,0 +1,15 @@
+/* Reviewer PDF/JPG/PNG preview: zoom without inline styles (strict CSP). */
+.registration-document-preview-media { display: block; }
+.registration-document-preview-pdf { height: 65vh; border: 0; }
+.registration-document-preview-image { height: auto; }
+.registration-document-zoom-50 { width: 50%; max-width: none; }
+.registration-document-zoom-75 { width: 75%; max-width: none; }
+.registration-document-zoom-100 { width: 100%; max-width: none; }
+.registration-document-zoom-125 { width: 125%; max-width: none; }
+.registration-document-zoom-150 { width: 150%; max-width: none; }
+.registration-document-zoom-175 { width: 175%; max-width: none; }
+.registration-document-zoom-200 { width: 200%; max-width: none; }
+.registration-document-zoom-225 { width: 225%; max-width: none; }
+.registration-document-zoom-250 { width: 250%; max-width: none; }
+.registration-document-zoom-275 { width: 275%; max-width: none; }
+.registration-document-zoom-300 { width: 300%; max-width: none; }
