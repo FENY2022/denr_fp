@@ -85,9 +85,8 @@ function registration_requirement_guide_html(): string
         . 'data-registration-entity-guide-status>'
         . 'Select your Applicant / Organization Type above to highlight the '
         . 'requirements that apply to you.</p>'
-        . '<a href="#registration-supporting-document-upload" class="small">'
-        . '<i class="bi bi-upload me-1" aria-hidden="true"></i>'
-        . 'Go to Supporting Documents Upload</a>'
+        . '<p class="small text-secondary mb-0">Upload the required supporting '
+        . 'documents directly below, in Section 2.</p>'
         . '</section>';
 }
 

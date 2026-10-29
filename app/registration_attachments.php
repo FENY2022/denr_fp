@@ -260,8 +260,35 @@ function registration_supporting_upload_row(int $index, string $selected = 'othe
         . '<div class="form-text" data-file-name>No file selected</div></div>';
 }
 
-function registration_attachment_form_fields(bool $new): string
+/**
+ * Shared container for both registration upload groups. The layout renderer can
+ * place applicant information between the supporting and Valid ID sections while
+ * preserving a single DOM root for draft upload, removal and validation JS.
+ */
+function registration_attachment_form_open(bool $new): string
 {
+    $maxBytes = max(1, (int)env_value('MAX_UPLOAD_BYTES', '5242880'));
+    $maxMb = round($maxBytes / 1048576, 1);
+    return '<p class="small text-secondary">Up to <strong>10 supporting documents</strong> '
+        . 'and <strong>5 Valid IDs</strong>. PDF, JPG and PNG only; maximum '
+        . e((string)$maxMb) . ' MB per file. Files are saved securely outside '
+        . 'the public web directory.</p>'
+        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0')
+        . '" data-draft-mode="' . ($new ? '1' : '0')
+        . '" data-multiple-supporting="' . ($new ? '1' : '0')
+        . '" data-max-ids="5" data-max-supporting="10" data-max-file-bytes="'
+        . $maxBytes . '">';
+}
+
+/**
+ * Produce just the selected attachment group without a nested/duplicate root.
+ * The default "all" mode remains for old consumers and existing tests.
+ */
+function registration_attachment_form_fields(bool $new, string $part = 'all'): string
+{
+    if (!in_array($part, ['all','id','supporting'], true)) {
+        throw new InvalidArgumentException('Unsupported registration attachment section.');
+    }
     $posted = $_POST['id_types'] ?? [];
     $ids = [];
     if (is_array($posted)) {
@@ -275,34 +302,31 @@ function registration_attachment_form_fields(bool $new): string
     }
     if (!$ids) $ids = [0 => ''];
 
-    $maxBytes = max(1, (int)env_value('MAX_UPLOAD_BYTES', '5242880'));
-    $maxMb = round($maxBytes / 1048576, 1);
-    $html = '<hr><h3 class="h6">Registration Attachments</h3>'
-        . '<p class="small text-secondary">Upload at least one government-issued ID for a new registration. Select the ID Type for each file. '
-        . 'You may upload up to <strong>5 Valid IDs</strong> and <strong>10 supporting documents</strong>. '
-        . 'PDF, JPG and PNG only; maximum ' . e((string)$maxMb) . ' MB per file. Files are stored securely outside the public web directory.</p>'
-        . '<div id="registration-attachments" data-required-ids="' . ($new ? '1' : '0') . '" data-draft-mode="' . ($new ? '1' : '0') . '" data-multiple-supporting="' . ($new ? '1' : '0') . '" data-max-ids="5" data-max-supporting="10" data-max-file-bytes="' . $maxBytes . '">'
-        . '<h4 class="h6 mt-3 mb-2">Valid Identification Cards ' . ($new ? '<span class="text-danger">*</span>' : '(optional new uploads)') . '</h4>'
-        . '<div id="valid-id-rows">';
+    $idHtml = '<p class="small text-secondary">Select the ID Type and upload at least '
+        . 'one valid government-issued ID for a new registration. '
+        . 'Multiple uploads and Saved Files remain available.</p>'
+        . '<h4 class="h6 mt-3 mb-2">Valid Identification Cards '
+        . ($new ? '<span class="text-danger">*</span>' : '(optional new uploads)')
+        . '</h4><div id="valid-id-rows">';
     foreach ($ids as $index => $selected) {
-        $html .= registration_id_upload_row($index, $selected, $new);
+        $idHtml .= registration_id_upload_row($index, $selected, $new);
     }
-
-    $html .= '</div>'
+    $idHtml .= '</div>'
         . ($new && function_exists('registration_draft_list_html')
             ? registration_draft_list_html('id') : '')
-        . '<button class="btn btn-sm btn-outline-primary mb-4 mt-3" type="button" data-add-id>'
-        . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Another Valid ID</button>'
-        . '<h4 id="registration-supporting-document-upload" class="h6 mb-2">'
+        . '<button class="btn btn-sm btn-outline-primary mb-2 mt-3" type="button" data-add-id>'
+        . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Another Valid ID</button>';
+
+    $supportingHtml = '<h4 id="registration-supporting-document-upload" class="h6 mb-2">'
         . 'Supporting Documents (Category-based Requirements)</h4>'
-        . '<p class="small text-secondary">Choose the appropriate category for each upload. '
-        . 'Select multiple files at once or use Add Supporting Document for another category. Saved file names can be edited below.</p>'
+        . '<p class="small text-secondary">Choose the category for each supporting file. '
+        . 'Select multiple files at once or use Add Supporting Document for another '
+        . 'category. Saved filenames may be edited in Selected Files.</p>'
         . '<div id="registration-requirements-info" class="alert alert-info" '
         . 'data-registration-requirements-info aria-live="polite">'
-        . 'For corporations, cooperatives and associations, upload a certified true copy '
-        . 'of the registration certificate and Secretary’s Certification. '
-        . 'For NGAs, GOCCs and instrumentalities, upload Head of Agency authorization. '
-        . 'Choose the correct category for each file.</div>'
+        . 'For corporations, cooperatives and associations, upload the certified true '
+        . 'registration certificate and Secretary’s Certification. For NGAs, GOCCs and '
+        . 'instrumentalities, upload authorization from the Head of Agency.</div>'
         . '<div id="supporting-document-rows">'
         . registration_supporting_upload_row(0,
             is_string($_POST['supporting_requirements'][0] ?? null)
@@ -310,9 +334,18 @@ function registration_attachment_form_fields(bool $new): string
         . '</div>'
         . ($new && function_exists('registration_draft_list_html')
             ? registration_draft_list_html('supporting') : '')
-        . '<button class="btn btn-sm btn-outline-primary mb-2 mt-3" type="button" data-add-supporting>'
-        . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>Add Supporting Document</button>'
-        . '<p class="small text-secondary mb-0" id="attachment-feedback" role="status" aria-live="polite"></p>'
-        . '</div>';
-    return $html;
+        . '<button class="btn btn-sm btn-outline-primary mb-2 mt-3" '
+        . 'type="button" data-add-supporting>'
+        . '<i class="bi bi-plus-circle me-1" aria-hidden="true"></i>'
+        . 'Add Supporting Document</button>'
+        . '<p class="small text-secondary mb-0" id="attachment-feedback" '
+        . 'role="status" aria-live="polite"></p>';
+
+    return match ($part) {
+        'id' => $idHtml,
+        'supporting' => $supportingHtml,
+        default => '<hr><h3 class="h6">Registration Attachments</h3>'
+            . registration_attachment_form_open($new)
+            . $idHtml . $supportingHtml . '</div>',
+    };
 }

@@ -200,16 +200,29 @@ function form_value(string $name, array $values = []): string
     return (string)($_POST[$name] ?? $values[$name] ?? '');
 }
 
+/** Numbered section label and strong divider, without CSS or inline styles. */
+function registration_section_heading_html(int $number, string $title): string
+{
+    $icon = match ($number) {
+        1=>'building',
+        2=>'file-earmark-arrow-up',
+        3=>'person-vcard',
+        4=>'person-badge',
+        default=>'check-circle',
+    };
+    return ($number === 1 ? '' : '<hr class="my-4 border border-2 border-success opacity-50">')
+        . '<div class="d-flex align-items-center gap-2 mb-3" '
+        . 'data-registration-section="' . $number . '">'
+        . '<span class="badge bg-success rounded-pill" aria-hidden="true">'
+        . sprintf('%02d', $number) . '</span>'
+        . '<h3 class="h6 text-success m-0">'
+        . '<i class="bi bi-' . $icon . ' me-1" aria-hidden="true"></i>'
+        . e($title) . '</h3></div>';
+}
+
 function registration_fields(array $values = [], bool $new = true): string
 {
-    $html = '<div class="row"><div class="col-md-6">'
-        . field('representative_name','Applicant Full Name',form_value('representative_name',$values), 'text',true,'maxlength="180"')
-        . '</div><div class="col-md-6">'
-        . field('representative_position','Position / Designation',form_value('representative_position',$values),'text',false,'maxlength="150"')
-        . '</div></div>';
-    if ($new) {
-        $html .= field('email','Email for login',form_value('email'),'email',true,'autocomplete="email" maxlength="190"');
-    }
+    $html = registration_section_heading_html(1,'Applicant / Organization Type');
     $org = form_value('organization_type',$values);
     $organizationOptions = '<option value="">Select Applicant / Organization Type</option>';
     foreach (registration_organization_types() as $key => $label) {
@@ -220,9 +233,24 @@ function registration_fields(array $values = [], bool $new = true): string
         . 'Applicant / Organization Type <span class="text-danger">*</span></label>'
         . '<select class="form-select" id="organization_type" name="organization_type" '
         . 'required data-registration-organization-type>'.$organizationOptions.'</select>'
-        . '<div class="form-text">Select the entity type to display its registration '
-        . 'documentary requirements.</div></div>'
-        . registration_requirement_guide_html();
+        . '<div class="form-text">Choose your entity type. The required documents '
+        . 'are shown in the next section.</div></div>'
+        . registration_section_heading_html(2,'Documentary Requirements & Supporting Documents')
+        . registration_requirement_guide_html()
+        . registration_attachment_form_open($new)
+        . registration_attachment_form_fields($new,'supporting')
+        . registration_section_heading_html(3,'Applicant Information')
+        . '<div class="row"><div class="col-md-6">'
+        . field('representative_name','Applicant Full Name',form_value('representative_name',$values),
+            'text',true,'maxlength="180"')
+        . '</div><div class="col-md-6">'
+        . field('representative_position','Position / Designation',
+            form_value('representative_position',$values),'text',false,'maxlength="150"')
+        . '</div></div>';
+    if ($new) {
+        $html .= field('email','Email for login',form_value('email'),'email',true,
+            'autocomplete="email" maxlength="190"');
+    }
     $html .= '<div class="row"><div class="col-md-6">'
         . field('company_name','Company / Agency / Organization Name',form_value('company_name',$values),'text',true,'maxlength="220"')
         . '</div><div class="col-md-6">'
@@ -249,7 +277,9 @@ function registration_fields(array $values = [], bool $new = true): string
             . '<div id="password-confirm-feedback" class="small text-secondary mt-2" role="status" aria-live="polite">Re-enter your password to confirm.</div>'
             . '</div></div>';
     }
-    $html .= registration_attachment_form_fields($new);
+    $html .= registration_section_heading_html(4,'Valid Identification Cards')
+        . registration_attachment_form_fields($new,'id')
+        . '</div>';
     return $html;
 }
 
@@ -261,6 +291,7 @@ function view_register(array $errors = []): void
         . '<p class="text-secondary">Register and verify your email with a six-digit code first. Your application is sent to LPDD-FUS only after email verification.</p>'
         . '<form id="applicant-registration-form" method="post" action="' . url('register') . '" enctype="multipart/form-data">' . csrf_field()
         . registration_fields()
+        . registration_section_heading_html(5,'Review and Submit Registration')
         . '<p class="small text-secondary mb-0">Your entries are saved in this browser until submission or clearing. Passwords are not saved.</p>'
         . '<div class="mt-3 d-flex gap-3 align-items-center flex-wrap"><button class="btn btn-primary" type="submit">Submit for review</button>'
         . '<button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#clear-registration-modal">Clear Form</button>'
@@ -490,6 +521,7 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
         $html .= '<div class="panel mt-4"><h2 class="h5">Submit Corrected Registration</h2><p class="text-secondary">Edit your information and optionally add new IDs or supporting documents. Earlier uploads remain on file for review history.</p>'
             . '<form action="' . url('registration_update') . '" method="post" enctype="multipart/form-data">' . csrf_field()
             . registration_fields($reg, false)
+            . registration_section_heading_html(5,'Review and Resubmit Registration')
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
             . '<script src="assets/registration-attachments.js?v=8" defer></script>'
             . '<script src="assets/registration-requirements.js?v=2" defer></script>';

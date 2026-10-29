@@ -49,8 +49,8 @@ entity_check(str_contains($guide,registration_requirement_label('secretary_certi
     'Secretary’s Certification is stated in the guide');
 entity_check(str_contains($guide,registration_requirement_label('head_authorization')),
     'Head of Agency authorization is stated in the guide');
-entity_check(str_contains($guide,'registration-supporting-document-upload'),
-    'guide links to the multiple-upload section');
+entity_check(!str_contains($guide,'Go to Supporting Documents Upload'),
+    'redundant jump link is removed because uploads immediately follow the guide');
 $registrationViewSource = (string)file_get_contents(__DIR__.'/../app/views.php');
 $uploadFormSource = (string)file_get_contents(__DIR__.'/../app/registration_attachments.php');
 $scriptSource = (string)file_get_contents(__DIR__.'/../public/assets/registration-requirements.js');
