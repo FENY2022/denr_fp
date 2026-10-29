@@ -206,6 +206,98 @@ function registration_documents_html(array $documents): string
         . '</div></div></div>';
 }
 
+/** Reviewer-focused document cards grouped by registration requirement. */
+function registration_reviewer_documents_html(array $documents): string
+{
+    if (!$documents) {
+        return '<div class="alert alert-warning mb-0">'
+            . '<i class="bi bi-exclamation-triangle me-2" aria-hidden="true"></i>'
+            . 'No registration documents have been uploaded.</div>';
+    }
+
+    $groups = [
+        'valid_id' => ['Valid Identification Cards', 'person-badge'],
+        'supporting_document' => ['Supporting Documents', 'files'],
+    ];
+    $latestRevision = max(array_map(
+        static fn(array $document): int => (int)($document['revision'] ?? 0),
+        $documents
+    ));
+    $html = '<div class="reviewer-document-groups">';
+    foreach ($groups as $type => [$title, $icon]) {
+        $items = array_values(array_filter(
+            $documents,
+            static fn(array $document): bool => ($document['document_type'] ?? '') === $type
+        ));
+        $headingId = 'reviewer-documents-' . str_replace('_', '-', $type);
+        $html .= '<section class="reviewer-document-group" aria-labelledby="' . $headingId . '">'
+            . '<div class="reviewer-document-group-heading">'
+            . '<h3 class="h6 m-0" id="' . $headingId . '"><i class="bi bi-' . $icon
+            . ' me-2" aria-hidden="true"></i>' . e($title) . '</h3>'
+            . '<span class="badge rounded-pill text-bg-light">' . count($items) . '</span></div>';
+        if (!$items) {
+            $html .= '<p class="small text-secondary mb-0">No files uploaded in this category.</p>';
+        } else {
+            $html .= '<div class="row g-3">';
+            foreach ($items as $document) {
+                $mime = (string)($document['mime_type'] ?? 'application/octet-stream');
+                $name = (string)($document['original_name'] ?? 'Document');
+                $revision = (int)($document['revision'] ?? 0);
+                $bytes = max(0, (int)($document['file_size'] ?? 0));
+                $size = $bytes >= 1048576
+                    ? round($bytes / 1048576, 2) . ' MB'
+                    : round($bytes / 1024, 1) . ' KB';
+                $format = match ($mime) {
+                    'application/pdf' => 'PDF',
+                    'image/jpeg' => 'JPG',
+                    'image/png' => 'PNG',
+                    default => 'File',
+                };
+                $fileIcon = $mime === 'application/pdf' ? 'file-earmark-pdf' : 'file-earmark-image';
+                $label = $type === 'valid_id'
+                    ? registration_id_type_label(isset($document['id_type'])
+                        ? (string)$document['id_type'] : null)
+                    : registration_requirement_label((string)($document['requirement_type'] ?? 'other'));
+                $previewUrl = url('download_reg', ['id'=>(int)$document['id'],'preview'=>1]);
+                $downloadUrl = url('download_reg', ['id'=>(int)$document['id']]);
+                $html .= '<div class="col-md-6"><article class="reviewer-document-card">'
+                    . '<div class="reviewer-document-icon"><i class="bi bi-' . $fileIcon
+                    . '" aria-hidden="true"></i></div><div class="reviewer-document-copy">'
+                    . '<span class="reviewer-document-category">' . e($label) . '</span>'
+                    . '<strong class="reviewer-document-name">' . e($name) . '</strong>'
+                    . '<div class="reviewer-document-meta"><span>' . e($format) . '</span><span>'
+                    . e($size) . '</span><span>Revision ' . $revision . '</span>'
+                    . ($revision === $latestRevision
+                        ? '<span class="text-success fw-semibold">Latest submission</span>' : '')
+                    . '</div><div class="reviewer-document-actions">'
+                    . '<a class="btn btn-sm btn-primary" data-document-preview '
+                    . 'data-document-mime="' . e($mime) . '" data-document-name="' . e($name) . '" '
+                    . 'href="' . e($previewUrl) . '"><i class="bi bi-eye me-1" aria-hidden="true"></i>Preview</a>'
+                    . '<a class="btn btn-sm btn-outline-secondary" href="' . e($downloadUrl) . '">'
+                    . '<i class="bi bi-download me-1" aria-hidden="true"></i>Download</a>'
+                    . '</div></div></article></div>';
+            }
+            $html .= '</div>';
+        }
+        $html .= '</section>';
+    }
+    return $html . '</div>'
+        . '<div class="modal fade" id="registration-document-modal" tabindex="-1" '
+        . 'aria-labelledby="registration-document-modal-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
+        . '<div class="modal-content"><div class="modal-header">'
+        . '<h2 class="modal-title h5" id="registration-document-modal-title">Registration Document Preview</h2>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
+        . '</div><div class="modal-body text-center"><div id="registration-document-preview" class="overflow-auto"></div>'
+        . '<p id="registration-document-error" class="text-danger d-none">Preview unavailable. Use Download instead.</p></div>'
+        . '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-document-zoom="out">Zoom Out</button>'
+        . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="reset">Fit to Screen</button>'
+        . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="in">Zoom In</button>'
+        . '<a class="btn btn-primary" id="registration-document-download" href="#">Download</a>'
+        . '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
+        . '</div></div></div></div>';
+}
+
 
 /** Form controls are shared by initial registration and corrected submissions. */
 function registration_id_upload_row(int $index, string $selectedType, bool $required): string

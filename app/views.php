@@ -81,7 +81,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=25" rel="stylesheet">'
+        . '<link href="assets/style.css?v=26" rel="stylesheet">'
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="fp-pdf-organizer-modal"')
@@ -641,21 +641,50 @@ function view_review_case(int $id, array $errors = []): void
     require_role('lpdd_fus');
     $reg = query_one('SELECT ar.*,u.email,u.status,u.activated_at FROM applicant_registrations ar JOIN user_client u ON u.id=ar.client_id WHERE ar.id=?',[$id]);
     if (!$reg) show_error('Registration not found.', 404);
-    $html = '<div class="mb-3"><a href="' . url('review_queue') . '">← Back to review queue</a></div><div class="row g-4"><div class="col-lg-7"><div class="panel">' . errors_html($errors)
-        . '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><h2 class="h5">Registration #' . (int)$reg['id'] . '</h2>' . status_badge($reg['status']) . '</div>'
-        . '<dl class="row details"><dt class="col-sm-4">Applicant</dt><dd class="col-sm-8">' . e($reg['representative_name']) . '</dd>'
-        . '<dt class="col-sm-4">Position</dt><dd class="col-sm-8">' . e($reg['representative_position'] ?? '') . '</dd>'
-        . '<dt class="col-sm-4">Company</dt><dd class="col-sm-8">' . e($reg['company_name']) . '</dd>'
-        . '<dt class="col-sm-4">Organization type</dt><dd class="col-sm-8">'
-        . e(registration_organization_types()[(string)($reg['organization_type'] ?? 'individual')]
-            ?? 'Individual / Sole Proprietorship') . '</dd>'
-        . '<dt class="col-sm-4">Company address</dt><dd class="col-sm-8">' . nl2br(e($reg['company_address'])) . '</dd>'
-        . '<dt class="col-sm-4">Email</dt><dd class="col-sm-8">' . e($reg['email']) . '</dd>'
-        . '<dt class="col-sm-4">Contact</dt><dd class="col-sm-8">' . e($reg['contact_number']) . '</dd>'
-        . '<dt class="col-sm-4">Revision</dt><dd class="col-sm-8">' . (int)$reg['revision'] . '</dd></dl>'
-        . '<h3 class="h6 mt-3">Submitted attachments and revisions</h3>'
-        . registration_documents_html(registration_documents($id))
-        . '</div></div><div class="col-lg-5"><div class="panel soft"><h2 class="h5">LPDD-FUS Decision</h2>';
+    $docs = registration_documents($id);
+    $history = query_all('SELECT rr.*,u.name AS reviewer FROM registration_reviews rr JOIN users u ON u.id=rr.reviewer_user_id WHERE rr.registration_id=? ORDER BY rr.id DESC',[$id]);
+    $idCount = count(array_filter($docs, static fn(array $doc): bool => ($doc['document_type'] ?? '') === 'valid_id'));
+    $supportingCount = count($docs) - $idCount;
+    $organization = registration_organization_types()[(string)($reg['organization_type'] ?? 'individual')]
+        ?? 'Individual / Sole Proprietorship';
+
+    $html = '<div class="reviewer-case-page"><a class="reviewer-case-back" href="' . e(url('review_queue')) . '">'
+        . '<i class="bi bi-arrow-left" aria-hidden="true"></i>Back to review queue</a>'
+        . '<header class="reviewer-case-hero"><div><span class="reviewer-case-eyebrow">Account Registration Review</span>'
+        . '<h1>' . e((string)$reg['representative_name']) . '</h1>'
+        . '<p><i class="bi bi-building me-2" aria-hidden="true"></i>' . e((string)$reg['company_name']) . '</p></div>'
+        . '<div class="reviewer-case-hero-status">' . status_badge((string)$reg['status'])
+        . '<span>Registration #' . (int)$reg['id'] . '</span></div>'
+        . '<div class="reviewer-case-stats">'
+        . '<div><span>Revision</span><strong>' . (int)$reg['revision'] . '</strong></div>'
+        . '<div><span>Valid IDs</span><strong>' . $idCount . '</strong></div>'
+        . '<div><span>Supporting Files</span><strong>' . $supportingCount . '</strong></div>'
+        . '<div><span>Submitted</span><strong class="reviewer-stat-date">' . e((string)$reg['submitted_at']) . '</strong></div>'
+        . '</div></header>' . errors_html($errors)
+        . '<div class="row g-4 align-items-start"><div class="col-xl-8">'
+        . '<section class="panel reviewer-case-panel" aria-labelledby="reviewer-applicant-title">'
+        . '<div class="reviewer-section-heading"><div><span class="reviewer-section-kicker">Registration profile</span>'
+        . '<h2 class="h5 m-0" id="reviewer-applicant-title">Applicant and Organization Information</h2></div>'
+        . '<i class="bi bi-person-vcard" aria-hidden="true"></i></div>'
+        . '<div class="reviewer-info-grid">'
+        . '<div><span>Applicant</span><strong>' . e((string)$reg['representative_name']) . '</strong></div>'
+        . '<div><span>Position / Designation</span><strong>' . e((string)($reg['representative_position'] ?: 'Not provided')) . '</strong></div>'
+        . '<div><span>Email Address</span><a href="mailto:' . e((string)$reg['email']) . '">' . e((string)$reg['email']) . '</a></div>'
+        . '<div><span>Contact Number</span><strong>' . e((string)$reg['contact_number']) . '</strong></div>'
+        . '<div><span>Organization</span><strong>' . e((string)$reg['company_name']) . '</strong></div>'
+        . '<div><span>Organization Type</span><strong>' . e($organization) . '</strong></div>'
+        . '<div class="reviewer-info-wide"><span>Company / Agency Address</span><strong>'
+        . nl2br(e((string)$reg['company_address'])) . '</strong></div></div></section>'
+        . '<section class="panel reviewer-case-panel mt-4" aria-labelledby="reviewer-documents-title">'
+        . '<div class="reviewer-section-heading"><div><span class="reviewer-section-kicker">Client uploads</span>'
+        . '<h2 class="h5 m-0" id="reviewer-documents-title">Registration Documents</h2></div>'
+        . '<span class="badge rounded-pill text-bg-success">' . count($docs) . ' files</span></div>'
+        . '<p class="text-secondary small">Review every Valid ID and supporting document submitted by the client. '
+        . 'Earlier revisions remain visible for audit history.</p>'
+        . registration_reviewer_documents_html($docs) . '</section></div>'
+        . '<div class="col-xl-4"><div class="panel soft reviewer-decision-panel"><div class="reviewer-section-heading mb-3">'
+        . '<div><span class="reviewer-section-kicker">Reviewer action</span><h2 class="h5 m-0">LPDD-FUS Decision</h2></div>'
+        . '<i class="bi bi-clipboard-check" aria-hidden="true"></i></div>';
     if ($reg['status'] === 'pending_review') {
         $html .= '<form method="post" action="' . e(url('review',['id'=>$id])) . '" '
             . 'data-decision-confirm-form data-confirm-kind="registration" '
@@ -671,19 +700,30 @@ function view_review_case(int $id, array $errors = []): void
             . 'data-decision-confirm-validation></div>'
             . '<div class="d-flex gap-2 flex-wrap">'
             . '<button class="btn btn-success" type="button" data-confirm-decision="approved">'
-            . 'Approve &amp; Activate</button>'
+            . '<i class="bi bi-check-circle me-1" aria-hidden="true"></i>Approve &amp; Activate</button>'
             . '<button class="btn btn-outline-danger" type="button" data-confirm-decision="needs_correction">'
-            . 'Return for Correction</button></div>'
+            . '<i class="bi bi-arrow-counterclockwise me-1" aria-hidden="true"></i>Return for Correction</button></div>'
             . '<noscript><p class="alert alert-warning small mt-3 mb-0">'
             . 'Enable JavaScript to confirm and submit a review decision.</p></noscript>'
             . '</form>';
-    } else $html .= '<p class="text-secondary mb-0">This registration is no longer awaiting review.</p>';
-    $html .= '</div><div class="panel mt-3"><h3 class="h6">Previous review decisions</h3>';
-    $history = query_all('SELECT rr.*,u.name AS reviewer FROM registration_reviews rr JOIN users u ON u.id=rr.reviewer_user_id WHERE rr.registration_id=? ORDER BY rr.id DESC',[$id]);
+    } else {
+        $html .= '<div class="alert alert-light border mb-0"><i class="bi bi-info-circle me-2" aria-hidden="true"></i>'
+            . 'This registration is no longer awaiting review.</div>';
+    }
+    $html .= '</div><section class="panel mt-4 reviewer-history-panel" aria-labelledby="review-history-title">'
+        . '<div class="reviewer-section-heading mb-3"><div><span class="reviewer-section-kicker">Audit trail</span>'
+        . '<h2 class="h6 m-0" id="review-history-title">Previous Review Decisions</h2></div>'
+        . '<i class="bi bi-clock-history" aria-hidden="true"></i></div>';
     if (!$history) $html .= '<p class="text-secondary small mb-0">No earlier reviews.</p>';
-    foreach ($history as $event) $html .= '<div class="history"><strong>' . e(ucwords(str_replace('_',' ',$event['decision']))) . '</strong> · Revision ' . (int)$event['revision']
-        . '<div class="small text-secondary">' . e($event['reviewer']) . ' · ' . e($event['reviewed_at']) . '</div><p class="small mb-0">' . nl2br(e($event['remarks'] ?? '')) . '</p></div>';
-    $html .= '</div></div></div>'
+    foreach ($history as $event) {
+        $html .= '<div class="reviewer-history-event"><span class="reviewer-history-dot"></span><div><strong>'
+            . e(ucwords(str_replace('_',' ',$event['decision']))) . '</strong>'
+            . '<span class="badge text-bg-light ms-2">Revision ' . (int)$event['revision'] . '</span>'
+            . '<div class="small text-secondary mt-1">' . e((string)$event['reviewer']) . ' &middot; '
+            . e((string)$event['reviewed_at']) . '</div><p class="small mb-0 mt-2">'
+            . nl2br(e((string)($event['remarks'] ?: 'No remarks provided.'))) . '</p></div></div>';
+    }
+    $html .= '</section></div></div></div>'
         . ($reg['status'] === 'pending_review' ? decision_confirmation_modal_html() : '');
     render_page('Review Registration', $html);
 }

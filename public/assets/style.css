@@ -509,3 +509,81 @@ body.page-loading{overflow:hidden}
   .registration-step-progress li:not(:last-child)::after{width:calc(100% - 1.3rem)}
   .registration-step-actions .btn{flex:1 1 auto}
 }
+
+/* LPDD-FUS registration case review */
+.reviewer-case-page{max-width:1440px;margin:0 auto}
+.reviewer-case-back{
+  display:inline-flex;align-items:center;gap:.45rem;margin-bottom:1rem;
+  color:#426c58;font-size:.86rem;font-weight:700;text-decoration:none;
+}
+.reviewer-case-back:hover{color:#075c32}
+.reviewer-case-hero{
+  position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:1rem 2rem;margin-bottom:1.5rem;padding:1.65rem 1.75rem;
+  color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:20px;
+  background:linear-gradient(125deg,#064c2b 0%,#08783f 58%,#14935a 100%);
+  box-shadow:0 14px 35px rgba(6,76,43,.16);overflow:hidden;
+}
+.reviewer-case-hero::after{
+  content:"";position:absolute;right:-55px;top:-75px;width:230px;height:230px;
+  border:42px solid rgba(255,255,255,.055);border-radius:50%;pointer-events:none;
+}
+.reviewer-case-eyebrow,.reviewer-section-kicker{
+  display:block;margin-bottom:.3rem;font-size:.69rem;font-weight:800;
+  letter-spacing:.1em;text-transform:uppercase;
+}
+.reviewer-case-eyebrow{color:#bce8cc}
+.reviewer-case-hero h1{margin:0;font-size:clamp(1.45rem,3vw,2.15rem);font-weight:800;letter-spacing:-.025em}
+.reviewer-case-hero p{margin:.45rem 0 0;color:#d9f0e2;font-size:.93rem}
+.reviewer-case-hero-status{position:relative;z-index:1;display:flex;align-items:flex-end;flex-direction:column;gap:.55rem}
+.reviewer-case-hero-status>span:last-child{font-size:.76rem;color:#d9f0e2;font-weight:700}
+.reviewer-case-stats{
+  grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.75rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.16);
+}
+.reviewer-case-stats>div{display:flex;flex-direction:column;gap:.18rem;min-width:0}
+.reviewer-case-stats span{color:#c9e9d5;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.reviewer-case-stats strong{font-size:1.15rem;overflow-wrap:anywhere}
+.reviewer-case-stats .reviewer-stat-date{font-size:.85rem;line-height:1.5}
+.reviewer-case-panel{border-top:3px solid #159052}
+.reviewer-section-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem}
+.reviewer-section-heading>i{color:#17844d;font-size:1.55rem}
+.reviewer-section-kicker{color:#668276}
+.reviewer-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+.reviewer-info-grid>div{
+  display:flex;flex-direction:column;gap:.28rem;padding:1rem;
+  border:1px solid #e0e9e3;border-radius:12px;background:#f9fbfa;min-width:0;
+}
+.reviewer-info-grid span{color:#73877d;font-size:.68rem;font-weight:800;letter-spacing:.055em;text-transform:uppercase}
+.reviewer-info-grid strong,.reviewer-info-grid a{color:#284b3b;font-size:.9rem;overflow-wrap:anywhere}
+.reviewer-info-wide{grid-column:1/-1}
+.reviewer-document-groups{display:grid;gap:1.25rem}
+.reviewer-document-group{padding:1rem;border:1px solid #dfe9e2;border-radius:14px;background:#fbfcfb}
+.reviewer-document-group-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.85rem;color:#275b41}
+.reviewer-document-card{
+  display:flex;align-items:flex-start;gap:.8rem;height:100%;padding:1rem;
+  border:1px solid #dce7df;border-radius:12px;background:#fff;
+  box-shadow:0 3px 10px rgba(28,72,48,.045);
+}
+.reviewer-document-icon{
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 2.5rem;
+  width:2.5rem;height:2.5rem;border-radius:10px;background:#eaf5ee;color:#08783f;font-size:1.25rem;
+}
+.reviewer-document-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:.35rem}
+.reviewer-document-category{color:#18804b;font-size:.66rem;font-weight:800;letter-spacing:.055em;text-transform:uppercase}
+.reviewer-document-name{color:#294c3c;font-size:.88rem;overflow-wrap:anywhere}
+.reviewer-document-meta{display:flex;flex-wrap:wrap;gap:.25rem .65rem;color:#7a8e84;font-size:.69rem}
+.reviewer-document-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.35rem}
+.reviewer-decision-panel{position:sticky;top:1rem;border-top:3px solid #08783f}
+.reviewer-history-panel{position:relative}
+.reviewer-history-event{position:relative;display:grid;grid-template-columns:12px 1fr;gap:.65rem;padding:.25rem 0 1rem}
+.reviewer-history-event:not(:last-child)::before{content:"";position:absolute;left:5px;top:12px;bottom:-2px;width:2px;background:#d9e6de}
+.reviewer-history-dot{position:relative;z-index:1;width:12px;height:12px;margin-top:.28rem;border:3px solid #b7ddc5;border-radius:50%;background:#08783f}
+@media(max-width:1199.98px){.reviewer-decision-panel{position:static}}
+@media(max-width:767.98px){
+  .reviewer-case-hero{grid-template-columns:1fr;padding:1.25rem}
+  .reviewer-case-hero-status{align-items:flex-start}
+  .reviewer-case-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .reviewer-info-grid{grid-template-columns:1fr}
+  .reviewer-info-wide{grid-column:auto}
+}
