@@ -123,6 +123,42 @@ function view_step2_applications(): void
  * Browser-side PDF organizer; no file is sent until the user confirms and
  * the existing secure upload flow receives the resulting File.
  */
+/** Applicant's choice before rendering a potentially lengthy PDF organizer. */
+function step2_pdf_choice_modal_html(): string
+{
+    return '<div class="modal fade" id="fp-pdf-upload-choice-modal" tabindex="-1" '
+        . 'aria-labelledby="fp-pdf-upload-choice-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-header">'
+        . '<h2 class="modal-title h5" id="fp-pdf-upload-choice-title">'
+        . '<i class="bi bi-file-earmark-pdf text-danger me-2" aria-hidden="true"></i>'
+        . 'Would You Like to Organize Your PDF Pages?</h2>'
+        . '<button type="button" class="btn-close" data-pdf-choice-cancel '
+        . 'aria-label="Cancel PDF upload"></button></div>'
+        . '<div class="modal-body">'
+        . '<p class="small text-secondary text-break mb-2" data-pdf-choice-filename></p>'
+        . '<p>If you need to rearrange, duplicate, remove, or adjust the order of '
+        . 'pages in your PDF document, click <strong>Yes, Organize Pages</strong> '
+        . 'to make those changes using the PDF Page Organizer.</p>'
+        . '<p>If your document is already complete and no changes are necessary, '
+        . 'click <strong>No</strong> to continue with the original PDF.</p>'
+        . '<p class="alert alert-warning small py-2 mb-2">'
+        . '<i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>'
+        . 'Changing pages in a digitally signed PDF may invalidate its signatures. '
+        . 'Keep the signed original if you need to preserve it.</p>'
+        . '<p class="small text-secondary mb-0" data-pdf-choice-mode-note></p>'
+        . '</div>'
+        . '<div class="modal-footer d-flex flex-wrap gap-2">'
+        . '<button type="button" class="btn btn-outline-secondary" data-pdf-choice-cancel>'
+        . 'Cancel</button>'
+        . '<button type="button" class="btn btn-secondary" data-pdf-choice-no>'
+        . 'No, Upload Original PDF</button>'
+        . '<button type="button" class="btn btn-primary" data-pdf-choice-yes>'
+        . '<i class="bi bi-files me-1" aria-hidden="true"></i>'
+        . 'Yes, Organize Pages</button>'
+        . '</div></div></div></div>';
+}
+
 function step2_pdf_organizer_modal_html(): string
 {
     return '<div class="modal fade fp-pdf-organizer" id="fp-pdf-organizer-modal" tabindex="-1" '
@@ -357,11 +393,13 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . 'the 15-day processing tracker are not part of this release.</p></div>';
     if ($docs) $html .= '<div class="panel mt-3"><h3 class="h6">Previously Uploaded Documents</h3>'
         . step2_documents_html($docs) . '</div>';
-    $html .= '</div></div>' . step2_pdf_organizer_modal_html();
+    $html .= '</div></div>' . step2_pdf_choice_modal_html()
+        . step2_pdf_organizer_modal_html();
     if ($persistent) $html .= step2_clear_form_modal_html();
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=6" defer></script>'
+        . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=7" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=1" defer></script>'

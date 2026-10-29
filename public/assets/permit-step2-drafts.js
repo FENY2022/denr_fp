@@ -271,8 +271,10 @@
         let file = original;
         if (/\.pdf$/i.test(original.name)) {
           try {
-            if (!window.FPOMSOrganizePdf) throw new Error('PDF organizer did not load.');
-            file = await window.FPOMSOrganizePdf(original,maxBytes,'direct');
+            if (typeof window.FPOMSChoosePdfUpload !== 'function') {
+              throw new Error('PDF upload confirmation did not load.');
+            }
+            file = await window.FPOMSChoosePdfUpload(original,maxBytes,'direct');
           } catch (error) { notice(error.message,true); rejected++;continue; }
         }
         if (file && validFile(file)) selected.push(file);
@@ -314,8 +316,10 @@
       let file = original;
       if (/\.pdf$/i.test(file.name)) {
         try {
-          if (!window.FPOMSOrganizePdf) throw new Error('PDF organizer did not load.');
-          file = await window.FPOMSOrganizePdf(original,maxBytes,'saved');
+          if (typeof window.FPOMSChoosePdfUpload !== 'function') {
+            throw new Error('PDF upload confirmation did not load.');
+          }
+          file = await window.FPOMSChoosePdfUpload(original,maxBytes,'saved');
         } catch(error) {notice(error.message,true);continue;}
       }
       if (!file) continue;

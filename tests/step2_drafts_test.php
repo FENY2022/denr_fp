@@ -30,7 +30,7 @@ check_step2_draft(str_contains($direct,'will be lost if you refresh'),'fallback 
 check_step2_draft(!str_contains($direct,'is-saved'),'fallback does not mark files saved');
 $viewSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 check_step2_draft(str_contains($viewSource,"step2_direct_selected_files_html()"),'fallback is rendered');
-check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=5'),'current script loads in both modes');
+check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=7'),'current script loads in both modes');
 check_step2_draft(str_contains($viewSource,'data-step2-js-warning'),'JavaScript unavailable notice exists');
 check_step2_draft(str_contains($viewSource,'data-draft-key="fpoms.permit.'),'form draft is scoped to applicant and application');
 $modalSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
@@ -45,9 +45,29 @@ check_step2_draft(str_contains($editorSource,'copyPages(state.document,state.ord
 check_step2_draft(str_contains($editorSource,"makeButton('duplicate'"),'duplicate page action');
 check_step2_draft(str_contains($editorSource,"makeButton('remove'"),'remove page action');
 check_step2_draft(str_contains($editorSource,"makeButton('preview'"),'page preview action');
-check_step2_draft(str_contains($uploadSource,'window.FPOMSOrganizePdf(original,maxBytes'), 'all PDF files organized before upload');
+check_step2_draft(str_contains($uploadSource,"FPOMSChoosePdfUpload(original,maxBytes,'direct')"),
+    'direct upload mode prompts before choosing the PDF');
+check_step2_draft(str_contains($uploadSource,"FPOMSChoosePdfUpload(original,maxBytes,'saved')"),
+    'saved upload mode prompts before staging the PDF');
+check_step2_draft(str_contains($uploadSource,"window.FPOMSOrganizePdf(file,maxBytes,'saved')"),
+    'already-saved PDF rearrange button still opens organizer directly');
+$choiceSource = (string)file_get_contents(__DIR__.'/../public/assets/permit-pdf-choice.js');
+check_step2_draft(str_contains($modalSource,'step2_pdf_choice_modal_html()'),
+    'explanatory choice modal is rendered');
+check_step2_draft(str_contains($modalSource,'data-pdf-choice-no'),
+    'No uses original PDF button exists');
+check_step2_draft(str_contains($modalSource,'data-pdf-choice-yes'),
+    'Yes organizes PDF button exists');
+check_step2_draft(str_contains($modalSource,'data-pdf-choice-cancel'),
+    'Cancel skips PDF button exists');
+check_step2_draft(str_contains($choiceSource,"pending.resolve(pending.file)"),
+    'No returns unchanged original file');
+check_step2_draft(str_contains($choiceSource,"pending.resolve(null)"),
+    'Cancel skips file upload');
+check_step2_draft(str_contains($choiceSource,"window.FPOMSOrganizePdf("),
+    'Yes invokes editor only after choice');
 check_step2_draft(str_contains($uploadSource,'window.sessionStorage'),'permit fields persist through refresh');
-check_step2_draft(str_contains($uploadSource,"['project_title','project_location','purpose']"),'permit draft includes all fields');
+check_step2_draft(str_contains($uploadSource,"'project_title','project_location','purpose'"),'permit draft includes all fields');
 check_step2_draft(str_contains($bootstrapSource,"worker-src \\'self\\' blob:"),'PDF.js worker CSP');
 
 $modern = step2_draft_list_html([

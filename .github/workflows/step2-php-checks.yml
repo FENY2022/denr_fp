@@ -42,6 +42,10 @@ jobs:
         run: node --check public/assets/permit-step2-drafts.js
       - name: JavaScript syntax check for PDF page organizer
         run: node --check public/assets/permit-pdf-organizer.js
+      - name: JavaScript syntax check for PDF upload choice
+        run: node --check public/assets/permit-pdf-choice.js
+      - name: PDF upload choice Yes/No/Cancel behavior tests
+        run: node tests/step2_pdf_choice_test.js
       - name: Validate map coordinates and project location UI
         run: php tests/step2_location_test.php
       - name: JavaScript syntax check for project map
