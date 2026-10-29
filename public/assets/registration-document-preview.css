@@ -13,3 +13,14 @@
 .registration-document-zoom-250 { width: 250%; max-width: none; }
 .registration-document-zoom-275 { width: 275%; max-width: none; }
 .registration-document-zoom-300 { width: 300%; max-width: none; }
+
+/* Keep Previous / counter / Next together on narrow reviewer screens. */
+#registration-document-modal [data-document-counter] {
+  min-width: 4.2rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+#registration-document-modal [data-document-previous],
+#registration-document-modal [data-document-next] {
+  white-space: nowrap;
+}

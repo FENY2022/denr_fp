@@ -34,6 +34,16 @@ foreach ([60,59,58,57,56] as $id) {
 }
 $html=registration_reviewer_documents_html($sample);
 $summary=registration_reviewer_requirements_html('corporation',$sample);
+$compact = registration_documents_html($sample);
+foreach ([$html,$compact] as $modalVersion) {
+    review_assert(str_contains($modalVersion, 'data-document-previous disabled'),
+        'Previous control exists and starts disabled');
+    review_assert(str_contains($modalVersion, 'data-document-next disabled'),
+        'Next control exists and starts disabled');
+    review_assert(str_contains($modalVersion, 'data-document-counter'),
+        'Document position counter is rendered in every preview modal');
+}
+
 review_assert(substr_count($html,'data-submitted-document-id=')===5,
     'each of the five submitted rows is displayed exactly once');
 review_assert(substr_count($html,'data-document-preview ')===5,

@@ -38,6 +38,8 @@ jobs:
         run: php tests/registration_reviewer_uploads_test.php
       - name: Reviewer document preview JavaScript syntax
         run: node --check public/assets/registration-document-preview.js
+      - name: Registration document Previous/Next, counter and download behavior
+        run: node tests/registration_document_navigation_test.js
       - name: Applicant registration section layout
         run: php tests/registration_section_layout_test.php
       - name: Applicant review confirmation and private preview checks

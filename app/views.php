@@ -89,7 +89,7 @@ function render_page(string $title, string $content): void
         . (str_contains($content, 'id="registration-review-confirm-modal"')
             ? '<link href="assets/registration-review-confirm.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="registration-document-modal"')
-            ? '<link href="assets/registration-document-preview.css?v=1" rel="stylesheet">' : '')
+            ? '<link href="assets/registration-document-preview.css?v=2" rel="stylesheet">' : '')
         . (str_contains($content, 'data-fp-location-map=')
             ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
                 . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
@@ -141,7 +141,7 @@ function render_page(string $title, string $content): void
         . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer></div></div>'
         . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>'
         . (str_contains($content, 'id="registration-document-modal"')
-            ? '<script src="assets/registration-document-preview.js?v=1" defer></script>' : '')
+            ? '<script src="assets/registration-document-preview.js?v=2" defer></script>' : '')
         . (str_contains($content, 'id="otp-verification-success-modal"')
             ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
         . (str_contains($content, 'data-decision-confirm-form')
