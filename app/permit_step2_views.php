@@ -198,7 +198,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             . nl2br(e((string)($latest['remarks'] ?? 'Please follow the review instructions.')))
             . '</p></div>';
     }
-    $html .= '<form method="post" action="' . e($formUrl) . '" enctype="multipart/form-data">'
+    $html .= '<form id="permit-step2-form" method="post" action="' . e($formUrl)
+        . '" enctype="multipart/form-data" data-draft-key="fpoms.permit.'
+        . (int)$client['id'] . '.' . $applicationId . '.v1">'
         . csrf_field()
         . '<div class="mb-3"><label class="form-label" for="project_title">Application / Project Title '
         . '<span class="text-danger">*</span></label>'
@@ -256,7 +258,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html .= '</div></div>' . step2_pdf_organizer_modal_html();
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=3" defer></script>';
+        . '<script src="assets/permit-step2-drafts.js?v=4" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 

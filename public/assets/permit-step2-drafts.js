@@ -15,6 +15,39 @@
   const maxBytes = Number(root.dataset.maxBytes || 5242880);
   let busy = false;
 
+  const draftKey = form.dataset.draftKey || '';
+  let draftStorage = null;
+  try { draftStorage = window.sessionStorage; } catch (_) {}
+  const draftFields = ['project_title','project_location','purpose'];
+  function saveFormDraft() {
+    if (!draftStorage || !draftKey) return;
+    const values = {};
+    for (const name of draftFields) {
+      const field = form.elements.namedItem(name);
+      if (field) values[name] = field.value;
+    }
+    try { draftStorage.setItem(draftKey,JSON.stringify(values)); } catch (_) {}
+  }
+  function restoreFormDraft() {
+    if (!draftStorage || !draftKey) return;
+    let values = null;
+    try { values = JSON.parse(draftStorage.getItem(draftKey) || 'null'); } catch (_) {
+      draftStorage.removeItem(draftKey);
+    }
+    if (!values || typeof values !== 'object') return;
+    for (const name of draftFields) {
+      const field = form.elements.namedItem(name);
+      if (field && !field.value && typeof values[name] === 'string') field.value = values[name];
+    }
+  }
+  function clearFormDraft() {
+    try { draftStorage?.removeItem(draftKey); } catch (_) {}
+  }
+  restoreFormDraft();
+  saveFormDraft();
+  form.addEventListener('input',saveFormDraft);
+  form.addEventListener('change',saveFormDraft);
+
   // Remove the no-JS notice only after the handlers have initialized.
   const jsWarning = root.querySelector('[data-step2-js-warning]');
 
@@ -147,6 +180,8 @@
           || (scope === '0' && selected.length === 0)) {
         event.preventDefault();
         directNotice('Select at least one valid supporting document (maximum 10).',true);
+      } else {
+        clearFormDraft();
       }
     });
     drawDirectFiles();
@@ -303,6 +338,8 @@
       event.preventDefault();
       notice(busy ? 'Finish file uploads before submitting.'
         : 'Upload at least one FP supporting document.',true);
+    } else {
+      clearFormDraft();
     }
   });
   refresh();

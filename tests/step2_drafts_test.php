@@ -30,8 +30,9 @@ check_step2_draft(str_contains($direct,'will be lost if you refresh'),'fallback 
 check_step2_draft(!str_contains($direct,'is-saved'),'fallback does not mark files saved');
 $viewSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 check_step2_draft(str_contains($viewSource,"step2_direct_selected_files_html()"),'fallback is rendered');
-check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=3'),'current script loads in both modes');
+check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=4'),'current script loads in both modes');
 check_step2_draft(str_contains($viewSource,'data-step2-js-warning'),'JavaScript unavailable notice exists');
+check_step2_draft(str_contains($viewSource,'data-draft-key="fpoms.permit.'),'form draft is scoped to applicant and application');
 $modalSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 $editorSource = (string)file_get_contents(__DIR__.'/../public/assets/permit-pdf-organizer.js');
 $uploadSource = (string)file_get_contents(__DIR__.'/../public/assets/permit-step2-drafts.js');
@@ -45,5 +46,7 @@ check_step2_draft(str_contains($editorSource,"makeButton('duplicate'"),'duplicat
 check_step2_draft(str_contains($editorSource,"makeButton('remove'"),'remove page action');
 check_step2_draft(str_contains($editorSource,"makeButton('preview'"),'page preview action');
 check_step2_draft(str_contains($uploadSource,'window.FPOMSOrganizePdf(original,maxBytes'), 'all PDF files organized before upload');
+check_step2_draft(str_contains($uploadSource,'window.sessionStorage'),'permit fields persist through refresh');
+check_step2_draft(str_contains($uploadSource,"['project_title','project_location','purpose']"),'permit draft includes all fields');
 check_step2_draft(str_contains($bootstrapSource,"worker-src \\'self\\' blob:"),'PDF.js worker CSP');
 echo "FP draft Selected Files and PDF organizer checks passed.\n";
