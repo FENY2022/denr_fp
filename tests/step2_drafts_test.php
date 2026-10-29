@@ -30,7 +30,7 @@ check_step2_draft(str_contains($direct,'will be lost if you refresh'),'fallback 
 check_step2_draft(!str_contains($direct,'is-saved'),'fallback does not mark files saved');
 $viewSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 check_step2_draft(str_contains($viewSource,"step2_direct_selected_files_html()"),'fallback is rendered');
-check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=4'),'current script loads in both modes');
+check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=5'),'current script loads in both modes');
 check_step2_draft(str_contains($viewSource,'data-step2-js-warning'),'JavaScript unavailable notice exists');
 check_step2_draft(str_contains($viewSource,'data-draft-key="fpoms.permit.'),'form draft is scoped to applicant and application');
 $modalSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
@@ -49,4 +49,31 @@ check_step2_draft(str_contains($uploadSource,'window.FPOMSOrganizePdf(original,m
 check_step2_draft(str_contains($uploadSource,'window.sessionStorage'),'permit fields persist through refresh');
 check_step2_draft(str_contains($uploadSource,"['project_title','project_location','purpose']"),'permit draft includes all fields');
 check_step2_draft(str_contains($bootstrapSource,"worker-src \\'self\\' blob:"),'PDF.js worker CSP');
-echo "FP draft Selected Files and PDF organizer checks passed.\n";
+
+$modern = step2_draft_list_html([
+    ['id'=>19,'original_name'=>'document.pdf','mime_type'=>'application/pdf','size'=>1000]
+],true);
+check_step2_draft(str_contains($modern,'Rearrange Pages'),'saved PDF can be edited again');
+check_step2_draft(str_contains($modern,'until you submit'),'persistent draft notice');
+check_step2_draft(!str_contains($modern,'expire in 24 hours'),'modern draft does not expire');
+$view = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
+$backend = (string)file_get_contents(__DIR__.'/../app/permit_step2_persistent.php');
+$submit = (string)file_get_contents(__DIR__.'/../app/permit_step2.php');
+$router = (string)file_get_contents(__DIR__.'/../public/index.php');
+$script = (string)file_get_contents(__DIR__.'/../public/assets/permit-step2-drafts.js');
+$cleanup = (string)file_get_contents(__DIR__.'/../scripts/cleanup_step2_drafts.php');
+check_step2_draft(str_contains($view,'step2_persistent_form('),'restores server fields');
+check_step2_draft(str_contains($view,'data-step2-confirm-clear'),'confirm clear button');
+check_step2_draft(str_contains($backend,'ON DUPLICATE KEY UPDATE'),'server autosave upsert');
+check_step2_draft(str_contains($backend,'function step2_persistent_replace_pdf'),'secure PDF replacement');
+check_step2_draft(str_contains($backend,'function step2_persistent_clear'),'server clear function');
+check_step2_draft(str_contains($backend,'WHERE id=? AND client_id=?'),'PDF authorized by owner');
+check_step2_draft(str_contains($router,"case 'permit_draft_save':"),'autosave endpoint');
+check_step2_draft(str_contains($router,"case 'permit_draft_clear':"),'clear endpoint');
+check_step2_draft(str_contains($router,"case 'permit_draft_replace':"),'replace endpoint');
+check_step2_draft(str_contains($router,"case 'permit_draft_file':"),'PDF fetch endpoint');
+check_step2_draft(str_contains($script,'permit-draft-replace'),'PDF reopen workflow');
+check_step2_draft(str_contains($script,'form.requestSubmit(submit)'),'submit waits on field save');
+check_step2_draft(str_contains($submit,'DELETE FROM permit_step2_form_drafts'),'draft deleted in commit');
+check_step2_draft(str_contains($cleanup,'if (step2_persistent_ready())'),'expiration cleanup disabled');
+echo "FP persistent draft and PDF organizer checks passed.\n";

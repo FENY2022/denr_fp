@@ -210,6 +210,8 @@ function step2_submit(array $client, array $data, array $files, int $application
     try {
         $pdo->beginTransaction();
         $clientId = (int)$client['id'];
+        // Serialize final submission against a concurrent draft upload/clear.
+        $pdo->prepare('SELECT id FROM user_client WHERE id=? FOR UPDATE')->execute([$clientId]);
         if ($draftMode) {
             $staged = step2_draft_submission($clientId,$draftScope);
             if ($staged['errors']) {
@@ -310,12 +312,27 @@ function step2_submit(array $client, array $data, array $files, int $application
             $draftFilesToRemove[] = $source;
         }
         if ($draftRows) {
-            $hash = step2_draft_hash(false);
-            if ($hash === null) throw new RuntimeException('Draft session expired.');
+            if (step2_persistent_ready()) {
+                $pdo->prepare(
+                    'DELETE FROM permit_step2_draft_documents
+                     WHERE client_id=? AND application_id=?'
+                )->execute([$clientId,$draftScope]);
+            } else {
+                $hash = step2_draft_hash(false);
+                if ($hash === null) throw new RuntimeException('Draft session expired.');
+                $pdo->prepare(
+                    'DELETE FROM permit_step2_draft_documents
+                     WHERE client_id=? AND draft_hash=? AND application_id=?'
+                )->execute([$clientId,$hash,$draftScope]);
+            }
+        }
+        // Only delete the server-side field draft as part of the successful
+        // submission transaction; a rollback leaves it and its files intact.
+        if (step2_persistent_ready()) {
             $pdo->prepare(
-                'DELETE FROM permit_step2_draft_documents
-                 WHERE client_id=? AND draft_hash=? AND application_id=?'
-            )->execute([$clientId,$hash,$draftScope]);
+                'DELETE FROM permit_step2_form_drafts
+                 WHERE client_id=? AND application_id=?'
+            )->execute([$clientId,$draftScope]);
         }
         $pdo->prepare(
             'INSERT INTO permit_step2_events

@@ -219,6 +219,9 @@ try {
             break;
         case 'permit_draft_upload':
         case 'permit_draft_delete':
+        case 'permit_draft_save':
+        case 'permit_draft_clear':
+        case 'permit_draft_replace':
             $client = step2_require_applicant();
             if (!$post) step2_draft_json(['error'=>'POST required.'],405);
             check_csrf();
@@ -227,21 +230,42 @@ try {
             if ($scope === false || $scope === null) {
                 step2_draft_json(['error'=>'Invalid FP application reference.'],400);
             }
+            $draftId = filter_var($_POST['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]) ?: 0;
             if ($page === 'permit_draft_upload') {
                 $result = step2_draft_upload($client,(int)$scope,$_FILES);
-            } else {
-                $draftId = filter_var($_POST['id'] ?? null,FILTER_VALIDATE_INT,
-                    ['options'=>['min_range'=>1]]) ?: 0;
+            } elseif ($page === 'permit_draft_delete') {
                 $result = step2_draft_delete($client,(int)$scope,(int)$draftId);
+            } elseif ($page === 'permit_draft_save') {
+                $result = step2_persistent_save_fields($client,(int)$scope,$_POST);
+            } elseif ($page === 'permit_draft_clear') {
+                $result = step2_persistent_clear($client,(int)$scope);
+            } else {
+                $result = step2_persistent_replace_pdf($client,(int)$scope,(int)$draftId,$_FILES);
             }
             step2_draft_json($result,isset($result['error']) ? 422 : 200);
+        case 'permit_draft_file':
+            $client = step2_require_applicant();
+            if ($post) show_error('Use GET to open a saved PDF.',405);
+            $scope = filter_var($_GET['application_id'] ?? 0,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>0]]);
+            $draftId = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if ($scope === false || $scope === null || !$draftId) {
+                show_error('Invalid PDF draft reference.',400);
+            }
+            step2_persistent_send_pdf($client,(int)$scope,(int)$draftId);
         case 'permit_apply':
             $client = step2_require_applicant();
             $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
             if (isset($_GET['id']) && !$id) show_error('Invalid FP application ID.',400);
             if ($post) {
                 check_csrf();
-                $errors = step2_submit($client,step2_input(),$_FILES,(int)$id);
+                $fields = step2_input();
+                $saved = step2_persistent_ready()
+                    ? step2_persistent_save_fields($client,(int)$id,$fields) : [];
+                $errors = isset($saved['error']) ? [$saved['error']]
+                    : step2_submit($client,$fields,$_FILES,(int)$id);
                 if ($errors) view_step2_form((int)$id,$errors);
                 else {
                     flash('success','FP application submitted for LPDD-FUS Technical Staff initial review.');

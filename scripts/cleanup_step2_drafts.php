@@ -11,6 +11,11 @@ if (!step2_drafts_schema_ready()) {
     fwrite(STDERR,"Apply migration 015 before FP draft cleanup.\n");
     exit(1);
 }
+// Migration 016 makes Step 2 drafts persistent: never run the former 24h cleanup.
+if (step2_persistent_ready()) {
+    echo "FP draft persistence active: automatic draft deletion disabled.\n";
+    exit(0);
+}
 $removed = 0;
 $failed = 0;
 try {

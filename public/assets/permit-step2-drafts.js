@@ -13,29 +13,45 @@
   const csrf = form.querySelector('input[name="csrf_token"]')?.value || '';
   const scope = root.dataset.applicationId || '0';
   const maxBytes = Number(root.dataset.maxBytes || 5242880);
-  let busy = false;
-
+  const persistent = root.dataset.persistent === '1';
   const draftKey = form.dataset.draftKey || '';
+  const fields = ['project_title','project_location','purpose'];
+  const saveStatus = form.querySelector('[data-step2-autosave-status]');
+  const warning = root.querySelector('[data-step2-js-warning]');
+  let busy = false;
+  let finalizing = false;
+  let submitApproved = false;
+  let saveTimer = null;
+  let saveChain = Promise.resolve();
+
   let draftStorage = null;
   try { draftStorage = window.sessionStorage; } catch (_) {}
-  const draftFields = ['project_title','project_location','purpose'];
-  function saveFormDraft() {
-    if (!draftStorage || !draftKey) return;
+  function readFields() {
     const values = {};
-    for (const name of draftFields) {
-      const field = form.elements.namedItem(name);
-      if (field) values[name] = field.value;
-    }
-    try { draftStorage.setItem(draftKey,JSON.stringify(values)); } catch (_) {}
+    for (const field of fields) values[field] = form.elements.namedItem(field)?.value || '';
+    return values;
+  }
+  function saveMessage(value,error=false) {
+    if (!saveStatus) return;
+    saveStatus.textContent = value;
+    saveStatus.classList.toggle('text-danger',error);
+    saveStatus.classList.toggle('text-success',!error);
+  }
+  function notice(value,error=false) {
+    feedback.textContent = value;
+    feedback.classList.toggle('text-danger',error);
+    feedback.classList.toggle('text-secondary',!error);
+  }
+  function saveFormDraft() {
+    if (persistent || !draftStorage || !draftKey) return;
+    try { draftStorage.setItem(draftKey,JSON.stringify(readFields())); } catch (_) {}
   }
   function restoreFormDraft() {
-    if (!draftStorage || !draftKey) return;
-    let values = null;
-    try { values = JSON.parse(draftStorage.getItem(draftKey) || 'null'); } catch (_) {
-      draftStorage.removeItem(draftKey);
-    }
+    if (persistent || !draftStorage || !draftKey) return;
+    let values;
+    try { values = JSON.parse(draftStorage.getItem(draftKey)||'null'); } catch (_) {return;}
     if (!values || typeof values !== 'object') return;
-    for (const name of draftFields) {
+    for (const name of fields) {
       const field = form.elements.namedItem(name);
       if (field && !field.value && typeof values[name] === 'string') field.value = values[name];
     }
@@ -43,305 +59,325 @@
   function clearFormDraft() {
     try { draftStorage?.removeItem(draftKey); } catch (_) {}
   }
-  restoreFormDraft();
-  saveFormDraft();
-  form.addEventListener('input',saveFormDraft);
-  form.addEventListener('change',saveFormDraft);
-
-  // Remove the no-JS notice only after the handlers have initialized.
-  const jsWarning = root.querySelector('[data-step2-js-warning]');
-
-  // Compatibility mode: migration 015 has not been installed. Keep native
-  // form submission and make its selected files visible without calling them saved.
-  if (root.dataset.step2Mode === 'direct') {
-    let selected = Array.from(input.files || []);
-    let organizing = false;
-    const valid = file => file.size > 0 && file.size <= maxBytes
-      && /\.(pdf|jpe?g|png)$/i.test(file.name);
-
-    function directNotice(value, isError = false) {
-      feedback.textContent = value;
-      feedback.classList.toggle('text-danger', isError);
-      feedback.classList.toggle('text-secondary', !isError);
-    }
-    function syncNativeFiles() {
-      const transfer = new DataTransfer();
-      for (const file of selected) transfer.items.add(file);
-      input.files = transfer.files;
-    }
-    function drawDirectFiles() {
-      list.replaceChildren();
-      for (const [index, file] of selected.entries()) {
-        const item = document.createElement('li');
-        item.className = 'selected-file-card is-pending';
-        const icon = document.createElement('span');
-        icon.className = 'selected-file-icon';
-        icon.setAttribute('aria-hidden', 'true');
-        const glyph = document.createElement('i');
-        glyph.className = 'bi bi-file-earmark-text-fill';
-        icon.append(glyph);
-        const info = document.createElement('div');
-        info.className = 'selected-file-info';
-        const name = document.createElement('strong');
-        name.className = 'selected-file-name';
-        name.textContent = file.name;
-        const status = document.createElement('span');
-        status.className = 'selected-file-status';
-        status.textContent = 'Selected — uploads when you submit · Not saved yet';
-        info.append(name,status);
-        const remove = document.createElement('button');
-        remove.className = 'selected-file-remove';
-        remove.type = 'button';
-        remove.dataset.step2LocalIndex = String(index);
-        remove.setAttribute('aria-label','Remove selected file: '+file.name);
-        remove.title = 'Remove file';
-        const x = document.createElement('i');
-        x.className = 'bi bi-x-lg';
-        x.setAttribute('aria-hidden', 'true');
-        remove.append(x);
-        const progress = document.createElement('progress');
-        progress.className = 'selected-file-progress';
-        progress.max = 100;
-        progress.value = 0;
-        progress.setAttribute('aria-label', 'Not yet uploaded');
-        item.append(icon,info,remove,progress);
-        list.append(item);
-      }
-      count.textContent = String(selected.length);
-      empty.hidden = selected.length > 0;
-      input.disabled = false;
-    }
-    input.addEventListener('change', async () => {
-      if (organizing) return;
-      const newlyPicked = Array.from(input.files || []);
-      input.value = '';
-      organizing = true;
-      input.disabled = true;
-      try {
-        let rejected = 0;
-        for (const original of newlyPicked) {
-          if (!valid(original) || selected.length >= 10) { rejected++; continue; }
-          let prepared = original;
-          if (/\.pdf$/i.test(original.name)) {
-            if (typeof window.FPOMSOrganizePdf !== 'function') {
-              directNotice('PDF organizer unavailable. Refresh the page before selecting PDFs.',true);
-              rejected++;
-              continue;
-            }
-            try {
-              prepared = await window.FPOMSOrganizePdf(original,maxBytes,'direct');
-            } catch (error) {
-              directNotice(error.message || 'PDF could not be organized.',true);
-              rejected++;
-              continue;
-            }
-          }
-          if (!prepared) continue; // User explicitly cancelled this PDF.
-          if (!valid(prepared)) { rejected++; continue; }
-          selected.push(prepared);
+  function post(endpoint,payload,onProgress) {
+    return new Promise((resolve,reject) => {
+      const request = new XMLHttpRequest();
+      request.open('POST',endpoint,true);
+      request.responseType = 'json';
+      request.upload.addEventListener('progress',event => {
+        if (onProgress && event.lengthComputable) {
+          onProgress(Math.round(event.loaded*100/event.total));
         }
-        try {
-          syncNativeFiles();
-          drawDirectFiles();
-        } catch (error) {
-          selected = [];
-          input.value = '';
-          drawDirectFiles();
-          directNotice('This browser cannot add organized PDFs to the file input. Please use a current Edge/Chrome browser.',true);
-          return;
-        }
-        directNotice(rejected
-          ? 'Some files were not added. Check the limit, file type and PDF size.'
-          : 'Selected documents are not saved yet; they upload on final submission.',rejected > 0);
-      } finally {
-        organizing = false;
-        input.disabled = false;
-      }
+      });
+      request.addEventListener('load',() => {
+        const result = request.response;
+        if (request.status>=200 && request.status<300 && result && !result.error) resolve(result);
+        else reject(new Error(result?.error || 'Request failed. Please refresh and try again.'));
+      });
+      request.addEventListener('error',() => reject(new Error('Network error. Please try again.')));
+      request.send(payload);
     });
-    list.addEventListener('click', event => {
-      const button = event.target.closest('[data-step2-local-index]');
-      if (!button) return;
-      const index = Number(button.dataset.step2LocalIndex);
-      if (!Number.isSafeInteger(index) || index < 0 || index >= selected.length) return;
-      const next = selected.filter((_,i)=>i!==index);
-      const previous = selected;
-      selected = next;
-      try {
-        syncNativeFiles();
-        drawDirectFiles();
-        directNotice('File removed from this submission.');
-      } catch (error) {
-        selected = previous;
-        directNotice('Cannot remove a single file in this browser. Choose files again.',true);
-      }
+  }
+  function payload() {
+    const data = new FormData();
+    data.set('csrf_token',csrf);
+    data.set('application_id',scope);
+    return data;
+  }
+  function queueServerSave() {
+    if (!persistent) return Promise.resolve();
+    const values = readFields();
+    const data = payload();
+    for (const [key,value] of Object.entries(values)) data.set(key,value);
+    saveMessage('Saving FP draft…');
+    saveChain = saveChain.catch(()=>{}).then(async () => {
+      const result = await post('permit-draft-save',data);
+      if (!result.saved) throw new Error('Draft was not saved.');
+      saveMessage('Draft saved securely to your applicant account.');
+      return result;
     });
-    form.addEventListener('submit', event => {
-      if (organizing || selected.length > 10 || selected.some(file => !valid(file))
-          || (scope === '0' && selected.length === 0)) {
-        event.preventDefault();
-        directNotice('Select at least one valid supporting document (maximum 10).',true);
-      } else {
-        clearFormDraft();
-      }
-    });
-    drawDirectFiles();
-    if (jsWarning) jsWarning.hidden = true;
-    return;
+    return saveChain;
+  }
+  if (persistent) {
+    const schedule = () => {
+      if (finalizing) return;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(()=>queueServerSave().catch(error =>
+        saveMessage(error.message || 'Draft save failed.',true)),450);
+    };
+    form.addEventListener('input',schedule);
+    form.addEventListener('change',schedule);
+  } else {
+    restoreFormDraft();
+    saveFormDraft();
+    form.addEventListener('input',saveFormDraft);
+    form.addEventListener('change',saveFormDraft);
   }
 
-  function notice(value, isError = false) {
-    feedback.textContent = value;
-    feedback.classList.toggle('text-danger', isError);
-    feedback.classList.toggle('text-secondary', !isError);
+  // Keep the draft until the server actually commits the application.
+  function validateSubmission() {
+    if (busy) { notice('Finish saving/uploading files before submitting.',true); return false; }
+    if (root.dataset.step2Mode === 'saved' && scope === '0' && savedCount() === 0) {
+      notice('Upload at least one supporting document before submission.',true);
+      return false;
+    }
+    if (root.dataset.step2Mode === 'direct') {
+      if (scope === '0' && selected.length === 0) {
+        notice('Select at least one supporting document.',true); return false;
+      }
+      if (selected.length>10 || selected.some(f=>!validFile(f))) {
+        notice('Selected files are invalid. Maximum 10 PDF/JPG/PNG documents.',true); return false;
+      }
+    }
+    return true;
   }
-  function savedCount() { return list.querySelectorAll('[data-step2-draft-id]').length; }
+  form.addEventListener('submit',event => {
+    if (!validateSubmission()) { event.preventDefault(); return; }
+    if (!persistent || submitApproved) return;
+    event.preventDefault();
+    if (finalizing) return;
+    finalizing = true;
+    clearTimeout(saveTimer);
+    submit.disabled = true;
+    queueServerSave().then(()=>{
+      submitApproved = true;
+      submit.disabled = false;
+      form.requestSubmit(submit);
+    }).catch(error=>{
+      finalizing = false;
+      submit.disabled = false;
+      saveMessage('Submit stopped; draft save failed: '+(error.message||'try again'),true);
+    });
+  });
+
+  document.querySelector('[data-step2-confirm-clear]')?.addEventListener('click',async event => {
+    if (!persistent || busy || finalizing) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    clearTimeout(saveTimer);
+    try {
+      // Complete previous autosaves before the deliberate destructive action.
+      await saveChain.catch(()=>{});
+      const result = await post('permit-draft-clear',payload());
+      if (!result.cleared) throw new Error('Server did not confirm clearing your draft.');
+      clearFormDraft();
+      window.location.reload();
+    } catch (error) {
+      button.disabled = false;
+      saveMessage('Draft was not cleared: '+(error.message || 'try again'),true);
+      window.bootstrap?.Modal.getInstance(document.getElementById('step2-clear-modal'))?.hide();
+    }
+  });
+
+  const validFile = file => file.size > 0 && file.size <= maxBytes
+    && /\.(pdf|jpe?g|png)$/i.test(file.name);
+  let selected = [];
+
+  function savedCount() {
+    return list.querySelectorAll('[data-step2-draft-id]').length;
+  }
   function refresh() {
-    const n = savedCount();
+    const saved = root.dataset.step2Mode === 'saved';
+    const n = saved ? savedCount() : selected.length;
     count.textContent = String(n);
-    empty.hidden = n !== 0 || queue.children.length > 0;
-    input.disabled = busy || n >= 10;
-    submit.disabled = busy;
+    empty.hidden = n>0 || queue.children.length>0;
+    input.disabled = busy || finalizing || n>=10;
+    submit.disabled = busy || finalizing;
   }
-  function card(name, id = null) {
-    const li = document.createElement('li');
-    li.className = 'selected-file-card ' + (id === null ? 'is-uploading' : 'is-saved');
-    if (id !== null) li.dataset.step2DraftId = String(id);
+  function fileCard(name,id=null,mime='') {
+    const item = document.createElement('li');
+    item.className = 'selected-file-card ' + (id===null ? 'is-uploading' : 'is-saved');
+    if (id!==null) item.dataset.step2DraftId = String(id);
     const icon = document.createElement('span');
     icon.className = 'selected-file-icon';
-    icon.setAttribute('aria-hidden', 'true');
+    icon.setAttribute('aria-hidden','true');
     icon.innerHTML = '<i class="bi bi-file-earmark-text-fill"></i>';
     const info = document.createElement('div');
     info.className = 'selected-file-info';
     const filename = document.createElement('strong');
     filename.className = 'selected-file-name';
     filename.textContent = name;
-    const state = document.createElement('span');
-    state.className = 'selected-file-status';
-    state.textContent = id === null ? 'Preparing upload…' : 'Saved — ready for submission · Supporting Document';
-    info.append(filename, state);
+    const status = document.createElement('span');
+    status.className = 'selected-file-status';
+    status.textContent = id===null ? 'Preparing secure upload…'
+      : 'Saved — ready for submission · Supporting Document';
+    info.append(filename,status);
+    item.append(icon,info);
+    if (id!==null && persistent && mime==='application/pdf') {
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'btn btn-sm btn-outline-primary me-1';
+      edit.dataset.step2Rearrange = '';
+      edit.title = 'Rearrange PDF pages again';
+      edit.setAttribute('aria-label','Rearrange pages again in '+name);
+      edit.innerHTML = '<i class="bi bi-files me-1" aria-hidden="true"></i>Rearrange Pages';
+      item.append(edit);
+    }
     const remove = document.createElement('button');
-    remove.className = 'selected-file-remove';
     remove.type = 'button';
-    remove.setAttribute('aria-label','Remove saved attachment: '+name);
+    remove.className = 'selected-file-remove';
     remove.title = 'Remove file';
+    remove.setAttribute('aria-label','Remove saved attachment: '+name);
     remove.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
-    if (id === null) remove.disabled = true;
+    if (id===null) remove.disabled = true;
     else remove.dataset.step2Remove = '';
     const progress = document.createElement('progress');
     progress.className = 'selected-file-progress';
     progress.max = 100;
-    progress.value = id === null ? 2 : 100;
-    li.append(icon,info,remove,progress);
-    return {li,state,progress};
+    progress.value = id===null?2:100;
+    progress.setAttribute('aria-label','Upload progress');
+    item.append(remove,progress);
+    return {item,status,progress};
   }
   function render(docs) {
     list.replaceChildren();
-    for (const doc of docs || []) list.append(card(String(doc.original_name),doc.id).li);
+    for (const doc of docs||[]) {
+      list.append(fileCard(String(doc.original_name),doc.id,String(doc.mime_type||'')).item);
+    }
     refresh();
   }
-  function post(url, data, progress) {
-    return new Promise((resolve,reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST',url,true);
-      xhr.responseType = 'json';
-      xhr.upload.onprogress = event => {
-        if (progress && event.lengthComputable) {
-          progress(Math.round(event.loaded * 100 / event.total));
-        }
-      };
-      xhr.onload = () => {
-        const body = xhr.response;
-        if (xhr.status >= 200 && xhr.status < 300 && body && !body.error) resolve(body);
-        else reject(new Error(body?.error || 'Request failed. Refresh the page and try again.'));
-      };
-      xhr.onerror = () => reject(new Error('Network error. Try again.'));
-      xhr.send(data);
-    });
-  }
-  input.addEventListener('change', async () => {
-    const files = Array.from(input.files || []);
-    input.value = '';
-    const free = Math.max(0,10 - savedCount());
-    if (files.length > free) notice('Only '+free+' more files can be saved.',true);
-    busy = true;
-    refresh();
-    for (const original of files.slice(0,free)) {
-      if (original.size < 1 || original.size > maxBytes || !/\.(pdf|jpe?g|png)$/i.test(original.name)) {
-        notice('Invalid file or file size. PDF/JPG/PNG only, up to the stated limit.',true);
-        continue;
-      }
-      let file = original;
-      if (/\.pdf$/i.test(original.name)) {
-        if (typeof window.FPOMSOrganizePdf !== 'function') {
-          notice('PDF organizer did not load. Refresh and try again.',true);
-          continue;
-        }
-        try {
-          file = await window.FPOMSOrganizePdf(original,maxBytes,'saved');
-        } catch (error) {
-          notice(error.message || 'PDF could not be organized.',true);
-          continue;
-        }
-        if (!file) continue;
-        if (file.size > maxBytes) {
-          notice('The arranged PDF exceeds the upload size limit.',true);
-          continue;
-        }
-      }
-      const item = card(file.name);
-      queue.append(item.li);
+
+  // Without migration 015/016, preserve the existing normal form upload and
+  // label chosen files as unsaved. Never call them permanently retained.
+  if (root.dataset.step2Mode === 'direct') {
+    function syncInput() {
+      const transfer = new DataTransfer();
+      for (const file of selected) transfer.items.add(file);
+      input.files = transfer.files;
+    }
+    function showLocal() {
+      list.replaceChildren();
+      selected.forEach((file,index)=>{
+        const row = fileCard(file.name);
+        row.item.className = 'selected-file-card is-pending';
+        row.status.textContent = 'Selected — uploads when you submit · Not saved yet';
+        row.progress.value = 0;
+        const remove = row.item.querySelector('.selected-file-remove');
+        remove.disabled = false;
+        remove.dataset.step2LocalIndex = String(index);
+        list.append(row.item);
+      });
       refresh();
-      const data = new FormData();
-      data.set('csrf_token',csrf);
-      data.set('application_id',scope);
+    }
+    input.addEventListener('change',async ()=>{
+      if (busy) return;
+      const picked = Array.from(input.files||[]);
+      input.value = '';
+      busy = true; refresh();
+      let rejected = 0;
+      for (const original of picked) {
+        if (!validFile(original) || selected.length>=10) {rejected++;continue;}
+        let file = original;
+        if (/\.pdf$/i.test(original.name)) {
+          try {
+            if (!window.FPOMSOrganizePdf) throw new Error('PDF organizer did not load.');
+            file = await window.FPOMSOrganizePdf(original,maxBytes,'direct');
+          } catch (error) { notice(error.message,true); rejected++;continue; }
+        }
+        if (file && validFile(file)) selected.push(file);
+      }
+      try {syncInput();}
+      catch(error) {
+        selected = [];
+        notice('Use a current Edge or Chrome browser to manage the chosen files.',true);
+      }
+      busy = false; showLocal();
+      if (rejected) notice('Some files were skipped because of file count/type/size limits.',true);
+      else notice('Files are not saved yet; they upload on final submission.');
+    });
+    list.addEventListener('click',event=>{
+      const button = event.target.closest('[data-step2-local-index]');
+      if (!button || busy) return;
+      const index = Number(button.dataset.step2LocalIndex);
+      const copy = selected;
+      selected = selected.filter((_,i)=>i!==index);
+      try {syncInput();showLocal();notice('File removed.');}
+      catch(error) {selected=copy;notice('Could not remove file. Choose files again.',true);}
+    });
+    showLocal();
+    if (warning) warning.hidden = true;
+    return;
+  }
+
+  // With migration 015, files upload securely on selection. With migration 016
+  // they survive logouts/refreshes and PDFs can be edited again.
+  input.addEventListener('change',async ()=>{
+    if (busy) return;
+    const picked = Array.from(input.files||[]);
+    input.value = '';
+    const room = Math.max(0,10-savedCount());
+    if (picked.length>room) notice('Only '+room+' more file(s) can be saved.',true);
+    busy = true;refresh();
+    for (const original of picked.slice(0,room)) {
+      if (!validFile(original)) {notice('Invalid file size or format.',true);continue;}
+      let file = original;
+      if (/\.pdf$/i.test(file.name)) {
+        try {
+          if (!window.FPOMSOrganizePdf) throw new Error('PDF organizer did not load.');
+          file = await window.FPOMSOrganizePdf(original,maxBytes,'saved');
+        } catch(error) {notice(error.message,true);continue;}
+      }
+      if (!file) continue;
+      if (!validFile(file)) {notice('Organized PDF is too large.',true);continue;}
+      const card = fileCard(file.name);
+      queue.append(card.item);refresh();
+      const data = payload();
       data.set('attachment',file);
       try {
-        const response = await post('permit-draft-upload',data,pct => {
-          item.progress.value = Math.max(2,pct);
-          item.state.textContent = pct < 100 ? 'Uploading… '+pct+'%' : 'Finishing secure upload…';
+        const result = await post('permit-draft-upload',data,pct=>{
+          card.progress.value = Math.max(2,pct);
+          card.status.textContent = pct<100 ? 'Uploading… '+pct+'%' : 'Verifying saved upload…';
         });
-        render(response.documents);
-        notice('Supporting document saved securely. Available after page refresh.');
-      } catch (error) {
-        notice(error.message || 'File could not be saved.',true);
-      } finally {
-        item.li.remove();
-        refresh();
-      }
+        render(result.documents);
+        notice(persistent ? 'Document saved to your applicant draft.'
+          : 'Saved in the temporary browser session.');
+      } catch(error) {
+        notice(error.message || 'Upload failed; file was not saved.',true);
+      } finally {card.item.remove();refresh();}
     }
-    busy = false;
-    refresh();
+    busy = false;refresh();
   });
-  list.addEventListener('click', async event => {
-    const button = event.target.closest('[data-step2-remove]');
-    const item = button?.closest('[data-step2-draft-id]');
-    if (!item || busy) return;
-    busy = true;
-    refresh();
-    const data = new FormData();
-    data.set('csrf_token',csrf);
-    data.set('application_id',scope);
-    data.set('id',item.dataset.step2DraftId);
+
+  list.addEventListener('click',async event=>{
+    const edit = event.target.closest('[data-step2-rearrange]');
+    const row = event.target.closest('[data-step2-draft-id]');
+    if (!row || busy) return;
+    const id = row.dataset.step2DraftId;
+    if (edit && persistent) {
+      busy = true;refresh();
+      try {
+        const query = new URLSearchParams({application_id:scope,id});
+        const response = await fetch('permit-draft-file?'+query.toString(),{
+          credentials:'same-origin',cache:'no-store'
+        });
+        if (!response.ok) throw new Error('Saved PDF could not be loaded.');
+        const blob = await response.blob();
+        const name = row.querySelector('.selected-file-name')?.textContent || 'document.pdf';
+        const file = new File([blob],name,{type:'application/pdf'});
+        if (!window.FPOMSOrganizePdf) throw new Error('PDF organizer unavailable.');
+        const changed = await window.FPOMSOrganizePdf(file,maxBytes,'saved');
+        if (changed) {
+          const data = payload();
+          data.set('id',id);
+          data.set('attachment',changed);
+          const result = await post('permit-draft-replace',data);
+          render(result.documents);
+          notice('Rearranged PDF saved successfully. Old version replaced safely.');
+        }
+      } catch(error) {
+        notice((error.message||'PDF edit failed.')+' Your saved original is retained.',true);
+      } finally {busy=false;refresh();}
+      return;
+    }
+    if (!event.target.closest('[data-step2-remove]')) return;
+    busy = true;refresh();
+    const data = payload();data.set('id',id);
     try {
-      const response = await post('permit-draft-delete',data);
-      render(response.documents);
-      notice('Saved attachment removed.');
-    } catch (error) {
-      notice(error.message || 'Could not remove file.',true);
-    } finally {
-      busy = false;
-      refresh();
-    }
-  });
-  form.addEventListener('submit', event => {
-    if (busy || (scope === '0' && savedCount() === 0)) {
-      event.preventDefault();
-      notice(busy ? 'Finish file uploads before submitting.'
-        : 'Upload at least one FP supporting document.',true);
-    } else {
-      clearFormDraft();
-    }
+      const result = await post('permit-draft-delete',data);
+      render(result.documents);notice('Saved document removed.');
+    } catch(error) {notice(error.message||'Removal failed.',true);}
+    finally {busy=false;refresh();}
   });
   refresh();
-  if (jsWarning) jsWarning.hidden = true;
+  if (warning) warning.hidden = true;
 })();

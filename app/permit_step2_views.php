@@ -159,6 +159,26 @@ function step2_pdf_organizer_modal_html(): string
         . '</div></div></div></div>';
 }
 
+
+/** Clear confirmation is explicit; the server also verifies ownership and CSRF. */
+function step2_clear_form_modal_html(): string
+{
+    return '<div class="modal fade" id="step2-clear-modal" tabindex="-1" '
+        . 'aria-labelledby="step2-clear-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-header"><h2 class="modal-title h5" id="step2-clear-title">'
+        . 'Clear FP Draft?</h2><button type="button" class="btn-close" data-bs-dismiss="modal" '
+        . 'aria-label="Close"></button></div>'
+        . '<div class="modal-body"><p class="mb-2">This will permanently remove '
+        . 'the saved fields and all unsubmitted supporting documents for this form.</p>'
+        . '<p class="small text-secondary mb-0">Previously submitted application files '
+        . 'and review history will not be changed.</p></div>'
+        . '<div class="modal-footer"><button type="button" class="btn btn-secondary" '
+        . 'data-bs-dismiss="modal">Keep Draft</button>'
+        . '<button type="button" class="btn btn-danger" data-step2-confirm-clear>'
+        . 'Yes, Clear Form</button></div></div></div></div>';
+}
+
 function view_step2_form(int $applicationId = 0, array $errors = []): void
 {
     $client = step2_require_applicant();
@@ -172,9 +192,11 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         $docs = step2_documents($applicationId);
     }
     $editing = $app !== null;
-    $title = (string)($_POST['project_title'] ?? $app['project_title'] ?? '');
-    $location = (string)($_POST['project_location'] ?? $app['project_location'] ?? '');
-    $purpose = (string)($_POST['purpose'] ?? $app['purpose'] ?? '');
+    $persistent = step2_persistent_ready();
+    $fieldDraft = $persistent ? step2_persistent_form((int)$client['id'],$applicationId) : null;
+    $title = (string)($_POST['project_title'] ?? $fieldDraft['project_title'] ?? $app['project_title'] ?? '');
+    $location = (string)($_POST['project_location'] ?? $fieldDraft['project_location'] ?? $app['project_location'] ?? '');
+    $purpose = (string)($_POST['purpose'] ?? $fieldDraft['purpose'] ?? $app['purpose'] ?? '');
     $maxMb = round(max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880'))/1048576,1);
     $formUrl = url('permit_apply',$editing ? ['id'=>$applicationId] : []);
     $draftMode = step2_drafts_schema_ready();
@@ -216,7 +238,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<div class="mb-3"><label class="form-label" for="application_files">FP Supporting Documents '
         . ($editing ? '(optional additional files)' : '<span class="text-danger">*</span>') . '</label>'
         . '<div id="step2-draft-uploader" data-step2-mode="'
-        . ($draftMode ? 'saved' : 'direct') . '" data-application-id="'
+        . ($draftMode ? 'saved' : 'direct') . '" data-persistent="'
+        . ($persistent ? '1' : '0') . '" data-application-id="'
         . $applicationId . '" data-max-bytes="'
         . max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880')) . '">'
 
@@ -227,7 +250,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<div class="form-text">Up to 10 files per submission. PDF/JPG/PNG, maximum '
         . e((string)$maxMb) . ' MB each. Documents are saved privately outside the website. '
         . 'The exact required file types must be agreed with LPDD-FUS.</div>'
-        . ($draftMode ? step2_draft_list_html($savedDocs)
+        . ($draftMode ? step2_draft_list_html($savedDocs,$persistent)
             : step2_direct_selected_files_html())
         . '<p class="small text-secondary mt-2" role="status" data-step2-feedback></p>'
         . '<p class="small text-warning mt-2" data-step2-js-warning>'
@@ -243,7 +266,16 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
                 . 'them after refresh. Until then, files upload only when you submit.'
                 . '</div>')
         . '</div></div>'
-        . '<button class="btn btn-primary" type="submit">'
+        . '<p class="small text-secondary" data-step2-autosave-status role="status">'
+        . ($persistent ? 'Draft saved securely to your account when you edit fields.'
+            : 'Persistent draft autosave requires migration 016.') . '</p>'
+        . ($persistent
+            ? '<button type="button" class="btn btn-outline-danger me-2 mb-2" '
+                . 'data-bs-toggle="modal" data-bs-target="#step2-clear-modal">'
+                . '<i class="bi bi-trash3 me-1" aria-hidden="true"></i>Clear Form</button>'
+            : '<div class="alert alert-warning small">Database migration 016 is '
+                . 'required to keep fields and uploaded files across logins until submission.</div>')
+        . '<button class="btn btn-primary mb-2" type="submit">'
         . ($editing ? 'Resubmit Corrections for Initial Review' : 'Submit to LPDD-FUS Initial Review')
         . '</button></form></div></div><div class="col-lg-4">'
         . '<div class="panel soft"><h3 class="h6">Annex A Step 2 Routing</h3>'
@@ -256,9 +288,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     if ($docs) $html .= '<div class="panel mt-3"><h3 class="h6">Previously Uploaded Documents</h3>'
         . step2_documents_html($docs) . '</div>';
     $html .= '</div></div>' . step2_pdf_organizer_modal_html();
+    if ($persistent) $html .= step2_clear_form_modal_html();
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=4" defer></script>';
+        . '<script src="assets/permit-step2-drafts.js?v=5" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 

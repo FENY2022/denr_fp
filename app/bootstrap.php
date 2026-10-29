@@ -63,6 +63,7 @@ require_once __DIR__ . '/registration.php';
 require_once __DIR__ . '/registration_attachments.php';
 require_once __DIR__ . '/permit_step2.php';
 require_once __DIR__ . '/permit_step2_drafts.php';
+require_once __DIR__ . '/permit_step2_persistent.php';
 require_once __DIR__ . '/registration_drafts.php';
 require_once __DIR__ . '/staff.php';
 require_once __DIR__ . '/user_management.php';

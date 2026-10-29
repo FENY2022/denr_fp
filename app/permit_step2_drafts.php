@@ -38,15 +38,19 @@ function step2_draft_scope_allowed(array $client, int $applicationId): bool
 
 function step2_draft_list(int $clientId, int $applicationId, bool $lock = false): array
 {
-    $hash = step2_draft_hash(false);
-    if ($hash === null) return [];
+    $persistent = step2_persistent_ready();
+    $hash = $persistent ? null : step2_draft_hash(false);
+    if (!$persistent && $hash === null) return [];
     $stmt = db()->prepare(
         'SELECT id,client_id,application_id,original_name,stored_path,mime_type,
                 file_size,sha256,expires_at FROM permit_step2_draft_documents
-         WHERE client_id=? AND application_id=? AND draft_hash=? AND expires_at>NOW()
-         ORDER BY id ASC' . ($lock ? ' FOR UPDATE' : '')
+         WHERE client_id=? AND application_id=?'
+        . ($persistent ? '' : ' AND draft_hash=? AND expires_at>NOW()')
+        . ' ORDER BY id ASC' . ($lock ? ' FOR UPDATE' : '')
     );
-    $stmt->execute([$clientId,$applicationId,$hash]);
+    $params = [$clientId,$applicationId];
+    if (!$persistent) $params[] = $hash;
+    $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -54,7 +58,7 @@ function step2_draft_public_list(int $clientId, int $applicationId): array
 {
     return array_map(static fn(array $d): array => [
         'id'=>(int)$d['id'],'original_name'=>(string)$d['original_name'],
-        'size'=>(int)$d['file_size']
+        'size'=>(int)$d['file_size'],'mime_type'=>(string)$d['mime_type']
     ],step2_draft_list($clientId,$applicationId));
 }
 
@@ -84,13 +88,18 @@ function step2_direct_selected_files_html(): string
 }
 
 /** Server-rendered queue allows a page refresh to restore saved-file cards. */
-function step2_draft_list_html(array $docs): string
+function step2_draft_list_html(array $docs, bool $persistent=false): string
 {
     $html = '<section class="registration-selected-files" id="step2-selected-files" aria-live="polite">'
         . '<div class="selected-files-heading"><span>SELECTED FILES</span>'
         . '<span class="selected-files-total" data-step2-count>'.count($docs).'</span></div>'
-        . '<p class="selected-files-guidance">Saved files stay available after refresh in the same '
-        . 'browser session. Unsubmitted uploads expire in 24 hours.</p>'
+        . '<p class="selected-files-guidance">'
+        . ($persistent
+            ? 'Saved documents remain in your applicant draft across logins until you submit '
+                . 'or explicitly clear/remove them.'
+            : 'Saved files stay available after refresh in the same browser session. '
+                . 'Unsubmitted uploads expire in 24 hours.')
+        . '</p>'
         . '<div class="selected-upload-queue" data-step2-queue></div>'
         . '<ul class="selected-file-list" data-step2-items>';
     foreach ($docs as $doc) {
@@ -100,6 +109,12 @@ function step2_draft_list_html(array $docs): string
             . '<div class="selected-file-info"><strong class="selected-file-name">'.$name.'</strong>'
             . '<span class="selected-file-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> '
             . 'Saved — ready for submission · Supporting Document</span></div>'
+            . ($persistent && (string)($doc['mime_type'] ?? '') === 'application/pdf'
+                ? '<button class="btn btn-sm btn-outline-primary me-1" type="button" '
+                    . 'data-step2-rearrange aria-label="Rearrange pages again in '
+                    . $name . '"><i class="bi bi-files me-1" aria-hidden="true"></i>'
+                    . 'Rearrange Pages</button>'
+                : '')
             . '<button class="selected-file-remove" type="button" data-step2-remove '
             . 'aria-label="Remove saved attachment: '.$name.'" title="Remove file">'
             . '<i class="bi bi-x-lg" aria-hidden="true"></i></button>'
@@ -117,6 +132,7 @@ function step2_draft_upload(array $client, int $applicationId, array $files): ar
     if (!step2_draft_scope_allowed($client,$applicationId)) return ['error'=>'Application not available for upload.'];
     $info = upload_details($files['attachment'] ?? null,true);
     if (isset($info['error'])) return ['error'=>$info['error']];
+    $persistent = step2_persistent_ready();
     $hash = step2_draft_hash();
     if ($hash === null) return ['error'=>'Upload session expired. Refresh the page.'];
     $clientId = (int)$client['id'];
@@ -124,6 +140,8 @@ function step2_draft_upload(array $client, int $applicationId, array $files): ar
     $stored = null;
     try {
         $pdo->beginTransaction();
+        // Serialize uploads for this applicant to enforce the ten-file limit.
+        $pdo->prepare('SELECT id FROM user_client WHERE id=? FOR UPDATE')->execute([$clientId]);
         if (count(step2_draft_list($clientId,$applicationId,true)) >= 10) {
             $pdo->rollBack();
             return ['error'=>'Maximum 10 saved supporting documents. Remove a file first.'];
@@ -144,7 +162,7 @@ function step2_draft_upload(array $client, int $applicationId, array $files): ar
         $pdo->prepare(
             'INSERT INTO permit_step2_draft_documents
             (client_id,draft_hash,application_id,original_name,stored_path,mime_type,file_size,sha256,expires_at)
-            VALUES (?,?,?,?,?,?,?,?,DATE_ADD(NOW(),INTERVAL 24 HOUR))'
+            VALUES (?,?,?,?,?,?,?,?,' . ($persistent ? 'NULL' : 'DATE_ADD(NOW(),INTERVAL 24 HOUR)') . ')'
         )->execute([
             $clientId,$hash,$applicationId,$info['name'],$relative,
             $info['mime'],$info['size'],$sha
@@ -165,17 +183,22 @@ function step2_draft_delete(array $client, int $applicationId, int $id): array
     if ($id < 1 || !step2_draft_scope_allowed($client,$applicationId)) {
         return ['error'=>'Saved attachment not found.'];
     }
-    $hash = step2_draft_hash(false);
-    if ($hash === null) return ['error'=>'Saved attachment not found.'];
+    $persistent = step2_persistent_ready();
+    $hash = $persistent ? null : step2_draft_hash(false);
+    if (!$persistent && $hash === null) return ['error'=>'Saved attachment not found.'];
     $clientId = (int)$client['id'];
     $pdo = db();
     try {
         $pdo->beginTransaction();
         $stmt = $pdo->prepare(
             'SELECT stored_path FROM permit_step2_draft_documents WHERE
-             id=? AND client_id=? AND application_id=? AND draft_hash=? AND expires_at>NOW() FOR UPDATE'
+             id=? AND client_id=? AND application_id=?'
+            . ($persistent ? '' : ' AND draft_hash=? AND expires_at>NOW()')
+            . ' FOR UPDATE'
         );
-        $stmt->execute([$id,$clientId,$applicationId,$hash]);
+        $params = [$id,$clientId,$applicationId];
+        if (!$persistent) $params[] = $hash;
+        $stmt->execute($params);
         $doc = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$doc) {
             $pdo->rollBack();
