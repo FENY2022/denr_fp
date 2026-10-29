@@ -74,21 +74,21 @@ function render_page(string $title, string $content): void
         . '<meta name="description" content="DENR Caraga Feasibility Permit Online Management System">'
         . '<meta name="theme-color" content="#075c32">'
         . '<title>' . $titleEsc . ' | ' . $appName . '</title>'
-        . '<link rel="icon" type="image/png" sizes="192x192" href="assets/fpoms-icon-192.png?v=23">'
-        . '<link rel="icon" type="image/png" sizes="512x512" href="assets/fpoms-icon-512.png?v=23">'
-        . '<link rel="apple-touch-icon" sizes="192x192" href="assets/fpoms-icon-192.png?v=23">'
-        . '<link rel="manifest" href="manifest.webmanifest?v=23">'
+        . '<link rel="icon" type="image/png" sizes="192x192" href="assets/fpoms-icon-192.png?v=24">'
+        . '<link rel="icon" type="image/png" sizes="512x512" href="assets/fpoms-icon-512.png?v=24">'
+        . '<link rel="apple-touch-icon" sizes="192x192" href="assets/fpoms-icon-192.png?v=24">'
+        . '<link rel="manifest" href="manifest.webmanifest?v=24">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css?v=21" rel="stylesheet">'
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
-        . '<script src="assets/app-shell.js?v=20" defer></script></head><body>';
+        . '<script src="assets/app-shell.js?v=21" defer></script></head><body>';
 
     if ($user) {
         $brandHtml = '<a class="sidebar-brand" href="' . e(url('dashboard')) . '">'
-            . '<span class="sidebar-logo"><img src="assets/fpoms-icon-192.png?v=23" alt="DENR FP-OMS"></span>'
+            . '<span class="sidebar-logo"><img src="assets/fpoms-icon-192.png?v=24" alt="DENR FP-OMS"></span>'
             . '<span class="sidebar-brand-copy"><span class="sidebar-brand-title">DENR FP-OMS</span>'
             . '<span class="sidebar-brand-sub">Feasibility Permit System</span></span></a>';
         $navigation = shell_sidebar_menu($user, $roles, $active);
@@ -114,7 +114,7 @@ function render_page(string $title, string $content): void
             . '<main class="app-content"><div class="eyebrow">DENR · CARAGA REGION XIII</div><h1 class="page-title">' . $titleEsc . '</h1>';
     } else {
         echo '<div class="app-shell d-flex flex-column"><header class="public-header"><div class="container-xl public-header-inner">'
-            . '<a class="public-brand" href="' . e(url('landing')) . '"><span class="brand-mark"><img src="assets/fpoms-icon-192.png?v=23" alt="DENR FP-OMS"></span>'
+            . '<a class="public-brand" href="' . e(url('landing')) . '"><span class="brand-mark"><img src="assets/fpoms-icon-192.png?v=24" alt="DENR FP-OMS"></span>'
             . '<span><strong>DENR FP-OMS</strong><small>Caraga Region XIII · Feasibility Permit System</small></span></a>'
             . '<nav class="public-links" aria-label="Public navigation"><a href="' . e(url('landing')) . '">Home</a><a href="' . e(url('login')) . '">Sign in</a>'
             . '<a class="btn btn-primary btn-sm" href="' . e(url('register')) . '">Register</a></nav>'

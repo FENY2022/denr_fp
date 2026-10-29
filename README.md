@@ -68,7 +68,7 @@ This migration creates `permit_step2_applications`, `permit_step2_documents`, an
 ## Updated FP-OMS Brand Icons (October 2026)
 
 - The browser favicon, Apple touch icon, landing page logo, application sidebar/header branding, and loading screen now reference the PNG assets `public/assets/fpoms-icon-192.png` and `public/assets/fpoms-icon-512.png`, not the older SVG. The existing SVG remains in the repository for legacy references, but is not offered in the PWA manifest.
-- Icon and manifest links use `?v=23`; the JavaScript shell is `?v=20`; service-worker cache is `fp-oms-static-v23`. Only public static files are cached. Uploaded identity documents, authenticated pages, and application forms remain excluded from the service worker.
+- Icon and manifest links use `?v=24`; the JavaScript shell is `?v=21`; service-worker cache is `fp-oms-static-v24`. Only public static files are cached. Uploaded identity documents, authenticated pages, and application forms remain excluded from the service worker.
 - To deploy, update the running FP-OMS PHP/JS files **and both PNG image files** from GitHub (or confirm your local redesigned PNGs are already in the deployed `public/assets/`). Then reload using `Ctrl+Shift+R`. Browser favicon and installed PWA shortcut icons may remain OS/browser-cached until the site data is refreshed or the PWA is uninstalled and installed again.
 - No database migration is needed for these branding changes.
 
