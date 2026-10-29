@@ -86,6 +86,10 @@ function render_page(string $title, string $content): void
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="fp-pdf-organizer-modal"')
             ? '<link href="assets/permit-pdf-organizer.css?v=1" rel="stylesheet">' : '')
+        . (str_contains($content, 'data-fp-location-map=')
+            ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
+                . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
+            : '')
         . '<script src="assets/app-shell.js?v=21" defer></script></head><body>';
 
     if ($user) {

@@ -1,0 +1,8 @@
+/* FP application project pinpoint map and coordinate inputs. */
+.fp-project-location-map{height:315px;width:100%;border:1px solid #d7e4d9;border-radius:12px;z-index:0;background:#f1f6f1}
+.fp-location-pin-icon{font-size:30px;text-align:center;background:transparent;border:0}
+.fp-location-fields{max-width:650px}
+.fp-location-help{font-size:.82rem}
+.fp-location-attribution{font-size:.78rem}
+.fp-location-readonly .fp-project-location-map{height:245px}
+@media(max-width:575px){.fp-project-location-map{height:265px}}

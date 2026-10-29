@@ -179,6 +179,66 @@ function step2_clear_form_modal_html(): string
         . 'Yes, Clear Form</button></div></div></div></div>';
 }
 
+/**
+ * Applicant map pin + optional decimal coordinate inputs.
+ * Address remains required independently of the GPS pin.
+ */
+function step2_location_editor_html(string $latitude, string $longitude): string
+{
+    return '<section class="mb-3 fp-location-fields" data-fp-location-wrapper>'
+        . '<h3 class="h6 mb-2"><i class="bi bi-geo-alt-fill text-success me-1" '
+        . 'aria-hidden="true"></i>Pinpoint Project Location (optional)</h3>'
+        . '<p class="small text-secondary">Click or drag the map pin to identify the project site. '
+        . 'You may enter WGS84 decimal coordinates manually. The address above is still required.</p>'
+        . '<div class="fp-project-location-map mb-2" data-fp-location-map="edit" '
+        . 'data-latitude="'.e($latitude).'" data-longitude="'.e($longitude).'" '
+        . 'aria-label="Interactive project location map"></div>'
+        . '<div class="row g-2 mb-2">'
+        . '<div class="col-sm-6"><label class="form-label" for="project_latitude">'
+        . 'Latitude</label><input class="form-control" id="project_latitude" '
+        . 'name="project_latitude" type="text" inputmode="decimal" '
+        . 'autocomplete="off" maxlength="32" placeholder="e.g. 8.9471230" '
+        . 'value="'.e($latitude).'"></div>'
+        . '<div class="col-sm-6"><label class="form-label" for="project_longitude">'
+        . 'Longitude</label><input class="form-control" id="project_longitude" '
+        . 'name="project_longitude" type="text" inputmode="decimal" '
+        . 'autocomplete="off" maxlength="32" placeholder="e.g. 125.5423450" '
+        . 'value="'.e($longitude).'"></div></div>'
+        . '<div class="d-flex flex-wrap gap-2 mb-2">'
+        . '<button type="button" class="btn btn-outline-primary btn-sm" '
+        . 'data-fp-location-gps><i class="bi bi-crosshair me-1" '
+        . 'aria-hidden="true"></i>Use My Current Location</button>'
+        . '<button type="button" class="btn btn-outline-secondary btn-sm" '
+        . 'data-fp-location-clear><i class="bi bi-x-circle me-1" '
+        . 'aria-hidden="true"></i>Clear Pin</button></div>'
+        . '<p class="fp-location-help text-secondary small" role="status" '
+        . 'data-fp-location-status>Coordinates are optional. A pin is never selected '
+        . 'automatically; GPS location requires your permission.</p>'
+        . '<p class="fp-location-attribution text-secondary small mb-0">'
+        . 'Map data © OpenStreetMap contributors. Verify that the pin identifies '
+        . 'the actual project site.</p></section>';
+}
+
+/** Show captured coordinates and a read-only map to the permitted viewer. */
+function step2_location_preview_html(array $application): string
+{
+    $lat = $application['project_latitude'] ?? null;
+    $lon = $application['project_longitude'] ?? null;
+    if ($lat === null || $lon === null || $lat === '' || $lon === '') return '';
+    $latText = e((string)$lat);
+    $lonText = e((string)$lon);
+    return '<section class="panel mt-3 fp-location-readonly" data-fp-location-wrapper>'
+        . '<h3 class="h6 mb-2"><i class="bi bi-geo-alt-fill text-success me-1" '
+        . 'aria-hidden="true"></i>Project Map Pin (WGS84)</h3>'
+        . '<p class="small mb-2">Latitude: <strong>'.$latText.'</strong> · '
+        . 'Longitude: <strong>'.$lonText.'</strong></p>'
+        . '<div class="fp-project-location-map" data-fp-location-map="readonly" '
+        . 'data-latitude="'.$latText.'" data-longitude="'.$lonText.'" '
+        . 'aria-label="Read-only project location pin"></div>'
+        . '<p class="small text-secondary mb-0 mt-2">The pin is supplied by the applicant '
+        . 'and should be verified against the declared project address.</p></section>';
+}
+
 function view_step2_form(int $applicationId = 0, array $errors = []): void
 {
     $client = step2_require_applicant();
@@ -196,6 +256,13 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $fieldDraft = $persistent ? step2_persistent_form((int)$client['id'],$applicationId) : null;
     $title = (string)($_POST['project_title'] ?? $fieldDraft['project_title'] ?? $app['project_title'] ?? '');
     $location = (string)($_POST['project_location'] ?? $fieldDraft['project_location'] ?? $app['project_location'] ?? '');
+    $hasCoordinates = step2_location_schema_ready();
+    $latitude = $hasCoordinates
+        ? (string)($_POST['project_latitude'] ?? $fieldDraft['project_latitude'] ?? $app['project_latitude'] ?? '')
+        : '';
+    $longitude = $hasCoordinates
+        ? (string)($_POST['project_longitude'] ?? $fieldDraft['project_longitude'] ?? $app['project_longitude'] ?? '')
+        : '';
     $purpose = (string)($_POST['purpose'] ?? $fieldDraft['purpose'] ?? $app['purpose'] ?? '');
     $maxMb = round(max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880'))/1048576,1);
     $formUrl = url('permit_apply',$editing ? ['id'=>$applicationId] : []);
@@ -228,10 +295,13 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<span class="text-danger">*</span></label>'
         . '<input class="form-control" id="project_title" name="project_title" required minlength="5" '
         . 'maxlength="180" value="' . e($title) . '"></div>'
-        . '<div class="mb-3"><label class="form-label" for="project_location">Project Location '
+        . '<div class="mb-3"><label class="form-label" for="project_location">Project Location / Complete Address '
         . '<span class="text-danger">*</span></label>'
         . '<input class="form-control" id="project_location" name="project_location" '
         . 'required minlength="5" maxlength="300" value="' . e($location) . '"></div>'
+        . ($hasCoordinates ? step2_location_editor_html($latitude,$longitude)
+            : '<p class="small text-secondary">Interactive location pin and coordinates '
+                . 'will be available after the ICT administrator applies migration 017.</p>')
         . '<div class="mb-3"><label class="form-label" for="purpose">Project Description (optional)</label>'
         . '<textarea class="form-control" id="purpose" name="purpose" rows="4" '
         . 'maxlength="2000">' . e($purpose) . '</textarea></div>'
@@ -291,7 +361,11 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     if ($persistent) $html .= step2_clear_form_modal_html();
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=5" defer></script>';
+        . '<script src="assets/permit-step2-drafts.js?v=6" defer></script>'
+        . ($hasCoordinates
+            ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
+                . '<script src="assets/permit-location-map.js?v=1" defer></script>'
+            : '');
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 
@@ -372,6 +446,14 @@ function view_step2_application(int $applicationId, array $errors = []): void
     }
     $html .= '</div></div>'
         . ($reviewer && $app['status'] === 'submitted' ? decision_confirmation_modal_html() : '');
+    if (step2_location_schema_ready()) {
+        $html .= step2_location_preview_html($app);
+        if (($app['project_latitude'] ?? null) !== null
+            && ($app['project_longitude'] ?? null) !== null) {
+            $html .= '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
+                . '<script src="assets/permit-location-map.js?v=1" defer></script>';
+        }
+    }
     render_page('FP Application Review – Step 2', $html);
 }
 

@@ -42,6 +42,10 @@ jobs:
         run: node --check public/assets/permit-step2-drafts.js
       - name: JavaScript syntax check for PDF page organizer
         run: node --check public/assets/permit-pdf-organizer.js
+      - name: Validate map coordinates and project location UI
+        run: php tests/step2_location_test.php
+      - name: JavaScript syntax check for project map
+        run: node --check public/assets/permit-location-map.js
       - name: JavaScript syntax checks for review modals
         run: node --check public/assets/decision-confirm.js
       - name: Validate public Annex 1 FP requirements

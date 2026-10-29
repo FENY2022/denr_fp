@@ -17,8 +17,11 @@ function step2_persistent_ready(): bool
 function step2_persistent_form(int $clientId, int $scope): ?array
 {
     if (!step2_persistent_ready()) return null;
+    $select = step2_location_schema_ready()
+        ? 'project_title,project_location,project_latitude,project_longitude,purpose'
+        : 'project_title,project_location,purpose';
     return query_one(
-        'SELECT project_title,project_location,purpose FROM permit_step2_form_drafts
+        'SELECT '.$select.' FROM permit_step2_form_drafts
          WHERE client_id=? AND application_id=?',
         [$clientId,$scope]
     );
@@ -31,17 +34,37 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
     $title = (string)($fields['project_title'] ?? '');
     $location = (string)($fields['project_location'] ?? '');
     $purpose = (string)($fields['purpose'] ?? '');
+    $lat = (string)($fields['project_latitude'] ?? '');
+    $lon = (string)($fields['project_longitude'] ?? '');
+    if (strlen($lat)>32 || strlen($lon)>32) {
+        return ['error'=>'Coordinate inputs must be at most 32 characters each.'];
+    }
     if (strlen($title)>180 || strlen($location)>300 || strlen($purpose)>2000) {
         return ['error'=>'One or more fields exceed the allowed length.'];
     }
     try {
-        db()->prepare(
-            'INSERT INTO permit_step2_form_drafts
-             (client_id,application_id,project_title,project_location,purpose)
-             VALUES (?,?,?,?,?)
-             ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
-             project_location=VALUES(project_location),purpose=VALUES(purpose)'
-        )->execute([(int)$client['id'],$scope,$title,$location,$purpose]);
+        if (step2_location_schema_ready()) {
+            // Drafts intentionally accept partial coordinate typing. Strict validation
+            // is applied only at final submission, not at each autosave keystroke.
+            db()->prepare(
+                'INSERT INTO permit_step2_form_drafts
+                 (client_id,application_id,project_title,project_location,
+                  project_latitude,project_longitude,purpose)
+                 VALUES (?,?,?,?,?,?,?)
+                 ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
+                 project_location=VALUES(project_location),
+                 project_latitude=VALUES(project_latitude),
+                 project_longitude=VALUES(project_longitude),purpose=VALUES(purpose)'
+            )->execute([(int)$client['id'],$scope,$title,$location,$lat,$lon,$purpose]);
+        } else {
+            db()->prepare(
+                'INSERT INTO permit_step2_form_drafts
+                 (client_id,application_id,project_title,project_location,purpose)
+                 VALUES (?,?,?,?,?)
+                 ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
+                 project_location=VALUES(project_location),purpose=VALUES(purpose)'
+            )->execute([(int)$client['id'],$scope,$title,$location,$purpose]);
+        }
         return ['saved'=>true];
     } catch (Throwable $error) {
         error_log('FP-OMS persistent draft save error: '.$error->getMessage());
