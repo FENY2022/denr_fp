@@ -244,6 +244,9 @@ function step2_submit(array $client, array $data, array $files, int $application
         return ['An activated applicant account is required.'];
     }
     if (!step2_schema_ready()) return ['Step 2 tables are missing or inaccessible. Verify migration 014 and SELECT permissions.'];
+    if (!step2_revert_schema_ready()) {
+        return ['Please apply migration 020 for safe 30-minute revert and DENR receipt control.'];
+    }
     if (!step2_category_schema_ready()) {
         return ['FP document categories require database migration 019. Contact the ICT administrator.'];
     }
@@ -296,7 +299,7 @@ function step2_submit(array $client, array $data, array $files, int $application
                 'SELECT * FROM permit_step2_applications WHERE id=? AND client_id=? FOR UPDATE',
                 [$applicationId,$clientId]
             );
-            if (!$locked || $locked['status'] !== 'corrections_required') {
+            if (!$locked || !in_array($locked['status'],['corrections_required','reverted'],true)) {
                 $pdo->rollBack();
                 return ['This application is not currently available for corrections. Refresh the page.'];
             }
@@ -307,7 +310,8 @@ function step2_submit(array $client, array $data, array $files, int $application
                      SET project_title=?,project_location=?,project_latitude=?,
                          project_longitude=?,purpose=?,revision=?,
                          status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
-                         reviewer_user_id=NULL,forwarded_at=NULL WHERE id=? AND client_id=?"
+                         reviewer_user_id=NULL,forwarded_at=NULL,
+                         received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
                 )->execute([
                     $data['project_title'],$data['project_location'],$lat,$lon,
                     $data['purpose'] ?: null,$revision,$applicationId,$clientId
@@ -317,7 +321,8 @@ function step2_submit(array $client, array $data, array $files, int $application
                     "UPDATE permit_step2_applications
                      SET project_title=?,project_location=?,purpose=?,revision=?,
                          status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
-                         reviewer_user_id=NULL,forwarded_at=NULL WHERE id=? AND client_id=?"
+                         reviewer_user_id=NULL,forwarded_at=NULL,
+                         received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
                 )->execute([
                     $data['project_title'],$data['project_location'],$data['purpose'] ?: null,
                     $revision,$applicationId,$clientId

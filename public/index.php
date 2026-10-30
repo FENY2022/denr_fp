@@ -295,8 +295,42 @@ try {
                 view_step2_form((int)$id);
             }
             break;
+        case 'permit_revert':
+            $client = step2_require_applicant();
+            if (!$post) show_error('Revert requires a confirmed POST request.',405);
+            check_csrf();
+            $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            if (($_POST['revert_confirm'] ?? null) !== '1') {
+                show_error('Confirm the reversion in the dialog first.',400);
+            }
+            $errors = step2_revert_application($client,(int)$id);
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                flash('success','FP application reverted successfully. You may now edit and resubmit it.');
+                go('permit_application',['id'=>(int)$id]);
+            }
+            break;
+        case 'permit_receive':
+            $reviewer = step2_require_reviewer();
+            if (!$post) show_error('Document receipt requires a confirmed POST request.',405);
+            check_csrf();
+            $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            if (($_POST['receive_confirm'] ?? null) !== '1') {
+                show_error('Confirm receipt of the submitted documents first.',400);
+            }
+            $errors = step2_receive_documents($reviewer,(int)$id);
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                flash('success','Receipt acknowledged. This application can no longer be reverted.');
+                go('permit_application',['id'=>(int)$id]);
+            }
+            break;
         case 'permit_application':
-            if ($post) show_error('Use the review form to submit a decision.',405);
+            if ($post) show_error('Use the action forms for posting.',405);
             $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
             if (!$id) show_error('Invalid FP application ID.',400);
             view_step2_application((int)$id);

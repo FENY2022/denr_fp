@@ -9,6 +9,7 @@ function step2_status_label(string $status): string
         'submitted' => 'Pending LPDD-FUS Initial Review',
         'corrections_required' => 'Corrections Required',
         'forwarded_to_ro' => 'Forwarded to RO Receiving',
+        'reverted' => 'Reverted – Editable',
         default => 'Unknown Status'
     };
 }
@@ -19,6 +20,7 @@ function step2_status_badge(string $status): string
         'submitted' => 'info',
         'corrections_required' => 'warning',
         'forwarded_to_ro' => 'success',
+        'reverted' => 'secondary',
         default => 'secondary'
     };
     return '<span class="badge text-bg-' . $tone . '">' . e(step2_status_label($status)) . '</span>';
@@ -72,6 +74,8 @@ function step2_history_html(int $applicationId): string
             'resubmitted' => 'Corrections Resubmitted',
             'returned_for_correction' => 'Returned for Correction',
             'forwarded_to_ro' => 'Forwarded to RO Receiving',
+            'documents_received' => 'Documents Received by DENR',
+            'reverted' => 'Application Reverted by Applicant',
             default => ucwords(str_replace('_',' ',(string)$event['action']))
         };
         $html .= '<div class="history"><strong>' . e($label) . '</strong>'
@@ -284,7 +288,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $docs = [];
     if ($applicationId > 0) {
         $app = step2_application_for_view($client,$applicationId);
-        if ($app['status'] !== 'corrections_required') {
+        if (!in_array($app['status'],['corrections_required','reverted'],true)) {
             show_error('This FP application is not available for correction.');
         }
         $docs = step2_documents($applicationId);
@@ -309,7 +313,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html = '<div class="mb-3"><a href="' . url('permit_applications')
         . '">← My FP Applications</a></div><div class="row g-3">'
         . '<div class="col-lg-8"><div class="panel">'
-        . '<h2 class="h5">' . ($editing ? 'Correct and Resubmit FP Application #'
+        . '<h2 class="h5">' . ($editing ? 'Edit and Resubmit FP Application #'
             . $applicationId : 'Submit FP Application – Step 2') . '</h2>'
         . errors_html($errors)
         . '<p class="small text-secondary">Provide basic project identification and upload supporting documents. '
@@ -484,11 +488,15 @@ function view_step2_application(int $applicationId, array $errors = []): void
                 : '<p class="mb-0">'
                     . ($app['status'] === 'forwarded_to_ro'
                         ? 'Your application passed LPDD-FUS initial review and was forwarded to RO Receiving.'
-                        : 'Your application is awaiting the LPDD-FUS Technical Staff initial review.')
+                        : ($app['status'] === 'reverted'
+                            ? 'Your application is reverted; you can edit and resubmit it.'
+                            : 'Your application is awaiting the LPDD-FUS Technical Staff initial review.'))
                     . '</p>')
-            . '</div>';
+            . '</div>'
+            . step2_revert_client_html($app);
     } elseif ($reviewer && $app['status'] === 'submitted') {
         $html .= '<div class="panel soft"><h3 class="h6">LPDD-FUS Technical Staff – Initial Review</h3>'
+            . step2_receive_documents_html($app)
             . '<p class="small">Check initial documentary completeness. '
             . 'This is <strong>not</strong> Step 4 formal documentary evaluation.</p>'
             . '<form method="post" action="' . e(url('permit_initial_decision',['id'=>$applicationId])) . '" '

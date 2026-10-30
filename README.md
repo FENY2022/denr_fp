@@ -52,6 +52,71 @@ save/cancel/retry and slow-network error conditions locally. Run:
 `node tests/action_feedback_test.js`. Browser and backend integration checks
 must still be performed in XAMPP before production use.
 
+## FP Application Revert — 30-Minute Window and DENR Formal Receipt (Migration 020)
+
+On `/permit-application?id=N`, **only the owning, active applicant** can revert
+the **current pending submission** within the first 30 minutes of
+`permit_step2_applications.last_submitted_at`. The window ends at exactly
+30:00, is determined by the **MySQL/MariaDB server clock**, and closes immediately
+if DENR formally receives the documents or LPDD-FUS reviews/returns/forwards
+the application. The UI shows a server-derived `MM:SS` countdown and a
+Bootstrap **Confirm Revert Application** modal with Cancel/Confirm.
+JavaScript disables the controls on expiry, but is only feedback: the
+authenticated POST `permit_revert` repeats every constraint **inside a
+transaction with SELECT ... FOR UPDATE** and an atomic, guarded UPDATE.
+Double submission, expired windows, forged ownership, and a simultaneous
+LPDD-FUS action cannot cause a late successful revert.
+
+The successful transition sets `status='reverted'` and adds an immutable
+`reverted` event and client audit log. **The submitted documents, earlier
+revisions, and all review history are preserved.** The reverted applicant can
+open `/permit-apply?id=N` to edit and resubmit; resubmission creates a new
+revision and starts a new 30-minute window if LPDD-FUS has not yet acted on
+that *new* submission. No documents are automatically deleted or misclassified.
+
+LPDD-FUS has an explicit **Receive Documents** button and separate confirmation
+modal on the pending application detail. Confirming records `received_at`,
+`received_by_user_id`, a `documents_received` event, and an audit trail.
+It immediately blocks applicant reversion **even before** the Step 2
+completeness decision. The existing Approve/Forward and Return-for-Correction
+workflow remains available. The RO Receiving inbox remains an independent,
+read-only Step 3 handoff and is not silently changed.
+
+**Notifications:** After a successful revert DB commit, the applicant receives
+a bell confirmation and SMTP email. Active LPDD-FUS role members and active
+LPDD/FUS office assignees get bell alerts, and configured staff/office email
+recipients (from existing `step2_staff_recipients('lpdd_fus')`) receive a
+**"FP Application Reverted by Applicant – Action Required"** email. It
+contains the reference, applicant, project, recorded reverted timestamp
+(if available), and instruction not to process until resubmission.
+Notifications are never sent for rejected revert attempts. When DENR formally
+receives the documents, the client also receives a bell notification.
+Email delivery uses the existing `smtp_send_html` configuration
+(`MAIL_ENABLED=true`, SMTP credentials). SMTP failures are logged and do not
+roll back the already successful revert. Failed messages are **not automatically
+retried**; operational SMTP monitoring/manual resend is required.
+
+**Required database migration:** Back up `denr_fp_oms` and the private
+`storage` directory, then import
+`database/020_step2_revert_and_receipt.sql` **once** into phpMyAdmin, after
+the existing Step 2 migrations **014, 015 and 019**. Migration 020 extends
+the application status to `reverted`, adds
+`received_at/received_by_user_id` and foreign key, and extends the Step 2
+event enum for `reverted`/`documents_received`. Review column and enum
+state first if restarting after a partial migration. **GitHub code changes do
+not alter your local XAMPP database.** Before migration 020, new final Step 2
+submissions and revert actions fail safely instead of bypassing the receipt
+barrier. Existing records remain intact.
+
+Before production, locally verify: at 29m59s (allowed), at 30m00s
+(denied), after receipt/review (denied), simultaneous receipt/revert
+requests, ownership, multiple tabs, direct POST/CSRF, retry/resubmit and
+new revision, prior document preview, applicant and LPDD-FUS bell notices,
+SMTP-enabled email delivery and SMTP-disabled/error handling. Run
+`php tests/step2_revert_test.php` and
+`node tests/permit_revert_countdown_test.js`. Browser/DB concurrency
+integration tests still require a real staging database and SMTP server.
+
 ## Implemented in Phase 1
 
 - Public external applicant registration now saves credentials in **user_client**, separate from DENR personnel in **users**, with distinct session identity and optional SMTP acknowledgment after submission.
