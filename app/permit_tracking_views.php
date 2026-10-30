@@ -99,6 +99,24 @@ function permit_tracking_timeline_html(int $applicationId): string
     return $html . '</ol></section>';
 }
 
+/** Audit history is intentionally hidden until the authorized viewer opens it. */
+function permit_tracking_audit_modal_html(int $applicationId): string
+{
+    return '<div class="modal fade" id="fp-audit-trail-modal" tabindex="-1" '
+        . 'aria-labelledby="fp-audit-trail-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
+        . '<div class="modal-content"><div class="modal-header">'
+        . '<h2 class="modal-title h5" id="fp-audit-trail-title">'
+        . '<i class="bi bi-clock-history me-2" aria-hidden="true"></i>'
+        . 'Application Audit Trail — FP #' . (int)$applicationId . '</h2>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
+        . '</div><div class="modal-body">'
+        . permit_tracking_timeline_html($applicationId)
+        . '</div><div class="modal-footer">'
+        . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>'
+        . '</div></div></div></div>';
+}
+
 /** Compact client dashboard link to each current application tracking page. */
 function permit_tracking_client_dashboard_html(array $client): string
 {
@@ -127,9 +145,14 @@ function permit_tracking_client_dashboard_html(array $client): string
             . 'Current: ' . e($state['office']) . '</div>'
             . '<div class="small text-secondary">Next: '
             . e($state['next_role']) . '</div></div>'
+            . '<div class="d-flex flex-wrap gap-2">'
             . '<a class="btn btn-sm btn-outline-primary" href="'
-            . e(url('permit_application',['id'=>(int)$app['id']]))
-            . '">Track / View Files</a></div></div>';
+            . e(url('permit_application',['id'=>(int)$app['id'],'view'=>'files']))
+            . '"><i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View Files</a>'
+            . '<a class="btn btn-sm btn-outline-secondary" href="'
+            . e(url('permit_application',['id'=>(int)$app['id'],'view'=>'audit']))
+            . '"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>View Audit Trail</a>'
+            . '</div></div></div>';
     }
     return $html . '</section>';
 }
@@ -148,7 +171,6 @@ function permit_tracking_staff_recent_html(array $staff, int $limit = 5): string
     if (!$actions) return $html . '<p class="small text-secondary mb-0">'
         . 'No recorded review or processing actions yet.</p></section>';
     foreach ($actions as $item) {
-        $route = $item['type'] === 'registration' ? 'review' : 'permit_application';
         $current = $item['type'] === 'fp'
             ? permit_tracking_state(['status'=>$item['case_status']])['office']
             : status_label($item['case_status']);
@@ -160,9 +182,17 @@ function permit_tracking_staff_recent_html(array $staff, int $limit = 5): string
                 . (string)$item['id'] . ' — ' . $item['title']) . '</div>'
             . '<div class="small text-secondary">Current: ' . e($current) . '</div>'
             . '<div class="small text-secondary">' . e($item['occurred_at']) . '</div></div>'
-            . '<a class="btn btn-sm btn-outline-primary" href="'
-            . e(url($route,['id'=>$item['id']])) . '">'
-            . 'View Files &amp; Trail</a></div></div>';
+            . ($item['type'] === 'fp'
+                ? '<div class="d-flex flex-wrap gap-2">'
+                    . '<a class="btn btn-sm btn-outline-primary" href="'
+                    . e(url('permit_application',['id'=>$item['id'],'view'=>'files']))
+                    . '">View Files</a>'
+                    . '<a class="btn btn-sm btn-outline-secondary" href="'
+                    . e(url('permit_application',['id'=>$item['id'],'view'=>'audit']))
+                    . '">View Audit Trail</a></div>'
+                : '<a class="btn btn-sm btn-outline-primary" href="'
+                    . e(url('review',['id'=>$item['id']]))
+                    . '">View Registration &amp; Files</a>') . '</div></div>';
     }
     return $html . '</section>';
 }
@@ -209,7 +239,6 @@ function view_staff_action_history(): void
         $next = $isFp ? $state['next_role'] : (
             $item['case_status'] === 'needs_correction' ? 'Applicant' : 'No registration action pending'
         );
-        $route = $isFp ? 'permit_application' : 'review';
         $html .= '<tr><td class="small">' . e($item['occurred_at'])
             . '</td><td><strong>' . e($item['label']) . '</strong>'
             . '<div class="small text-secondary">Revision ' . (int)$item['revision'] . '</div></td>'
@@ -217,8 +246,18 @@ function view_staff_action_history(): void
             . '<div class="small">' . e($item['title']) . '</div>'
             . '<div class="small text-secondary">' . e($item['person']) . '</div></td>'
             . '<td>' . e($current) . '</td><td>' . e($next) . '</td>'
-            . '<td><a class="btn btn-sm btn-outline-primary" href="'
-            . e(url($route,['id'=>$item['id']])) . '">Files / Audit Trail</a></td></tr>';
+            . '<td>'
+            . ($isFp
+                ? '<div class="d-flex flex-wrap gap-2">'
+                    . '<a class="btn btn-sm btn-outline-primary" href="'
+                    . e(url('permit_application',['id'=>$item['id'],'view'=>'files']))
+                    . '">View Files</a>'
+                    . '<a class="btn btn-sm btn-outline-secondary" href="'
+                    . e(url('permit_application',['id'=>$item['id'],'view'=>'audit']))
+                    . '">View Audit Trail</a></div>'
+                : '<a class="btn btn-sm btn-outline-primary" href="'
+                    . e(url('review',['id'=>$item['id']]))
+                    . '">View Registration &amp; Files</a>') . '</td></tr>';
     }
     render_page('My Action History', $html . '</tbody></table></div>'
         . '<p class="small text-secondary mb-0">Showing up to 100 of your latest '

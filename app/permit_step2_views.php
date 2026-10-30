@@ -55,7 +55,7 @@ function step2_form_section_navigation_html(): string
     return $html . '</ol></nav>';
 }
 
-function step2_documents_html(array $docs): string
+function step2_document_list_html(array $docs): string
 {
     if (!$docs) return '<p class="small text-secondary">No application documents uploaded yet.</p>';
     $groups = array_fill_keys(array_keys(step2_requirement_types()), []);
@@ -74,8 +74,12 @@ function step2_documents_html(array $docs): string
             'other','Other / Earlier Supporting Documents',$groups['other']
         );
     }
-    return $html . '</div>'
-        . '<div class="modal fade" id="registration-document-modal" tabindex="-1" '
+    return $html . '</div>';
+}
+
+function step2_document_preview_modal_html(): string
+{
+    return '<div class="modal fade" id="registration-document-modal" tabindex="-1" '
         . 'aria-labelledby="registration-document-modal-title" aria-hidden="true">'
         . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
         . '<div class="modal-content"><div class="modal-header">'
@@ -103,6 +107,32 @@ function step2_documents_html(array $docs): string
         . '<a class="btn btn-primary" id="registration-document-download" href="#" download>Download</a>'
         . '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
         . '</div></div></div></div>';
+}
+
+function step2_documents_html(array $docs): string
+{
+    return step2_document_list_html($docs)
+        . ($docs ? step2_document_preview_modal_html() : '');
+}
+
+/** Dedicated read-only file-list modal; the existing preview is a sibling modal. */
+function step2_files_modal_html(array $docs): string
+{
+    return '<div class="modal fade" id="fp-files-modal" tabindex="-1" '
+        . 'aria-labelledby="fp-files-modal-title" aria-hidden="true">'
+        . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
+        . '<div class="modal-content"><div class="modal-header">'
+        . '<h2 class="modal-title h5" id="fp-files-modal-title">'
+        . '<i class="bi bi-folder2-open me-2" aria-hidden="true"></i>Submitted Supporting Documents</h2>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
+        . '</div><div class="modal-body">'
+        . '<p class="small text-secondary">Choose a document to preview it. '
+        . 'Earlier submitted revisions remain available to authorized viewers.</p>'
+        . step2_document_list_html($docs)
+        . '</div><div class="modal-footer">'
+        . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>'
+        . '</div></div></div></div>'
+        . ($docs ? step2_document_preview_modal_html() : '');
 }
 
 function step2_document_requirement_group_html(string $type, string $label, array $docs): string
@@ -171,8 +201,16 @@ function view_step2_applications(): void
                 . e(review_queue_display_date($app['last_submitted_at'])) . '</td><td>' . (int)$app['revision']
                 . '</td><td>' . step2_status_badge((string)$app['status']) . '</td>'
                 . '<td>' . e($routing['office']) . '</td><td>' . e($routing['next_role']) . '</td>'
-                . '<td><a class="btn btn-sm btn-outline-primary" href="'
-                 . e(url('permit_application',['id'=>(int)$app['id']])) . '">Track / View Files</a></td></tr>';
+                . '<td><div class="d-flex flex-wrap gap-2">'
+                . '<a class="btn btn-sm btn-outline-primary" href="'
+                . e(url('permit_application',['id'=>(int)$app['id']]))
+                . '">Details</a>'
+                . '<a class="btn btn-sm btn-outline-primary" href="'
+                . e(url('permit_application',['id'=>(int)$app['id'],'view'=>'files']))
+                . '">View Files</a>'
+                . '<a class="btn btn-sm btn-outline-secondary" href="'
+                . e(url('permit_application',['id'=>(int)$app['id'],'view'=>'audit']))
+                . '">View Audit Trail</a></div></td></tr>';
         }
         $html .= '</tbody></table></div>';
     }
@@ -548,14 +586,21 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . '<dt class="col-sm-4">Last submitted</dt><dd class="col-sm-8">'
         . e((string)$app['last_submitted_at']) . '</dd></dl>'
         . permit_tracking_summary_html($app)
-        . '<h3 class="h6">Submitted Supporting Documents</h3>'
-        . step2_documents_html($documents)
-        . step2_history_html($applicationId)
+        . '<div class="d-flex flex-wrap gap-2 mb-3" aria-label="FP application documents and history">'
+        . '<button type="button" class="btn btn-primary" data-bs-toggle="modal" '
+        . 'data-bs-target="#fp-files-modal">'
+        . '<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View Files</button>'
+        . '<button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" '
+        . 'data-bs-target="#fp-audit-trail-modal">'
+        . '<i class="bi bi-clock-history me-1" aria-hidden="true"></i>View Audit Trail</button>'
+        . '</div>'
+        . '<p class="small text-secondary mb-0">View supporting files or the application audit trail '
+        . 'in separate windows. Previous submitted revisions and recorded actions are preserved.</p>'
         . '</div></div><div class="col-lg-4">';
     if ($mine) {
         $html .= '<div class="panel soft"><h3 class="h6">Next Action</h3>'
             . ($app['status'] === 'corrections_required'
-                ? '<p>LPDD-FUS requested corrections. Review the remarks in the history, '
+                ? '<p>LPDD-FUS requested corrections. Review the remarks under View Audit Trail, '
                     . 'then edit and resubmit your FP documents.</p>'
                     . '<a class="btn btn-primary" href="'
                     . e(url('permit_apply',['id'=>$applicationId])) . '">Correct / Resubmit</a>'
@@ -601,6 +646,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '</div>';
     }
     $html .= '</div></div>'
+        . step2_files_modal_html($documents)
+        . permit_tracking_audit_modal_html($applicationId)
         . ($reviewer && $app['status'] === 'submitted' ? decision_confirmation_modal_html() : '');
     if (step2_location_schema_ready()) {
         $html .= step2_location_preview_html($app);

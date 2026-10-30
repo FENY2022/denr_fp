@@ -96,7 +96,13 @@ tracking_assert(str_contains($view,'permit_tracking_staff_recent_html('), 'staff
 tracking_assert(str_contains($view,'permit_tracking_client_dashboard_html('), 'applicant dashboard tracking');
 tracking_assert(str_contains($detail,'permit_tracking_summary_html($app)'), 'detail case tracking summary');
 tracking_assert(str_contains($detail,'permit_tracking_timeline_html($applicationId)'), 'timeline integrated');
-tracking_assert(str_contains($detail,'Track / View Files'), 'client case link');
+tracking_assert(str_contains($detail,'step2_files_modal_html($documents)'), 'dedicated files modal rendered');
+tracking_assert(str_contains($detail,'permit_tracking_audit_modal_html($applicationId)'), 'audit timeline moved into modal');
+tracking_assert(str_contains($detail,'data-bs-target="#fp-files-modal"'), 'files launcher button');
+tracking_assert(str_contains($detail,'data-bs-target="#fp-audit-trail-modal"'), 'audit launcher button');
+tracking_assert(!str_contains($detail,'. step2_history_html($applicationId)'), 'audit timeline not inline');
+tracking_assert(str_contains($detail,"'view'=>'files'") && str_contains($detail,"'view'=>'audit'"),
+    'distinct client list links to case modals');
 tracking_assert(str_contains($service,'permit_tracking_historical_staff_access('), 'historical read access');
 tracking_assert(str_contains($bootstrap,"require_once __DIR__ . '/permit_tracking.php';"), 'model registered');
 tracking_assert(str_contains($bootstrap,"require_once __DIR__ . '/permit_tracking_views.php';"), 'views registered');
@@ -147,5 +153,30 @@ tracking_assert(str_contains($timeline,'fp-audit-event--submitted')
     && str_contains($timeline,'fp-audit-action-label'),
     'timeline HTML includes status-specific icon and color indicator');
 tracking_assert(!str_contains($timeline, 'style='), 'no CSP-blocked inline styles');
+
+$auditModal = permit_tracking_audit_modal_html(20);
+tracking_assert(str_contains($auditModal,'id="fp-audit-trail-modal"'), 'audit has its own modal ID');
+tracking_assert(str_contains($auditModal,'modal-dialog-scrollable'), 'audit modal is scrollable');
+tracking_assert(str_contains($auditModal,'fp-audit-event--received'), 'colored timeline is inside audit modal');
+tracking_assert(str_contains($auditModal,'data-bs-dismiss="modal"'), 'audit modal has close control');
+$filesView = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
+tracking_assert(str_contains($filesView,'function step2_document_list_html('), 'file list extracted');
+tracking_assert(str_contains($filesView,'function step2_document_preview_modal_html('), 'preview remains separate');
+tracking_assert(str_contains($filesView,'function step2_files_modal_html('), 'files modal separate from audit');
+tracking_assert(str_contains($filesView,'id="fp-files-modal"'), 'files modal ID');
+tracking_assert(str_contains($filesView,'step2_document_list_html($docs)'), 'files modal contains revision list');
+tracking_assert(str_contains($filesView,'step2_document_preview_modal_html()'), 'PDF viewer preserved');
+tracking_assert(str_contains($filesView,'modal-dialog-scrollable'), 'file list supports scrolling');
+$trackingViews = (string)file_get_contents(__DIR__.'/../app/permit_tracking_views.php');
+tracking_assert(str_contains($trackingViews,"'view'=>'audit'"), 'staff action has audit link');
+tracking_assert(str_contains($trackingViews,"'view'=>'files'"), 'staff action has file link');
+tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
+    'permit-case-modals.js?v=1'), 'modal transition script loaded');
+$modalScript = (string)file_get_contents(__DIR__.'/../public/assets/permit-case-modals.js');
+tracking_assert(str_contains($modalScript,"hidden.bs.modal")
+    && str_contains($modalScript,"returnToFileList")
+    && str_contains($modalScript,"new URLSearchParams")
+    && str_contains($modalScript,"getOrCreateInstance"),
+    'preview switches modal rather than nesting and direct actions auto-open');
 
 echo "Application tracking: routing, timeline, XSS and integration checks passed\n";

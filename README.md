@@ -862,3 +862,33 @@ This is a **presentation-only enhancement**, requiring no SQL migration and
 no changes to application status, access rights or audit records.
 The `tests/permit_tracking_test.php` suite now checks all six event styles
 and their rendered icons/labels.
+
+
+### Separate View Files and Audit Trail modals
+
+FP application details now display two independent buttons: **View Files**
+opens a scrollable, read-only list of every submitted document/revision; **View
+Audit Trail** opens the existing color-coded chronological event history in a
+separate scrollable Bootstrap modal. Neither large panel appears inline in the
+application detail page anymore. The PDF/JPEG/PNG preview remains available
+inside its existing viewer with Previous/Next, zoom and download.
+
+Clicking a file entry closes the file-list modal before opening the preview;
+closing the preview returns to the list. This avoids Bootstrap's unsupported
+stacked-modal behavior. Existing server-side `permit_document` authorization,
+document encryption/decryption and review forms are unchanged. If no documents
+are present, the file list modal displays the existing no-file message.
+
+Client application lists, client dashboard links, DENR My Recent Actions and
+My Action History now have separate **View Files** and **View Audit Trail**
+links for FP cases. These links navigate to the authorized
+`/permit-application?id=N&view=files` or `&view=audit` page and automatically
+open only the selected modal. The query parameter is presentation-only; it
+does not bypass ownership/role authorization. Registration-action entries
+retain their existing separate registration review page and document access.
+
+Validation: `php tests/permit_tracking_test.php`,
+`node --check public/assets/permit-case-modals.js`, and
+`node tests/permit_case_modals_test.js`; test the modal switching on desktop
+and mobile using actual applicant, LPDD-FUS and RO accounts. No new SQL schema
+or data migration is required.

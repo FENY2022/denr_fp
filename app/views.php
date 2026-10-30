@@ -145,6 +145,8 @@ function render_page(string $title, string $content): void
         . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>'
         . (str_contains($content, 'id="registration-document-modal"')
             ? '<script src="assets/registration-document-preview.js?v=5" defer></script>' : '')
+        . (str_contains($content, 'id="fp-files-modal"')
+            ? '<script src="assets/permit-case-modals.js?v=1" defer></script>' : '')
         . (str_contains($content, 'id="otp-verification-success-modal"')
             ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
         . (str_contains($content, 'data-decision-confirm-form')
