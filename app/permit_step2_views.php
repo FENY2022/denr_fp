@@ -58,21 +58,23 @@ function step2_form_section_navigation_html(): string
 function step2_documents_html(array $docs): string
 {
     if (!$docs) return '<p class="small text-secondary">No application documents uploaded yet.</p>';
-    $html = '<ul class="list-group mb-3" data-document-list>';
+    $groups = array_fill_keys(array_keys(step2_requirement_types()), []);
     foreach ($docs as $doc) {
-        $url = url('permit_document',['id'=>(int)$doc['id'],'preview'=>1]);
-        $html .= '<li class="list-group-item d-flex justify-content-between align-items-center gap-2 flex-wrap">'
-            . '<div class="small"><strong>' . e((string)$doc['original_name']) . '</strong>'
-            . '<div class="text-secondary">'
-            . e(step2_requirement_label((string)($doc['requirement_type'] ?? 'other')))
-            . ' · Revision ' . (int)$doc['revision'] . ' · '
-            . e(round(((int)$doc['file_size']) / 1024, 1) . ' KB') . '</div></div>'
-            . '<a class="btn btn-sm btn-outline-primary" data-document-preview '
-            . 'data-document-mime="' . e((string)$doc['mime_type']) . '" '
-            . 'data-document-name="' . e((string)$doc['original_name']) . '" '
-            . 'href="' . e($url) . '">View / Download</a></li>';
+        $type = (string)($doc['requirement_type'] ?? 'other');
+        if (!isset($groups[$type])) $type = 'other';
+        $groups[$type][] = $doc;
     }
-    return $html . '</ul>'
+    $html = '<div class="list-group mb-3 step2-requirements-list" data-document-list>';
+    foreach (step2_requirement_types() as $type => $label) {
+        $items = $groups[$type];
+        $html .= step2_document_requirement_group_html($type,$label,$items);
+    }
+    if (!empty($groups['other'])) {
+        $html .= step2_document_requirement_group_html(
+            'other','Other / Earlier Supporting Documents',$groups['other']
+        );
+    }
+    return $html . '</div>'
         . '<div class="modal fade" id="registration-document-modal" tabindex="-1" '
         . 'aria-labelledby="registration-document-modal-title" aria-hidden="true">'
         . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
@@ -83,12 +85,53 @@ function step2_documents_html(array $docs): string
         . '<div id="registration-document-preview" class="overflow-auto"></div>'
         . '<p id="registration-document-error" class="text-danger d-none">Preview unavailable. Use Download instead.</p>'
         . '</div><div class="modal-footer">'
+        . '<div class="d-flex align-items-center gap-2 flex-wrap me-auto" '
+        . 'role="group" aria-label="Application document navigation">'
+        . '<button type="button" class="btn btn-outline-primary" '
+        . 'data-document-previous disabled>'
+        . '<i class="bi bi-chevron-left me-1" aria-hidden="true"></i>Previous</button>'
+        . '<span class="badge text-bg-light border px-3 py-2" '
+        . 'data-document-counter aria-live="polite" aria-atomic="true">0/0</span>'
+        . '<button type="button" class="btn btn-outline-primary" '
+        . 'data-document-next disabled>'
+        . 'Next<i class="bi bi-chevron-right ms-1" aria-hidden="true"></i></button>'
+        . '</div>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="out">Zoom Out</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="reset">Fit to Screen</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="in">Zoom In</button>'
         . '<a class="btn btn-primary" id="registration-document-download" href="#">Download</a>'
         . '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
         . '</div></div></div></div>';
+}
+
+function step2_document_requirement_group_html(string $type, string $label, array $docs): string
+{
+    $count = count($docs);
+    $html = '<section class="list-group-item step2-document-requirement-group">'
+        . '<div class="step2-requirement-review-item">'
+        . '<span class="step2-requirement-review-label"><i class="bi bi-'
+        . e(step2_requirement_icon($type)) . '" aria-hidden="true"></i><span>'
+        . e($label) . '</span></span>'
+        . '<span class="badge step2-requirement-review-status '
+        . ($count ? 'text-bg-success' : 'text-bg-secondary') . '"><i class="bi bi-'
+        . ($count ? 'check-circle-fill' : 'dash-circle') . '" aria-hidden="true"></i>'
+        . ($count ? 'Uploaded: '.$count : 'Not uploaded') . '</span></div>';
+    if (!$docs) return $html . '</section>';
+
+    $html .= '<div class="step2-requirement-uploaded-files">';
+    foreach ($docs as $doc) {
+        $name = (string)$doc['original_name'];
+        $mime = (string)$doc['mime_type'];
+        $url = url('permit_document',['id'=>(int)$doc['id'],'preview'=>1]);
+        $fileIcon = $mime === 'application/pdf' ? 'file-earmark-pdf' : 'file-earmark-image';
+        $html .= '<a class="step2-requirement-file" data-document-preview '
+            . 'data-document-mime="' . e($mime) . '" data-document-name="' . e($name) . '" '
+            . 'href="' . e($url) . '"><i class="bi bi-' . $fileIcon . '" aria-hidden="true"></i>'
+            . '<span><strong>' . e($name) . '</strong><small>Revision ' . (int)$doc['revision']
+            . ' · ' . e(round(((int)$doc['file_size']) / 1024, 1) . ' KB') . '</small></span>'
+            . '<i class="bi bi-eye ms-auto" aria-hidden="true"></i></a>';
+    }
+    return $html . '</div></section>';
 }
 
 function step2_history_html(int $applicationId): string
@@ -478,7 +521,6 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<p class="small text-secondary mb-0">Step 4 formal documentary evaluation and '
         . 'the 15-day processing tracker are not part of this release.</p></div>';
     if ($docs) $html .= '<div class="panel mt-3"><h3 class="h6">Previously Uploaded Documents</h3>'
-        . step2_requirement_checklist_html($docs)
         . step2_documents_html($docs) . '</div>';
     $html .= '</div></div>' . step2_pdf_choice_modal_html()
         . step2_pdf_organizer_modal_html();
@@ -499,6 +541,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
 {
     $viewer = require_user();
     $app = step2_application_for_view($viewer,$applicationId);
+    $documents = step2_documents($applicationId);
     $mine = $viewer['user_kind'] === 'applicant';
     $reviewer = !$mine && has_role($viewer,'lpdd_fus');
     $back = $mine ? 'permit_applications'
@@ -523,8 +566,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . '<dt class="col-sm-4">Last submitted</dt><dd class="col-sm-8">'
         . e((string)$app['last_submitted_at']) . '</dd></dl>'
         . '<h3 class="h6">Submitted Supporting Documents</h3>'
-        . step2_requirement_checklist_html(step2_documents($applicationId))
-        . step2_documents_html(step2_documents($applicationId))
+        . step2_documents_html($documents)
         . step2_history_html($applicationId)
         . '</div></div><div class="col-lg-4">';
     if ($mine) {

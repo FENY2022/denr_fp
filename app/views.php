@@ -81,7 +81,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=28" rel="stylesheet">'
+        . '<link href="assets/style.css?v=30" rel="stylesheet">'
         . '<link href="assets/action-feedback.css?v=1" rel="stylesheet">'
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
@@ -143,7 +143,7 @@ function render_page(string $title, string $content): void
         . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer></div></div>'
         . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>'
         . (str_contains($content, 'id="registration-document-modal"')
-            ? '<script src="assets/registration-document-preview.js?v=2" defer></script>' : '')
+            ? '<script src="assets/registration-document-preview.js?v=3" defer></script>' : '')
         . (str_contains($content, 'id="otp-verification-success-modal"')
             ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
         . (str_contains($content, 'data-decision-confirm-form')

@@ -31,8 +31,8 @@
     if (next) next.disabled = currentIndex < 0 || currentIndex >= documents.length - 1;
     if (counter) {
       counter.textContent = currentIndex < 0
-        ? '0 / ' + documents.length
-        : (currentIndex + 1) + ' / ' + documents.length;
+        ? '0/' + documents.length
+        : (currentIndex + 1) + '/' + documents.length;
     }
   }
 

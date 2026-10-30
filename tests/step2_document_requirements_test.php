@@ -37,6 +37,10 @@ fp_category_check(str_contains($render,'earlier/unclassified document(s)'),
     'historical files not automatically classified');
 fp_category_check(substr_count($render,'Not uploaded')===4,
     'missing categories displayed, not falsely marked submitted');
+fp_category_check(str_contains($render,'step2-requirement-review-item')
+    && str_contains($render,'bi-clipboard2-check')
+    && str_contains($render,'bi-check-circle-fill'),
+    'review checklist renders aligned rows and document status icons');
 $view=(string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 $upload=(string)file_get_contents(__DIR__.'/../app/permit_step2_drafts.php');
 $submit=(string)file_get_contents(__DIR__.'/../app/permit_step2.php');
@@ -51,8 +55,14 @@ fp_category_check(str_contains($view,'data-fp-requirement-guide')
 fp_category_check(substr_count($view,'data-step2-form-section=')===4
     && str_contains($view,"step2_form_section_heading_html(4,'Review and Submit'"),
     'permit form is organized into four numbered sections');
-fp_category_check(str_contains($view,'step2_requirement_checklist_html('),
-    'LPDD-FUS and applicant display saved requirement categories');
+fp_category_check(str_contains($view,'step2_document_requirement_group_html(')
+    && str_contains($view,'step2-requirement-uploaded-files')
+    && str_contains($view,'data-document-preview '),
+    'saved files render directly below their matching requirement category');
+fp_category_check(str_contains($view,'data-document-previous disabled')
+    && str_contains($view,'data-document-next disabled')
+    && str_contains($view,'data-document-counter'),
+    'permit document preview renders previous, next and position controls');
 fp_category_check(str_contains($view,'permit-step2-drafts.js?v=10'),
     'new browser uploader script loaded');
 fp_category_check(str_contains($script,'placeFileCard')
