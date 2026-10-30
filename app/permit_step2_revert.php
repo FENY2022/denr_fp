@@ -320,8 +320,20 @@ function step2_revert_client_html(array $application): string
          . 'class="text-danger" aria-hidden="true">*</span></label>'
          . '<textarea class="form-control" id="step2_revert_remarks" name="remarks" '
          . 'rows="4" minlength="10" maxlength="3000" required '
+         . 'autocomplete="off" aria-autocomplete="list" '
+         . 'aria-controls="step2_revert_suggestions" aria-expanded="false" '
          . 'placeholder="Explain why you are reverting this application">'
          . e((string)($_POST['remarks'] ?? '')) . '</textarea>'
+         . '<div class="list-group mt-1 d-none" id="step2_revert_suggestions" '
+         . 'data-step2-revert-suggestions role="listbox" aria-label="Suggested remarks">'
+         . '<button class="list-group-item list-group-item-action small" type="button" '
+         . 'role="option">I need to correct information in the application.</button>'
+         . '<button class="list-group-item list-group-item-action small" type="button" '
+         . 'role="option">I need to replace or update the uploaded documents.</button>'
+         . '<button class="list-group-item list-group-item-action small" type="button" '
+         . 'role="option">I submitted the application before completing all requirements.</button>'
+         . '<button class="list-group-item list-group-item-action small" type="button" '
+         . 'role="option">I need to revise the project details.</button></div>'
          . '<div class="form-text">Required, 10 to 3,000 characters.</div></div>'
          . '<div class="modal-footer"><button class="btn btn-secondary" type="button" '
          . 'data-bs-dismiss="modal">Cancel</button>'
@@ -330,7 +342,7 @@ function step2_revert_client_html(array $application): string
          . '<button class="btn btn-danger" type="submit" data-step2-revert-submit>'
          . 'Confirm Revert</button></div></form>'
         . '</div></div></div>'
-        . '<script src="assets/permit-revert.js?v=1" defer></script>';
+        . '<script src="assets/permit-revert.js?v=2" defer></script>';
     return $html;
 }
 

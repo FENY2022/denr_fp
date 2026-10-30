@@ -105,6 +105,11 @@ revert_assert(str_contains($script,'data-step2-revert-countdown')
     && str_contains($script,'trigger.disabled = true')
     && str_contains($script,'confirm.disabled = true'),
     'browser timer disables expired button and confirmation');
+revert_assert(str_contains($backend,'data-step2-revert-suggestions')
+    && str_contains($backend,'aria-autocomplete="list"')
+    && str_contains($script,'filterSuggestions')
+    && str_contains($script,"event.key === 'ArrowDown'"),
+    'remarks provide filtered mouse and keyboard typeahead suggestions');
 revert_assert(str_contains($migration,"'reverted'")
     && str_contains($migration,"'documents_received'")
     && str_contains($migration,'received_at DATETIME'),
