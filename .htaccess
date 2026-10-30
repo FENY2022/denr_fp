@@ -1,0 +1,10 @@
+# XAMPP checkout under htdocs: only public/ is served by Apache.
+# Production should set DocumentRoot to public/ instead.
+Options -Indexes
+<FilesMatch "^\\.">
+    Require all denied
+</FilesMatch>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(?!public(?:/|$)).+ - [F,L,NC]
+</IfModule>

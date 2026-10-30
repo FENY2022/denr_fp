@@ -720,3 +720,56 @@ The diagram shows a 15-day total while its individually labeled durations for St
 - Add encrypted HTTPS transport, trusted email verification/reset flow, production monitoring, controlled administrator credential distribution, data access logging and operational incident procedures.
 - Consider securing applicant onboarding against spam/automation and requiring stronger authentication for government approvers.
 - Secure staff initial passwords using an approved out-of-band channel; applicant registration acknowledgment and review decision emails use the configured SMTP transport when enabled.
+
+## Encrypted document storage — required deployment steps
+
+FP-OMS encrypts *new* registration documents, valid IDs, registration drafts,
+FP applications, FP drafts, reorganized PDF drafts and profile photos at rest
+using AES-256-GCM (authenticated encryption, random nonces, versioned key IDs).
+MySQL `sha256` and `file_size` metadata continue to describe original
+plaintext. Draft finalization re-encrypts with a new nonce; preview/download
+serves plaintext **only after the application's existing access checks**.
+Historical files stay readable during migration; they are NOT automatically
+encrypted by deploying this commit.
+
+**Complete this on the local XAMPP server before accepting new uploads:**
+
+1. Enable PHP OpenSSL, generate a 256-bit key with
+   `php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"`, and place
+   it in the local server-only `.env` as `FPOMS_FILE_KEY_B64=...`.
+   Keep `FPOMS_FILE_KEY_ID=v1`. Securely back up the key separately.
+   Missing or invalid keys deliberately prevent new file uploads.
+2. **Back up** the `denr_fp_oms` database and the entire private
+   `storage` directory to restricted storage outside the website.
+   Any pre-encryption backups contain readable identification documents.
+3. Review `php scripts/encrypt_legacy_documents.php --dry-run`.
+   Once backups are verified, run
+   `php scripts/encrypt_legacy_documents.php --execute` from the
+   repository directory. The CLI-only migration replaces legacy file contents
+   with authenticated ciphertext using a temporary file and atomic rename;
+   it retains stored paths, DB rows, original plaintext digest/size and history.
+   Repeat dry-run until `remaining_plaintext` is zero. Never run migration
+   without a tested backup and key recovery procedure.
+4. Then set `FPOMS_REQUIRE_ENCRYPTED_FILES=true` in server `.env`.
+   Test all historical/new registration IDs, step-2 documents, editable
+   draft PDFs, preview/download, resubmissions and profile photos on XAMPP.
+5. In production, set Apache/Nginx **DocumentRoot** to `public/` only.
+   For an XAMPP htdocs checkout, root and storage `.htaccess` files add
+   denial rules but work only when Apache honors overrides and mod_rewrite.
+   Verify requests to `/storage/...`, `/.env` and `/app/...` return
+   403/404. If they do not, **do not deploy** until the server is fixed.
+6. Enforce HTTPS, restricted filesystem and temp permissions, security
+   monitoring, least-privilege database roles and encrypted backups.
+   Retain old decryption keys under `FPOMS_FILE_OLD_KEYS_JSON` when rotating
+   to a new `FPOMS_FILE_KEY_ID`. Never reuse one key ID for new key bytes.
+
+**Limitations:** Files are encrypted at rest, not end-to-end: a compromised
+application server with the active key or an authorized user's session may
+access decrypted content. MySQL contact information, names and document
+metadata are not encrypted by this feature. A production security review,
+local browser integration testing and automated backups remain necessary.
+The code uses PHP memory to encrypt each 5 MB maximum upload. No database
+schema migration is required; existing local SQL migrations 014–020 remain
+separate. GitHub commits do not modify the local XAMPP storage, key or DB.
+
+Run `php tests/file_crypto_test.php` for the stand-alone crypto checks.
