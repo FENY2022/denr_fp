@@ -108,7 +108,9 @@ function step2_draft_list_html(array $docs, bool $persistent=false): string
         . '<ul class="selected-file-list" data-step2-items>';
     foreach ($docs as $doc) {
         $name = e((string)$doc['original_name']);
-        $html .= '<li class="selected-file-card is-saved" data-step2-draft-id="'.(int)$doc['id'].'">'
+        $html .= '<li class="selected-file-card is-saved" data-step2-draft-id="'.(int)$doc['id'].'" '
+            . 'data-step2-requirement-type="'
+            . e((string)($doc['requirement_type'] ?? 'other')) . '">'
             . '<span class="selected-file-icon" aria-hidden="true"><i class="bi bi-file-earmark-text-fill"></i></span>'
             . '<div class="selected-file-info"><strong class="selected-file-name">'.$name.'</strong>'
             . '<span class="selected-file-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> '

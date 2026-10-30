@@ -403,6 +403,22 @@ body.page-loading{overflow:hidden}
 }
 .selected-files-guidance{color:#6a8074;font-size:.79rem;line-height:1.5;margin:.45rem 0 .9rem}
 .selected-file-list{list-style:none;padding:0;margin:0;display:grid;gap:.55rem}
+.step2-requirement-files{
+  list-style:none;
+  padding:0;
+  margin:.75rem 0 0;
+  display:grid;
+  gap:.5rem;
+}
+.step2-requirement-files-empty{
+  color:#6c757d;
+  font-size:.78rem;
+}
+.step2-requirement-files .selected-file-card{
+  padding:.65rem;
+  flex-wrap:wrap;
+}
+.step2-requirement-files .selected-file-info{min-width:calc(100% - 4.5rem)}
 .selected-upload-queue{display:grid;gap:.55rem;margin-bottom:.55rem}
 .selected-upload-queue:empty{display:none}
 .selected-file-card{

@@ -13,6 +13,9 @@
     [...categoryInput.options].find(opt=>opt.value===name)?.textContent
       || 'Other / Earlier Supporting Document';
   const categoryIsValid = value => validCategories.has(value);
+  const requirementLists = new Map(
+    [...document.querySelectorAll('[data-step2-requirement-files]')]
+      .map(element=>[element.dataset.step2RequirementFiles,element]));
   document.querySelectorAll('[data-step2-pick-requirement]').forEach(button=>{
     button.addEventListener('click',()=>{
       const category=button.dataset.step2PickRequirement || '';
@@ -197,7 +200,27 @@
   let selected = [];
 
   function savedCount() {
-    return list.querySelectorAll('[data-step2-draft-id]').length;
+    return form.querySelectorAll('[data-step2-draft-id]').length;
+  }
+  function updateRequirementLists() {
+    for (const requirementList of requirementLists.values()) {
+      const hasFiles = Boolean(requirementList.querySelector('.selected-file-card'));
+      const placeholder = requirementList.querySelector('[data-step2-requirement-empty]');
+      if (placeholder) placeholder.hidden = hasFiles;
+    }
+  }
+  function placeFileCard(item,category) {
+    item.dataset.step2RequirementType = category;
+    const requirementList = requirementLists.get(category);
+    (requirementList || list).append(item);
+    updateRequirementLists();
+  }
+  function clearFileCards() {
+    list.querySelectorAll('.selected-file-card').forEach(item=>item.remove());
+    for (const requirementList of requirementLists.values()) {
+      requirementList.querySelectorAll('.selected-file-card').forEach(item=>item.remove());
+    }
+    updateRequirementLists();
   }
   function refresh() {
     const saved = root.dataset.step2Mode === 'saved';
@@ -206,11 +229,13 @@
     empty.hidden = n>0 || queue.children.length>0;
     input.disabled = busy || finalizing || n>=10;
     submit.disabled = busy || finalizing;
+    updateRequirementLists();
   }
   function fileCard(name,id=null,mime='',category='other') {
     const item = document.createElement('li');
     item.className = 'selected-file-card ' + (id===null ? 'is-uploading' : 'is-saved');
     if (id!==null) item.dataset.step2DraftId = String(id);
+    item.dataset.step2RequirementType = category;
     const icon = document.createElement('span');
     icon.className = 'selected-file-icon';
     icon.setAttribute('aria-hidden','true');
@@ -253,13 +278,17 @@
     return {item,status,progress};
   }
   function render(docs) {
-    list.replaceChildren();
+    clearFileCards();
     for (const doc of docs||[]) {
-      list.append(fileCard(String(doc.original_name),doc.id,
-        String(doc.mime_type||''),String(doc.requirement_type||'other')).item);
+      const category = String(doc.requirement_type||'other');
+      placeFileCard(fileCard(String(doc.original_name),doc.id,
+        String(doc.mime_type||''),category).item,category);
     }
     refresh();
   }
+
+  [...list.querySelectorAll('.selected-file-card')].forEach(item=>
+    placeFileCard(item,item.dataset.step2RequirementType||'other'));
 
   // Without migration 015/016, preserve the existing normal form upload and
   // label chosen files as unsaved. Never call them permanently retained.
@@ -280,7 +309,7 @@
       }
     }
     function showLocal() {
-      list.replaceChildren();
+      clearFileCards();
       selected.forEach((entry,index)=>{
         const row = fileCard(entry.file.name,null,'',entry.category);
         row.item.className = 'selected-file-card is-pending';
@@ -290,7 +319,7 @@
         const remove = row.item.querySelector('.selected-file-remove');
         remove.disabled = false;
         remove.dataset.step2LocalIndex = String(index);
-        list.append(row.item);
+        placeFileCard(row.item,entry.category);
       });
       refresh();
     }
@@ -327,7 +356,7 @@
       if (rejected) notice('Some files were skipped because of file count/type/size limits.',true);
       else notice('Files are not saved yet; they upload on final submission.');
     });
-    list.addEventListener('click',event=>{
+    form.addEventListener('click',event=>{
       const button = event.target.closest('[data-step2-local-index]');
       if (!button || busy) return;
       const index = Number(button.dataset.step2LocalIndex);
@@ -389,7 +418,7 @@
     busy = false;refresh();
   });
 
-  list.addEventListener('click',async event=>{
+  form.addEventListener('click',async event=>{
     const edit = event.target.closest('[data-step2-rearrange]');
     const row = event.target.closest('[data-step2-draft-id]');
     if (!row || busy) return;

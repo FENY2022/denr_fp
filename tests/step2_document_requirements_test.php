@@ -45,12 +45,19 @@ $router=(string)file_get_contents(__DIR__.'/../public/index.php');
 $migration=(string)file_get_contents(__DIR__.'/../database/019_step2_document_requirements.sql');
 fp_category_check(str_contains($view,'data-fp-requirement-guide')
     && str_contains($view,'data-step2-pick-requirement')
-    && str_contains($view,'data-step2-category-select'),
-    'six choices and per-category upload button rendered');
+    && str_contains($view,'data-step2-category-select')
+    && str_contains($view,'data-step2-requirement-files'),
+    'six choices, upload buttons and matching file areas rendered');
+fp_category_check(substr_count($view,'data-step2-form-section=')===4
+    && str_contains($view,"step2_form_section_heading_html(4,'Review and Submit'"),
+    'permit form is organized into four numbered sections');
 fp_category_check(str_contains($view,'step2_requirement_checklist_html('),
     'LPDD-FUS and applicant display saved requirement categories');
-fp_category_check(str_contains($view,'permit-step2-drafts.js?v=8'),
+fp_category_check(str_contains($view,'permit-step2-drafts.js?v=9'),
     'new browser uploader script loaded');
+fp_category_check(str_contains($script,'placeFileCard')
+    && str_contains($script,'step2RequirementType'),
+    'saved and newly selected files appear under their matching requirement');
 fp_category_check(str_contains($script,"data.set('document_category',category)")
     && str_contains($router,"(string)(" . '$_POST' . "['document_category']"),
     'AJAX upload includes selected requirement in POST');
