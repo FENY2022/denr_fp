@@ -168,12 +168,9 @@ function step2_draft_upload(array $client, int $applicationId, array $files,
         }
         $relative = $dirRelative.'/'.bin2hex(random_bytes(20)).'.'.$info['extension'];
         $stored = PROJECT_ROOT.'/storage/'.$relative;
-        if (!move_uploaded_file((string)$info['file']['tmp_name'],$stored)) {
-            throw new RuntimeException('Could not store uploaded FP draft.');
-        }
+        fpoms_file_store_upload((string)$info['file']['tmp_name'],$stored);
         @chmod($stored,0600);
-        $sha = hash_file('sha256',$stored);
-        if ($sha === false) throw new RuntimeException('Could not hash draft file.');
+        $sha = fpoms_file_plaintext_sha256($stored);
         $pdo->prepare(
             'INSERT INTO permit_step2_draft_documents
             (client_id,draft_hash,application_id,requirement_type,original_name,stored_path,mime_type,file_size,sha256,expires_at)
@@ -242,8 +239,8 @@ function step2_draft_submission(int $clientId, int $applicationId): array
         $path = step2_draft_real_path((string)$doc['stored_path']);
         if (!$path
             || !in_array((string)$doc['mime_type'],['application/pdf','image/jpeg','image/png'],true)
-            || filesize($path) !== (int)$doc['file_size']
-            || !hash_equals((string)$doc['sha256'],(string)hash_file('sha256',$path))) {
+            || fpoms_file_plaintext_size($path) !== (int)$doc['file_size']
+            || !hash_equals((string)$doc['sha256'],(string)fpoms_file_plaintext_sha256($path))) {
             $errors[] = 'A saved supporting document is unavailable or modified. Remove it and upload again.';
         }
     }

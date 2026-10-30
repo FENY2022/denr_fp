@@ -139,16 +139,16 @@ function step2_persistent_send_pdf(array $client, int $scope, int $id): never
     $row = step2_persistent_pdf_row($client,$scope,$id);
     $path = $row ? step2_draft_real_path((string)$row['stored_path']) : null;
     if (!$path || !is_file($path)) show_error('Saved PDF not found.',404);
-    $actual = hash_file('sha256',$path);
-    if ($actual === false || !hash_equals((string)$row['sha256'],$actual)) {
+    $actual = fpoms_file_plaintext_sha256($path);
+    if (!hash_equals((string)$row['sha256'],$actual)) {
         show_error('Saved PDF failed verification.',409);
     }
     header('Content-Type: application/pdf');
     header('Content-Disposition: attachment; filename="fp-draft-'.$id.'.pdf"');
-    header('Content-Length: '.filesize($path));
+    header('Content-Length: '.fpoms_file_plaintext_size($path));
     header('Cache-Control: private, no-store');
     header('X-Content-Type-Options: nosniff');
-    readfile($path);
+    echo fpoms_file_read($path);
     exit;
 }
 
@@ -183,12 +183,9 @@ function step2_persistent_replace_pdf(array $client,int $scope,int $id,array $fi
         }
         $relative = $folder.'/'.bin2hex(random_bytes(20)).'.pdf';
         $newPath = PROJECT_ROOT.'/storage/'.$relative;
-        if (!move_uploaded_file((string)$info['file']['tmp_name'],$newPath)) {
-            throw new RuntimeException('Could not save edited PDF.');
-        }
+        fpoms_file_store_upload((string)$info['file']['tmp_name'],$newPath);
         @chmod($newPath,0600);
-        $hash = hash_file('sha256',$newPath);
-        if ($hash === false) throw new RuntimeException('PDF hash verification failed.');
+        $hash = fpoms_file_plaintext_sha256($newPath);
         $pdo->prepare(
             'UPDATE permit_step2_draft_documents
              SET stored_path=?,mime_type=?,file_size=?,sha256=?

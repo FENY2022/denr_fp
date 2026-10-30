@@ -59,6 +59,15 @@ function create_initial_super_admin(array $input): array
         return $errors;
     }
 
+    // First-installation encryption setup: automatic, one persistent key, no manual secret.
+    // Existing installations initialize lazily on their first protected upload.
+    try {
+        fpoms_master_key();
+    } catch (Throwable $error) {
+        error_log('FP-OMS encryption setup failed: ' . $error->getMessage());
+        return ['Secure encrypted-file storage could not be initialized. Contact RICTU to verify the server private-directory permissions.'];
+    }
+
     $pdo = db();
     $pdo->beginTransaction();
     try {

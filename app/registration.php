@@ -43,14 +43,15 @@ function store_reg_document(PDO $pdo, int $registrationId, int $userId, int $rev
         $draftRoot = realpath(PROJECT_ROOT . '/storage/registration_drafts');
         if (!$safePath || !$draftRoot
             || !str_starts_with($safePath, $draftRoot . DIRECTORY_SEPARATOR)
-            || !is_file($safePath) || !copy($safePath, $absolute)) {
+            || !is_file($safePath) || !is_readable($safePath)) {
             throw new RuntimeException('Saved registration attachment could not be copied.');
         }
-    } elseif (!move_uploaded_file((string)$info['file']['tmp_name'], $absolute)) {
-        throw new RuntimeException('Upload could not be saved.');
+        fpoms_file_copy_encrypted($safePath, $absolute);
+    } else {
+        fpoms_file_store_upload((string)$info['file']['tmp_name'], $absolute);
     }
     chmod($absolute, 0600);
-    $digest = hash_file('sha256', $absolute);
+    $digest = fpoms_file_plaintext_sha256($absolute);
     try {
         $stmt = $pdo->prepare('INSERT INTO registration_documents (registration_id,document_type,id_type,requirement_type,original_name,stored_path,mime_type,file_size,sha256,revision) VALUES (?,?,?,?,?,?,?,?,?,?)');
         $stmt->execute([$registrationId,$type,$idType,$requirementType,$info['name'],$relative,$info['mime'],$info['size'],$digest,$revision]);
@@ -357,8 +358,8 @@ function send_registration_document(array $viewer, int $documentId): never
         header('Content-Security-Policy: default-src \'none\'; frame-ancestors \'self\'; sandbox');
     }
     header('Content-Type: ' . $doc['mime_type']);
-    header('Content-Length: ' . filesize($path));
+    header('Content-Length: ' . fpoms_file_plaintext_size($path));
     header('Content-Disposition: ' . ($preview ? 'inline' : 'attachment') . '; filename="document"; filename*=UTF-8\'\'' . rawurlencode($doc['original_name']));
-    readfile($path);
+    echo fpoms_file_read($path);
     exit;
 }

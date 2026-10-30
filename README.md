@@ -720,3 +720,76 @@ The diagram shows a 15-day total while its individually labeled durations for St
 - Add encrypted HTTPS transport, trusted email verification/reset flow, production monitoring, controlled administrator credential distribution, data access logging and operational incident procedures.
 - Consider securing applicant onboarding against spam/automation and requiring stronger authentication for government approvers.
 - Secure staff initial passwords using an approved out-of-band channel; applicant registration acknowledgment and review decision emails use the configured SMTP transport when enabled.
+
+
+## Automatic encrypted document storage (no manual encryption-key setup)
+
+All newly uploaded registration attachments, valid IDs, registration drafts, FP
+Step 2 submissions and drafts, edited PDF drafts and profile photos are
+encrypted automatically at rest using PHP OpenSSL **AES-256-GCM** with a fresh
+12-byte nonce and an authenticated 16-byte tag. Preview/download services
+decrypt the document only after existing applicant/DENR authorization checks.
+The original filename, MIME type, plaintext size and SHA-256 remain in existing
+database fields, and original document revision/history workflows are unchanged.
+There is **no SQL schema change** for this feature.
+
+### First-installation setup
+
+The initial RICTU Super Administrator setup calls the encryption initializer
+automatically. Existing installations initialize on their first new protected
+upload. FP-OMS generates one unique 32-byte secret using `random_bytes(32)`
+and stores it in a persistent, private key directory **outside the website and
+repository**, rather than in the `.env`, GitHub, or the MySQL database. It does
+**not** generate a new key on every login, restart or upload.
+
+On normal XAMPP installations beneath `C:\\xampp\\htdocs`, the key directory
+is automatically selected under `C:\\xampp\\fpoms-private-keys-<installation-id>`.
+On typical Linux installations under `/var/www/html`, it uses a
+`/var/www/fpoms-private-keys-<installation-id>` directory. Deployment-specific
+paths are calculated from the real installation path; inspect the actual
+directory on your server. The app requests private permissions and rejects
+world/group-accessible key directories on Unix.
+
+**The file-system must allow the PHP service to create the private key directory
+and write its file.** If that is impossible, installation/uploads stop with a
+secure failure instead of falling back to public storage. Only in that case,
+the administrator can optionally set `FPOMS_KEY_DIR` to a dedicated absolute
+path **outside all web-accessible directories** and grant the minimum required
+permissions. No manual key content, password or per-user setting is necessary.
+On Windows, review NTFS ACLs separately: `chmod` does not guarantee adequate
+Windows ACL permissions. Production servers should use a dedicated secrets
+vault/KMS when available.
+
+### Recovery, migration and deployment safety
+
+- **Back up the automatically created `master.key` securely**, separately
+  from the `denr_fp_oms` database and entire `storage` tree. The recovery
+  marker `storage/.fpoms-key-initialized` records only the key fingerprint,
+  not the key. If the key is missing or mismatched, the system blocks recovery
+  by generating a replacement. **Lost encryption keys mean permanent loss
+  of encrypted documents** without a valid backup.
+- Existing plaintext files remain readable to authorized users and are NOT
+  rewritten automatically. Before converting them, back up both the database
+  and private uploads and verify restore works. Use
+  `php scripts/encrypt_legacy_documents.php --dry-run`, then deliberately
+  run `php scripts/encrypt_legacy_documents.php --execute` in a controlled
+  maintenance window. Verify conversion and preview all document types.
+  On some Windows filesystems, replacing an existing file with atomic rename
+  can fail safely; restore/review before retrying. Do not delete originals
+  or backups without verification.
+- A deployed Apache/Nginx host must use `public/` as DocumentRoot whenever
+  possible. In XAMPP, the project-root and `storage/.htaccess` restrict
+  direct HTTP access, but depend on Apache AllowOverride/mod_rewrite support.
+  Explicitly verify `/storage/...`, `/.env`, and `/app/...` give 403/404.
+- Enforce HTTPS, test PHP OpenSSL, minimum filesystem permissions, restricted
+  backups, malware scanning and role-based authorization. Encryption at rest
+  does not stop attackers who compromise the running PHP server and its key,
+  nor a legitimately authorized user from saving a decrypted file. Database
+  application metadata/personal-information columns are **not encrypted**
+  by this feature.
+- Tests: `php tests/file_crypto_test.php` plus complete XAMPP MySQL/browser
+  validation (registration upload, FP supporting requirements, draft PDF page
+  rearrangement, historical revisions, preview/download, profile photos,
+  reverted/resubmitted FP applications). Neither GitHub commit nor Actions
+  will modify local XAMPP files or automatically migrate old documents.
+

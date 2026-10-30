@@ -51,6 +51,8 @@ if (!headers_sent()) {
 }
 require_once __DIR__ . '/domain.php';
 require_once __DIR__ . '/core.php';
+require_once __DIR__ . '/file_keys.php';
+require_once __DIR__ . '/file_crypto.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/smtp.php';

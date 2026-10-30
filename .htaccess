@@ -1,0 +1,11 @@
+# DENR FP-OMS: XAMPP checkout inside htdocs.
+# Prevent direct access to app/, storage/, .env, scripts/, and private files.
+# Production deployments should use public/ as the only Apache DocumentRoot.
+Options -Indexes
+<FilesMatch "^\\.">
+    Require all denied
+</FilesMatch>
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(?!public(?:/|$)).+ - [F,L,NC]
+</IfModule>

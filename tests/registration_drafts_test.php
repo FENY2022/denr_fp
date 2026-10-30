@@ -63,10 +63,10 @@ $views = file_get_contents(__DIR__ . '/../app/views.php');
 $landing = file_get_contents(__DIR__ . '/../app/landing.php');
 $migration = file_get_contents(__DIR__ . '/../database/012_registration_draft_uploads.sql');
 
-assert_draft(str_contains($draftSource, 'move_uploaded_file'),
-    'Drafts are saved only from verified upload buffers');
-assert_draft(str_contains($draftSource, "hash_file('sha256'"),
-    'Drafts are hashed for integrity');
+assert_draft(str_contains($draftSource, 'fpoms_file_store_upload'),
+    'Draft uploads are verified and encrypted to private storage');
+assert_draft(str_contains($draftSource, 'fpoms_file_plaintext_sha256'),
+    'Draft plaintext hashes are retained for integrity');
 assert_draft(str_contains($draftSource, 'registration_draft_consume'),
     'Successful registration cleans up staged originals');
 assert_draft(str_contains($router, "case 'register_draft_upload':")
