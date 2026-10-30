@@ -726,3 +726,64 @@ body.page-loading{overflow:hidden}
   .reviewer-info-grid{grid-template-columns:1fr}
   .reviewer-info-wide{grid-column:auto}
 }
+
+
+/* FP-OMS application audit trail: one action palette for client and DENR views.
+   Meaning is always provided by icons + labels, not color alone. */
+.fp-audit-timeline{
+  margin:0 0 1rem;padding:0 0 0 .25rem;list-style:none;
+}
+.fp-audit-event{
+  --fp-audit-accent:#576677;
+  --fp-audit-tint:#f3f5f8;
+  --fp-audit-outline:#cbd5e1;
+  display:flex;align-items:flex-start;gap:.85rem;position:relative;
+  margin-bottom:.8rem;padding:1rem 1.15rem;
+  background:linear-gradient(110deg,var(--fp-audit-tint),#fff 72%);
+  border:1px solid var(--fp-audit-outline);
+  border-left:5px solid var(--fp-audit-accent);
+  border-radius:12px;box-shadow:0 2px 10px rgba(25,44,37,.035);
+}
+.fp-audit-event--submitted{
+  --fp-audit-accent:#1d4ed8;--fp-audit-tint:#eff6ff;--fp-audit-outline:#bfdbfe;
+}
+.fp-audit-event--received{
+  --fp-audit-accent:#0f766e;--fp-audit-tint:#f0fdfa;--fp-audit-outline:#99f6e4;
+}
+.fp-audit-event--resubmitted{
+  --fp-audit-accent:#7e22ce;--fp-audit-tint:#faf5ff;--fp-audit-outline:#e9d5ff;
+}
+.fp-audit-event--correction{
+  --fp-audit-accent:#9a3412;--fp-audit-tint:#fff7ed;--fp-audit-outline:#fed7aa;
+}
+.fp-audit-event--forwarded{
+  --fp-audit-accent:#166534;--fp-audit-tint:#f0fdf4;--fp-audit-outline:#bbf7d0;
+}
+.fp-audit-event--reverted{
+  --fp-audit-accent:#475569;--fp-audit-tint:#f8fafc;--fp-audit-outline:#cbd5e1;
+}
+.fp-audit-icon{
+  flex:0 0 2.5rem;display:inline-flex;justify-content:center;align-items:center;
+  width:2.5rem;height:2.5rem;border-radius:12px;
+  background:var(--fp-audit-tint);border:1px solid var(--fp-audit-outline);
+  color:var(--fp-audit-accent);font-size:1.25rem;
+}
+.fp-audit-event-content{flex:1;min-width:0;overflow-wrap:anywhere}
+.fp-audit-event-heading{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:.5rem 1rem;flex-wrap:wrap;margin-bottom:.4rem;
+}
+.fp-audit-event-title{display:flex;gap:.4rem .65rem;flex-wrap:wrap;align-items:center}
+.fp-audit-event-title strong{color:var(--fp-audit-accent)}
+.fp-audit-action-label{
+  display:inline-flex;align-items:center;font-size:.7rem;font-weight:800;
+  line-height:1.3;padding:.25rem .55rem;border-radius:99px;
+  border:1px solid var(--fp-audit-outline);background:var(--fp-audit-tint);
+  color:var(--fp-audit-accent);
+}
+.fp-audit-event-heading time{font-variant-numeric:tabular-nums;white-space:normal}
+.fp-audit-remarks{padding:.55rem .75rem;border-radius:8px;background:rgba(255,255,255,.75)}
+@media(max-width:575.98px){
+  .fp-audit-event{gap:.6rem;padding:.8rem;border-left-width:4px}
+  .fp-audit-icon{flex-basis:2rem;width:2rem;height:2rem;font-size:1rem}
+}

@@ -844,3 +844,21 @@ integration, timeline and HTML escaping checks. Perform XAMPP integration
 tests with clients, LPDD-FUS and RO Receiving including old/new revisions,
 reversion, role change, file access control and historical cases. GitHub code
 changes do **not** apply any new SQL migrations to the local database.
+
+
+### Application Audit Trail color indicators
+
+The existing client/DENR FP application history timeline displays the same six
+recorded Step 2 events with color-coded left borders, background tints,
+Bootstrap icons and explicit text labels: **blue** (submitted), **teal**
+(documents received), **purple** (resubmitted), **orange** (returned for
+correction), **green** (forwarded to RO), and **gray** (reverted).
+Unrecognized event values receive a neutral default. Visual CSS classes/icons
+come from a static allowlisted PHP map; untrusted DB text is escaped, with no
+inline styles (CSP compatible). Actor, office, timestamp, revision, destination
+and remarks continue to be displayed. Responsive CSS is in
+`public/assets/style.css`, with a refreshed cache version in the layout.
+This is a **presentation-only enhancement**, requiring no SQL migration and
+no changes to application status, access rights or audit records.
+The `tests/permit_tracking_test.php` suite now checks all six event styles
+and their rendered icons/labels.

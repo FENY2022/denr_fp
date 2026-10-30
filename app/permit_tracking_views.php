@@ -30,6 +30,26 @@ function permit_tracking_summary_html(array $application): string
         . 'Formal RO Step 3 processing is not yet implemented.</p></div></section>';
 }
 
+/**
+ * Safe, static visual vocabulary for the six authoritative Step 2 actions.
+ * Unknown actions use a neutral fallback. Never interpolate an event action
+ * from the database into a CSS class or icon name.
+ *
+ * @return array{tone:string,icon:string,category:string}
+ */
+function permit_tracking_action_visual(string $action): array
+{
+    return match ($action) {
+        'submitted' => ['tone'=>'submitted','icon'=>'send-check-fill','category'=>'Submitted'],
+        'documents_received' => ['tone'=>'received','icon'=>'inbox-fill','category'=>'Received'],
+        'resubmitted' => ['tone'=>'resubmitted','icon'=>'arrow-repeat','category'=>'Resubmitted'],
+        'returned_for_correction' => ['tone'=>'correction','icon'=>'exclamation-triangle-fill','category'=>'Correction Needed'],
+        'forwarded_to_ro' => ['tone'=>'forwarded','icon'=>'check-circle-fill','category'=>'Forwarded'],
+        'reverted' => ['tone'=>'reverted','icon'=>'arrow-counterclockwise','category'=>'Reverted'],
+        default => ['tone'=>'other','icon'=>'clock-history','category'=>'Recorded']
+    };
+}
+
 /** Every item comes from permit_step2_events. No editable event controls. */
 function permit_tracking_timeline_html(int $applicationId): string
 {
@@ -43,9 +63,10 @@ function permit_tracking_timeline_html(int $applicationId): string
     if (!$events) {
         return $html . '<p class="small text-secondary">No recorded application actions.</p></section>';
     }
-    $html .= '<ol class="list-unstyled border-start border-2 ps-3 ms-2">';
+    $html .= '<ol class="list-unstyled fp-audit-timeline">';
     foreach ($events as $event) {
         $action = (string)$event['action'];
+        $visual = permit_tracking_action_visual($action);
         $actor = trim((string)($event['staff_actor'] ?? $event['applicant_actor'] ?? ''));
         if ($actor === '') {
             $actor = !empty($event['actor_user_id']) ? 'DENR personnel (historical account)'
@@ -56,19 +77,24 @@ function permit_tracking_timeline_html(int $applicationId): string
         $staffOffice = !empty($event['actor_user_id']) && trim((string)($event['staff_office'] ?? '')) !== ''
             ? ' · ' . e((string)$event['staff_office']) : '';
         $remarks = trim((string)($event['remarks'] ?? ''));
-        $html .= '<li class="border rounded-3 p-3 mb-3 position-relative">'
-            . '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">'
+        $html .= '<li class="fp-audit-event fp-audit-event--' . $visual['tone'] . '">'
+            . '<span class="fp-audit-icon" aria-hidden="true"><i class="bi bi-'
+            . $visual['icon'] . '"></i></span>'
+            . '<div class="fp-audit-event-content">'
+            . '<div class="fp-audit-event-heading">'
+            . '<div class="fp-audit-event-title">'
             . '<strong>' . e(permit_tracking_event_label($action)) . '</strong>'
-            . '<span class="small text-secondary">' . e((string)$event['occurred_at'])
-            . '</span></div>'
-            . '<p class="small mb-1"><i class="bi bi-person-check me-1"></i>'
+            . '<span class="fp-audit-action-label">' . e($visual['category']) . '</span>'
+            . '</div><time class="small text-secondary">'
+            . e((string)$event['occurred_at']) . '</time></div>'
+            . '<p class="small mb-1"><i class="bi bi-person-check me-1" aria-hidden="true"></i>'
             . e($actor) . ' · ' . e($who) . $staffOffice
             . ' · Revision ' . (int)$event['revision'] . '</p>'
             . '<p class="small text-secondary mb-0">Routed to: '
             . e(permit_tracking_event_destination($action)) . '</p>'
-            . ($remarks !== '' ? '<p class="small mt-2 mb-0">'
+            . ($remarks !== '' ? '<p class="small fp-audit-remarks mt-2 mb-0">'
                 . nl2br(e($remarks)) . '</p>' : '')
-            . '</li>';
+            . '</div></li>';
     }
     return $html . '</ol></section>';
 }

@@ -46,6 +46,26 @@ function step2_events(int $appId): array {
             'action'=>'submitted','actor_client_id'=>20,'applicant_actor'=>'Client',
             'revision'=>1,'remarks'=>null,
             'occurred_at'=>'2026-10-30 10:00:00'
+        ],
+        [
+            'action'=>'resubmitted','actor_client_id'=>20,'applicant_actor'=>'Client',
+            'revision'=>2,'remarks'=>null,
+            'occurred_at'=>'2026-10-30 10:25:00'
+        ],
+        [
+            'action'=>'returned_for_correction','actor_user_id'=>15,
+            'staff_actor'=>'Reviewer','revision'=>2,'remarks'=>'Please correct the attachments.',
+            'occurred_at'=>'2026-10-30 10:30:00'
+        ],
+        [
+            'action'=>'forwarded_to_ro','actor_user_id'=>15,
+            'staff_actor'=>'Reviewer','revision'=>2,'remarks'=>null,
+            'occurred_at'=>'2026-10-30 10:40:00'
+        ],
+        [
+            'action'=>'reverted','actor_client_id'=>20,'applicant_actor'=>'Client',
+            'revision'=>2,'remarks'=>'Reverted before DENR receipt.',
+            'occurred_at'=>'2026-10-30 10:45:00'
         ]
     ];
 }
@@ -80,5 +100,52 @@ tracking_assert(str_contains($detail,'Track / View Files'), 'client case link');
 tracking_assert(str_contains($service,'permit_tracking_historical_staff_access('), 'historical read access');
 tracking_assert(str_contains($bootstrap,"require_once __DIR__ . '/permit_tracking.php';"), 'model registered');
 tracking_assert(str_contains($bootstrap,"require_once __DIR__ . '/permit_tracking_views.php';"), 'views registered');
+
+
+/* Verify each milestone retains its distinct color/icon/text indicator. */
+$expectedVisuals = [
+    'submitted'=>['submitted','send-check-fill','Submitted'],
+    'documents_received'=>['received','inbox-fill','Received'],
+    'resubmitted'=>['resubmitted','arrow-repeat','Resubmitted'],
+    'returned_for_correction'=>['correction','exclamation-triangle-fill','Correction Needed'],
+    'forwarded_to_ro'=>['forwarded','check-circle-fill','Forwarded'],
+    'reverted'=>['reverted','arrow-counterclockwise','Reverted']
+];
+foreach ($expectedVisuals as $action => $expected) {
+    $visual = permit_tracking_action_visual($action);
+    tracking_assert(
+        $visual['tone'] === $expected[0]
+        && $visual['icon'] === $expected[1]
+        && $visual['category'] === $expected[2],
+        'visual classification for '.$action
+    );
+}
+tracking_assert(permit_tracking_action_visual('unknown')['tone'] === 'other',
+    'unknown actions use neutral visual fallback');
+$stylesheet = (string)file_get_contents(__DIR__.'/../public/assets/style.css');
+foreach ($expectedVisuals as $expected) {
+    tracking_assert(str_contains($stylesheet,'.fp-audit-event--'.$expected[0]),
+        'CSS indicator for '.$expected[0]);
+    tracking_assert(str_contains($timeline,'fp-audit-event--'.$expected[0]),
+        'rendered color indicator for '.$expected[0]);
+    tracking_assert(str_contains($timeline,'bi-'.$expected[1]),
+        'rendered icon for '.$expected[0]);
+    tracking_assert(str_contains($timeline,'>'.$expected[2].'</span>'),
+        'visible status label for '.$expected[0]);
+}
+tracking_assert(substr_count($timeline,'class="fp-audit-event fp-audit-event--') === 6,
+    'one distinct card for each recorded event');
+tracking_assert(str_contains($stylesheet,'.fp-audit-icon')
+    && str_contains($stylesheet,'.fp-audit-action-label')
+    && str_contains($stylesheet,'border-left:5px solid var(--fp-audit-accent)'),
+    'color indicator has border, icon and visible label');
+tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
+        'assets/style.css?v=31'), 'new stylesheet cache version');
+tracking_assert(str_contains($timeline,'fp-audit-event--submitted')
+    && str_contains($timeline,'fp-audit-event--received')
+    && str_contains($timeline,'fp-audit-icon')
+    && str_contains($timeline,'fp-audit-action-label'),
+    'timeline HTML includes status-specific icon and color indicator');
+tracking_assert(!str_contains($timeline, 'style='), 'no CSP-blocked inline styles');
 
 echo "Application tracking: routing, timeline, XSS and integration checks passed\n";
