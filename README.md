@@ -13,6 +13,45 @@ Each requirement has an **Upload for This Requirement** button that selects the 
 
 **Required database update:** Back up the `denr_fp_oms` database and private `storage` folder, then import **`database/019_step2_document_requirements.sql` once** in phpMyAdmin, after migrations 014 and 015. It adds `requirement_type` columns to `permit_step2_documents` and `permit_step2_draft_documents` with backward-compatible historical default `other`. Check for the two columns before retrying after an error. GitHub commits never apply migrations to the local XAMPP database. Before migration 019 is installed, new uploads and submission are deliberately blocked rather than silently losing category metadata. Test all six categories, multiple files per category, PDF Yes/No/Cancel, saving/refresh, removal, corrected resubmission and LPDD review locally before production use.
 
+## Shared Button Loading and Action Feedback
+
+Public, applicant, LPDD-FUS, RO Receiving and administrator pages share the
+`render_page()` layout and now load `assets/action-feedback.js` and its
+external CSS globally. Buttons display an inline **spinner and action-specific
+message** (Signing in…, Submitting…, Saving…, Removing…, Searching…, Opening…,
+Confirming…, Loading…, Preparing… or Processing…) immediately after a click.
+Existing button markup and event handlers are **not replaced**, and all UI
+remains compatible with the current Content Security Policy.
+
+For native forms, the loader is applied only on the accepted `submit` event
+(after browser validation and existing form/confirmation handlers). Intercepted
+submissions used for applicant review, LPDD-FUS confirmation dialogs and
+persistent Step 2 autosave get a short Preparing… acknowledgment without locking
+their final submission. Confirmed submissions prevent duplicate clicks and
+concurrent POSTs without disabling named submitters or changing posted values.
+Navigation links retain the existing page loader, with a supplemental Opening…
+state. PDF/image preview and modal triggers receive only a short acknowledgment,
+not a false long-running navigation state. Ordinary client-side buttons receive
+brief feedback and are released automatically.
+
+Known long-running AJAX clear actions (public registration draft and FP Step 2
+application draft) display **Clearing…** until the request succeeds or fails.
+An error removes loading and re-enables the control, leaving the existing error
+message visible. Existing upload progress indicators remain authoritative for
+actual file transfer progress. An upper-bound timeout releases any stuck loading
+state, including interrupted submissions and stale navigation; `pageshow`
+and `pagehide` clean up all active indicators. The host program can explicitly
+manage long actions through `window.FPOMSActionFeedback.start(button,message,
+{lock:true,duration:...})` and `stop(button)`. This API does not constitute a
+network request or an assertion of success.
+
+No SQL schema changes are required for loading feedback. Deploy by pulling
+`main`, hard-refreshing after Apache restart, and testing registration,
+logins, application uploads, LPDD-FUS review decisions, staff management,
+save/cancel/retry and slow-network error conditions locally. Run:
+`node tests/action_feedback_test.js`. Browser and backend integration checks
+must still be performed in XAMPP before production use.
+
 ## Implemented in Phase 1
 
 - Public external applicant registration now saves credentials in **user_client**, separate from DENR personnel in **users**, with distinct session identity and optional SMTP acknowledgment after submission.

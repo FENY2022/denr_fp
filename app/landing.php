@@ -144,7 +144,9 @@ function view_landing(): void
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css" rel="stylesheet">'
         . '<link href="assets/landing.css?v=4" rel="stylesheet">'
-        . '<script src="assets/app-shell.js?v=22" defer></script></head><body class="landing-body">';
+        . '<link href="assets/action-feedback.css?v=1" rel="stylesheet">'
+        . '<script src="assets/app-shell.js?v=22" defer></script>'
+        . '<script src="assets/action-feedback.js?v=1" defer></script></head><body class="landing-body">';
 
     echo '<nav class="navbar navbar-expand-lg landing-nav sticky-top"><div class="container-xl">'
         . '<a class="navbar-brand landing-brand" href="' . e(url('landing')) . '">'

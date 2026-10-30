@@ -30,6 +30,8 @@ jobs:
         run: |
           php tests/domain_test.php
           php tests/registration_attachments_test.php
+          node --check public/assets/action-feedback.js
+          node tests/action_feedback_test.js
           php tests/step2_document_requirements_test.php
           node --check public/assets/permit-step2-drafts.js
           php tests/registration_reviewer_uploads_test.php

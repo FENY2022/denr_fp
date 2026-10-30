@@ -173,6 +173,8 @@
   document.querySelector('[data-step2-confirm-clear]')?.addEventListener('click',async event => {
     if (!persistent || busy || finalizing) return;
     const button = event.currentTarget;
+    window.FPOMSActionFeedback?.stop(button);
+    window.FPOMSActionFeedback?.start(button,'Clearing…',{lock:true,duration:15000});
     button.disabled = true;
     clearTimeout(saveTimer);
     try {
@@ -183,6 +185,7 @@
       clearFormDraft();
       window.location.reload();
     } catch (error) {
+      window.FPOMSActionFeedback?.stop(button);
       button.disabled = false;
       saveMessage('Draft was not cleared: '+(error.message || 'try again'),true);
       window.bootstrap?.Modal.getInstance(document.getElementById('step2-clear-modal'))?.hide();

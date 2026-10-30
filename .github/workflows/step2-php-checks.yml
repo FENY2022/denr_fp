@@ -50,6 +50,10 @@ jobs:
         run: node --check public/assets/registration-review-confirm.js
       - name: Registration requirements JS syntax
         run: node --check public/assets/registration-requirements.js
+      - name: Shared system-wide button loading and double-click prevention
+        run: |
+          node --check public/assets/action-feedback.js
+          node tests/action_feedback_test.js
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
       - name: Step 2 named documentary requirement checks

@@ -82,6 +82,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css?v=26" rel="stylesheet">'
+        . '<link href="assets/action-feedback.css?v=1" rel="stylesheet">'
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="fp-pdf-organizer-modal"')
@@ -94,7 +95,8 @@ function render_page(string $title, string $content): void
             ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
                 . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
             : '')
-        . '<script src="assets/app-shell.js?v=22" defer></script></head><body>';
+        . '<script src="assets/app-shell.js?v=22" defer></script>'
+        . '<script src="assets/action-feedback.js?v=1" defer></script></head><body>';
 
     if ($user) {
         $brandHtml = '<a class="sidebar-brand" href="' . e(url('dashboard')) . '">'

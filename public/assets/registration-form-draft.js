@@ -70,6 +70,8 @@
   document.querySelector('[data-confirm-clear-registration]')?.addEventListener('click', async event => {
     const button = event.currentTarget;
     const errorMessage = form.ownerDocument.querySelector('[data-clear-registration-error]');
+    window.FPOMSActionFeedback?.stop(button);
+    window.FPOMSActionFeedback?.start(button,'Clearing…',{lock:true,duration:15000});
     button.disabled = true;
     if (errorMessage) errorMessage.classList.add('d-none');
     const data = new FormData();
@@ -85,6 +87,7 @@
       form.reset();
       window.location.reload();
     } catch (error) {
+      window.FPOMSActionFeedback?.stop(button);
       button.disabled = false;
       if (errorMessage) {
         errorMessage.textContent = error.message || 'Unable to clear the form. Please retry.';

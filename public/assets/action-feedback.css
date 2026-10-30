@@ -1,0 +1,46 @@
+/* Reusable FP-OMS action feedback. No inline styles or replaced button HTML. */
+.fpoms-action-loading { position: relative; }
+.fpoms-action-locked { pointer-events: none; }
+.fpoms-action-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  margin-inline-start: .48rem;
+  vertical-align: middle;
+  font-size: .78em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.fpoms-action-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  border: .14em solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: fpoms-loader-spin .72s linear infinite;
+}
+.fpoms-action-message { font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .fpoms-action-spinner { animation-duration: 1.8s; }
+}
+
+.fpoms-action-icon-only .fpoms-action-indicator {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  justify-content: center;
+  pointer-events: none;
+}
+.fpoms-action-icon-only .fpoms-action-message {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
