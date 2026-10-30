@@ -305,7 +305,9 @@ try {
             if (($_POST['revert_confirm'] ?? null) !== '1') {
                 show_error('Confirm the reversion in the dialog first.',400);
             }
-            $errors = step2_revert_application($client,(int)$id);
+            $errors = step2_revert_application(
+                $client,(int)$id,(string)($_POST['remarks'] ?? '')
+            );
             if ($errors) view_step2_application((int)$id,$errors);
             else {
                 flash('success','FP application reverted successfully. You may now edit and resubmit it.');

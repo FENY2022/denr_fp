@@ -52,12 +52,15 @@ function step2_revert_status(array $application): array
     return ['allowed'=>$allowed,'reason'=>$reason,'seconds'=>$seconds];
 }
 
-function step2_revert_application(array $client, int $applicationId): array
+function step2_revert_application(array $client, int $applicationId, string $remarks): array
 {
     if (($client['user_kind'] ?? '') !== 'applicant' || ($client['status'] ?? '') !== 'active'
         || (int)($client['id'] ?? 0) < 1 || $applicationId < 1) {
         return ['Only an active applicant can revert their own application.'];
     }
+    $remarks=trim($remarks);
+    if (strlen($remarks) < 10) return ['Explain why you are reverting the application (minimum 10 characters).'];
+    if (strlen($remarks) > 3000) return ['Revert remarks must be 3,000 characters or fewer.'];
     if (!step2_revert_schema_ready()) return ['Revert is unavailable until migration 020 is installed.'];
     $pdo=db();
     try {
@@ -98,8 +101,7 @@ function step2_revert_application(array $client, int $applicationId): array
             "INSERT INTO permit_step2_events
               (application_id,actor_client_id,action,revision,remarks)
              VALUES (?,?, 'reverted', ?, ?)"
-        )->execute([$applicationId,(int)$client['id'],(int)$app['revision'],
-            'Applicant reverted within the allowed 30-minute period before DENR action.']);
+        )->execute([$applicationId,(int)$client['id'],(int)$app['revision'],$remarks]);
         audit_client((int)$client['id'],'permit.step2.reverted','permit_step2_application',
             $applicationId,['revision'=>(int)$app['revision']]);
         $pdo->commit();
@@ -307,20 +309,27 @@ function step2_revert_client_html(array $application): string
         . 'Confirm Revert Application</h2>'
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" '
         . 'aria-label="Close"></button></div>'
-        . '<div class="modal-body"><p>Are you sure you want to revert '
-        . '<strong>FP Application #' . $id . '</strong>?</p>'
-        . '<p class="small text-secondary mb-0">The pending submission will '
-        . 'be removed from the LPDD-FUS initial review queue. Previous documents '
-        . 'and audit history are retained. You may edit and resubmit. '
-        . 'This action cannot proceed once DENR acts or the 30 minutes expire.</p></div>'
-        . '<div class="modal-footer"><button class="btn btn-secondary" type="button" '
-        . 'data-bs-dismiss="modal">Cancel</button>'
-        . '<form method="post" action="' . e(url('permit_revert',['id'=>$id])) . '">'
-        . csrf_field()
-        . '<input type="hidden" name="revert_confirm" value="1">'
-        . '<button class="btn btn-danger" type="submit" data-step2-revert-submit>'
-        . 'Confirm Revert</button></form>'
-        . '</div></div></div></div>'
+         . '<form method="post" action="' . e(url('permit_revert',['id'=>$id])) . '">'
+         . '<div class="modal-body"><p>Are you sure you want to revert '
+         . '<strong>FP Application #' . $id . '</strong>?</p>'
+         . '<p class="small text-secondary">The pending submission will '
+         . 'be removed from the LPDD-FUS initial review queue. Previous documents '
+         . 'and audit history are retained. You may edit and resubmit. '
+         . 'This action cannot proceed once DENR acts or the 30 minutes expire.</p>'
+         . '<label class="form-label" for="step2_revert_remarks">Remarks <span '
+         . 'class="text-danger" aria-hidden="true">*</span></label>'
+         . '<textarea class="form-control" id="step2_revert_remarks" name="remarks" '
+         . 'rows="4" minlength="10" maxlength="3000" required '
+         . 'placeholder="Explain why you are reverting this application">'
+         . e((string)($_POST['remarks'] ?? '')) . '</textarea>'
+         . '<div class="form-text">Required, 10 to 3,000 characters.</div></div>'
+         . '<div class="modal-footer"><button class="btn btn-secondary" type="button" '
+         . 'data-bs-dismiss="modal">Cancel</button>'
+         . csrf_field()
+         . '<input type="hidden" name="revert_confirm" value="1">'
+         . '<button class="btn btn-danger" type="submit" data-step2-revert-submit>'
+         . 'Confirm Revert</button></div></form>'
+        . '</div></div></div>'
         . '<script src="assets/permit-revert.js?v=1" defer></script>';
     return $html;
 }

@@ -23,6 +23,13 @@ revert_assert(!step2_revert_eligibility($pending,true,-1)[0],
     'blocked after 30-minute boundary');
 revert_assert(!step2_revert_eligibility($pending,false,1800)[0],
     'migration 020 required');
+$applicant = ['id'=>6,'user_kind'=>'applicant','status'=>'active'];
+revert_assert(step2_revert_application($applicant,28,'short') ===
+    ['Explain why you are reverting the application (minimum 10 characters).'],
+    'revert remarks require a meaningful explanation');
+revert_assert(step2_revert_application($applicant,28,str_repeat('a',3001)) ===
+    ['Revert remarks must be 3,000 characters or fewer.'],
+    'revert remarks enforce the storage limit');
 foreach (['received_at'=>'2026-10-30 08:51:00',
           'received_by_user_id'=>10,
           'reviewed_at'=>'2026-10-30 08:51:00',
@@ -59,6 +66,10 @@ revert_assert(str_contains($backend,'step2_revert_eligibility($app,true,$remaini
 revert_assert(str_contains($backend,'revert_confirm')
     && str_contains($backend,'receive_confirm'),
     'both modal forms require explicit confirmation markers');
+revert_assert(str_contains($backend,'name="remarks"')
+    && str_contains($backend,'minlength="10"')
+    && str_contains($router,"(string)(\$_POST['remarks'] ?? '')"),
+    'revert modal requires remarks and passes them to the backend');
 revert_assert(str_contains($router,"case 'permit_revert':")
     && str_contains($router,"case 'permit_receive':")
     && substr_count($router,'check_csrf();')>=4,
@@ -68,7 +79,8 @@ revert_assert(str_contains($backend,"'permit.step2.reverted'")
     'both actions record immutable audit entries');
 revert_assert(str_contains($backend,"action,revision,remarks")
     && str_contains($backend,"'documents_received'")
-    && str_contains($backend,"'reverted'"),
+    && str_contains($backend,"'reverted'")
+    && str_contains($backend,'(int)$app[\'revision\'],$remarks'),
     'both actions have event history');
 revert_assert(str_contains($backend,'create_client_notification(')
     && str_contains($backend,'create_notification(')
