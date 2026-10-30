@@ -787,3 +787,44 @@ body.page-loading{overflow:hidden}
   .fp-audit-event{gap:.6rem;padding:.8rem;border-left-width:4px}
   .fp-audit-icon{flex-basis:2rem;width:2rem;height:2rem;font-size:1rem}
 }
+
+
+/* My Recent Actions: accessible kebab menus and an unclipped responsive table. */
+.fp-recent-actions-table-wrap{overflow:visible;width:100%;min-width:0}
+.fp-recent-actions-table{width:100%;margin-bottom:0}
+.fp-recent-actions-table td{vertical-align:middle;overflow-wrap:anywhere}
+.fp-recent-action-cell{text-align:center;width:74px;white-space:nowrap}
+.fp-recent-action-menu{display:inline-flex;justify-content:center;position:relative}
+.fp-recent-action-trigger{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;min-width:38px;height:36px;padding:0;border-radius:9px;
+}
+.fp-recent-action-trigger i{font-size:1.15rem;line-height:1}
+.fp-recent-action-trigger:focus-visible{outline:3px solid #97d1a9;outline-offset:2px}
+.fp-recent-action-menu .dropdown-menu{
+  z-index:1080;min-width:180px;padding:.35rem;box-shadow:0 12px 24px rgba(12,58,36,.14);
+}
+.fp-recent-action-menu .dropdown-item{display:flex;align-items:center;gap:.1rem;padding:.6rem .7rem;border-radius:7px}
+.fp-recent-action-menu .dropdown-item:hover,
+.fp-recent-action-menu .dropdown-item:focus{background:#eaf7f0;color:#075c32}
+@media(max-width:767.98px){
+  .fp-recent-actions-table thead{display:none}
+  .fp-recent-actions-table,.fp-recent-actions-table tbody{display:block;width:100%}
+  .fp-recent-actions-table tbody tr{
+    display:grid;grid-template-columns:minmax(0,1fr) auto;
+    gap:.3rem .75rem;margin-bottom:.8rem;padding:.8rem;
+    border:1px solid #dce7e0;border-radius:12px;background:#fff;
+  }
+  .fp-recent-actions-table tbody td{
+    display:block;width:auto;min-width:0;padding:.2rem 0;
+    border:0!important;grid-column:1/2;
+  }
+  .fp-recent-actions-table tbody td::before{
+    content:attr(data-label);display:block;font-size:.66rem;font-weight:800;
+    color:#6b7e74;text-transform:uppercase;letter-spacing:.035em;margin-bottom:.1rem;
+  }
+  .fp-recent-actions-table tbody td.fp-recent-action-cell{
+    grid-column:2/3;grid-row:1/3;align-self:start;text-align:right;
+  }
+  .fp-recent-actions-table tbody td.fp-recent-action-cell::before{content:none}
+}

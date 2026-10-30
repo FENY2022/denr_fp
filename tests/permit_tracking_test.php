@@ -146,7 +146,7 @@ tracking_assert(str_contains($stylesheet,'.fp-audit-icon')
     && str_contains($stylesheet,'border-left:5px solid var(--fp-audit-accent)'),
     'color indicator has border, icon and visible label');
 tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
-        'assets/style.css?v=31'), 'new stylesheet cache version');
+        'assets/style.css?v=32'), 'new stylesheet cache version');
 tracking_assert(str_contains($timeline,'fp-audit-event--submitted')
     && str_contains($timeline,'fp-audit-event--received')
     && str_contains($timeline,'fp-audit-icon')
@@ -178,5 +178,84 @@ tracking_assert(str_contains($modalScript,"hidden.bs.modal")
     && str_contains($modalScript,"new URLSearchParams")
     && str_contains($modalScript,"getOrCreateInstance"),
     'preview switches modal rather than nesting and direct actions auto-open');
+
+
+/** Dashboard and full-page history use one tabular three-dot action menu. */
+function status_label(string $status): string { return ucwords(str_replace('_',' ',$status)); }
+$fpAction = [
+    'type'=>'fp','id'=>28,'label'=>'Forwarded to RO','revision'=>2,
+    'occurred_at'=>'2026-10-30 12:45:00',
+    'title'=>'Forest study <script>alert(1)</script>','person'=>'Applicant <img src=x>',
+    'case_status'=>'forwarded_to_ro'
+];
+$regAction = [
+    'type'=>'registration','id'=>25,'label'=>'Registration Approved','revision'=>1,
+    'occurred_at'=>'2026-10-30 10:00:00',
+    'title'=>'Organization','person'=>'Test User','case_status'=>'active'
+];
+$fpMenu = permit_tracking_staff_action_menu_html($fpAction);
+$regMenu = permit_tracking_staff_action_menu_html($regAction);
+tracking_assert(substr_count($fpMenu,'data-bs-toggle="dropdown"') === 1,
+    'FP action has one three-dot Bootstrap dropdown');
+tracking_assert(str_contains($fpMenu,'bi-three-dots-vertical'),
+    'FP dropdown has visible three-dot icon');
+tracking_assert(str_contains($fpMenu,'aria-expanded="false"')
+    && str_contains($fpMenu,'aria-label="Actions for FP Application #28"'),
+    'action menu is keyboard and screen-reader accessible');
+tracking_assert(str_contains($fpMenu,'View Files')
+    && str_contains($fpMenu,'View Audit Trail')
+    && str_contains($fpMenu,'permit_application?id=28&amp;view=files')
+    && str_contains($fpMenu,'permit_application?id=28&amp;view=audit'),
+    'FP actions point to their separate authorized modals');
+tracking_assert(str_contains($regMenu,'review?id=25&amp;view=files')
+    && str_contains($regMenu,'review?id=25&amp;view=audit'),
+    'registration actions preserve LPDD-FUS review route');
+$historyTable = permit_tracking_staff_action_table_html([$fpAction,$regAction]);
+tracking_assert(str_contains($historyTable,'<table')
+    && str_contains($historyTable,'Current Office')
+    && str_contains($historyTable,'Next to Act'),
+    'My Recent Actions renders a table with routing columns');
+tracking_assert(substr_count($historyTable,'bi-three-dots-vertical') === 2,
+    'one three-dot action menu per row');
+tracking_assert(substr_count($historyTable,'View Files') === 2
+    && substr_count($historyTable,'View Audit Trail') === 2,
+    'each action row has precisely the two requested options');
+tracking_assert(!str_contains($historyTable,'<script>')
+    && !str_contains($historyTable,'<img src=x>'),
+    'history table escapes user-provided project and applicant names');
+tracking_assert(str_contains($historyTable,'&lt;script&gt;'),
+    'history table displays escaped source text');
+$registrationAudit = permit_tracking_registration_audit_modal_html(25, [
+    [
+        'decision'=>'needs_correction','reviewed_at'=>'2026-10-30 09:10:00',
+        'reviewer'=>'Reviewer <script>alert(1)</script>',
+        'revision'=>1,'remarks'=>'Attach <img src=x> documents'
+    ],
+    [
+        'decision'=>'approved','reviewed_at'=>'2026-10-30 09:30:00',
+        'reviewer'=>'LPDD FUS','revision'=>2,'remarks'=>'Complete'
+    ]
+]);
+tracking_assert(str_contains($registrationAudit,'id="registration-action-audit-modal"')
+    && str_contains($registrationAudit,'modal-dialog-scrollable')
+    && str_contains($registrationAudit,'fp-audit-event--correction')
+    && str_contains($registrationAudit,'fp-audit-event--forwarded'),
+    'registration review audit modal displays both outcomes');
+tracking_assert(!str_contains($registrationAudit,'<script>')
+    && !str_contains($registrationAudit,'<img src=x>')
+    && str_contains($registrationAudit,'&lt;script&gt;'),
+    'registration review audit escapes user-entered values');
+$viewSource = (string)file_get_contents(__DIR__.'/../app/views.php');
+tracking_assert(str_contains($viewSource,'permit_tracking_registration_audit_modal_html($id, $history)')
+    && str_contains($viewSource,'registration-action-audit.js?v=1'),
+    'registration review renders its audited events and loads selected-modal script');
+tracking_assert(str_contains($trackingViews,'permit_tracking_staff_action_table_html($actions)'),
+    'shared table used for DENR dashboard and recent actions route');
+tracking_assert(str_contains($trackingViews,'permit_tracking_staff_action_menu_html($item)'),
+    'table uses action dropdown rather than separate action buttons');
+tracking_assert(str_contains($stylesheet,'.fp-recent-actions-table-wrap')
+    && str_contains($stylesheet,'.fp-recent-action-menu')
+    && str_contains($stylesheet,'@media(max-width:767.98px)'),
+    'responsive three-dot history table stylesheet is installed');
 
 echo "Application tracking: routing, timeline, XSS and integration checks passed\n";

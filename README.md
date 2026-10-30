@@ -892,3 +892,32 @@ Validation: `php tests/permit_tracking_test.php`,
 `node tests/permit_case_modals_test.js`; test the modal switching on desktop
 and mobile using actual applicant, LPDD-FUS and RO accounts. No new SQL schema
 or data migration is required.
+
+### Three-dot actions in My Recent Actions
+
+The DENR **My Recent Actions** navigation opens an immediately visible table
+(not cards), with Date/Time, My Action, Application/Applicant, Current Office,
+Next to Act, and an **Actions** column. One keyboard-accessible Bootstrap
+three-dot dropdown appears per action row, providing exactly:
+
+- **View Files** — opens the existing authenticated FP document-list modal
+  with revision history and PDF/image preview, or the existing LPDD-FUS
+  registration review/files screen for registration decisions.
+- **View Audit Trail** — opens the color-coded FP application audit modal,
+  or the registration-review decision audit modal for registration actions.
+
+The same shared table is used on the DENR dashboard (latest five) and the
+full `/my-actions` page (latest 100 with existing All/FP/Registration
+filters). At narrow mobile widths the table turns into labeled stacked
+records, preserving a tappable three-dot menu without horizontal clipping.
+All display fields are HTML-escaped and URLs are built server-side. The
+dropdown never grants access: the existing application owner/role checks
+run when a linked page is opened.
+
+The registration audit modal is read-only and displays existing
+`registration_reviews` decisions, actors, timestamps, revisions and
+remarks. The new external JavaScript auto-opens this modal only for
+`/review?id=N&view=audit` after the usual `lpdd_fus` authorization.
+No stored actions, database schema, original files, or encryption keys are
+changed. Regression checks are in `tests/permit_tracking_test.php` and
+`tests/permit_case_modals_test.js`.

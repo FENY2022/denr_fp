@@ -82,4 +82,33 @@ files.preview.dispatch('hidden.bs.modal');
 assert.equal(files.files.visible, true, 'closing preview returns to files list');
 assert.equal(makePage('bogus').counters.files, 0, 'unknown view ignored');
 assert.equal(makePage('bogus').counters.audit, 0, 'unknown view does not show audit');
+
+const registrationScript = fs.readFileSync(
+  __dirname + '/../public/assets/registration-action-audit.js', 'utf8'
+);
+function registrationAuditOpens(view) {
+  let opened = 0;
+  const audit = { id: 'registration-action-audit-modal' };
+  vm.runInNewContext(registrationScript, {
+    URLSearchParams,
+    document: { getElementById(id) {
+      return id === 'registration-action-audit-modal' ? audit : null;
+    }},
+    window: {
+      location: { search: '?view=' + view },
+      bootstrap: { Modal: { getOrCreateInstance(element) {
+        assert.equal(element, audit, 'only registration history modal may open');
+        return { show() { opened++; } };
+      } }}
+    }
+  }, {filename:'registration-action-audit.js'});
+  return opened;
+}
+assert.equal(registrationAuditOpens('audit'), 1,
+  'registration View Audit Trail deep link opens review audit modal');
+assert.equal(registrationAuditOpens('files'), 0,
+  'registration View Files never opens review audit modal');
+assert.equal(registrationAuditOpens('other'), 0,
+  'unexpected view query does not open audit');
+
 console.log('Permit files / audit modal navigation checks passed');

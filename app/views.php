@@ -82,7 +82,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=31" rel="stylesheet">'
+        . '<link href="assets/style.css?v=32" rel="stylesheet">'
         . '<link href="assets/action-feedback.css?v=1" rel="stylesheet">'
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
@@ -147,6 +147,8 @@ function render_page(string $title, string $content): void
             ? '<script src="assets/registration-document-preview.js?v=5" defer></script>' : '')
         . (str_contains($content, 'id="fp-files-modal"')
             ? '<script src="assets/permit-case-modals.js?v=1" defer></script>' : '')
+        . (str_contains($content, 'id="registration-action-audit-modal"')
+            ? '<script src="assets/registration-action-audit.js?v=1" defer></script>' : '')
         . (str_contains($content, 'id="otp-verification-success-modal"')
             ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
         . (str_contains($content, 'data-decision-confirm-form')
@@ -827,6 +829,7 @@ function view_review_case(int $id, array $errors = []): void
             . nl2br(e((string)($event['remarks'] ?: 'No remarks provided.'))) . '</p></div></div>';
     }
     $html .= '</section></div></div></div>'
+        . permit_tracking_registration_audit_modal_html($id, $history)
         . ($reg['status'] === 'pending_review' ? decision_confirmation_modal_html() : '');
     render_page('Review Registration', $html);
 }
