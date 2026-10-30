@@ -57,6 +57,7 @@ jobs:
       - name: Step 2 30-minute revert and DENR receipt protection
         run: |
           php tests/step2_revert_test.php
+          php tests/permit_tracking_test.php
           node --check public/assets/permit-revert.js
           node tests/permit_revert_countdown_test.js
       - name: Step 2 DB-free unit checks

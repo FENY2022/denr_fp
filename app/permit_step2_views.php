@@ -138,37 +138,15 @@ function step2_document_requirement_group_html(string $type, string $label, arra
 
 function step2_history_html(int $applicationId): string
 {
-    $events = step2_events($applicationId);
-    $html = '<h3 class="h6">Submission and Review History</h3>';
-    if (!$events) return $html . '<p class="text-secondary small">No events recorded yet.</p>';
-    foreach ($events as $event) {
-        $actor = (string)($event['staff_actor'] ?? $event['applicant_actor'] ?? 'System');
-        $label = match ($event['action']) {
-            'submitted' => 'Application Submitted',
-            'resubmitted' => 'Corrections Resubmitted',
-            'returned_for_correction' => 'Returned for Correction',
-            'forwarded_to_ro' => 'Forwarded to RO Receiving',
-            'documents_received' => 'Documents Received by DENR',
-            'reverted' => 'Application Reverted by Applicant',
-            default => ucwords(str_replace('_',' ',(string)$event['action']))
-        };
-        $html .= '<div class="history"><strong>' . e($label) . '</strong>'
-            . ' · Revision ' . (int)$event['revision']
-            . '<div class="small text-secondary">' . e($actor) . ' · '
-            . e((string)$event['occurred_at']) . '</div>';
-        if (trim((string)($event['remarks'] ?? '')) !== '') {
-            $html .= '<p class="small mb-0 mt-2">' . nl2br(e((string)$event['remarks'])) . '</p>';
-        }
-        $html .= '</div>';
-    }
-    return $html;
+    return permit_tracking_timeline_html($applicationId);
 }
 
 function view_step2_applications(): void
 {
     $client = step2_require_applicant();
+    $receiptField = step2_revert_schema_ready() ? 'received_at' : 'NULL AS received_at';
     $apps = query_all(
-        'SELECT id,project_title,project_location,status,revision,last_submitted_at
+        'SELECT id,project_title,project_location,status,revision,' . $receiptField . ',last_submitted_at
          FROM permit_step2_applications WHERE client_id=?
          ORDER BY created_at DESC,id DESC LIMIT 100', [(int)$client['id']]
     );
@@ -184,15 +162,17 @@ function view_step2_applications(): void
     if (!$apps) $html .= '<p class="text-secondary mb-0">No FP applications submitted yet.</p>';
     else {
         $html .= '<div class="table-responsive"><table class="table table-hover align-middle">'
-            . '<thead><tr><th>No.</th><th>Project</th><th>Submitted</th><th>Revision</th><th>Status</th><th></th></tr></thead><tbody>';
+            . '<thead><tr><th>No.</th><th>Project</th><th>Submitted</th><th>Revision</th><th>Status</th><th>Current Office</th><th>Next to Act</th><th></th></tr></thead><tbody>';
         foreach ($apps as $app) {
+            $routing = permit_tracking_state($app);
             $html .= '<tr><td>#' . (int)$app['id'] . '</td><td><strong>'
                 . e((string)$app['project_title']) . '</strong><div class="text-secondary small">'
                 . e((string)$app['project_location']) . '</div></td><td>'
                 . e(review_queue_display_date($app['last_submitted_at'])) . '</td><td>' . (int)$app['revision']
                 . '</td><td>' . step2_status_badge((string)$app['status']) . '</td>'
+                . '<td>' . e($routing['office']) . '</td><td>' . e($routing['next_role']) . '</td>'
                 . '<td><a class="btn btn-sm btn-outline-primary" href="'
-                . e(url('permit_application',['id'=>(int)$app['id']])) . '">View</a></td></tr>';
+                 . e(url('permit_application',['id'=>(int)$app['id']])) . '">Track / View Files</a></td></tr>';
         }
         $html .= '</tbody></table></div>';
     }
@@ -567,6 +547,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . (int)$app['revision'] . '</dd>'
         . '<dt class="col-sm-4">Last submitted</dt><dd class="col-sm-8">'
         . e((string)$app['last_submitted_at']) . '</dd></dl>'
+        . permit_tracking_summary_html($app)
         . '<h3 class="h6">Submitted Supporting Documents</h3>'
         . step2_documents_html($documents)
         . step2_history_html($applicationId)

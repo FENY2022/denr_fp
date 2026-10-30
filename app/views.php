@@ -24,7 +24,8 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
             $html .= '<span class="sidebar-link" aria-disabled="true" title="Activate your account first"><i class="bi bi-file-earmark-plus"></i><span>Submit FP Application · Account Activation Required</span></span>';
         }
     } else {
-        $html .= '<div class="sidebar-section-title">Permit Processing</div>';
+        $html .= '<div class="sidebar-section-title">Permit Processing</div>'
+            . shell_nav_item('my_actions', 'My Recent Actions', 'clock-history', $active);
         if (in_array('lpdd_fus', $roles, true)) {
             $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active)
                 . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active);
@@ -579,7 +580,8 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
     $reg = registration_for_user((int)$user['id']);
     if (!$reg) show_error('Applicant registration data was not found.', 404);
     if ($showDashboardChecklist && ($user['status'] ?? '') === 'active') {
-        render_page('Applicant Dashboard', applicant_dashboard_content_html('active', ''));
+        render_page('Applicant Dashboard', applicant_dashboard_content_html('active', '')
+            . permit_tracking_client_dashboard_html($user));
         return;
     }
     $latest = latest_review((int)$reg['id']);
@@ -937,5 +939,5 @@ function view_dashboard(): void
     }
     if (has_role($user,'super_admin')) $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('user_management') . '"><strong>User Management</strong><span class="metric">RICTU</span><small>Create role-assigned accounts</small></a></div>';
     $html .= '</div><div class="alert alert-info mt-3 mb-0">Step 2 FP application submission, initial LPDD-FUS review and RO handoff are implemented. Formal receiving and document evaluation through permit release (Steps 3–11) remain future development.</div></div>';
-    render_page('Dashboard', $html);
+    render_page('Dashboard', $html . permit_tracking_staff_recent_html($user, 5));
 }

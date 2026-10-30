@@ -216,6 +216,10 @@ try {
             mark_all_notifications_read($user);
             go('notifications');
             break;
+        case 'my_actions':
+            if ($post) show_error('Action history is read-only.',405);
+            view_staff_action_history();
+            break;
         case 'my_registration':
             view_applicant_registration(require_user());
             break;

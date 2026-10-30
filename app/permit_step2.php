@@ -87,7 +87,8 @@ function step2_application_for_view(array $viewer, int $applicationId): array
     $receiving = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer, 'ro_receiving')
         && $app['status'] === 'forwarded_to_ro';
-    if (!$mine && !$reviewer && !$receiving) {
+    $historical = permit_tracking_historical_staff_access($viewer,$applicationId);
+    if (!$mine && !$reviewer && !$receiving && !$historical) {
         show_error('You do not have permission to access this application.', 404);
     }
     return $app;
@@ -104,7 +105,8 @@ function step2_documents(int $applicationId): array
 function step2_events(int $applicationId): array
 {
     return query_all(
-        'SELECT e.*, c.name AS applicant_actor, u.name AS staff_actor
+        'SELECT e.*, c.name AS applicant_actor, u.name AS staff_actor,
+                u.office_station AS staff_office
          FROM permit_step2_events e
          LEFT JOIN user_client c ON c.id=e.actor_client_id
          LEFT JOIN users u ON u.id=e.actor_user_id
@@ -689,7 +691,8 @@ function step2_send_document(array $viewer, int $documentId): never
     $ro = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'ro_receiving')
         && $doc['application_status'] === 'forwarded_to_ro';
-    if (!$mine && !$lpdd && !$ro) show_error('Document not found or access denied.',404);
+    $historical = permit_tracking_historical_staff_access($viewer,(int)$doc['application_id']);
+    if (!$mine && !$lpdd && !$ro && !$historical) show_error('Document not found or access denied.',404);
 
     $storageRoot = realpath(PROJECT_ROOT . '/storage/fp_step2');
     $path = realpath(PROJECT_ROOT . '/storage/' . (string)$doc['stored_path']);

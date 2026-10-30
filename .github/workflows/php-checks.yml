@@ -35,6 +35,7 @@ jobs:
           node tests/action_feedback_test.js
           php tests/step2_document_requirements_test.php
           php tests/step2_revert_test.php
+          php tests/permit_tracking_test.php
           node --check public/assets/permit-revert.js
           node tests/permit_revert_countdown_test.js
           node --check public/assets/permit-step2-drafts.js

@@ -793,3 +793,54 @@ vault/KMS when available.
   reverted/resubmitted FP applications). Neither GitHub commit nor Actions
   will modify local XAMPP files or automatically migrate old documents.
 
+
+
+## FP Application Tracking, Audit Trail and DENR My Recent Actions
+
+**No new database schema is required for this build.** Existing
+`permit_step2_events` rows record submit, resubmit, receipt, correction,
+reversion and RO forwarding with applicant/staff actor IDs, revision, remarks
+and timestamps. Existing `registration_reviews` records store DENR
+registration decisions and their reviewer IDs. This build reads these
+authoritative sources; it does **not** duplicate event history in a new table
+or synthesize unrecorded steps or staff assignments.
+
+**Applicant:** `/permit-applications` lists the current office, next action
+role and a `Track / View Files` case link. The active applicant dashboard
+shows up to five recent FP applications with direct case tracking links.
+The authenticated `/permit-application?id=N` page shows current processing
+location, next to act, receipt acknowledgement (when present), and a chronological
+case audit trail. All previous submitted file revisions remain visible using
+existing secure PDF/image preview and download handlers. Returned/reverted
+applications still retain their existing edit/resubmit controls and 30-minute
+reversion rules. Applicants can see only their own FP cases.
+
+**DENR staff:** the sidebar adds `My Recent Actions` at `/my-actions` with
+All / FP Applications / Registrations filters. Each row is an actual
+`permit_step2_events.actor_user_id` action or
+`registration_reviews.reviewer_user_id` decision by the logged-in staff
+account. It shows the action, time, applicant, application/registration, and
+**current** location/next role with a link to case files and history.
+The dashboard shows the most recent five actions, while the full page shows
+up to 100. An active staff member with a current LPDD-FUS/RO Receiving role
+and an actual past Step 2 processing action can revisit the same case and its
+documents as **read-only** after it has advanced; posting new actions still
+uses the original step-specific role, state, CSRF, and transaction checks.
+Registration history links retain the existing LPDD-FUS access requirement.
+
+**Next to act** means the *responsible office/role*, not an invented employee
+assignment. FP Step 2's current transitions are LPDD-FUS (initial receipt and
+review), Applicant (correction/reversion), and RO Receiving (forwarded).
+Formal RO Step 3 receiving and later stages are **not yet implemented**;
+the tracker makes that limitation explicit. All displayed timeline text and
+remarks are escaped. Reading a document does not create a false processing
+milestone. Security audit logs in `audit_logs` remain separate from the
+client-facing case timeline. The workflow timeline is read-only in the UI;
+full tamper-resistant retention requires database privileges, retention policies
+and protected external backups (the existing event FK uses cascade delete).
+
+Run `php tests/permit_tracking_test.php` for DB-free routing, permissions-
+integration, timeline and HTML escaping checks. Perform XAMPP integration
+tests with clients, LPDD-FUS and RO Receiving including old/new revisions,
+reversion, role change, file access control and historical cases. GitHub code
+changes do **not** apply any new SQL migrations to the local database.
