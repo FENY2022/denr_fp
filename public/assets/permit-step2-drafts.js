@@ -155,7 +155,13 @@
     return true;
   }
   form.addEventListener('submit',event => {
-    if (!validateSubmission()) { event.preventDefault(); return; }
+    if (!validateSubmission()) {
+      event.preventDefault();
+      form.dispatchEvent(new CustomEvent('step2:submission-invalid',{
+        detail:{target:root}
+      }));
+      return;
+    }
     if (!persistent || submitApproved) return;
     event.preventDefault();
     if (finalizing) return;

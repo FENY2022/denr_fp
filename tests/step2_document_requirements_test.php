@@ -53,7 +53,7 @@ fp_category_check(substr_count($view,'data-step2-form-section=')===4
     'permit form is organized into four numbered sections');
 fp_category_check(str_contains($view,'step2_requirement_checklist_html('),
     'LPDD-FUS and applicant display saved requirement categories');
-fp_category_check(str_contains($view,'permit-step2-drafts.js?v=9'),
+fp_category_check(str_contains($view,'permit-step2-drafts.js?v=10'),
     'new browser uploader script loaded');
 fp_category_check(str_contains($script,'placeFileCard')
     && str_contains($script,'step2RequirementType'),

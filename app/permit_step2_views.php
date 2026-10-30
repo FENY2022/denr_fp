@@ -28,12 +28,31 @@ function step2_status_badge(string $status): string
 
 function step2_form_section_heading_html(int $number, string $title, string $icon): string
 {
-    return ($number === 1 ? '' : '<hr class="my-4 border border-2 border-success opacity-50">')
-        . '<div class="d-flex align-items-center gap-2 mb-3" data-step2-form-heading="'
-        . $number . '"><span class="badge bg-success rounded-pill" aria-hidden="true">'
-        . sprintf('%02d',$number) . '</span><h3 class="h6 text-success m-0">'
+    return '<div class="step2-form-section-heading" data-step2-form-heading="'
+        . $number . '"><span class="step2-form-section-number" aria-hidden="true">'
+        . sprintf('%02d',$number) . '</span><h3 class="h5 m-0" id="step2-section-title-'
+        . $number . '">'
         . '<i class="bi bi-' . e($icon) . ' me-1" aria-hidden="true"></i>'
         . e($title) . '</h3></div>';
+}
+
+function step2_form_section_navigation_html(): string
+{
+    $sections = [
+        1=>['Application Information','clipboard-data'],
+        2=>['Project Location','geo-alt'],
+        3=>['Supporting Documents','files'],
+        4=>['Review and Submit','check-circle'],
+    ];
+    $html = '<nav class="step2-section-nav" aria-label="FP application form sections">'
+        . '<p class="step2-section-nav-label">Application sections</p><ol>';
+    foreach ($sections as $number => [$label,$icon]) {
+        $html .= '<li><a href="#step2-section-' . $number . '">'
+            . '<span class="step2-section-nav-number">' . sprintf('%02d',$number) . '</span>'
+            . '<span><i class="bi bi-' . e($icon) . '" aria-hidden="true"></i>'
+            . e($label) . '</span></a></li>';
+    }
+    return $html . '</ol></nav>';
 }
 
 function step2_documents_html(array $docs): string
@@ -323,12 +342,14 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html = '<div class="mb-3"><a href="' . url('permit_applications')
         . '">← My FP Applications</a></div><div class="row g-3">'
         . '<div class="col-lg-8"><div class="panel">'
-        . '<h2 class="h5">' . ($editing ? 'Edit and Resubmit FP Application #'
-            . $applicationId : 'Submit FP Application – Step 2') . '</h2>'
+        . '<header class="step2-form-intro"><span class="step2-form-kicker">Annex A · Step 2</span>'
+        . '<h2 class="h4 mb-2">' . ($editing ? 'Edit and Resubmit FP Application #'
+            . $applicationId : 'Submit FP Application') . '</h2>'
         . errors_html($errors)
         . '<p class="small text-secondary">Provide basic project identification and upload supporting documents. '
         . 'Documentary completeness will be evaluated by LPDD-FUS Technical Staff, '
-        . 'using the official checklist approved by DENR.</p>';
+        . 'using the official checklist approved by DENR.</p></header>'
+        . step2_form_section_navigation_html();
     if ($editing) {
         $latest = query_one(
             "SELECT remarks FROM permit_step2_events
@@ -348,7 +369,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
          . '" enctype="multipart/form-data" data-draft-key="fpoms.permit.'
          . (int)$client['id'] . '.' . $applicationId . '.v1">'
          . csrf_field()
-        . '<section data-step2-form-section="1">'
+        . '<section class="step2-form-section" id="step2-section-1" '
+        . 'aria-labelledby="step2-section-title-1" data-step2-form-section="1">'
         . step2_form_section_heading_html(1,'Application / Project Information','clipboard-data')
          . '<div class="mb-3"><label class="form-label" for="project_title">Application / Project Title '
          . '<span class="text-danger">*</span></label>'
@@ -357,7 +379,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<div class="mb-3"><label class="form-label" for="purpose">Project Description (optional)</label>'
         . '<textarea class="form-control" id="purpose" name="purpose" rows="4" '
         . 'maxlength="2000">' . e($purpose) . '</textarea></div></section>'
-        . '<section data-step2-form-section="2">'
+        . '<section class="step2-form-section" id="step2-section-2" '
+        . 'aria-labelledby="step2-section-title-2" data-step2-form-section="2">'
         . step2_form_section_heading_html(2,'Project Location','geo-alt')
          . '<div class="mb-3"><label class="form-label" for="project_location">Project Location / Complete Address '
          . '<span class="text-danger">*</span></label>'
@@ -366,7 +389,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
          . ($hasCoordinates ? step2_location_editor_html($latitude,$longitude)
              : '<p class="small text-secondary">Interactive location pin and coordinates '
                 . 'will be available after the ICT administrator applies migration 017.</p>')
-        . '</section><section data-step2-form-section="3">'
+        . '</section><section class="step2-form-section" id="step2-section-3" '
+        . 'aria-labelledby="step2-section-title-3" data-step2-form-section="3">'
         . step2_form_section_heading_html(3,'FP Supporting Documentary Requirements','files')
          . '<div class="mb-3"><label class="form-label" for="application_files">FP Supporting Documents '
         . ($editing ? '(optional additional files)' : '<span class="text-danger">*</span>') . '</label>'
@@ -429,7 +453,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
                 . 'Install database migration 015 to save files immediately and retain '
                 . 'them after refresh. Until then, files upload only when you submit.'
                 . '</div>')
-        . '</div></div></section><section data-step2-form-section="4">'
+        . '</div></div></section><section class="step2-form-section step2-form-section-submit" '
+        . 'id="step2-section-4" aria-labelledby="step2-section-title-4" data-step2-form-section="4">'
         . step2_form_section_heading_html(4,'Review and Submit','check-circle')
         . '<p class="small text-secondary">Review the project details, location, and uploaded '
         . 'documents above before sending the application to LPDD-FUS Initial Review.</p>'
@@ -461,11 +486,12 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=9" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=10" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-location-map.js?v=1" defer></script>'
-            : '');
+                . '<script src="assets/permit-location-map.js?v=2" defer></script>'
+            : '')
+        . '<script src="assets/permit-step2-sections.js?v=1" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 

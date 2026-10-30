@@ -419,6 +419,94 @@ body.page-loading{overflow:hidden}
   flex-wrap:wrap;
 }
 .step2-requirement-files .selected-file-info{min-width:calc(100% - 4.5rem)}
+.step2-form-intro{
+  margin:-.15rem -.15rem 1.25rem;padding:.25rem .15rem .9rem;
+  border-bottom:1px solid #e0ebe4;
+}
+.step2-form-kicker{
+  display:block;margin-bottom:.35rem;color:#08783f;font-size:.7rem;
+  font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+}
+.step2-section-nav{
+  margin-bottom:1.35rem;padding:1rem 1.1rem;border:1px solid #dce9e1;
+  border-radius:14px;background:#f7fbf8;
+}
+.step2-section-nav-label{
+  margin:0 0 .75rem;color:#587064;font-size:.7rem;font-weight:800;
+  letter-spacing:.08em;text-transform:uppercase;
+}
+.step2-section-nav ol{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.55rem;
+  margin:0;padding:0;list-style:none;
+}
+.step2-section-nav a{
+  display:flex;align-items:center;gap:.55rem;height:100%;padding:.65rem;
+  color:#315b47;border:1px solid transparent;border-radius:10px;
+  font-size:.74rem;font-weight:700;line-height:1.25;text-decoration:none;
+}
+.step2-section-nav a:hover,.step2-section-nav a:focus-visible{
+  color:#075f34;border-color:#bcd8c7;background:#fff;outline:0;
+  box-shadow:0 0 0 3px rgba(8,120,63,.1);
+}
+.step2-section-nav a.is-active{
+  color:#075f34;border-color:#8fc5a5;background:#fff;
+  box-shadow:0 0 0 3px rgba(8,120,63,.09);
+}
+.step2-section-nav a.is-complete .step2-section-nav-number{
+  color:#08783f;background:#dff1e6;
+}
+.step2-section-nav a[aria-disabled="true"]{color:#81968b;cursor:not-allowed}
+.step2-section-nav a[aria-disabled="true"] .step2-section-nav-number{background:#9eafa6}
+.step2-section-nav-number{
+  display:inline-flex;align-items:center;justify-content:center;width:1.8rem;height:1.8rem;
+  flex:0 0 1.8rem;border-radius:50%;color:#fff;background:#08783f;font-size:.65rem;
+}
+.step2-section-nav i{display:block;margin-bottom:.15rem;font-size:.85rem}
+.step2-form-section{
+  scroll-margin-top:5.5rem;
+  margin:1.25rem 0;
+  padding:1.35rem;
+  border:1px solid #d7e8dd;
+  border-left:5px solid #08783f;
+  border-radius:14px;
+  background:linear-gradient(145deg,#fff 0%,#f8fcf9 100%);
+  box-shadow:0 5px 16px rgba(12,92,52,.06);
+}
+.step2-form-section-heading{
+  display:flex;
+  align-items:center;
+  gap:.75rem;
+  margin-bottom:1.15rem;
+  padding-bottom:.8rem;
+  color:#075f34;
+  border-bottom:1px solid #d8e8dd;
+}
+.step2-form-section-number{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:2.35rem;
+  height:2.35rem;
+  flex:0 0 2.35rem;
+  border-radius:50%;
+  color:#fff;
+  background:#08783f;
+  font-size:.8rem;
+  font-weight:800;
+  letter-spacing:.04em;
+  box-shadow:0 3px 9px rgba(8,120,63,.22);
+}
+.step2-form-section-submit{background:linear-gradient(145deg,#f5fbf7 0%,#eaf6ee 100%)}
+.step2-form-section.is-active{animation:step2-section-enter .22s ease-out}
+.step2-section-actions{
+  display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.75rem;
+  margin-top:1.5rem;padding-top:1.1rem;border-top:1px solid #d8e8dd;
+}
+.step2-section-actions .btn{margin-bottom:0!important}
+@keyframes step2-section-enter{
+  from{opacity:0;transform:translateY(7px)}
+  to{opacity:1;transform:translateY(0)}
+}
 .selected-upload-queue{display:grid;gap:.55rem;margin-bottom:.55rem}
 .selected-upload-queue:empty{display:none}
 .selected-file-card{
@@ -513,9 +601,15 @@ body.page-loading{overflow:hidden}
   to{opacity:1;transform:translateY(0)}
 }
 @media(prefers-reduced-motion:reduce){
+  .step2-form-section.is-active{animation:none}
   [data-registration-step].is-active{animation:none}
 }
 @media(max-width:575.98px){
+  .step2-section-nav ol{grid-template-columns:1fr 1fr}
+  .step2-section-nav a{padding:.55rem;font-size:.7rem}
+  .step2-form-section{padding:1rem;border-left-width:4px}
+  .step2-form-section-heading{align-items:flex-start}
+  .step2-section-actions .btn{flex:1 1 auto}
   .registration-selected-files{padding:.85rem}
   .selected-file-card{gap:.45rem}
   .selected-file-name{font-size:.81rem}

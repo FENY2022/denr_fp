@@ -29,6 +29,8 @@
       zoomControl:true, scrollWheelZoom:false,
       doubleClickZoom:true
     }).setView(center,hasInitial ? 15 : 8);
+    wrapper.closest('[data-step2-form-section]')
+      ?.addEventListener('step2:section-shown',()=>map.invalidateSize());
     leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
       attribution:'&copy; OpenStreetMap contributors',
       maxZoom:19
