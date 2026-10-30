@@ -8,6 +8,7 @@
   const title = document.getElementById('registration-document-modal-title');
   const download = document.getElementById('registration-document-download');
   const error = document.getElementById('registration-document-error');
+  const filename = modal.querySelector('[data-document-filename]');
   const previous = modal.querySelector('[data-document-previous]');
   const next = modal.querySelector('[data-document-next]');
   const counter = modal.querySelector('[data-document-counter]');
@@ -50,12 +51,19 @@
     if (!['application/pdf', 'image/jpeg', 'image/png'].includes(mime)) return;
 
     currentIndex = index;
-    title.textContent = link.dataset.documentName || 'Document Preview';
+    const documentName = link.dataset.documentName || 'Document Preview';
+    const category = link.dataset.documentCategory || '';
+    title.textContent = category || documentName;
+    if (filename) {
+      filename.textContent = category ? documentName : '';
+      filename.hidden = !category;
+    }
 
     const url = new URL(link.href, location.href);
     url.searchParams.delete('preview');
     download.href = url.href;
-    download.setAttribute('aria-label', 'Download ' + title.textContent);
+    download.setAttribute('download', documentName);
+    download.setAttribute('aria-label', 'Download ' + documentName);
 
     error.classList.add('d-none');
     media = document.createElement(mime === 'application/pdf' ? 'iframe' : 'img');
@@ -63,11 +71,11 @@
     media.classList.add(mime === 'application/pdf'
       ? 'registration-document-preview-pdf' : 'registration-document-preview-image');
     media.classList.add('registration-document-zoom-100');
-    media.setAttribute('aria-label', title.textContent);
+    media.setAttribute('aria-label', documentName);
     if (mime === 'application/pdf') {
-      media.title = title.textContent;
+      media.title = documentName;
     } else {
-      media.alt = title.textContent;
+      media.alt = documentName;
     }
     media.addEventListener('error', () => error.classList.remove('d-none'));
     media.src = link.href;

@@ -57,7 +57,9 @@ fp_category_check(substr_count($view,'data-step2-form-section=')===4
     'permit form is organized into four numbered sections');
 fp_category_check(str_contains($view,'step2_document_requirement_group_html(')
     && str_contains($view,'step2-requirement-uploaded-files')
-    && str_contains($view,'data-document-preview '),
+    && str_contains($view,'data-document-preview ')
+    && str_contains($view,'data-document-category=')
+    && str_contains($view,'data-document-filename'),
     'saved files render directly below their matching requirement category');
 fp_category_check(str_contains($view,'data-document-previous disabled')
     && str_contains($view,'data-document-next disabled')

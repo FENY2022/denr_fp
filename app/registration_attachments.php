@@ -214,7 +214,7 @@ function registration_documents_html(array $documents): string
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="out">Zoom Out</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="reset">Fit to Screen</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="in">Zoom In</button>'
-        . '<a class="btn btn-primary" id="registration-document-download" href="#">Download</a>'
+        . '<a class="btn btn-primary" id="registration-document-download" href="#" download>Download</a>'
         . '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>'
         . '</div></div></div>';
 }
@@ -437,7 +437,7 @@ function registration_reviewer_document_modal_html(): string
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="out">Zoom Out</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="reset">Fit to Screen</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="in">Zoom In</button>'
-        . '<a class="btn btn-primary" id="registration-document-download" href="#">Download</a>'
+        . '<a class="btn btn-primary" id="registration-document-download" href="#" download>Download</a>'
         . '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
         . '</div></div></div></div>';
 }

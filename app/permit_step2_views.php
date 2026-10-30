@@ -79,7 +79,8 @@ function step2_documents_html(array $docs): string
         . 'aria-labelledby="registration-document-modal-title" aria-hidden="true">'
         . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
         . '<div class="modal-content"><div class="modal-header">'
-        . '<h2 class="modal-title h5" id="registration-document-modal-title">FP Document Preview</h2>'
+        . '<div><h2 class="modal-title h5" id="registration-document-modal-title">FP Document Preview</h2>'
+        . '<div class="small text-secondary mt-1" data-document-filename hidden></div></div>'
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
         . '</div><div class="modal-body text-center">'
         . '<div id="registration-document-preview" class="overflow-auto"></div>'
@@ -99,7 +100,7 @@ function step2_documents_html(array $docs): string
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="out">Zoom Out</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="reset">Fit to Screen</button>'
         . '<button type="button" class="btn btn-outline-secondary" data-document-zoom="in">Zoom In</button>'
-        . '<a class="btn btn-primary" id="registration-document-download" href="#">Download</a>'
+        . '<a class="btn btn-primary" id="registration-document-download" href="#" download>Download</a>'
         . '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
         . '</div></div></div></div>';
 }
@@ -126,6 +127,7 @@ function step2_document_requirement_group_html(string $type, string $label, arra
         $fileIcon = $mime === 'application/pdf' ? 'file-earmark-pdf' : 'file-earmark-image';
         $html .= '<a class="step2-requirement-file" data-document-preview '
             . 'data-document-mime="' . e($mime) . '" data-document-name="' . e($name) . '" '
+            . 'data-document-category="' . e($label) . '" '
             . 'href="' . e($url) . '"><i class="bi bi-' . $fileIcon . '" aria-hidden="true"></i>'
             . '<span><strong>' . e($name) . '</strong><small>Revision ' . (int)$doc['revision']
             . ' · ' . e(round(((int)$doc['file_size']) / 1024, 1) . ' KB') . '</small></span>'

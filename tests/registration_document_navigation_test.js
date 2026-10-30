@@ -101,22 +101,24 @@ function run(total) {
 }
 
 const ui = run(10);
-assert.equal(ui.counter.textContent, '0 / 10', 'closed preview does not pick an arbitrary document');
+assert.equal(ui.counter.textContent, '0/10', 'closed preview does not pick an arbitrary document');
 assert.equal(ui.previous.disabled, true);
 assert.equal(ui.next.disabled, true);
 
 assert.equal(ui.links[2].dispatch('click').defaultPrevented, true);
 assert.equal(ui.shows, 1, 'opening a file displays modal exactly once');
-assert.equal(ui.counter.textContent, '3 / 10');
+assert.equal(ui.counter.textContent, '3/10');
 assert.equal(ui.title.textContent, 'Client document 3.pdf');
 assert.equal(ui.previous.disabled, false);
 assert.equal(ui.next.disabled, false);
 assert.equal(ui.preview.children[0].tagName, 'IMG');
 assert.equal(new URL(ui.download.href).searchParams.get('id'), '58');
 assert.equal(new URL(ui.download.href).searchParams.has('preview'), false);
+assert.equal(ui.download.download, 'Client document 3.pdf',
+  'download link uses native download behavior instead of page navigation');
 
 ui.next.dispatch('click');
-assert.equal(ui.counter.textContent, '4 / 10', 'Next advances to another uploaded file');
+assert.equal(ui.counter.textContent, '4/10', 'Next advances to another uploaded file');
 assert.equal(ui.title.textContent, 'Client document 4.pdf', 'filename advances with document');
 assert.equal(ui.preview.children[0].tagName, 'IFRAME', 'PDF and image navigations work');
 assert.equal(new URL(ui.download.href).searchParams.get('id'), '59');
@@ -128,30 +130,30 @@ ui.next.dispatch('click');
 assert.equal(ui.preview.children[0].classList.contains('registration-document-zoom-100'), true,
   'zoom resets for next document');
 ui.previous.dispatch('click');
-assert.equal(ui.counter.textContent, '4 / 10', 'Previous returns to prior document');
+assert.equal(ui.counter.textContent, '4/10', 'Previous returns to prior document');
 ui.links[9].dispatch('click');
-assert.equal(ui.counter.textContent, '10 / 10');
+assert.equal(ui.counter.textContent, '10/10');
 assert.equal(ui.next.disabled, true, 'Next disabled on last file');
 ui.next.dispatch('click');
-assert.equal(ui.counter.textContent, '10 / 10', 'Next does not wrap');
+assert.equal(ui.counter.textContent, '10/10', 'Next does not wrap');
 ui.links[0].dispatch('click');
-assert.equal(ui.counter.textContent, '1 / 10');
+assert.equal(ui.counter.textContent, '1/10');
 assert.equal(ui.previous.disabled, true, 'Previous disabled on first file');
 ui.previous.dispatch('click');
-assert.equal(ui.counter.textContent, '1 / 10', 'Previous does not wrap');
+assert.equal(ui.counter.textContent, '1/10', 'Previous does not wrap');
 ui.modal.dispatch('hidden.bs.modal');
-assert.equal(ui.counter.textContent, '0 / 10', 'counter resets when modal closes');
+assert.equal(ui.counter.textContent, '0/10', 'counter resets when modal closes');
 assert.equal(ui.preview.children.length, 0, 'prior PDF iframe removed on close');
 assert.equal(ui.previous.disabled, true);
 assert.equal(ui.next.disabled, true);
 
 const one = run(1);
 one.links[0].dispatch('click');
-assert.equal(one.counter.textContent, '1 / 1');
+assert.equal(one.counter.textContent, '1/1');
 assert.equal(one.previous.disabled, true);
 assert.equal(one.next.disabled, true);
 const empty = run(0);
-assert.equal(empty.counter.textContent, '0 / 0');
+assert.equal(empty.counter.textContent, '0/0');
 assert.equal(empty.previous.disabled, true);
 assert.equal(empty.next.disabled, true);
 
