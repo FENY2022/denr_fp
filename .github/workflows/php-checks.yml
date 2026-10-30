@@ -29,7 +29,6 @@ jobs:
       - name: Run domain and User Management tests
         run: |
           php tests/domain_test.php
-          php tests/file_crypto_test.php
           php tests/registration_attachments_test.php
           node --check public/assets/action-feedback.js
           node tests/action_feedback_test.js

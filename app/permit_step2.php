@@ -362,10 +362,13 @@ function step2_submit(array $client, array $data, array $files, int $application
             if (!is_dir($dir) && !mkdir($dir,0700,true) && !is_dir($dir)) {
                 throw new RuntimeException('Could not create private FP document directory.');
             }
-            fpoms_file_store_upload((string)$info['file']['tmp_name'],$absolute);
+            if (!move_uploaded_file((string)$info['file']['tmp_name'],$absolute)) {
+                throw new RuntimeException('Could not save uploaded FP document.');
+            }
             $stored[] = $absolute;
             chmod($absolute,0600);
-            $hash = fpoms_file_plaintext_sha256($absolute);
+            $hash = hash_file('sha256',$absolute);
+            if ($hash === false) throw new RuntimeException('Could not verify uploaded FP document.');
             $pdo->prepare(
                 'INSERT INTO permit_step2_documents
                     (application_id,client_id,revision,requirement_type,original_name,stored_path,mime_type,file_size,sha256)
@@ -391,10 +394,13 @@ function step2_submit(array $client, array $data, array $files, int $application
                 && !mkdir(dirname($absolute),0700,true) && !is_dir(dirname($absolute))) {
                 throw new RuntimeException('Could not create FP document directory.');
             }
-            fpoms_file_copy_encrypted($source,$absolute);
+            if (!copy($source,$absolute)) {
+                @unlink($absolute);
+                throw new RuntimeException('Could not copy saved FP file.');
+            }
             $stored[] = $absolute;
             @chmod($absolute,0600);
-            $digest = fpoms_file_plaintext_sha256($absolute);
+            $digest = hash_file('sha256',$absolute);
             if ($digest === false || !hash_equals((string)$draft['sha256'],$digest)) {
                 throw new RuntimeException('FP document integrity check failed.');
             }
@@ -705,9 +711,9 @@ function step2_send_document(array $viewer, int $documentId): never
         header('Content-Security-Policy: default-src \'none\'; frame-ancestors \'self\'; sandbox');
     }
     header('Content-Type: ' . $mime);
-    header('Content-Length: ' . fpoms_file_plaintext_size($path));
+    header('Content-Length: ' . filesize($path));
     header('Content-Disposition: ' . ($preview ? 'inline' : 'attachment')
         . '; filename="fp-document"; filename*=UTF-8\'\'' . rawurlencode((string)$doc['original_name']));
-    echo fpoms_file_read($path);
+    readfile($path);
     exit;
 }

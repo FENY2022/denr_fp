@@ -165,9 +165,11 @@ function registration_draft_upload(array $post, array $files): array
         }
         $relative = $folder . '/' . bin2hex(random_bytes(22)) . '.' . $info['extension'];
         $stored = PROJECT_ROOT . '/storage/' . $relative;
-        fpoms_file_store_upload((string)$info['file']['tmp_name'], $stored);
+        if (!move_uploaded_file((string)$info['file']['tmp_name'], $stored)) {
+            throw new RuntimeException('The selected attachment could not be saved.');
+        }
         @chmod($stored,0600);
-        $digest = fpoms_file_plaintext_sha256($stored);
+        $digest = hash_file('sha256',$stored);
         $pdo->prepare(
             'INSERT INTO registration_draft_documents
               (draft_hash,document_type,id_type,requirement_type,original_name,stored_path,mime_type,file_size,sha256,ip_hash,expires_at)
@@ -290,8 +292,8 @@ function registration_draft_submission(): array
     foreach ($docs as $doc) {
         $path = registration_draft_real_path((string)$doc['stored_path']);
         $mime = (string)$doc['mime_type'];
-        if (!$path || !isset($extensions[$mime]) || fpoms_file_plaintext_size($path) !== (int)$doc['file_size']
-            || !hash_equals((string)$doc['sha256'],(string)fpoms_file_plaintext_sha256($path))) {
+        if (!$path || !isset($extensions[$mime]) || filesize($path) !== (int)$doc['file_size']
+            || !hash_equals((string)$doc['sha256'],(string)hash_file('sha256',$path))) {
             $errors[] = 'One saved attachment is unavailable or changed. Remove it and upload again.';
             continue;
         }
@@ -356,8 +358,8 @@ function registration_draft_send_preview(int $id): never
     }
     $path = registration_draft_real_path((string)$doc['stored_path']);
     if (!$path || !is_readable($path)
-        || fpoms_file_plaintext_size($path) !== (int)$doc['file_size']
-        || !hash_equals((string)$doc['sha256'],(string)fpoms_file_plaintext_sha256($path))) {
+        || filesize($path) !== (int)$doc['file_size']
+        || !hash_equals((string)$doc['sha256'],(string)hash_file('sha256',$path))) {
         show_error('Saved attachment is unavailable.',404);
     }
     header('X-Frame-Options: SAMEORIGIN');
@@ -365,10 +367,10 @@ function registration_draft_send_preview(int $id): never
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, no-store');
     header('Content-Type: '.$mime);
-    header('Content-Length: '.fpoms_file_plaintext_size($path));
+    header('Content-Length: '.filesize($path));
     header('Content-Disposition: inline; filename="attachment"; filename*=UTF-8\'\''
         .rawurlencode((string)$doc['original_name']));
-    echo fpoms_file_read($path);
+    readfile($path);
     exit;
 }
 

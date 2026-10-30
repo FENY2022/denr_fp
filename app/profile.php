@@ -170,7 +170,9 @@ function store_profile_photo(int $userId, array $upload, string $kind = 'interna
     $relative = $relativeDir . '/' . $filename;
     $absolute = PROJECT_ROOT . '/storage/' . $relative;
 
-    fpoms_file_store_upload((string)$upload['file']['tmp_name'], $absolute);
+    if (!move_uploaded_file((string)$upload['file']['tmp_name'], $absolute)) {
+        throw new RuntimeException('Profile photo could not be saved.');
+    }
 
     @chmod($absolute, 0600);
 
@@ -318,17 +320,16 @@ function send_current_profile_photo(array $user): never
         show_error('Profile photo is unavailable.', 404);
     }
 
-    $photo = fpoms_file_read($path);
-    $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($photo);
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($path);
     if (!in_array($mime, ['image/jpeg','image/png','image/webp'], true)) {
         show_error('Profile photo is invalid.', 404);
     }
 
     header('Content-Type: ' . $mime);
-    header('Content-Length: ' . strlen($photo));
+    header('Content-Length: ' . filesize($path));
     header('Cache-Control: private, max-age=3600');
     header('X-Content-Type-Options: nosniff');
-    echo $photo;
+    readfile($path);
     exit;
 }
 

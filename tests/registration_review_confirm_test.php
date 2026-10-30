@@ -68,7 +68,7 @@ review_check(str_contains($drafts,'function registration_draft_send_preview(int 
     && str_contains($drafts,'registration_draft_hash(false)')
     && str_contains($drafts,'draft_hash=? AND expires_at>NOW()')
     && str_contains($drafts,'registration_draft_real_path(')
-    && str_contains($drafts,'fpoms_file_plaintext_sha256'),
+    && str_contains($drafts,"hash_file('sha256'"),
     'file previews enforce existing private draft ownership, expiry, path and integrity');
 review_check(str_contains($drafts,'X-Frame-Options: SAMEORIGIN')
     && str_contains($drafts,"frame-ancestors 'self'")
