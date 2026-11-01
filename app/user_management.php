@@ -119,6 +119,26 @@ function user_management_user(int $id): ?array
     );
 }
 
+/**
+ * Shared, parameterized search + role filter for the UI and the XLSX export.
+ * Caller still owns the status restriction and pagination decision.
+ */
+function user_management_search_role_sql(string $query, string $role, array &$params): string
+{
+    $sql = '';
+    if ($query !== '') {
+        $sql .= ' AND (u.name LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR u.office_station LIKE ? OR u.reference_email LIKE ?)';
+        $search = '%' . $query . '%';
+        array_push($params,$search,$search,$search,$search,$search);
+    }
+    if ($role !== '' && user_management_valid_role($role)) {
+        $sql .= ' AND EXISTS (SELECT 1 FROM user_roles ur INNER JOIN roles r ON r.id=ur.role_id
+                              WHERE ur.user_id=u.id AND r.code=?)';
+        $params[] = $role;
+    }
+    return $sql;
+}
+
 function user_management_accounts(string $query = '', string $role = '', string $status = ''): array
 {
     $sql = "SELECT u.id,u.name,u.email,u.username,u.contact_number,u.office_station,
@@ -133,16 +153,7 @@ function user_management_accounts(string $query = '', string $role = '', string 
                    . "
             FROM users u WHERE u.user_kind='internal'";
     $params = [];
-    if ($query !== '') {
-        $sql .= ' AND (u.name LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR u.office_station LIKE ? OR u.reference_email LIKE ?)';
-        $search = '%' . $query . '%';
-        array_push($params,$search,$search,$search,$search,$search);
-    }
-    if ($role !== '' && user_management_valid_role($role)) {
-        $sql .= ' AND EXISTS (SELECT 1 FROM user_roles ur INNER JOIN roles r ON r.id=ur.role_id
-                              WHERE ur.user_id=u.id AND r.code=?)';
-        $params[] = $role;
-    }
+    $sql .= user_management_search_role_sql($query,$role,$params);
     if (in_array($status, ['active','suspended','pending_setup'], true)) {
         $sql .= ' AND u.status=?';
         $params[] = $status;

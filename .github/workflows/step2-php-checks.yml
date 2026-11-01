@@ -69,6 +69,8 @@ jobs:
           php tests/staff_username_recovery_test.php
           node --check public/assets/user-setup-modal.js
           node --check public/assets/user-edit-modal.js
+      - name: User Management filtered Excel export
+        run: php tests/user_management_export_test.php
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
       - name: Step 2 named documentary requirement checks

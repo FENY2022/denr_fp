@@ -461,6 +461,10 @@ try {
             if ($post) show_error('Use Add User or Edit User to change user records.',405);
             view_user_management();
             break;
+        case 'user_management_export':
+            if ($post) show_error('Excel download requires a GET request.',405);
+            user_management_export_download();
+            break;
         case 'user_create':
             $admin = require_role('super_admin');
             if ($post) {

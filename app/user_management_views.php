@@ -430,8 +430,23 @@ function view_user_management(
         . '</form>'
         . '<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">'
         . '<h3 class="h6 mb-0">Internal Accounts and Designated Personnel</h3>'
+        . '<div class="d-flex gap-2 align-items-center flex-wrap">'
+        . ($status==='pending_setup' || $status==='suspended'
+            ? '<button type="button" class="btn btn-sm btn-outline-success" disabled '
+              . 'title="Only Active accounts can be exported. Change the status filter to Active or All Statuses.">'
+              . '<i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Download Excel</button>'
+            : '<a class="btn btn-sm btn-success" href="'
+              . e(url('user_management_export',[
+                    'q'=>$query,'role'=>$role,'state'=>$status
+                ])) . '" aria-label="Download Active accounts matching current filters as Excel">'
+              . '<i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Download Excel</a>')
         . '<a class="btn btn-sm btn-outline-primary" href="' . e(url('user_create')) . '">'
-        . '<i class="bi bi-person-plus me-1"></i>Add User</a></div>'
+        . '<i class="bi bi-person-plus me-1"></i>Add User</a></div></div>'
+        . ($status==='pending_setup' || $status==='suspended'
+            ? '<p class="small text-secondary mb-2">Excel export is available only for Active accounts. '
+              . 'Select Active or All Statuses to download matching active users.</p>'
+            : '<p class="small text-secondary mb-2">Excel downloads include Active accounts only, '
+              . 'using the current Search and Role filters (all matching records, not only visible rows).</p>')
         . '<div class="alert alert-info small">Office Email comes from the uploaded FP-OMS personnel form. '
         . 'DENR users sign in using their username and password. '
         . 'The email address is for recovery OTP and notifications, not for staff sign-in. '

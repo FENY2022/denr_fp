@@ -1016,3 +1016,41 @@ applications, uploaded files, and account passwords are not modified.
 DB/SMTP-free tests: `php tests/staff_username_recovery_test.php`, plus the
 existing `php tests/staff_username_otp_test.php`. Real end-to-end OTP sending
 and verification must still be tested on XAMPP with configured SMTP.
+
+
+## User Management — Download Filtered Active Accounts as Excel
+
+An authorized **RICTU Super Administrator** can now download an actual
+`.xlsx` spreadsheet from **Configuration → User Management** using the
+green **Download Excel** button next to Add User.
+
+The export follows the **same currently selected Search and Role filters**
+as the on-screen table and **always exports DENR internal users with
+`status='active'` only**. "All Statuses" on-screen still exports just Active
+accounts; choosing Pending Setup or Suspended disables the export and explains
+why. The user-management export route accepts `q`, `role`, and `state`
+parameters via a GET request, and rechecks Super Admin authorization on the
+server. Unknown role filter codes never broaden an export.
+
+**Excel columns:** Full Name, Username, Recovery Email, Contact Number,
+Office / Station, User Role(s), Account Status and Activation Date.
+All matching Active users are included regardless of the **300-record table
+display limit**. The workbook has a DENR-green header, frozen top rows,
+filterable column headers, appropriate column widths and an export/filter
+summary. A filter with zero Active matches produces a valid header-only
+workbook. Any values that look like Excel formulas are written as literal
+inline strings, never formulas; XML characters are escaped.
+
+For portability, XLSX is generated with PHP and standard OOXML/ZIP format
+without Composer packages or the optional `ZipArchive` PHP extension.
+Passwords, password hashes, OTPs, reset tokens and sensitive audit data are
+never selected. Each download adds an audit event with selected role,
+whether a search was used, and the number of exported records.
+
+**Route:** `/user-management-export?q=...&role=...&state=...`
+(accessible only to Super Admin). **Database migration:** None.
+To deploy: pull the matching GitHub `main` on XAMPP, restart Apache if
+necessary and refresh User Management. Verify exports for All, Active,
+LPDD-FUS, CENRO, a name/office search, Pending Setup, and Suspended.
+Run `php tests/user_management_export_test.php` for database-free checks.
+No real user database or user data is included in the test.
