@@ -100,13 +100,18 @@ function permit_tracking_timeline_html(int $applicationId): string
 }
 
 /** Audit history is intentionally hidden until the authorized viewer opens it. */
-function permit_tracking_audit_modal_html(int $applicationId): string
+function permit_tracking_audit_modal_html(
+    int $applicationId,
+    string $modalId = 'fp-audit-trail-modal'
+): string
 {
-    return '<div class="modal fade" id="fp-audit-trail-modal" tabindex="-1" '
-        . 'aria-labelledby="fp-audit-trail-title" aria-hidden="true">'
+    $titleId = $modalId === 'fp-audit-trail-modal'
+        ? 'fp-audit-trail-title' : $modalId . '-title';
+    return '<div class="modal fade" id="' . e($modalId) . '" tabindex="-1" '
+        . 'aria-labelledby="' . e($titleId) . '" aria-hidden="true">'
         . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
         . '<div class="modal-content"><div class="modal-header">'
-        . '<h2 class="modal-title h5" id="fp-audit-trail-title">'
+        . '<h2 class="modal-title h5" id="' . e($titleId) . '">'
         . '<i class="bi bi-clock-history me-2" aria-hidden="true"></i>'
         . 'Application Audit Trail — FP #' . (int)$applicationId . '</h2>'
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
@@ -118,13 +123,19 @@ function permit_tracking_audit_modal_html(int $applicationId): string
 }
 
 /** Registration history modal, using existing LPDD-FUS-only review records. */
-function permit_tracking_registration_audit_modal_html(int $registrationId, array $history): string
+function permit_tracking_registration_audit_modal_html(
+    int $registrationId,
+    array $history,
+    string $modalId = 'registration-action-audit-modal'
+): string
 {
-    $html = '<div class="modal fade" id="registration-action-audit-modal" tabindex="-1" '
-        . 'aria-labelledby="registration-action-audit-title" aria-hidden="true">'
+    $titleId = $modalId === 'registration-action-audit-modal'
+        ? 'registration-action-audit-title' : $modalId . '-title';
+    $html = '<div class="modal fade" id="' . e($modalId) . '" tabindex="-1" '
+        . 'aria-labelledby="' . e($titleId) . '" aria-hidden="true">'
         . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
         . '<div class="modal-content"><div class="modal-header">'
-        . '<h2 class="modal-title h5" id="registration-action-audit-title">'
+        . '<h2 class="modal-title h5" id="' . e($titleId) . '">'
         . '<i class="bi bi-clock-history me-2" aria-hidden="true"></i>'
         . 'Registration Audit Trail — #' . $registrationId . '</h2>'
         . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>'
@@ -214,13 +225,12 @@ function permit_tracking_client_dashboard_html(array $client): string
  * FP cases open the existing authorized document/audit modals. Registration
  * actions retain LPDD-FUS review permissions with their own read-only history.
  */
-function permit_tracking_staff_action_menu_html(array $item): string
+function permit_tracking_staff_action_menu_html(array $item, string $auditModalId): string
 {
     $isFp = $item['type'] === 'fp';
     $id = (int)$item['id'];
     $route = $isFp ? 'permit_application' : 'review';
     $filesUrl = url($route,['id'=>$id,'view'=>'files']);
-    $auditUrl = url($route,['id'=>$id,'view'=>'audit']);
     $reference = ($isFp ? 'FP Application #' : 'Registration #') . $id;
     return '<div class="dropdown fp-recent-action-menu">'
         . '<button type="button" class="btn btn-sm btn-outline-secondary '
@@ -232,9 +242,10 @@ function permit_tracking_staff_action_menu_html(array $item): string
         . '<ul class="dropdown-menu dropdown-menu-end shadow-sm">'
         . '<li><a class="dropdown-item" href="' . e($filesUrl) . '">'
         . '<i class="bi bi-folder2-open me-2" aria-hidden="true"></i>View Files</a></li>'
-        . '<li><a class="dropdown-item" href="' . e($auditUrl) . '">'
+        . '<li><button type="button" class="dropdown-item" data-bs-toggle="modal" '
+        . 'data-bs-target="#' . e($auditModalId) . '">'
         . '<i class="bi bi-clock-history me-2" aria-hidden="true"></i>'
-        . 'View Audit Trail</a></li></ul></div>';
+        . 'View Audit Trail</button></li></ul></div>';
 }
 
 /** Shared table layout for the staff dashboard and the full My Recent Actions. */
@@ -248,10 +259,31 @@ function permit_tracking_staff_action_table_html(array $actions): string
         . '<caption class="visually-hidden">Recent actions made by the signed-in DENR employee</caption>'
         . '<thead><tr><th scope="col">Date / Time</th><th scope="col">My Action</th>'
         . '<th scope="col">Application / Applicant</th>'
-        . '<th scope="col">Current Office</th><th scope="col">Next to Act</th>'
+        . '<th scope="col">Current Office</th><th scope="col">Next</th>'
         . '<th scope="col" class="text-center">Actions</th></tr></thead><tbody>';
+    $auditModals = [];
     foreach ($actions as $item) {
         $isFp = $item['type'] === 'fp';
+        $id = (int)$item['id'];
+        $auditKey = ($isFp ? 'fp-' : 'registration-') . $id;
+        $auditModalId = 'staff-action-audit-' . $auditKey;
+        if (!isset($auditModals[$auditKey])) {
+            if ($isFp) {
+                $auditModals[$auditKey] = permit_tracking_audit_modal_html($id, $auditModalId);
+            } else {
+                $history = query_all(
+                    'SELECT rr.*,u.name AS reviewer FROM registration_reviews rr '
+                    . 'JOIN users u ON u.id=rr.reviewer_user_id '
+                    . 'WHERE rr.registration_id=? ORDER BY rr.id DESC',
+                    [$id]
+                );
+                $auditModals[$auditKey] = permit_tracking_registration_audit_modal_html(
+                    $id,
+                    $history,
+                    $auditModalId
+                );
+            }
+        }
         $state = $isFp ? permit_tracking_state(['status'=>$item['case_status']]) : null;
         $current = $isFp ? $state['office'] : status_label($item['case_status']);
         $next = $isFp ? $state['next_role']
@@ -269,11 +301,11 @@ function permit_tracking_staff_action_table_html(array $actions): string
             . '</span><span class="d-block small text-secondary">'
             . e((string)$item['person']) . '</span></td>'
             . '<td data-label="Current Office">' . e($current) . '</td>'
-            . '<td data-label="Next to Act">' . e($next) . '</td>'
+            . '<td data-label="Next">' . e($next) . '</td>'
             . '<td data-label="Actions" class="fp-recent-action-cell">'
-            . permit_tracking_staff_action_menu_html($item) . '</td></tr>';
+            . permit_tracking_staff_action_menu_html($item, $auditModalId) . '</td></tr>';
     }
-    return $html . '</tbody></table></div>';
+    return $html . '</tbody></table></div>' . implode('', $auditModals);
 }
 
 function permit_tracking_staff_recent_html(array $staff, int $limit = 5): string

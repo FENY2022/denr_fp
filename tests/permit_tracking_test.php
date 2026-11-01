@@ -69,6 +69,14 @@ function step2_events(int $appId): array {
         ]
     ];
 }
+function query_all(string $sql,array $params=[]): array {
+    return [
+        [
+            'decision'=>'approved','reviewed_at'=>'2026-10-30 09:30:00',
+            'reviewer'=>'LPDD FUS','revision'=>2,'remarks'=>'Complete'
+        ]
+    ];
+}
 require_once __DIR__ . '/../app/permit_tracking_views.php';
 $summary = permit_tracking_summary_html([
     'status'=>'submitted','project_title'=>'sample',
@@ -171,7 +179,7 @@ $trackingViews = (string)file_get_contents(__DIR__.'/../app/permit_tracking_view
 tracking_assert(str_contains($trackingViews,"'view'=>'audit'"), 'staff action has audit link');
 tracking_assert(str_contains($trackingViews,"'view'=>'files'"), 'staff action has file link');
 tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
-    'permit-case-modals.js?v=1'), 'modal transition script loaded');
+    'permit-case-modals.js?v=2'), 'modal transition script loaded');
 $modalScript = (string)file_get_contents(__DIR__.'/../public/assets/permit-case-modals.js');
 tracking_assert(str_contains($modalScript,"hidden.bs.modal")
     && str_contains($modalScript,"returnToFileList")
@@ -193,8 +201,8 @@ $regAction = [
     'occurred_at'=>'2026-10-30 10:00:00',
     'title'=>'Organization','person'=>'Test User','case_status'=>'active'
 ];
-$fpMenu = permit_tracking_staff_action_menu_html($fpAction);
-$regMenu = permit_tracking_staff_action_menu_html($regAction);
+$fpMenu = permit_tracking_staff_action_menu_html($fpAction, 'staff-action-audit-fp-28');
+$regMenu = permit_tracking_staff_action_menu_html($regAction, 'staff-action-audit-registration-25');
 tracking_assert(substr_count($fpMenu,'data-bs-toggle="dropdown"') === 1,
     'FP action has one three-dot Bootstrap dropdown');
 tracking_assert(str_contains($fpMenu,'bi-three-dots-vertical'),
@@ -205,21 +213,27 @@ tracking_assert(str_contains($fpMenu,'aria-expanded="false"')
 tracking_assert(str_contains($fpMenu,'View Files')
     && str_contains($fpMenu,'View Audit Trail')
     && str_contains($fpMenu,'permit_application?id=28&amp;view=files')
-    && str_contains($fpMenu,'permit_application?id=28&amp;view=audit'),
-    'FP actions point to their separate authorized modals');
+    && str_contains($fpMenu,'data-bs-target="#staff-action-audit-fp-28"')
+    && !str_contains($fpMenu,'view=audit'),
+    'FP audit action opens its embedded modal without navigation');
 tracking_assert(str_contains($regMenu,'review?id=25&amp;view=files')
-    && str_contains($regMenu,'review?id=25&amp;view=audit'),
-    'registration actions preserve LPDD-FUS review route');
+    && str_contains($regMenu,'data-bs-target="#staff-action-audit-registration-25"')
+    && !str_contains($regMenu,'view=audit'),
+    'registration audit action opens its embedded modal without navigation');
 $historyTable = permit_tracking_staff_action_table_html([$fpAction,$regAction]);
 tracking_assert(str_contains($historyTable,'<table')
     && str_contains($historyTable,'Current Office')
-    && str_contains($historyTable,'Next to Act'),
+    && str_contains($historyTable,'<th scope="col">Next</th>')
+    && str_contains($historyTable,'data-label="Next"'),
     'My Recent Actions renders a table with routing columns');
 tracking_assert(substr_count($historyTable,'bi-three-dots-vertical') === 2,
     'one three-dot action menu per row');
 tracking_assert(substr_count($historyTable,'View Files') === 2
     && substr_count($historyTable,'View Audit Trail') === 2,
     'each action row has precisely the two requested options');
+tracking_assert(str_contains($historyTable,'id="staff-action-audit-fp-28"')
+    && str_contains($historyTable,'id="staff-action-audit-registration-25"'),
+    'action table embeds the selected case audit modals');
 tracking_assert(!str_contains($historyTable,'<script>')
     && !str_contains($historyTable,'<img src=x>'),
     'history table escapes user-provided project and applicant names');
@@ -251,7 +265,7 @@ tracking_assert(str_contains($viewSource,'permit_tracking_registration_audit_mod
     'registration review renders its audited events and loads selected-modal script');
 tracking_assert(str_contains($trackingViews,'permit_tracking_staff_action_table_html($actions)'),
     'shared table used for DENR dashboard and recent actions route');
-tracking_assert(str_contains($trackingViews,'permit_tracking_staff_action_menu_html($item)'),
+tracking_assert(str_contains($trackingViews,'permit_tracking_staff_action_menu_html($item, $auditModalId)'),
     'table uses action dropdown rather than separate action buttons');
 tracking_assert(str_contains($stylesheet,'.fp-recent-actions-table-wrap')
     && str_contains($stylesheet,'.fp-recent-action-menu')
