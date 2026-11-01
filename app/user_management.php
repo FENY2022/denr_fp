@@ -185,7 +185,7 @@ function user_management_create(array $admin, array $input): array
             }
         }
         if (user_management_is_shared_office_email($values['email'])
-            || email_assigned_to_other_account($values['email'], 'internal')) {
+            || email_assigned_to_other_account($values['email'], 'internal', $userId)) {
             $pdo->rollBack();
             return ['That email is shared or is already registered to another DENR/client account. Use a unique individual login email.'];
         }
@@ -245,7 +245,7 @@ function user_management_activate(array $admin, int $userId, array $input): arra
         $errors[] = 'Initial password and confirmation do not match.';
     }
     if ((string)($input['confirm_identity'] ?? '') !== '1') {
-        $errors[] = 'Confirm the designated employee identity and unique login email before activation.';
+        $errors[] = 'Confirm the designated employee identity and access to the recovery email before activation.';
     }
     if ($values['status'] !== 'active') $errors[] = 'A completed account must start active.';
     if ($errors) return $errors;
@@ -257,21 +257,16 @@ function user_management_activate(array $admin, int $userId, array $input): arra
             $pdo->rollBack();
             return ['This account is not awaiting setup. Reload User Management.'];
         }
-        if (user_management_is_shared_office_email($values['email'])
-            || email_assigned_to_other_account($values['email'], 'internal')) {
+        // A shared office reference may be activated when the administrator confirms access.
+        // Still reject an address already attached to an actual login account.
+        if (email_assigned_to_other_account($values['email'], 'internal', $userId)) {
             $pdo->rollBack();
-            return ['That email is shared or is already registered to another DENR/client account. Use a unique individual login email.'];
+            return ['That email is already registered to another DENR/client account. Use a different recovery email.'];
         }
         $roleId = user_management_role_id($values['role']);
         if (!$roleId) {
             $pdo->rollBack();
             return ['The assigned role has not been installed. Run the role seeder.'];
-        }
-        $duplicate = query_one('SELECT id FROM users WHERE email=? AND id<>? LIMIT 1',
-            [$values['email'],$userId]);
-        if ($duplicate) {
-            $pdo->rollBack();
-            return ['That login email is already assigned to another user.'];
         }
         $username = staff_username_for_account(
             $values['username'], $values['name'], $userId

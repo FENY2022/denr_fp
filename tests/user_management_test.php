@@ -25,6 +25,18 @@ must(!isset(user_management_internal_roles()['applicant']), 'Applicant role cann
 must(isset(user_management_internal_roles()['gis_focal']), 'GIS Focal role available');
 must(function_exists('user_management_activate'), 'Pending users have an in-place setup method');
 must(function_exists('user_management_accounts'), 'One user table is used for the account listing');
+$management = file_get_contents(__DIR__ . '/../app/user_management.php');
+must(is_string($management) && preg_match(
+    '/function user_management_activate.*?function user_management_update/s',
+    $management,
+    $activation
+) === 1, 'Activation implementation is available');
+must(!str_contains($activation[0], 'user_management_is_shared_office_email'),
+    'Activation accepts a shared office reference after confirmation');
+must(str_contains(
+    $activation[0],
+    "email_assigned_to_other_account(\$values['email'], 'internal', \$userId)"
+), 'Activation still rejects an email assigned to another login account');
 $bad = $valid;
 $bad['status'] = 'pending_setup';
 must(user_management_validate($bad) !== [], 'An unprovisioned account cannot be directly marked active through editing');

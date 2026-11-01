@@ -100,9 +100,8 @@
     fullPageLink.href = action;
     setField('name', button.dataset.userName);
     setField('username', button.dataset.userUsername);
-    // Pre-fill the office reference even if it is shared, solely to help the
-    // administrator identify and edit the address. Server-side activation
-    // still rejects shared/duplicate login emails until replaced and verified.
+    // Shared office references are allowed after the administrator confirms
+    // access; addresses assigned to another login are still rejected server-side.
     const officeEmail = button.dataset.userReference || '';
     const suggestedEmail = button.dataset.userSuggestedEmail || '';
     setField('email', officeEmail || suggestedEmail);

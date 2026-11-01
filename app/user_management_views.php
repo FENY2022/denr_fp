@@ -110,7 +110,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . ($reopen ? errors_html($errors) : '')
         . '<div class="alert alert-warning small"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>'
         . 'The employee is <strong>Pending Setup</strong> and cannot log in yet. '
-        . 'A unique DENR username is preassigned. Use a verified personal email only for password OTP recovery; shared office mailboxes are not allowed.</div>'
+        . 'A unique DENR username is preassigned. Verify that the employee can access the email used for password OTP recovery.</div>'
         . '<div class="row g-3">'
         . '<div class="col-12 col-md-6">' . user_management_field(
             'name','Full Name',(string)$previous['name'],true,'maxlength="180" autocomplete="off"'
@@ -132,7 +132,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . ($reopen && !empty($reopenUser['office_email_shared']) ? '' : ' d-none')
         . '" data-shared-email-note'
         . '>This office email is shared by other designated personnel. '
-        . 'Provide a separate individual login email.</div>'
+        . 'You may continue after confirming that the employee can receive recovery OTPs through it.</div>'
         . '</div>'
         . '<div class="col-12 col-md-6">' . user_management_field(
             'contact_number','Contact Number',(string)$previous['contact_number'],
@@ -180,7 +180,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . '<input class="form-check-input" type="checkbox" id="setupConfirmIdentity" '
         . 'name="confirm_identity" value="1" required>'
         . '<label class="form-check-label small" for="setupConfirmIdentity">'
-        . 'I verified the employee identity and ownership of the recovery email address.'
+        . 'I verified the employee identity and access to the recovery email address.'
         . '</label></div>'
         . '<p class="small text-secondary mt-3 mb-0">The temporary password must be shared through an '
         . 'approved secure channel. The employee must change it at first login.</p>'
@@ -569,12 +569,12 @@ function view_user_edit(int $id, array $errors = []): void
         . ' · Username: ' . e((string)($user['username'] ?? 'Not yet assigned')) . '</p>';
     if ($pending) {
         $html .= '<div class="alert alert-warning small"><strong>Pending Setup:</strong> This person is already recorded '
-            . 'in the users table, but cannot sign in. Verify a personal recovery email, confirm their identity, '
+            . 'in the users table, but cannot sign in. Verify access to the recovery email, confirm their identity, '
             . 'and assign a temporary password to activate this same record.</div>'
             . '<p class="small"><strong>Office Email (Reference):</strong> '
             . e((string)($user['reference_email'] ?? 'Not provided'))
             . (!empty($user['office_email_shared'])
-                ? ' <span class="text-warning">Shared with other personnel — do not use for personal login.</span>'
+                ? ' <span class="text-warning">Shared with other personnel; activation is allowed after access is confirmed.</span>'
                 : (!empty($user['suggested_login_email'])
                     ? ' <span class="text-success">Suggested only; verify employee ownership.</span>'
                     : '')) . '</p>';
@@ -593,7 +593,7 @@ function view_user_edit(int $id, array $errors = []): void
             . '<div class="form-check mb-3">'
             . '<input class="form-check-input" type="checkbox" name="confirm_identity" id="confirm_identity" value="1" required>'
             . '<label class="form-check-label" for="confirm_identity">I verified the employee identity '
-            . 'and their personal recovery email address.</label></div>'
+            . 'and their access to the recovery email address.</label></div>'
             . '<button class="btn btn-success" type="submit"><i class="bi bi-person-check me-1"></i>'
             . 'Activate Account</button>';
     } else {
