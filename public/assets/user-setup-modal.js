@@ -99,6 +99,7 @@
     form.action = action;
     fullPageLink.href = action;
     setField('name', button.dataset.userName);
+    setField('username', button.dataset.userUsername);
     // Pre-fill the office reference even if it is shared, solely to help the
     // administrator identify and edit the address. Server-side activation
     // still rejects shared/duplicate login emails until replaced and verified.

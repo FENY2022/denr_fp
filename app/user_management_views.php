@@ -53,7 +53,11 @@ function user_management_form_fields(array $values, bool $editing = false): stri
     $html = '<div class="row g-3"><div class="col-md-6">'
         . user_management_field('name','Full Name',(string)($values['name'] ?? ''),true,'maxlength="180"')
         . '</div><div class="col-md-6">'
-        . user_management_field('email','Individual Login Email',(string)($values['email'] ?? ''),true,
+        . user_management_field('username','DENR Username (auto if blank)',
+            (string)($values['username'] ?? ''),false,
+            'maxlength="40" pattern="[a-z][a-z0-9._]{2,39}" autocomplete="username"')
+        . '</div><div class="col-md-6">'
+        . user_management_field('email','Recovery Email / OTP',(string)($values['email'] ?? ''),true,
             'maxlength="190" autocomplete="off"','email')
         . '</div><div class="col-md-6">'
         . user_management_field('contact_number','Contact Number',(string)($values['contact_number'] ?? ''),
@@ -84,7 +88,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
 {
     $previous = $reopenUserId > 0 && !empty($_POST)
         ? user_management_data($_POST)
-        : ['name'=>'','email'=>'','contact_number'=>'','office_station'=>'','role'=>'','status'=>'active'];
+        : ['name'=>'','username'=>'','email'=>'','contact_number'=>'','office_station'=>'','role'=>'','status'=>'active'];
     $reopenUser = $reopenUserId > 0 ? user_management_user($reopenUserId) : null;
     $reopen = $reopenUser && $reopenUser['status'] === 'pending_setup';
     $url = url('user_edit', ['id'=>$reopen ? $reopenUserId : 0]);
@@ -106,13 +110,17 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . ($reopen ? errors_html($errors) : '')
         . '<div class="alert alert-warning small"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>'
         . 'The employee is <strong>Pending Setup</strong> and cannot log in yet. '
-        . 'The office email is prefilled as a reference. <strong>Replace it with a unique individual login email</strong> if shared, and verify ownership before activation.</div>'
+        . 'A unique DENR username is preassigned. Use a verified personal email only for password OTP recovery; shared office mailboxes are not allowed.</div>'
         . '<div class="row g-3">'
         . '<div class="col-12 col-md-6">' . user_management_field(
             'name','Full Name',(string)$previous['name'],true,'maxlength="180" autocomplete="off"'
         ) . '</div>'
         . '<div class="col-12 col-md-6">' . user_management_field(
-            'email','Individual Login Email',(string)$previous['email'],true,
+            'username','DENR Username',(string)$previous['username'],true,
+            'maxlength="40" pattern="[a-z][a-z0-9._]{2,39}" autocomplete="username"'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_field(
+            'email','Recovery Email / OTP',(string)$previous['email'],true,
             'maxlength="190" autocomplete="off" placeholder="employee@denr.gov.ph"','email'
         )
         . '<div class="form-text text-success'
@@ -172,7 +180,7 @@ function user_management_setup_modal(array $errors = [], int $reopenUserId = 0):
         . '<input class="form-check-input" type="checkbox" id="setupConfirmIdentity" '
         . 'name="confirm_identity" value="1" required>'
         . '<label class="form-check-label small" for="setupConfirmIdentity">'
-        . 'I verified the employee identity and their individual login email address.'
+        . 'I verified the employee identity and ownership of the recovery email address.'
         . '</label></div>'
         . '<p class="small text-secondary mt-3 mb-0">The temporary password must be shared through an '
         . 'approved secure channel. The employee must change it at first login.</p>'
@@ -216,13 +224,14 @@ function user_management_edit_modal(
     $reopenUser = $reopenUserId > 0 ? user_management_user($reopenUserId) : null;
     $reopen = $reopenUser && in_array($reopenUser['status'], ['active','suspended'], true);
     $values = [
-        'name'=>'','email'=>'','contact_number'=>'',
+        'name'=>'','username'=>'','email'=>'','contact_number'=>'',
         'office_station'=>'','role'=>'','status'=>'active'
     ];
     if ($reopen) {
         $roles = user_roles((int)$reopenUser['id']);
         $values = [
             'name'=>(string)$reopenUser['name'],
+            'username'=>(string)($reopenUser['username'] ?? ''),
             'email'=>(string)($reopenUser['email'] ?? ''),
             'contact_number'=>(string)($reopenUser['contact_number'] ?? ''),
             'office_station'=>(string)($reopenUser['office_station'] ?? ''),
@@ -281,7 +290,11 @@ function user_management_edit_modal(
             'maxlength="180" autocomplete="name"'
         ) . '</div>'
         . '<div class="col-12 col-md-6">' . user_management_edit_field(
-            'email','Individual Login Email',(string)$values['email'],true,
+            'username','DENR Username',(string)$values['username'],true,
+            'maxlength="40" pattern="[a-z][a-z0-9._]{2,39}" autocomplete="username"'
+        ) . '</div>'
+        . '<div class="col-12 col-md-6">' . user_management_edit_field(
+            'email','Recovery Email / OTP',(string)$values['email'],true,
             'maxlength="190" autocomplete="off"','email'
         ) . '</div>'
         . '<div class="col-12 col-md-6">' . user_management_edit_field(
@@ -372,6 +385,7 @@ function view_user_management(
 ): void
 {
     $admin = require_role('super_admin');
+    staff_username_backfill();
     $query = substr(trim((string)($_GET['q'] ?? '')),0,120);
     $role = trim((string)($_GET['role'] ?? ''));
     $status = trim((string)($_GET['state'] ?? ''));
@@ -385,7 +399,7 @@ function view_user_management(
         . '<div class="panel mb-4"><div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">'
         . '<div><h2 class="h5 mb-1">Configuration / User Management</h2>'
         . '<p class="text-secondary small mb-0">Single master list from the users table. '
-        . 'Pending personnel cannot sign in until an administrator assigns an individual email and password.</p></div>'
+        . 'Every DENR employee has a unique username; Pending Setup personnel cannot sign in until activated with a temporary password and verified recovery email.</p></div>'
         . '<div class="d-flex gap-2 flex-wrap">'
         . '<span class="badge text-bg-light border text-dark p-2">' . (int)($totals['total'] ?? 0) . ' Users</span>'
         . '<span class="badge text-bg-warning p-2">' . (int)($totals['pending_count'] ?? 0) . ' Pending Setup</span>'
@@ -395,7 +409,7 @@ function view_user_management(
         . '<div class="panel"><form method="get" action="' . e(url('user_management'))
         . '" class="row g-2 mb-3">'
         . '<div class="col-lg-4"><label class="visually-hidden" for="user-management-search">Search users</label>'
-        . '<input class="form-control" id="user-management-search" name="q" placeholder="Name, office or reference email" value="'
+        . '<input class="form-control" id="user-management-search" name="q" placeholder="Name, username or office" value="'
         . e($query) . '"></div>'
         . '<div class="col-lg-3"><label class="visually-hidden" for="filter-role">Filter role</label>'
         . '<select class="form-select" id="filter-role" name="role"><option value="">All Roles</option>';
@@ -419,18 +433,19 @@ function view_user_management(
         . '<a class="btn btn-sm btn-outline-primary" href="' . e(url('user_create')) . '">'
         . '<i class="bi bi-person-plus me-1"></i>Add User</a></div>'
         . '<div class="alert alert-info small">Office Email comes from the uploaded FP-OMS personnel form. '
-        . 'Login Email remains unassigned until the administrator verifies ownership and sets a temporary password. '
-        . 'Only an email listed once (and not already used for login) is suggested during Set Up; '
-        . '<strong>shared office emails must not be used as personal login accounts.</strong></div>'
+        . 'DENR users sign in using their username and password. '
+        . 'The email address is for recovery OTP and notifications, not for staff sign-in. '
+        . '<strong>Verify that the recovery email belongs only to the employee.</strong></div>'
         . '<div class="table-responsive"><table class="table table-hover table-sm align-middle">'
-        . '<thead><tr><th>Full Name</th><th>Login Email</th><th>Office Email (Reference)</th>'
+        . '<thead><tr><th>Full Name</th><th>Username</th><th>Recovery Email</th><th>Office Email (Reference)</th>'
         . '<th>Office / Contact</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>';
     foreach ($records as $person) {
         $pending = $person['status'] === 'pending_setup';
         $html .= '<tr><td><strong>' . e((string)$person['name']) . '</strong>'
             . (!empty($person['designation_notes']) ? '<div class="small text-secondary">'
                 . e((string)$person['designation_notes']) . '</div>' : '')
-            . '</td><td>' . ($pending ? '<span class="text-secondary">Not assigned</span>'
+            . '</td><td><strong>' . e((string)($person['username'] ?? '—')) . '</strong>'
+            . '</td><td>' . ($pending ? '<span class="text-secondary">Awaiting setup</span>'
                 : e((string)($person['email'] ?? '—')))
             . '</td><td>'
             . (!empty($person['reference_email'])
@@ -447,12 +462,13 @@ function view_user_management(
             . '<td>' . user_management_status_badge((string)$person['status']) . '</td>';
         if ($pending) {
             // Data attributes contain display-only personnel fields, escaped for HTML attribute context.
-            // Login email/password remain empty until an administrator submits the form.
+            // Recovery email/password remain empty until an administrator submits the form.
             $html .= '<td><a class="btn btn-sm btn-primary" role="button" '
                 . 'href="' . e(url('user_edit',['id'=>(int)$person['id']])) . '" '
                 . 'data-bs-toggle="modal" data-bs-target="#userSetupModal" '
                 . 'data-user-setup-trigger data-user-id="' . (int)$person['id'] . '" '
                 . 'data-user-name="' . e((string)$person['name']) . '" '
+                . 'data-user-username="' . e((string)($person['username'] ?? '')) . '" '
                 . 'data-user-office="' . e((string)($person['office_station'] ?? '')) . '" '
                 . 'data-user-contact="' . e((string)($person['contact_number'] ?? '')) . '" '
                 . 'data-user-role="' . e((string)($person['role_code'] ?? '')) . '" '
@@ -482,7 +498,7 @@ function view_user_management(
                 . '<i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit</a></td></tr>';
         }
     }
-    if (!$records) $html .= '<tr><td colspan="7" class="text-center text-secondary py-4">No matching users found.</td></tr>';
+    if (!$records) $html .= '<tr><td colspan="8" class="text-center text-secondary py-4">No matching users found.</td></tr>';
     $html .= '</tbody></table></div>'
         . '<p class="text-secondary small mb-0">Changes to user roles, credentials, and account status are logged. '
         . 'Applicant registrations and accounts are managed separately.</p></div>';
@@ -496,7 +512,7 @@ function view_user_create(array $errors = []): void
 {
     require_role('super_admin');
     $values = $_POST ? user_management_data($_POST) : [
-        'name'=>'','email'=>'','contact_number'=>'','office_station'=>'',
+        'name'=>'','username'=>'','email'=>'','contact_number'=>'','office_station'=>'',
         'role'=>'','status'=>'active'
     ];
     $html = '<div class="mb-3"><a href="' . e(url('user_management')) . '">← Back to User Management</a></div>'
@@ -533,6 +549,7 @@ function view_user_edit(int $id, array $errors = []): void
     $assignedRoles = user_roles($id);
     $values = [
         'name'=>(string)$user['name'],
+        'username'=>(string)($user['username'] ?? staff_username_generated((string)$user['name'],$id)),
         'email'=>$pending ? (string)($user['reference_email'] ?: ($user['suggested_login_email'] ?? '')) : (string)($user['email'] ?? ''),
         'contact_number'=>(string)($user['contact_number'] ?? ''),
         'office_station'=>(string)($user['office_station'] ?? ''),
@@ -552,7 +569,7 @@ function view_user_edit(int $id, array $errors = []): void
         . ' · Username: ' . e((string)($user['username'] ?? 'Not yet assigned')) . '</p>';
     if ($pending) {
         $html .= '<div class="alert alert-warning small"><strong>Pending Setup:</strong> This person is already recorded '
-            . 'in the users table, but cannot sign in. Set a unique individual login email, verify their identity, '
+            . 'in the users table, but cannot sign in. Verify a personal recovery email, confirm their identity, '
             . 'and assign a temporary password to activate this same record.</div>'
             . '<p class="small"><strong>Office Email (Reference):</strong> '
             . e((string)($user['reference_email'] ?? 'Not provided'))
@@ -576,7 +593,7 @@ function view_user_edit(int $id, array $errors = []): void
             . '<div class="form-check mb-3">'
             . '<input class="form-check-input" type="checkbox" name="confirm_identity" id="confirm_identity" value="1" required>'
             . '<label class="form-check-label" for="confirm_identity">I verified the employee identity '
-            . 'and their individual login email address.</label></div>'
+            . 'and their personal recovery email address.</label></div>'
             . '<button class="btn btn-success" type="submit"><i class="bi bi-person-check me-1"></i>'
             . 'Activate Account</button>';
     } else {

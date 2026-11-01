@@ -53,9 +53,10 @@ function request_password_reset(string $email): void
         return;
     }
 
-    $staff = query_one("SELECT id,name,email,status FROM users WHERE email=? AND user_kind='internal'", [$email]);
+    // Staff OTP recovery is handled separately; existing applicant email links remain.
+    $staff = query_one("SELECT id FROM users WHERE email=? AND user_kind='internal'", [$email]);
     $client = query_one("SELECT id,name,email,status FROM user_client WHERE email=? AND user_kind='applicant'", [$email]);
-    if (($staff && $client) || (!$staff && !$client)) return;
+    if (!$client || $staff) return; // Only unambiguous applicant identities use email links.
     $isClient = $client !== null;
     $user = $staff ?? $client;
     if (in_array($user['status'], ['suspended', 'pending_setup', 'pending_email_verification'], true)) return;
@@ -164,12 +165,12 @@ function view_forgot_password(): void
 
     $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel">'
         . '<div class="d-flex align-items-center gap-3 mb-3"><span class="install-icon"><i class="bi bi-key"></i></span>'
-        . '<div><h2 class="h5 mb-1">Forgot Password</h2><p class="text-secondary small mb-0">Request a secure password reset link.</p></div></div>'
+        . '<div><h2 class="h5 mb-1">Forgot Password</h2><p class="text-secondary small mb-0">Applicants receive an email reset link; DENR personnel receive a six-digit email OTP.</p></div></div>'
         . '<form id="forgotPasswordForm" class="forgot-password-form" data-inline-submit-loading method="post" action="' . url('forgot_password') . '">' . csrf_field()
         . field('email','Account email',form_value('email'),'email',true,'autocomplete="email" maxlength="190"')
         . '<button id="forgotPasswordSubmit" class="btn btn-primary w-100" type="submit">'
         . '<span class="spinner-border spinner-border-sm me-2 d-none" id="forgotPasswordSpinner" aria-hidden="true"></span>'
-        . '<span id="forgotPasswordButtonText">Send Reset Link</span></button>'
+        . '<span id="forgotPasswordButtonText">Send Recovery Email</span></button>'
         . '<div id="forgotPasswordSendingStatus" class="forgot-password-sending-status d-none" role="status" aria-live="polite">'
         . '<i class="bi bi-envelope-arrow-up me-1" aria-hidden="true"></i>Sending your password reset request. Please wait for confirmation…'
         . '</div></form>'

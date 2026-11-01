@@ -44,9 +44,8 @@ try {
         case 'login':
             if ($post) {
                 check_csrf();
-                $hintEmail = reviewer_login_hint_email((string)($_POST['hint'] ?? ''));
-                $email = $hintEmail ?? safe_post('email',190);
-                if (authenticate($email,(string)($_POST['password'] ?? ''))) {
+                $identifier = safe_post('identifier',190);
+                if (authenticate($identifier,(string)($_POST['password'] ?? ''))) {
                     $loggedIn = current_user();
                     $nextPage = (string)($_POST['next'] ?? '');
                     if ($loggedIn && in_array($nextPage, ['review-queue','permit-initial-queue'],true)
@@ -65,12 +64,29 @@ try {
         case 'forgot_password':
             if ($post) {
                 check_csrf();
-                request_password_reset(safe_post('email', 190));
-                flash('info', 'Please check your email for a password reset link. If it is not in your inbox, check your Spam or Junk folder. For security, a link is sent only when the email address matches a registered account, and it expires in 30 minutes.');
-                go('login');
+                $email = strtolower(trim(safe_post('email',190)));
+                request_password_reset($email); // applicant email link only
+                staff_otp_request($email); // DENR staff receive a six-digit code
+                $_SESSION['staff_reset_pending_email'] = $email;
+                flash('info', 'If the email is registered, a recovery message was sent. DENR staff: enter the OTP. Applicants: use the password-reset link in your inbox.');
+                go('staff_reset_password');
             } else {
                 view_forgot_password();
             }
+            break;
+        case 'staff_reset_password':
+            if ($post) {
+                check_csrf();
+                $email = (string)($_SESSION['staff_reset_pending_email'] ?? '');
+                $errors = staff_otp_reset($email,
+                    safe_post('otp',6), (string)($_POST['password'] ?? ''),
+                    (string)($_POST['confirm_password'] ?? ''));
+                if ($errors) view_staff_otp_reset($errors);
+                else {
+                    flash('success','Password updated. Sign in with your DENR username.');
+                    go('login');
+                }
+            } else view_staff_otp_reset();
             break;
         case 'reset_password':
             $token = strtolower(trim((string)($_GET['token'] ?? '')));

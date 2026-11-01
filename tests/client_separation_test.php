@@ -27,7 +27,7 @@ $notifications = file_get_contents(__DIR__ . '/../app/notifications.php');
 $migration = file_get_contents(__DIR__ . '/../database/011_separate_client_accounts.sql');
 
 assert_client_separation(str_contains($auth, 'FROM user_client WHERE email=')
-    && str_contains($auth, "FROM users WHERE email=? AND user_kind='internal'"),
+    && str_contains($auth, "FROM users WHERE username=? AND user_kind='internal'"),
     'Login explicitly queries separate tables');
 assert_client_separation(str_contains($auth, "unset(\$_SESSION['user_id'], \$_SESSION['client_id'])"),
     'Login clears any previous identity before setting client/staff session');

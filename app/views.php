@@ -484,7 +484,10 @@ function view_login(array $errors = []): void
         . '<form method="post" action="' . url('login') . '">' . csrf_field()
         . ($next !== '' ? '<input type="hidden" name="next" value="' . e($next) . '">' : '')
         . ($hint !== '' ? '<input type="hidden" name="hint" value="' . e($hint) . '">' : '')
-        . ($prefilledEmail !== null ? field('email','Email',$prefilledEmail,'email',true,'autocomplete="username" maxlength="190" readonly') : field('email','Email',form_value('email'),'email',true,'autocomplete="username" maxlength="190"'))
+        . field('identifier','Username (DENR) or Email (Applicant)',
+            form_value('identifier'),'text',true,'autocomplete="username" maxlength="190"')
+        . ($prefilledEmail !== null
+            ? '<p class="small text-secondary">DENR personnel: use your assigned username, not the email in the reviewer invitation.</p>' : '')
         . field('password','Password','','password',true,'autocomplete="current-password"')
         . '<button class="btn btn-primary w-100" type="submit">Sign in</button>'
         . '<div class="text-end mt-2"><a class="small fw-semibold" href="' . url('forgot_password') . '">Forgot password?</a></div></form>'

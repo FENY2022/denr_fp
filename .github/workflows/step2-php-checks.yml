@@ -63,6 +63,11 @@ jobs:
           node tests/permit_case_modals_test.js
           node --check public/assets/permit-revert.js
           node tests/permit_revert_countdown_test.js
+      - name: DENR username login and recovery OTP contracts
+        run: |
+          php tests/staff_username_otp_test.php
+          node --check public/assets/user-setup-modal.js
+          node --check public/assets/user-edit-modal.js
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
       - name: Step 2 named documentary requirement checks

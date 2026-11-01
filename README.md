@@ -921,3 +921,58 @@ remarks. The new external JavaScript auto-opens this modal only for
 No stored actions, database schema, original files, or encryption keys are
 changed. Regression checks are in `tests/permit_tracking_test.php` and
 `tests/permit_case_modals_test.js`.
+
+
+## DENR Staff Username Login and Email OTP Recovery (Migration 021)
+
+**Breaking sign-in change for DENR personnel only:** staff authenticate with a
+case-insensitive unique username + password, not with their email address.
+External client/applicant accounts **still sign in using email + password**;
+their email confirmation and email password-reset link remain unchanged.
+The shared login form accepts either a staff username or an applicant email
+and selects the principal table by syntax, never numeric account IDs.
+
+**Automatic username assignment:** all existing internal employees, including
+RICTU Super Administrators and Pending Setup records, keep existing usernames.
+Migration 021 supplies missing usernames based on the staff name with a
+stable numeric user-ID suffix, e.g. `juandelacruz28`, and never changes
+password hashes, account status, ID, email, or assigned roles. The Super Admin
+User Management page also safely backfills missing username values in the
+existing `users` table. New staff records get an automatic unique username;
+the authorized Super Admin may override/edit it (3–40 lowercase characters,
+starting with a letter; letters, digits, dot or underscore thereafter).
+User Management now shows Username and Recovery Email as **separate columns**.
+Pending staff still cannot sign in until activated and assigned a password.
+
+**DENR Forgot Password:** enter a verified individual recovery email to
+request a random six-digit, single-use code, delivered over configured SMTP.
+Code lifetime is **10 minutes**, with a maximum of **five** failed redemption
+attempts, 60-second resend cooldown, 3 requests per account and 20 requests
+per IP in 15 minutes. OTPs are stored only as password hashes and are
+invalidated when replaced, used, or after an administrator password reset.
+Staff reset replaces their password and invalidates outstanding legacy reset
+links. Generic recovery messages avoid account enumeration.
+Shared departmental office inboxes must not be assigned as an individual's
+recovery email; verify employee ownership before activation.
+
+**Required manual deployment (back up before importing):**
+1. Back up your entire `denr_fp_oms` database and private `storage/`.
+2. With login temporarily paused, apply
+   `database/021_staff_username_login_otp.sql` **once** in phpMyAdmin
+   after all earlier migrations (particularly 009–020). Verify
+   `users.username` has a unique index, no duplicate usernames remain,
+   and `staff_password_reset_otps` exists.
+3. Pull the matching GitHub main code, configure SMTP and `APP_URL`,
+   restart Apache and hard-refresh. Confirm each staff member's username in
+   `/user-management` and securely inform them of it. For any Pending Setup
+   user, finish the original identity-check and activation procedure.
+4. Perform staging tests: staff login by username works and **email sign-in
+   does not**; applicant email login is unchanged; OTP delivery/expiry/reuse,
+   wrong codes, 5-attempt limit, case-insensitive username uniqueness,
+   locked/suspended account, migration failure/rollback and Super Admin access.
+
+Do **not** deploy PHP first without applying migration 021: staff password
+recovery would be unavailable until the new table exists. Changes in GitHub
+do not automatically update your XAMPP/MariaDB instance. Run
+`php tests/staff_username_otp_test.php` for DB-free contract checks.
+The OTP email cannot be delivered without functioning SMTP.

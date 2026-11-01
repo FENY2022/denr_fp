@@ -38,6 +38,7 @@ function user_management_data(array $input): array
 {
     return [
         'name' => trim((string)($input['name'] ?? '')),
+        'username' => strtolower(trim((string)($input['username'] ?? ''))),
         'email' => strtolower(trim((string)($input['email'] ?? ''))),
         'contact_number' => trim((string)($input['contact_number'] ?? '')),
         'office_station' => trim((string)($input['office_station'] ?? '')),
@@ -52,8 +53,11 @@ function user_management_validate(array $values): array
     $length = function_exists('mb_strlen')
         ? mb_strlen($values['name'], 'UTF-8') : strlen($values['name']);
     if ($length < 3 || $length > 180) $errors[] = 'Full name must have 3–180 characters.';
+    if ($values['username'] !== '' && !staff_username_valid($values['username'])) {
+        $errors[] = 'Username must be 3–40 characters: start with a letter, then letters, numbers, periods or underscores.';
+    }
     if (!filter_var($values['email'], FILTER_VALIDATE_EMAIL) || strlen($values['email']) > 190) {
-        $errors[] = 'A unique, valid individual login email address is required.';
+        $errors[] = 'A valid, unique personal recovery email address is required for password OTP.';
     }
     if ($values['contact_number'] !== '' &&
         !preg_match('/^[0-9+().\-\s]{7,40}$/', $values['contact_number'])) {
@@ -130,9 +134,9 @@ function user_management_accounts(string $query = '', string $role = '', string 
             FROM users u WHERE u.user_kind='internal'";
     $params = [];
     if ($query !== '') {
-        $sql .= ' AND (u.name LIKE ? OR u.email LIKE ? OR u.office_station LIKE ? OR u.reference_email LIKE ?)';
+        $sql .= ' AND (u.name LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR u.office_station LIKE ? OR u.reference_email LIKE ?)';
         $search = '%' . $query . '%';
-        array_push($params,$search,$search,$search,$search);
+        array_push($params,$search,$search,$search,$search,$search);
     }
     if ($role !== '' && user_management_valid_role($role)) {
         $sql .= ' AND EXISTS (SELECT 1 FROM user_roles ur INNER JOIN roles r ON r.id=ur.role_id
@@ -200,6 +204,12 @@ function user_management_create(array $admin, array $input): array
                 $values['contact_number'] ?: null,$values['office_station']
             ]);
         $id = (int)$pdo->lastInsertId();
+        $username = staff_username_for_account($values['username'],$values['name'],$id);
+        if (staff_username_taken($username,$id)) {
+            $pdo->rollBack();
+            return ['Username already belongs to another DENR account.'];
+        }
+        $pdo->prepare('UPDATE users SET username=? WHERE id=?')->execute([$username,$id]);
         initialize_profile_account_fields($id,'internal');
         $pdo->prepare('INSERT INTO user_roles (user_id,role_id) VALUES (?,?)')->execute([$id,$roleId]);
         create_notification($id,'DENR FP-OMS Account Created',
@@ -263,11 +273,18 @@ function user_management_activate(array $admin, int $userId, array $input): arra
             $pdo->rollBack();
             return ['That login email is already assigned to another user.'];
         }
-        $pdo->prepare("UPDATE users SET name=?,email=?,password_hash=?,contact_number=?,
+        $username = staff_username_for_account(
+            $values['username'], $values['name'], $userId
+        );
+        if (staff_username_taken($username,$userId)) {
+            $pdo->rollBack();
+            return ['Username is already assigned to another DENR user.'];
+        }
+        $pdo->prepare("UPDATE users SET name=?,username=?,email=?,password_hash=?,contact_number=?,
                      office_station=?,office_level=?,status='active',must_change_password=1,
                      activated_at=NOW() WHERE id=? AND status='pending_setup'")
             ->execute([
-                $values['name'],$values['email'],password_hash($password,PASSWORD_DEFAULT),
+                $values['name'],$username,$values['email'],password_hash($password,PASSWORD_DEFAULT),
                 $values['contact_number'] ?: null,$values['office_station'],
                 user_management_office_level($values['role']),$userId
             ]);
@@ -319,6 +336,13 @@ function user_management_update(array $admin, int $userId, array $input): array
             $pdo->rollBack();
             return ['This email is shared by several designated employees. Choose an individual login email.'];
         }
+        $username = $values['username'] !== ''
+            ? $values['username'] : (string)($target['username'] ?? '');
+        if ($username === '') $username = staff_username_generated($values['name'],$userId);
+        if (!staff_username_valid($username) || staff_username_taken($username,$userId)) {
+            $pdo->rollBack();
+            return ['Enter a valid, unique DENR username.'];
+        }
         $originalRoles = user_roles($userId);
         if ((int)$admin['id'] === $userId &&
             ($values['role'] !== 'super_admin' || $values['status'] !== 'active')) {
@@ -344,15 +368,16 @@ function user_management_update(array $admin, int $userId, array $input): array
             $pdo->rollBack();
             return ['Role is missing from the database. Run role seeding.'];
         }
-        $pdo->prepare("UPDATE users SET name=?,email=?,contact_number=?,office_station=?,office_level=?,status=? WHERE id=? AND user_kind='internal'")
+        $pdo->prepare("UPDATE users SET name=?,username=?,email=?,contact_number=?,office_station=?,office_level=?,status=? WHERE id=? AND user_kind='internal'")
             ->execute([
-                $values['name'],$values['email'],$values['contact_number'] ?: null,
+                $values['name'],$username,$values['email'],$values['contact_number'] ?: null,
                 $values['office_station'],user_management_office_level($values['role']),
                 $values['status'],$userId
             ]);
         user_management_assign_role($pdo, $userId, $roleId);
         audit((int)$admin['id'],'user_management.updated','user',$userId,[
             'name_changed'=>$values['name'] !== $target['name'],
+            'username_changed'=>$username !== (string)$target['username'],
             'email_changed'=>$values['email'] !== $target['email'],
             'role_before'=>$originalRoles,
             'role_after'=>$values['role'],
@@ -404,6 +429,8 @@ function user_management_reset_password(array $admin, int $userId, array $input)
         // Invalidate any outstanding password reset links without leaking reset tokens.
         $pdo->prepare('UPDATE password_reset_tokens SET used_at=NOW() WHERE user_id=? AND used_at IS NULL')
             ->execute([$userId]);
+        $pdo->prepare('UPDATE staff_password_reset_otps SET used_at=NOW()
+                       WHERE user_id=? AND used_at IS NULL')->execute([$userId]);
         audit((int)$admin['id'],'user_management.password_reset','user',$userId);
         $pdo->commit();
         return [];

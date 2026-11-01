@@ -1,17 +1,24 @@
 <?php
 declare(strict_types=1);
 
-function authenticate(string $email, string $password): bool
+function authenticate(string $identifier, string $password): bool
 {
-    $email = strtolower(trim($email));
-    $hash = hash('sha256', $email);
+    $identifier = strtolower(trim($identifier));
+    // DENR personnel use usernames; applicants retain verified email login.
+    $isEmail = filter_var($identifier,FILTER_VALIDATE_EMAIL) !== false;
+    if (strlen($identifier)>190 || $identifier==='') return false;
+    $hash = hash('sha256', $identifier);
     $ip = client_ip();
     $blockedEmail = query_one('SELECT COUNT(*) AS n FROM login_attempts WHERE was_successful=0 AND attempted_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND email_hash=?', [$hash]);
     $blockedIp = query_one('SELECT COUNT(*) AS n FROM login_attempts WHERE was_successful=0 AND attempted_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND ip_address=?', [$ip]);
     if ((int)($blockedEmail['n'] ?? 0) >= 8 || (int)($blockedIp['n'] ?? 0) >= 40) return false;
 
-    $staff = query_one("SELECT * FROM users WHERE email=? AND user_kind='internal'", [$email]);
-    $client = query_one("SELECT * FROM user_client WHERE email=? AND user_kind='applicant'", [$email]);
+    $staff = !$isEmail && staff_username_valid($identifier)
+        ? query_one("SELECT * FROM users WHERE username=? AND user_kind='internal'",[$identifier])
+        : null;
+    $client = $isEmail
+        ? query_one("SELECT * FROM user_client WHERE email=? AND user_kind='applicant'",[$identifier])
+        : null;
 
     // Never resolve an ambiguous email to the other person's identity.
     if ($staff && $client) {

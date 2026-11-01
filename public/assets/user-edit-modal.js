@@ -125,6 +125,7 @@
     officeReferenceLabel.textContent = button.dataset.userReferenceEmail || 'Not provided';
 
     setProfileField('name', button.dataset.userName);
+    setProfileField('username', button.dataset.userUsername);
     setProfileField('email', button.dataset.userEmail);
     setProfileField('contact_number', button.dataset.userContact);
     setProfileField('office_station', button.dataset.userOffice);
