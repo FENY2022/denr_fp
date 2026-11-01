@@ -66,6 +66,7 @@ jobs:
       - name: DENR username login and recovery OTP contracts
         run: |
           php tests/staff_username_otp_test.php
+          php tests/staff_username_recovery_test.php
           node --check public/assets/user-setup-modal.js
           node --check public/assets/user-edit-modal.js
       - name: Step 2 DB-free unit checks

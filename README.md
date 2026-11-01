@@ -976,3 +976,43 @@ recovery would be unavailable until the new table exists. Changes in GitHub
 do not automatically update your XAMPP/MariaDB instance. Run
 `php tests/staff_username_otp_test.php` for DB-free contract checks.
 The OTP email cannot be delivered without functioning SMTP.
+
+
+## Forgot Username or Password? — Account Recovery
+
+The public Sign In page now links to **Forgot Username or Password?** with two
+clearly labeled options on the Account Recovery screen:
+
+- **Forgot Password:** No change to applicant email reset links. DENR staff
+  receive their existing six-digit email OTP and can set a new password.
+- **Forgot Username (DENR staff only):** submit the staff account's personal
+  recovery email at `/forgot-username`. An active DENR user receives a
+  separate six-digit OTP via configured SMTP. The `/verify-username` screen
+  verifies the code, then redirects to a one-time `/username-recovered` screen
+  that displays the username. Applicant identities use their registered email
+  for login and do not have a username recovery flow.
+
+**Security:** Recovery requests and invalid OTP attempts give generic responses
+without revealing account existence. Both OTP types share the existing
+`staff_password_reset_otps` table and combined request throttling (up to
+three per account and twenty per IP per fifteen minutes, sixty-second cooldown),
+ten-minute lifetime, five unsuccessful attempts, database row locks, and
+single-use consumption. The username code is hashed using the purpose-bound
+secret `username:<6-digit-code>` while password OTP hashing keeps its existing
+format. A username OTP cannot reset a password, and a password OTP cannot
+recover a username; requesting a new OTP invalidates earlier codes on that
+account. Usernames are **never** included in unverified recovery page responses,
+query parameters, logs, or outgoing OTP email. After verification, the username
+appears once from the session and is removed upon display.
+
+**Migration:** This feature does **not** add database columns or tables beyond
+the previous Migration 021. `staff_password_reset_otps` (Migration 021),
+the staff username backfill, and SMTP configuration are required before
+enabling either DENR OTP flow. Deploy application files together, review the
+existing Migration 021 installation status, and test on staging with active,
+suspended, unknown and shared-mailbox accounts. User-management roles, FP
+applications, uploaded files, and account passwords are not modified.
+
+DB/SMTP-free tests: `php tests/staff_username_recovery_test.php`, plus the
+existing `php tests/staff_username_otp_test.php`. Real end-to-end OTP sending
+and verification must still be tested on XAMPP with configured SMTP.

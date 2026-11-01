@@ -74,6 +74,44 @@ try {
                 view_forgot_password();
             }
             break;
+        case 'forgot_username':
+            if ($post) {
+                check_csrf();
+                $email = strtolower(trim(safe_post('email',190)));
+                staff_otp_request($email,'username');
+                // Never identify whether this mailbox belongs to a DENR user.
+                $_SESSION['staff_username_pending_email'] = $email;
+                unset($_SESSION['staff_recovered_username']);
+                flash('info','If this is an active DENR recovery email, a six-digit username verification code has been sent.');
+                go('verify_username');
+            } else {
+                view_forgot_username();
+            }
+            break;
+        case 'verify_username':
+            if ($post) {
+                check_csrf();
+                $email = (string)($_SESSION['staff_username_pending_email'] ?? '');
+                $verified = staff_otp_verify_username($email,safe_post('otp',6));
+                if ($verified === null) {
+                    view_staff_username_verification([
+                        'Invalid or expired verification code. Check the email or request a new code.'
+                    ]);
+                } else {
+                    unset($_SESSION['staff_username_pending_email']);
+                    $_SESSION['staff_recovered_username'] = $verified['username'];
+                    session_regenerate_id(true);
+                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+                    go('username_recovered');
+                }
+            } else {
+                view_staff_username_verification();
+            }
+            break;
+        case 'username_recovered':
+            if ($post) show_error('This page is read-only.',405);
+            view_staff_username_recovered();
+            break;
         case 'staff_reset_password':
             if ($post) {
                 check_csrf();

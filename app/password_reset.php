@@ -165,9 +165,17 @@ function view_forgot_password(): void
 
     $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel">'
         . '<div class="d-flex align-items-center gap-3 mb-3"><span class="install-icon"><i class="bi bi-key"></i></span>'
-        . '<div><h2 class="h5 mb-1">Forgot Password</h2><p class="text-secondary small mb-0">Applicants receive an email reset link; DENR personnel receive a six-digit email OTP.</p></div></div>'
+        . '<div><h2 class="h5 mb-1">Account Recovery</h2>'
+        . '<p class="text-secondary small mb-0">Recover your password or DENR username securely.</p></div></div>'
+        . '<nav class="nav nav-pills nav-fill gap-2 mb-3" aria-label="Account recovery options">'
+        . '<a class="nav-link active" aria-current="page" href="' . e(url('forgot_password')) . '">'
+        . '<i class="bi bi-key me-1" aria-hidden="true"></i>Forgot Password</a>'
+        . '<a class="nav-link" href="' . e(url('forgot_username')) . '">'
+        . '<i class="bi bi-person-vcard me-1" aria-hidden="true"></i>Forgot Username</a></nav>'
+        . '<p class="small text-secondary">DENR personnel will receive a 6-digit email OTP '
+        . 'to set a new password. Applicants will receive their usual password-reset link.</p>'
         . '<form id="forgotPasswordForm" class="forgot-password-form" data-inline-submit-loading method="post" action="' . url('forgot_password') . '">' . csrf_field()
-        . field('email','Account email',form_value('email'),'email',true,'autocomplete="email" maxlength="190"')
+        . field('email','Registered Recovery Email',form_value('email'),'email',true,'autocomplete="email" maxlength="190"')
         . '<button id="forgotPasswordSubmit" class="btn btn-primary w-100" type="submit">'
         . '<span class="spinner-border spinner-border-sm me-2 d-none" id="forgotPasswordSpinner" aria-hidden="true"></span>'
         . '<span id="forgotPasswordButtonText">Send Recovery Email</span></button>'
@@ -179,6 +187,39 @@ function view_forgot_password(): void
         . '</div></div></div>';
 
     render_page('Forgot Password', $html);
+}
+
+/** DENR username recovery: no identifier is displayed before email OTP verification. */
+function view_forgot_username(array $errors = []): void
+{
+    if (current_user()) go('dashboard');
+    $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5">'
+        . '<div class="panel">' . errors_html($errors)
+        . '<div class="d-flex align-items-center gap-3 mb-3">'
+        . '<span class="install-icon"><i class="bi bi-person-vcard"></i></span>'
+        . '<div><h2 class="h5 mb-1">Account Recovery</h2>'
+        . '<p class="text-secondary small mb-0">Forgot your DENR username?</p></div></div>'
+        . '<nav class="nav nav-pills nav-fill gap-2 mb-3" aria-label="Account recovery options">'
+        . '<a class="nav-link" href="' . e(url('forgot_password')) . '">'
+        . '<i class="bi bi-key me-1" aria-hidden="true"></i>Forgot Password</a>'
+        . '<a class="nav-link active" aria-current="page" href="' . e(url('forgot_username')) . '">'
+        . '<i class="bi bi-person-vcard me-1" aria-hidden="true"></i>Forgot Username</a></nav>'
+        . '<p class="small text-secondary">Enter your registered personal recovery email. '
+        . 'If it is linked to an active DENR account, you will receive a 6-digit OTP. '
+        . 'Verify the code before your username is displayed. '
+        . 'Applicants sign in with their email address and do not need a username.</p>'
+        . '<form method="post" action="' . e(url('forgot_username')) . '" data-inline-submit-loading>'
+        . csrf_field()
+        . field('email','DENR Recovery Email',form_value('email'),'email',true,
+            'autocomplete="email" maxlength="190"')
+        . '<button class="btn btn-primary w-100" type="submit">'
+        . '<i class="bi bi-envelope-check me-2" aria-hidden="true"></i>Send Username OTP'
+        . '</button></form>'
+        . '<p class="small text-secondary mt-3 mb-0">'
+        . 'For security, the system does not indicate whether an account exists.</p>'
+        . '<hr><a class="small" href="' . e(url('login')) . '">← Back to Sign In</a>'
+        . '</div></div></div>';
+    render_page('Forgot Username', $html);
 }
 
 function view_reset_password(string $token, array $errors = []): void

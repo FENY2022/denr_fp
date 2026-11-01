@@ -490,7 +490,8 @@ function view_login(array $errors = []): void
             ? '<p class="small text-secondary">DENR personnel: use your assigned username, not the email in the reviewer invitation.</p>' : '')
         . field('password','Password','','password',true,'autocomplete="current-password"')
         . '<button class="btn btn-primary w-100" type="submit">Sign in</button>'
-        . '<div class="text-end mt-2"><a class="small fw-semibold" href="' . url('forgot_password') . '">Forgot password?</a></div></form>'
+        . '<div class="text-end mt-2"><a class="small fw-semibold" href="'
+        . e(url('forgot_password')) . '">Forgot Username or Password?</a></div></form>'
         . '<hr><p class="mb-0 small">New applicant? <a href="' . url('register') . '">Register for an account</a>.</p>'
         . (initial_admin_setup_available()
             ? '<div class="alert alert-warning small mt-3 mb-0"><strong>Initial RICTU setup:</strong> No Super Administrator exists yet. <a href="' . url('setup_admin') . '">Create the first Super Administrator</a>.</div>'
