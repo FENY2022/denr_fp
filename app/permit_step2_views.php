@@ -635,8 +635,12 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '<div class="alert alert-warning small d-none mb-3" role="alert" '
             . 'data-decision-confirm-validation></div>'
             . '<div class="d-grid gap-2">'
-            . '<button class="btn btn-success" type="button" data-confirm-decision="forward">'
-            . 'Complete – Forward to RO Receiving</button>'
+            . (!empty($app['received_at'])
+                ? '<button class="btn btn-success" type="button" data-confirm-decision="forward">'
+                    . 'Complete – Forward to RO Receiving</button>'
+                : '<div class="alert alert-info small mb-0">'
+                    . 'Receive Documents first before the Complete – Forward action becomes available.'
+                    . '</div>')
             . '<button class="btn btn-outline-danger" type="button" data-confirm-decision="return">'
             . 'Incomplete – Return for Correction</button></div>'
             . '<noscript><p class="alert alert-warning small mt-3 mb-0">'
