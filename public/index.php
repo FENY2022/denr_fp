@@ -48,7 +48,7 @@ try {
                 if (authenticate($identifier,(string)($_POST['password'] ?? ''))) {
                     $loggedIn = current_user();
                     $nextPage = (string)($_POST['next'] ?? '');
-                    if ($loggedIn && in_array($nextPage, ['review-queue','permit-initial-queue'],true)
+                    if ($loggedIn && in_array($nextPage, ['review-queue','permit-initial-queue','permit-step4-queue'],true)
                         && has_role($loggedIn,'lpdd_fus')) go(str_replace('-', '_', $nextPage));
                     if ($loggedIn && $nextPage === 'permit-ro-inbox'
                         && has_role($loggedIn,'ro_receiving')) go('permit_ro_inbox');
@@ -415,6 +415,31 @@ try {
                     : 'Incomplete application returned to the applicant with required corrections.');
                 go('permit_initial_queue');
             }
+            break;
+        case 'permit_ro_receive':
+        case 'permit_ro_forward':
+            $staff=step3_require_officer();
+            if (!$post) show_error('This RO action requires a confirmed POST.',405);
+            check_csrf();
+            $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            $action=$page==='permit_ro_receive' ? 'receive' : 'forward';
+            if (($_POST['confirmation'] ?? '')!==$action) {
+                show_error('Confirm this action in the dialog.',400);
+            }
+            $errors=step3_record_action($staff,(int)$id,$action,safe_post('remarks',2000));
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                flash('success',$action==='receive'
+                    ? 'RO document receipt recorded successfully.'
+                    : 'Application forwarded to LPDD-FUS Step 4 incoming queue.');
+                go('permit_ro_inbox');
+            }
+            break;
+        case 'permit_step4_queue':
+            if ($post) show_error('This incoming queue is read-only.',405);
+            view_step4_incoming_queue();
             break;
         case 'permit_ro_inbox':
             if ($post) show_error('This page is read-only.',405);

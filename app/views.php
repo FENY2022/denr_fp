@@ -28,10 +28,11 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
             . shell_nav_item('my_actions', 'My Recent Actions', 'clock-history', $active);
         if (in_array('lpdd_fus', $roles, true)) {
             $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active)
-                . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active);
+                . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active)
+                . shell_nav_item('permit_step4_queue', 'Step 4 Incoming (Read-only)', 'file-earmark-arrow-down', $active);
         }
         if (in_array('ro_receiving', $roles, true)) {
-            $html .= shell_nav_item('permit_ro_inbox', 'RO Receiving Inbox', 'inboxes', $active);
+            $html .= shell_nav_item('permit_ro_inbox', 'RO Receiving – Step 3', 'inboxes', $active);
         }
         foreach ([['clipboard-data','Document Evaluation'],['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
             $html .= '<span class="sidebar-link" aria-disabled="true" title="Available in a later phase"><i class="bi bi-' . e($icon) . '"></i><span>' . e($label) . ' · Soon</span></span>';
@@ -465,7 +466,7 @@ function view_login(array $errors = []): void
     if (current_user()) {
         $loggedIn = current_user();
         $nextPage = (string)($_GET['next'] ?? '');
-        if (in_array($nextPage, ['review-queue','permit-initial-queue'], true)
+        if (in_array($nextPage, ['review-queue','permit-initial-queue','permit-step4-queue'], true)
             && has_role($loggedIn, 'lpdd_fus')) go(str_replace('-', '_', $nextPage));
         if ($nextPage === 'permit-ro-inbox' && has_role($loggedIn, 'ro_receiving')) go('permit_ro_inbox');
         if ($nextPage === 'permit-applications' && $loggedIn['user_kind'] === 'applicant'
@@ -941,12 +942,18 @@ function view_dashboard(): void
             . (int)($pendingFp['n'] ?? 0) . '</span><small>Awaiting initial documentary completeness check</small></a></div>';
     }
     if (step2_schema_ready() && has_role($user,'ro_receiving')) {
-        $forwardedFp = query_one("SELECT COUNT(*) AS n FROM permit_step2_applications WHERE status='forwarded_to_ro'");
+        $forwardedFp = query_one("SELECT COUNT(*) AS n FROM permit_step2_applications WHERE status IN ('forwarded_to_ro','ro_received')");
         $html .= '<div class="col-md-6"><a class="quick-action" href="' . e(url('permit_ro_inbox'))
-            . '"><strong>RO Receiving Inbox</strong><span class="metric">'
-            . (int)($forwardedFp['n'] ?? 0) . '</span><small>Applications forwarded after LPDD-FUS initial review</small></a></div>';
+            . '"><strong>RO Receiving – Step 3</strong><span class="metric">'
+            . (int)($forwardedFp['n'] ?? 0) . '</span><small>Awaiting RO receipt or onward forwarding</small></a></div>';
+    }
+    if (step3_schema_ready() && has_role($user,'lpdd_fus')) {
+        $incoming=query_one("SELECT COUNT(*) AS n FROM permit_step2_applications WHERE status='forwarded_to_lpdd'");
+        $html.='<div class="col-md-6"><a class="quick-action" href="'.e(url('permit_step4_queue'))
+            .'"><strong>Step 4 Incoming (Read-only)</strong><span class="metric">'
+            .(int)($incoming['n'] ?? 0).'</span><small>Forwarded from RO Receiving</small></a></div>';
     }
     if (has_role($user,'super_admin')) $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('user_management') . '"><strong>User Management</strong><span class="metric">RICTU</span><small>Create role-assigned accounts</small></a></div>';
-    $html .= '</div><div class="alert alert-info mt-3 mb-0">Step 2 FP application submission, initial LPDD-FUS review and RO handoff are implemented. Formal receiving and document evaluation through permit release (Steps 3–11) remain future development.</div></div>';
+    $html .= '</div><div class="alert alert-info mt-3 mb-0">Step 2 FP application submission, initial LPDD-FUS review and RO handoff are implemented. Formal RO receiving and forwarding (Step 3) are enabled after migration 022. Step 4 evaluation/payment and Steps 5–11 remain future development.</div></div>';
     render_page('Dashboard', $html . permit_tracking_staff_recent_html($user, 5));
 }

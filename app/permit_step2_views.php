@@ -9,6 +9,8 @@ function step2_status_label(string $status): string
         'submitted' => 'Pending LPDD-FUS Initial Review',
         'corrections_required' => 'Corrections Required',
         'forwarded_to_ro' => 'Forwarded to RO Receiving',
+        'ro_received' => 'Received by RO Receiving',
+        'forwarded_to_lpdd' => 'Forwarded to LPDD-FUS – Step 4',
         'reverted' => 'Reverted – Editable',
         default => 'Unknown Status'
     };
@@ -19,7 +21,9 @@ function step2_status_badge(string $status): string
     $tone = match ($status) {
         'submitted' => 'info',
         'corrections_required' => 'warning',
-        'forwarded_to_ro' => 'success',
+        'forwarded_to_ro' => 'info',
+        'ro_received' => 'warning',
+        'forwarded_to_lpdd' => 'success',
         'reverted' => 'secondary',
         default => 'secondary'
     };
@@ -605,8 +609,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
                     . '<a class="btn btn-primary" href="'
                     . e(url('permit_apply',['id'=>$applicationId])) . '">Correct / Resubmit</a>'
                 : '<p class="mb-0">'
-                    . ($app['status'] === 'forwarded_to_ro'
-                        ? 'Your application passed LPDD-FUS initial review and was forwarded to RO Receiving.'
+                    . (in_array($app['status'],['forwarded_to_ro','ro_received','forwarded_to_lpdd'],true)
+                        ? permit_tracking_state($app)['next_action']
                         : ($app['status'] === 'reverted'
                             ? 'Your application is reverted; you can edit and resubmit it.'
                             : 'Your application is awaiting the LPDD-FUS Technical Staff initial review.'))
@@ -638,12 +642,14 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '<noscript><p class="alert alert-warning small mt-3 mb-0">'
             . 'Enable JavaScript to confirm and submit a review decision.</p></noscript>'
             . '</form></div>';
+    } elseif (has_role($viewer,'ro_receiving')
+        && in_array((string)$app['status'],['forwarded_to_ro','ro_received','forwarded_to_lpdd'],true)) {
+        $html .= step3_action_panel_html($app);
     } else {
         $html .= '<div class="panel soft"><h3 class="h6">Routing Status</h3>'
-            . '<p class="small mb-0">This application is '
-            . e(strtolower(step2_status_label((string)$app['status'])))
-            . '. RO Receiving may view forwarded documents; receiving actions are a separate Step 3 build.</p>'
-            . '</div>';
+            . '<p class="small mb-0">Current status: '
+            . e(step2_status_label((string)$app['status']))
+            . '. Check the audit trail for completed actions.</p></div>';
     }
     $html .= '</div></div>'
         . step2_files_modal_html($documents)
@@ -690,31 +696,8 @@ function view_step2_review_queue(): void
     render_page('LPDD-FUS Initial Review Queue', $html . '</div>');
 }
 
+/** Preserve existing RO inbox routes, now handled by the Step 3 module. */
 function view_step2_ro_inbox(): void
 {
-    step2_require_receiving();
-    $apps = query_all(
-        "SELECT a.id,a.project_title,a.forwarded_at,c.name AS applicant_name
-         FROM permit_step2_applications a JOIN user_client c ON c.id=a.client_id
-         WHERE a.status='forwarded_to_ro' ORDER BY a.forwarded_at DESC,a.id DESC LIMIT 200"
-    );
-    $html = '<div class="panel"><h2 class="h5">RO Receiving Inbox – Forwarded FP Applications</h2>'
-        . '<p class="small text-secondary">Read-only Step 2 handoff. Formal RO document receiving, '
-        . 'acknowledgment and onward forwarding will be implemented in Step 3.</p>';
-    if (!$apps) $html .= '<p class="text-secondary">No applications forwarded from LPDD-FUS yet.</p>';
-    else {
-        $html .= '<div class="table-responsive"><table class="table table-hover align-middle">'
-            . '<thead><tr><th>No.</th><th>Applicant</th><th>Project</th><th>Forwarded</th><th></th></tr></thead><tbody>';
-        foreach ($apps as $app) {
-            $html .= '<tr><td>#' . (int)$app['id'] . '</td><td>'
-                . e((string)$app['applicant_name']) . '</td><td>'
-                . e((string)$app['project_title']) . '</td><td>'
-                . e((string)$app['forwarded_at']) . '</td><td>'
-                . '<a class="btn btn-sm btn-outline-primary" href="'
-                . e(url('permit_application',['id'=>(int)$app['id']])) . '">View Documents</a>'
-                . '</td></tr>';
-        }
-        $html .= '</tbody></table></div>';
-    }
-    render_page('RO Receiving Inbox', $html . '</div>');
+    view_step3_ro_inbox();
 }

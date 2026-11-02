@@ -27,7 +27,7 @@ function permit_tracking_summary_html(array $application): string
         . '<p class="mb-2">' . e($state['next_action']) . '</p>' . $receipt
         . '<p class="small text-secondary mb-0">Tracking shows recorded actions only. '
         . 'A named next assignee is not displayed unless an actual assignment exists. '
-        . 'Formal RO Step 3 processing is not yet implemented.</p></div></section>';
+        . 'RO Step 3 actions appear only after actual receiving or forwarding.</p></div></section>';
 }
 
 /**
@@ -45,6 +45,8 @@ function permit_tracking_action_visual(string $action): array
         'resubmitted' => ['tone'=>'resubmitted','icon'=>'arrow-repeat','category'=>'Resubmitted'],
         'returned_for_correction' => ['tone'=>'correction','icon'=>'exclamation-triangle-fill','category'=>'Correction Needed'],
         'forwarded_to_ro' => ['tone'=>'forwarded','icon'=>'check-circle-fill','category'=>'Forwarded'],
+        'ro_documents_received' => ['tone'=>'received','icon'=>'inbox-fill','category'=>'RO Received'],
+        'forwarded_to_lpdd' => ['tone'=>'forwarded','icon'=>'send-check-fill','category'=>'Forwarded to LPDD-FUS'],
         'reverted' => ['tone'=>'reverted','icon'=>'arrow-counterclockwise','category'=>'Reverted'],
         default => ['tone'=>'other','icon'=>'clock-history','category'=>'Recorded']
     };

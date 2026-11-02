@@ -86,7 +86,7 @@ function step2_application_for_view(array $viewer, int $applicationId): array
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer, 'lpdd_fus');
     $receiving = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer, 'ro_receiving')
-        && $app['status'] === 'forwarded_to_ro';
+        && in_array((string)$app['status'],['forwarded_to_ro','ro_received','forwarded_to_lpdd'],true);
     $historical = permit_tracking_historical_staff_access($viewer,$applicationId);
     if (!$mine && !$reviewer && !$receiving && !$historical) {
         show_error('You do not have permission to access this application.', 404);
@@ -690,7 +690,7 @@ function step2_send_document(array $viewer, int $documentId): never
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'lpdd_fus');
     $ro = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'ro_receiving')
-        && $doc['application_status'] === 'forwarded_to_ro';
+        && in_array((string)$doc['application_status'],['forwarded_to_ro','ro_received','forwarded_to_lpdd'],true);
     $historical = permit_tracking_historical_staff_access($viewer,(int)$doc['application_id']);
     if (!$mine && !$lpdd && !$ro && !$historical) show_error('Document not found or access denied.',404);
 

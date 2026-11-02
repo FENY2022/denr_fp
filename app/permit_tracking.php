@@ -37,7 +37,19 @@ function permit_tracking_state(array $app): array
         'forwarded_to_ro' => [
             'office'=>'RO Receiving/Releasing (Regional Office)',
             'next_role'=>'RO Receiving Personnel',
-            'next_action'=>'Await formal Step 3 receipt (not yet implemented)',
+            'next_action'=>'Receive electronic application documents at RO Receiving (Step 3)',
+            'assignment'=>'No individual assignee is recorded for this step'
+        ],
+        'ro_received' => [
+            'office'=>'RO Receiving/Releasing (Regional Office)',
+            'next_role'=>'RO Receiving Personnel',
+            'next_action'=>'Forward the received application documents to LPDD-FUS for Step 4 documentary evaluation',
+            'assignment'=>'No individual assignee is recorded for this step'
+        ],
+        'forwarded_to_lpdd' => [
+            'office'=>'LPDD-FUS (Regional Office)',
+            'next_role'=>'LPDD-FUS Documentary Evaluation Personnel',
+            'next_action'=>'Await Step 4 documentary evaluation; the payment request follows only after completeness review',
             'assignment'=>'No individual assignee is recorded for this step'
         ],
         default => [
@@ -57,6 +69,8 @@ function permit_tracking_event_label(string $action): string
         'documents_received'=>'Documents Received by LPDD-FUS',
         'returned_for_correction'=>'Returned for Correction',
         'forwarded_to_ro'=>'Forwarded to RO Receiving',
+        'ro_documents_received'=>'Documents Received by RO Receiving',
+        'forwarded_to_lpdd'=>'Forwarded to LPDD-FUS for Step 4',
         'reverted'=>'Reverted by Applicant',
         default=>ucwords(str_replace('_',' ', $action))
     };
@@ -68,6 +82,8 @@ function permit_tracking_event_destination(string $action): string
         'submitted','resubmitted','documents_received'=>'LPDD-FUS (Regional Office)',
         'returned_for_correction','reverted'=>'Applicant / Client',
         'forwarded_to_ro'=>'RO Receiving/Releasing',
+        'ro_documents_received'=>'RO Receiving/Releasing',
+        'forwarded_to_lpdd'=>'LPDD-FUS (Regional Office)',
         default=>'Not recorded'
     };
 }
@@ -169,7 +185,7 @@ function permit_tracking_historical_staff_access(array $staff, int $applicationI
     return query_one(
         'SELECT id FROM permit_step2_events
          WHERE application_id=? AND actor_user_id=?
-         AND action IN (\'documents_received\',\'returned_for_correction\',\'forwarded_to_ro\')
+         AND action IN (\'documents_received\',\'returned_for_correction\',\'forwarded_to_ro\',\'ro_documents_received\',\'forwarded_to_lpdd\')
          LIMIT 1',
         [$applicationId,(int)$staff['id']]
     ) !== null;
