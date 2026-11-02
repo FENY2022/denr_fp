@@ -104,8 +104,8 @@ function permit_tracking_recent_actions(array $staff, int $limit = 100): array
     $limit = max(1, min(100, $limit));
     $staffId = (int)$staff['id'];
     $actions = [];
-    // A Records archive hides the employee's completed RO actions from the
-    // active/recent work list, never from immutable permit_step2_events.
+    // An archived case vanishes from Records My Recent Actions, while every
+    // original event remains in permit_step2_events and the archive viewer.
     $hideArchivedRoActions = has_role($staff,'ro_receiving') && records_archive_schema_ready();
 
     if (step2_schema_ready()) {
@@ -117,7 +117,7 @@ function permit_tracking_recent_actions(array $staff, int $limit = 100): array
              INNER JOIN permit_step2_applications a ON a.id=ev.application_id
              INNER JOIN user_client c ON c.id=a.client_id
              WHERE ev.actor_user_id=?' . ($hideArchivedRoActions
-                 ? " AND NOT (ev.action IN ('ro_documents_received','forwarded_to_lpdd','ro_archived') AND EXISTS (SELECT 1 FROM permit_records_archives ra WHERE ra.application_id=ev.application_id))"
+                 ? " AND NOT EXISTS (SELECT 1 FROM permit_records_archives ra WHERE ra.application_id=ev.application_id)"
                  : '') . '
              ORDER BY ev.occurred_at DESC,ev.id DESC LIMIT ' . $limit,
             [$staffId]

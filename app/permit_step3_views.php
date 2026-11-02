@@ -61,6 +61,10 @@ function step3_action_panel_html(array $app): string
 function view_step3_ro_inbox(): void
 {
     step3_require_officer();
+    // Archive migration is mandatory for reliable Records workload filtering.
+    if (!records_archive_schema_ready()) {
+        show_error('Apply database migration 023 to enable Records action-list archiving.',503);
+    }
     $apps=query_all("SELECT a.id,a.project_title,a.status,a.forwarded_at,
         c.name AS applicant_name,m.received_at
         FROM permit_step2_applications a
