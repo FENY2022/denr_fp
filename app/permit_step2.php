@@ -534,6 +534,8 @@ function step2_review(array $reviewer, int $applicationId, string $decision, str
         audit((int)$reviewer['id'],'permit.step2.' . $action,'permit_step2_application',
             $applicationId,['revision'=>(int)$app['revision'],'remarks'=>$remarks]);
         $pdo->commit();
+        // Realtime Pusher events must not be published before the DB commit.
+        fpoms_pusher_flush_pending();
 
         try {
             step2_email_applicant_decision(

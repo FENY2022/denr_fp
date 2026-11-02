@@ -280,6 +280,32 @@ try {
         case 'profile_photo':
             send_current_profile_photo(require_user());
             break;
+        case 'realtime_settings':
+            $admin = require_role('super_admin');
+            if ($post) {
+                check_csrf();
+                $operation = safe_post('operation',20);
+                if ($operation === 'save') {
+                    $errors = fpoms_realtime_save($admin,$_POST);
+                    if ($errors) view_realtime_settings($errors);
+                    else {
+                        flash('success','Realtime notification settings saved securely.');
+                        go('realtime_settings');
+                    }
+                } elseif ($operation === 'test') {
+                    $result = fpoms_realtime_test_connection($admin);
+                    view_realtime_settings([], (string)$result['message']);
+                } else show_error('Invalid realtime settings action.',400);
+            } else view_realtime_settings();
+            break;
+        case 'notifications_fragment':
+            if ($post) show_error('GET required.',405);
+            $user = require_user();
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: private, no-store');
+            echo json_encode(['html'=>notification_dropdown_html($user)],
+                JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);
+            exit;
         case 'pusher_auth':
             if (!$post) show_error('POST required.',405);
             $user = require_user();

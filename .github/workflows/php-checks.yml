@@ -58,6 +58,7 @@ jobs:
           php tests/user_management_test.php
           php tests/user_management_export_test.php
           php tests/pusher_realtime_test.php
+          php tests/realtime_settings_test.php
           node --check public/assets/fpoms-pusher.js
           php tests/staff_username_otp_test.php
           php tests/staff_username_recovery_test.php

@@ -41,9 +41,13 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         }
         if (in_array('super_admin', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Administration</div>'
-                . '<details class="sidebar-config-menu"' . (in_array($active, ['user_management','user_create','user_edit'], true) ? ' open' : '') . '>'
+                . '<details class="sidebar-config-menu"' . (in_array($active, ['user_management','user_create','user_edit','realtime_settings'], true) ? ' open' : '') . '>'
                 . '<summary class="sidebar-link"><i class="bi bi-gear-fill"></i><span>Configuration</span><i class="bi bi-chevron-down ms-auto"></i></summary>'
-                . '<div class="ps-3">' . shell_nav_item('user_management','User Management','people-fill', in_array($active, ['user_management','user_create','user_edit'], true) ? 'user_management' : $active) . '</div></details>';
+                . '<div class="ps-3">'
+                . shell_nav_item('user_management','User Management','people-fill',
+                    in_array($active, ['user_management','user_create','user_edit'], true) ? 'user_management' : $active)
+                . shell_nav_item('realtime_settings','Realtime Notifications','broadcast',$active)
+                . '</div></details>';
         }
     }
     return $html;
@@ -103,7 +107,7 @@ function render_page(string $title, string $content): void
         . '<script src="assets/action-feedback.js?v=1" defer></script>'
         . ($user && fpoms_pusher_enabled()
             ? '<script src="https://js.pusher.com/8.4.0/pusher.min.js" defer></script>'
-                . '<script src="assets/fpoms-pusher.js?v=1" defer></script>' : '')
+                . '<script src="assets/fpoms-pusher.js?v=2" defer></script>' : '')
         . '</head><body>';
 
     if ($user) {
