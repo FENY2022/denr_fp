@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // No live SMTP, users, database, or credentials needed.
 require_once __DIR__.'/../app/shared_office_recovery.php';
+require_once __DIR__.'/../app/password_reset.php';
 
 $GLOBALS['mock_records']=[
     ['id'=>4,'name'=>'Staff One','username'=>'staffone4',
@@ -54,7 +55,11 @@ function db(): OfficeRecoveryDb
 }
 function query_one(string $sql,array $args=[]): ?array
 {
-    if (str_contains($sql,'COUNT(*) AS n FROM users u')) return ['n'=>2];
+    if (str_contains($sql,'COUNT(*) AS n FROM users u')) {
+        $address=(string)($args[0]??'');
+        return ['n'=>$address==='individual.one@example.invalid'?1:
+            ($address==='unknown@example.invalid'?0:2)];
+    }
     if (str_contains($sql,'COUNT(*) AS n,MAX(id) AS staff_id')) {
         return ['n'=>1,'staff_id'=>str_contains($args[0],'two')?5:4];
     }
@@ -183,8 +188,11 @@ foreach (['shared_office_recovery','shared_office_verify','shared_office_account
     office_assert(str_contains($routes,"case '".$route."':"),
         'router includes '.$route);
 }
-office_assert(str_contains($passwordView,"url('shared_office_recovery')"),
-    'password and username recovery link to office flow');
+office_assert(str_contains($passwordView,'Shared DENR office emails are detected automatically')
+    && str_contains($passwordView,'Shared office emails are recognized automatically'),
+    'password and username forms explain automatic office detection');
+office_assert(!str_contains($passwordView,"url('shared_office_recovery')"),
+    'no extra manual shared office choice is required');
 office_assert(str_contains($otp,'staff_recovery_unique_account'),
     'legacy staff OTP refuses arbitrary LIMIT 1 account');
 office_assert(str_contains($otp,'staff_recovery_email_exclusive'),
@@ -194,4 +202,64 @@ office_assert(str_contains($bootstrap,"/shared_office_recovery.php"),
 office_assert(str_contains($js,'form.requestSubmit()')
     && str_contains($js,'getOrCreateInstance'),
     'selection confirms with Bootstrap modal');
-echo "PASS: shared office OTP, post-verification selection, personal OTP and access safety.\n";
+// The ordinary Forgot Password / Forgot Username submission detects shared
+// references automatically, before initiating individual staff/client flows.
+$_SESSION=[];
+$GLOBALS['mock_email']=null;
+office_assert(shared_office_auto_start('records.r13@example.invalid','password'),
+    'shared mailbox auto-detected for password recovery');
+office_assert(($_SESSION['shared_office_pending_email']??'')==='records.r13@example.invalid'
+    && ($_SESSION['shared_office_purpose']??'')==='password',
+    'shared office verification context saved without exposing accounts');
+office_assert($GLOBALS['mock_email']['to']==='records.r13@example.invalid',
+    'automatic branch sends OTP to office mailbox');
+office_assert(shared_office_auto_start('records.r13@example.invalid','username'),
+    'shared mailbox auto-detected for username recovery');
+office_assert(($_SESSION['shared_office_purpose']??'')==='username',
+    'username purpose carried into account selector');
+// Both flows present identical public feedback until the OTP is verified.
+$_SESSION['auto_recovery_email']='records.r13@example.invalid';
+$_SESSION['auto_recovery_purpose']='password';
+$_SESSION['auto_recovery_mode']='office';
+view_auto_recovery_verify();
+$officeMarkup=$GLOBALS['render'];
+office_assert(!str_contains($officeMarkup,'Staff One')
+    && !str_contains($officeMarkup,'staffone4'),
+    'generic verification form never reveals account list');
+$_SESSION['auto_recovery_mode']='individual';
+view_auto_recovery_verify();
+office_assert($officeMarkup===$GLOBALS['render'],
+    'unverified office and individual recovery responses are identical');
+
+$_SESSION=[];
+office_assert(!shared_office_auto_start('individual.one@example.invalid','password'),
+    'single individual recovery email stays on normal OTP flow');
+office_assert(!shared_office_auto_start('unknown@example.invalid','password'),
+    'unregistered email remains on generic normal recovery path');
+office_assert(!shared_office_auto_start('not-an-email','password'),
+    'malformed email cannot start shared recovery');
+office_assert(!shared_office_auto_start('records.r13@example.invalid','invalid'),
+    'invalid recovery purpose rejected');
+office_assert(empty($_SESSION['shared_office_pending_email']),
+    'nonshared requests do not create office-selection session');
+
+$pwRoute=strstr($routes,"case 'forgot_password':");
+$userRoute=strstr($routes,"case 'forgot_username':");
+office_assert($pwRoute!==false && $userRoute!==false
+    && strpos($pwRoute,"shared_office_auto_start(\$email,'password')")
+        < strpos($pwRoute,'staff_otp_request($email)'),
+    'password recovery detects shared office before direct individual OTP');
+office_assert(strpos($userRoute,"shared_office_auto_start(\$email,'username')")
+        < strpos($userRoute,"staff_otp_request(\$email,'username')"),
+    'username recovery detects shared office before direct individual OTP');
+office_assert(str_contains($pwRoute,"\$_SESSION['auto_recovery_mode']")
+    && str_contains($userRoute,"\$_SESSION['auto_recovery_mode']"),
+    'both flows remember mode in session, never in a public query string');
+office_assert(str_contains($routes,"case 'auto_recovery_verify':")
+    && str_contains($routes,'shared_office_verify($email,$code)')
+    && str_contains($routes,'staff_otp_verify_password($email,$code)')
+    && str_contains($routes,'staff_otp_verify_username($email,$code)'),
+    'one verification route dispatches OTP by server-side recovery mode');
+office_assert(substr_count($routes,"go('auto_recovery_verify');")===2,
+    'both recovery forms render same generic verification route');
+echo "PASS: shared office OTP, automatic detection, account selection and personal OTP safety.\n";

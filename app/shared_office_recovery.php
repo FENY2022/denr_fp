@@ -92,6 +92,42 @@ function staff_recovery_unique_account(string $email): ?array
 }
 
 /**
+ * Detect and start shared-mailbox recovery directly from either standard
+ * Forgot Password or Forgot Username form. This avoids a second form/link.
+ *
+ * Account names remain hidden until the office OTP is verified. The
+ * automatic pathway NEVER grants a password-reset or username-disclosure
+ * privilege; that still requires the separate individual recovery OTP.
+ * Keep this detection on the server, not in a public account-lookup API.
+ */
+function shared_office_auto_start(string $email,string $purpose): bool
+{
+    $email = shared_office_normalize_email($email);
+    if (!shared_office_email_valid($email)
+        || !in_array($purpose,['password','username'],true)) return false;
+    try {
+        if (shared_office_match_count($email) < 2) return false;
+    } catch (Throwable $error) {
+        // Missing old schema, permissions, etc. must not break ordinary recovery.
+        error_log('FP-OMS shared email detection unavailable: '.get_class($error));
+        return false;
+    }
+    // A new request supersedes earlier unverified/verified office grants.
+    unset($_SESSION['shared_office_verified_email'],
+        $_SESSION['shared_office_verified_expires_at'],
+        $_SESSION['staff_password_reset_user_id'],
+        $_SESSION['staff_password_reset_expires_at'],
+        $_SESSION['staff_reset_pending_email'],
+        $_SESSION['staff_username_pending_email'],
+        $_SESSION['staff_recovered_username']);
+
+    $_SESSION['shared_office_pending_email']=$email;
+    $_SESSION['shared_office_purpose']=$purpose;
+    shared_office_request($email);
+    return true;
+}
+
+/**
  * Request a separate six-digit OTP to the shared OFFICE mailbox.
  * Sends only if at least two active DENR identities reference the address.
  * Errors remain generic to prevent account/email enumeration.

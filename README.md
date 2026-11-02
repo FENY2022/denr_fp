@@ -1160,3 +1160,30 @@ office mailbox shows only generic feedback and that a shared mailbox
 without individual recovery email cannot reset any password.
 Run `php tests/shared_office_recovery_test.php` and
 `node --check public/assets/shared-office-recovery.js`.
+
+### Automatic shared-email detection in standard recovery
+
+**Forgot Password** (/forgot-password) and **Forgot Username**
+(/forgot-username) automatically recognize an email shared by several active
+DENR staff accounts, without requiring the separate office recovery form.
+
+- **Shared office/reference mailbox:** Generate a hashed, rate-limited office
+  OTP, then show eligible staff account choices only after email verification.
+  Choosing an account still requires an additional OTP sent to its unique
+  personal recovery email before any password reset or username reveal.
+- **Single eligible staff email:** Continue the existing per-user OTP flow.
+- **Applicant email:** Continue sending the established reset-link email.
+- **Unknown email:** Show generic feedback; never disclose account names.
+
+All initial submissions use the **same /auto-recovery-verify URL and
+identical public page**, regardless of whether the address belongs to one
+account, several, an applicant, or no account. The server-only session
+determines which OTP purpose applies, preventing the redirect/page from
+revealing shared-account status. The correct next step (account chooser,
+staff password reset, or username reveal) follows only after valid OTP.
+
+**Deployment:** Migration 025 (database/025_shared_office_recovery.sql)
+must already be applied for shared office OTPs. Working SMTP is also required.
+**No new database migration** is introduced by automatic detection.
+**Security checks:** php tests/shared_office_recovery_test.php (included
+in the two PHP workflows) and a live two-account XAMPP/SMTP smoke test.

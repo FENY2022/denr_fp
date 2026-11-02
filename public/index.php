@@ -111,13 +111,24 @@ try {
             if ($post) {
                 check_csrf();
                 $email = strtolower(trim(safe_post('email',190)));
-                request_password_reset($email); // applicant email link only
-                staff_otp_request($email); // DENR staff receive a six-digit code
+                // Starting a new recovery attempt revokes any old office choice.
+                unset($_SESSION['shared_office_verified_email'],
+                    $_SESSION['shared_office_verified_expires_at'],
+                    $_SESSION['shared_office_pending_email'],
+                    $_SESSION['shared_office_purpose']);
+                $officeFlow = shared_office_auto_start($email,'password');
+                if (!$officeFlow) {
+                    request_password_reset($email); // Applicant receives existing reset link.
+                    staff_otp_request($email); // Eligible individual DENR staff OTP.
+                    $_SESSION['staff_reset_pending_email']=$email;
+                }
                 unset($_SESSION['staff_password_reset_user_id'],
                     $_SESSION['staff_password_reset_expires_at']);
-                $_SESSION['staff_reset_pending_email'] = $email;
-                flash('info', 'If the email is registered, a recovery message was sent. DENR staff: enter the OTP. Applicants: use the password-reset link in your inbox.');
-                go('staff_reset_password');
+                $_SESSION['auto_recovery_email']=$email;
+                $_SESSION['auto_recovery_purpose']='password';
+                $_SESSION['auto_recovery_mode']=$officeFlow?'office':'individual';
+                flash('info','If the email is registered, a recovery message has been requested. Enter a verification code if received, or use the applicant password-reset link in your email.');
+                go('auto_recovery_verify');
             } else {
                 view_forgot_password();
             }
@@ -126,15 +137,72 @@ try {
             if ($post) {
                 check_csrf();
                 $email = strtolower(trim(safe_post('email',190)));
-                staff_otp_request($email,'username');
-                // Never identify whether this mailbox belongs to a DENR user.
-                $_SESSION['staff_username_pending_email'] = $email;
+                // Starting a new recovery attempt revokes any old office choice.
+                unset($_SESSION['shared_office_verified_email'],
+                    $_SESSION['shared_office_verified_expires_at'],
+                    $_SESSION['shared_office_pending_email'],
+                    $_SESSION['shared_office_purpose']);
+                $officeFlow = shared_office_auto_start($email,'username');
+                if (!$officeFlow) {
+                    staff_otp_request($email,'username');
+                    $_SESSION['staff_username_pending_email']=$email;
+                }
                 unset($_SESSION['staff_recovered_username']);
-                flash('info','If this is an active DENR recovery email, a six-digit username verification code has been sent.');
-                go('verify_username');
+                $_SESSION['auto_recovery_email']=$email;
+                $_SESSION['auto_recovery_purpose']='username';
+                $_SESSION['auto_recovery_mode']=$officeFlow?'office':'individual';
+                flash('info','If this email belongs to an active DENR account, a recovery code has been requested. Enter the code if received.');
+                go('auto_recovery_verify');
             } else {
                 view_forgot_username();
             }
+            break;
+        case 'auto_recovery_verify':
+            if ($post) {
+                check_csrf();
+                $email=(string)($_SESSION['auto_recovery_email']??'');
+                $purpose=(string)($_SESSION['auto_recovery_purpose']??'');
+                $mode=(string)($_SESSION['auto_recovery_mode']??'');
+                $code=safe_post('otp',6);
+                $verified=false;
+                if ($mode==='office') {
+                    $verified=shared_office_verify($email,$code);
+                    if ($verified) {
+                        unset($_SESSION['auto_recovery_email'],
+                            $_SESSION['auto_recovery_purpose'],
+                            $_SESSION['auto_recovery_mode']);
+                        go('shared_office_accounts');
+                    }
+                } elseif ($mode==='individual' && $purpose==='password') {
+                    $id=staff_otp_verify_password($email,$code);
+                    if ($id!==null) {
+                        unset($_SESSION['staff_reset_pending_email'],
+                            $_SESSION['auto_recovery_email'],
+                            $_SESSION['auto_recovery_purpose'],
+                            $_SESSION['auto_recovery_mode']);
+                        $_SESSION['staff_password_reset_user_id']=$id;
+                        $_SESSION['staff_password_reset_expires_at']=time()+600;
+                        session_regenerate_id(true);
+                        $_SESSION['csrf_token']=bin2hex(random_bytes(32));
+                        go('staff_reset_password');
+                    }
+                } elseif ($mode==='individual' && $purpose==='username') {
+                    $account=staff_otp_verify_username($email,$code);
+                    if ($account!==null) {
+                        unset($_SESSION['staff_username_pending_email'],
+                            $_SESSION['auto_recovery_email'],
+                            $_SESSION['auto_recovery_purpose'],
+                            $_SESSION['auto_recovery_mode']);
+                        $_SESSION['staff_recovered_username']=$account['username'];
+                        session_regenerate_id(true);
+                        $_SESSION['csrf_token']=bin2hex(random_bytes(32));
+                        go('username_recovered');
+                    }
+                }
+                view_auto_recovery_verify([
+                    'Invalid or expired verification code. Check your email or request a new code.'
+                ]);
+            } else view_auto_recovery_verify();
             break;
         case 'verify_username':
             if ($post) {
