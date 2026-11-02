@@ -270,6 +270,27 @@ try {
             mark_all_notifications_read($user);
             go('notifications');
             break;
+        case 'records_archive':
+            if ($post) show_error('Use the archive confirmation action.',405);
+            view_records_archive();
+            break;
+        case 'records_archive_action':
+            $officer=records_archive_require_officer();
+            if (!$post) show_error('Archiving requires confirmed POST.',405);
+            check_csrf();
+            $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            if (($_POST['archive_confirm'] ?? '')!=='1') {
+                show_error('Confirm archiving in the dialog first.',400);
+            }
+            $errors=records_archive_action($officer,(int)$id,safe_post('remarks',2000));
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                flash('success','Records action archived. Removed from active and recent Records action lists.');
+                go('records_archive');
+            }
+            break;
         case 'my_actions':
             if ($post) show_error('Action history is read-only.',405);
             view_staff_action_history();

@@ -32,7 +32,9 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
                 . shell_nav_item('permit_step4_queue', 'Step 4 Incoming (Read-only)', 'file-earmark-arrow-down', $active);
         }
         if (in_array('ro_receiving', $roles, true)) {
-            $html .= shell_nav_item('permit_ro_inbox', 'RO Receiving – Step 3', 'inboxes', $active);
+            $html .= '<div class="sidebar-section-title">Records Management</div>'
+                . shell_nav_item('permit_ro_inbox', 'RO Receiving – Step 3', 'inboxes', $active)
+                . shell_nav_item('records_archive', 'Records Archiving', 'archive-fill', $active);
         }
         foreach ([['clipboard-data','Document Evaluation'],['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
             $html .= '<span class="sidebar-link" aria-disabled="true" title="Available in a later phase"><i class="bi bi-' . e($icon) . '"></i><span>' . e($label) . ' · Soon</span></span>';
@@ -139,7 +141,7 @@ function render_page(string $title, string $content): void
         $type = in_array($message['type'], ['success', 'warning', 'danger', 'info'], true) ? $message['type'] : 'info';
         echo '<div class="alert alert-' . $type . '" role="status">' . e((string)$message['message']) . '</div>';
     }
-    echo $content;
+    echo fpoms_format_visible_dates($content);
     echo '</main><footer class="footer"><div class="d-flex flex-wrap gap-2 justify-content-between">'
         . '<span>DENR Regional Office XIII — Feasibility Permit Online Management System</span>'
         . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer></div></div>'
@@ -639,7 +641,7 @@ function review_queue_display_date(?string $value): string
     if ($value === '') return '';
 
     try {
-        return (new DateTimeImmutable($value))->format('F j, Y g:i A');
+        return fpoms_display_datetime($value);
     } catch (Throwable) {
         return $value;
     }
@@ -952,6 +954,12 @@ function view_dashboard(): void
         $html.='<div class="col-md-6"><a class="quick-action" href="'.e(url('permit_step4_queue'))
             .'"><strong>Step 4 Incoming (Read-only)</strong><span class="metric">'
             .(int)($incoming['n'] ?? 0).'</span><small>Forwarded from RO Receiving</small></a></div>';
+    }
+    if (records_archive_schema_ready() && has_role($user,'ro_receiving')) {
+        $archived=query_one('SELECT COUNT(*) AS n FROM permit_records_archives');
+        $html.='<div class="col-md-6"><a class="quick-action" href="'.e(url('records_archive'))
+            .'"><strong>Records Archiving</strong><span class="metric">'
+            .(int)($archived['n'] ?? 0).'</span><small>Completed Records handoffs on file</small></a></div>';
     }
     if (has_role($user,'super_admin')) $html .= '<div class="col-md-6"><a class="quick-action" href="' . url('user_management') . '"><strong>User Management</strong><span class="metric">RICTU</span><small>Create role-assigned accounts</small></a></div>';
     $html .= '</div><div class="alert alert-info mt-3 mb-0">Step 2 FP application submission, initial LPDD-FUS review and RO handoff are implemented. Formal RO receiving and forwarding (Step 3) are enabled after migration 022. Step 4 evaluation/payment and Steps 5–11 remain future development.</div></div>';

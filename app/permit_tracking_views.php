@@ -47,6 +47,7 @@ function permit_tracking_action_visual(string $action): array
         'forwarded_to_ro' => ['tone'=>'forwarded','icon'=>'check-circle-fill','category'=>'Forwarded'],
         'ro_documents_received' => ['tone'=>'received','icon'=>'inbox-fill','category'=>'RO Received'],
         'forwarded_to_lpdd' => ['tone'=>'forwarded','icon'=>'send-check-fill','category'=>'Forwarded to LPDD-FUS'],
+        'ro_archived' => ['tone'=>'received','icon'=>'archive-fill','category'=>'Archived by Records'],
         'reverted' => ['tone'=>'reverted','icon'=>'arrow-counterclockwise','category'=>'Reverted'],
         default => ['tone'=>'other','icon'=>'clock-history','category'=>'Recorded']
     };
@@ -341,7 +342,7 @@ function view_staff_action_history(): void
         . 'align-items-center flex-wrap gap-2"><div><h2 class="h5 mb-1">'
         . '<i class="bi bi-journal-check me-2"></i>My Recent Actions</h2>'
         . '<p class="small text-secondary mb-0">Your own recorded DENR actions, '
-        . 'including completed and forwarded cases.</p></div>'
+        . 'including completed and forwarded cases. Archived Records actions move to the Records Archiving menu.</p></div>'
         . '<a class="btn btn-sm btn-outline-secondary" href="'
         . e(url('dashboard')) . '">Dashboard</a></div>'
         . '<nav class="d-flex flex-wrap gap-2 my-3" aria-label="Filter action history">';

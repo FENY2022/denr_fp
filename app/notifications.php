@@ -172,19 +172,7 @@ function mark_all_notifications_read(array $user): void
 
 function notification_time_label(string $value): string
 {
-    try {
-        $created = new DateTimeImmutable($value);
-        $now = new DateTimeImmutable('now');
-        $seconds = max(0, $now->getTimestamp() - $created->getTimestamp());
-
-        if ($seconds < 60) return 'Just now';
-        if ($seconds < 3600) return intdiv($seconds, 60) . ' min ago';
-        if ($seconds < 86400) return intdiv($seconds, 3600) . ' hr ago';
-        if ($seconds < 604800) return intdiv($seconds, 86400) . ' day' . (intdiv($seconds, 86400) === 1 ? '' : 's') . ' ago';
-        return $created->format('M j, Y');
-    } catch (Throwable) {
-        return $value;
-    }
+    return fpoms_display_datetime($value);
 }
 
 function notification_dropdown_html(array $user): string

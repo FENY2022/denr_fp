@@ -71,6 +71,7 @@ function permit_tracking_event_label(string $action): string
         'forwarded_to_ro'=>'Forwarded to RO Receiving',
         'ro_documents_received'=>'Documents Received by RO Receiving',
         'forwarded_to_lpdd'=>'Forwarded to LPDD-FUS for Step 4',
+        'ro_archived'=>'Records Action Archived',
         'reverted'=>'Reverted by Applicant',
         default=>ucwords(str_replace('_',' ', $action))
     };
@@ -84,6 +85,7 @@ function permit_tracking_event_destination(string $action): string
         'forwarded_to_ro'=>'RO Receiving/Releasing',
         'ro_documents_received'=>'RO Receiving/Releasing',
         'forwarded_to_lpdd'=>'LPDD-FUS (Regional Office)',
+        'ro_archived'=>'Records Archiving',
         default=>'Not recorded'
     };
 }
@@ -102,6 +104,9 @@ function permit_tracking_recent_actions(array $staff, int $limit = 100): array
     $limit = max(1, min(100, $limit));
     $staffId = (int)$staff['id'];
     $actions = [];
+    // A Records archive hides the employee's completed RO actions from the
+    // active/recent work list, never from immutable permit_step2_events.
+    $hideArchivedRoActions = has_role($staff,'ro_receiving') && records_archive_schema_ready();
 
     if (step2_schema_ready()) {
         $rows = query_all(
@@ -111,7 +116,9 @@ function permit_tracking_recent_actions(array $staff, int $limit = 100): array
              FROM permit_step2_events ev
              INNER JOIN permit_step2_applications a ON a.id=ev.application_id
              INNER JOIN user_client c ON c.id=a.client_id
-             WHERE ev.actor_user_id=?
+             WHERE ev.actor_user_id=?' . ($hideArchivedRoActions
+                 ? " AND NOT (ev.action IN ('ro_documents_received','forwarded_to_lpdd','ro_archived') AND EXISTS (SELECT 1 FROM permit_records_archives ra WHERE ra.application_id=ev.application_id))"
+                 : '') . '
              ORDER BY ev.occurred_at DESC,ev.id DESC LIMIT ' . $limit,
             [$staffId]
         );

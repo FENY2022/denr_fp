@@ -52,6 +52,9 @@ function step3_action_panel_html(array $app): string
         $html.='<div class="alert alert-success mb-0">RO Step 3 completed. '
             .'Application is forwarded to LPDD-FUS for Step 4.</div>';
     }
+    if ($status==='forwarded_to_lpdd') {
+        $html.=records_archive_action_panel_html($app);
+    }
     return $html.'</div>';
 }
 
@@ -63,7 +66,8 @@ function view_step3_ro_inbox(): void
         FROM permit_step2_applications a
         JOIN user_client c ON c.id=a.client_id
         LEFT JOIN permit_step3_movements m ON m.application_id=a.id
-        WHERE a.status IN ('forwarded_to_ro','ro_received','forwarded_to_lpdd')
+        LEFT JOIN permit_records_archives ra ON ra.application_id=a.id
+        WHERE ra.application_id IS NULL AND a.status IN ('forwarded_to_ro','ro_received','forwarded_to_lpdd')
         ORDER BY CASE a.status WHEN 'forwarded_to_ro' THEN 0
            WHEN 'ro_received' THEN 1 ELSE 2 END,
            a.forwarded_at DESC,a.id DESC LIMIT 200");

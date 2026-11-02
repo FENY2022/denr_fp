@@ -10,7 +10,7 @@ function profile_display_date(?string $value): string
     if ($value === '') return '—';
 
     try {
-        return (new DateTimeImmutable($value))->format('F j, Y · g:i A');
+        return fpoms_display_datetime($value);
     } catch (Throwable) {
         return $value;
     }

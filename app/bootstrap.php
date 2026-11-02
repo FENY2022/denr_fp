@@ -51,6 +51,7 @@ if (!headers_sent()) {
 }
 require_once __DIR__ . '/domain.php';
 require_once __DIR__ . '/core.php';
+require_once __DIR__ . '/datetime_display.php';
 require_once __DIR__ . '/file_keys.php';
 require_once __DIR__ . '/file_crypto.php';
 require_once __DIR__ . '/staff_username.php';
@@ -69,6 +70,7 @@ require_once __DIR__ . '/registration_requirements.php';
 require_once __DIR__ . '/permit_step2_requirements.php';
 require_once __DIR__ . '/permit_step2.php';
 require_once __DIR__ . '/permit_step3.php';
+require_once __DIR__ . '/records_archive.php';
 require_once __DIR__ . '/permit_tracking.php';
 require_once __DIR__ . '/permit_step2_revert.php';
 require_once __DIR__ . '/permit_step2_drafts.php';
@@ -85,5 +87,6 @@ require_once __DIR__ . '/user_management_views.php';
 require_once __DIR__ . '/setup.php';
 require_once __DIR__ . '/permit_step2_views.php';
 require_once __DIR__ . '/permit_step3_views.php';
+require_once __DIR__ . '/records_archive_views.php';
 require_once __DIR__ . '/permit_tracking_views.php';
 require_once __DIR__ . '/landing.php';
