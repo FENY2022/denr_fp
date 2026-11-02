@@ -187,6 +187,18 @@ try {
                 $email=(string)($_SESSION['auto_recovery_email']??'');
                 $purpose=(string)($_SESSION['auto_recovery_purpose']??'');
                 $mode=(string)($_SESSION['auto_recovery_mode']??'');
+                if (safe_post('action',20)==='resend') {
+                    if ($mode==='office') {
+                        shared_office_request($email);
+                    } elseif ($mode==='individual' && $purpose==='password') {
+                        request_password_reset($email);
+                        staff_otp_request($email);
+                    } elseif ($mode==='individual' && $purpose==='username') {
+                        staff_otp_request($email,'username');
+                    }
+                    flash('info','If the email is eligible, a new recovery message has been requested.');
+                    go('auto_recovery_verify');
+                }
                 $code=safe_post('otp',6);
                 $verified=false;
                 if ($mode==='office') {

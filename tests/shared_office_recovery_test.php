@@ -168,13 +168,16 @@ office_assert($GLOBALS['mock_staff_otp']===['to'=>'individual.one@example.invali
 office_assert(shared_office_choose_account(5,'password')!==[],
     'office verification grant consumed after selecting once');
 
-// A staff account listing the shared office address as its recovery email
-// may not reset a password with office-mailbox access alone.
+// A staff account listing the verified office address as its only recovery
+// email receives a short account-specific password reset grant.
 $_SESSION['shared_office_verified_email']='records.r13@example.invalid';
 $_SESSION['shared_office_verified_expires_at']=time()+600;
 $GLOBALS['mock_records'][1]['email']='records.r13@example.invalid';
-office_assert(shared_office_choose_account(5,'password')!==[],
-    'shared office mailbox cannot be used as the final recovery factor');
+office_assert(shared_office_choose_account(5,'password')===[],
+    'verified shared office mailbox allows selected account password reset');
+office_assert(($_SESSION['staff_password_reset_user_id']??0)===5
+    && ($_SESSION['staff_password_reset_expires_at']??0)>time(),
+    'office-only recovery creates a short selected-account reset grant');
 $GLOBALS['mock_records'][1]['email']='individual.two@example.invalid';
 
 // Only one Active account can remain selectable even though another
@@ -256,6 +259,9 @@ $officeMarkup=$GLOBALS['render'];
 office_assert(!str_contains($officeMarkup,'Staff One')
     && !str_contains($officeMarkup,'staffone4'),
     'generic verification form never reveals account list');
+office_assert(substr_count($officeMarkup,'data-otp-digit')===6
+    && str_contains($officeMarkup,'Send New OTP'),
+    'generic verification form renders six OTP boxes and resend control');
 $_SESSION['auto_recovery_mode']='individual';
 view_auto_recovery_verify();
 office_assert($officeMarkup===$GLOBALS['render'],
@@ -292,6 +298,10 @@ office_assert(str_contains($routes,"case 'auto_recovery_verify':")
     && str_contains($routes,'staff_otp_verify_password($email,$code)')
     && str_contains($routes,'staff_otp_verify_username($email,$code)'),
     'one verification route dispatches OTP by server-side recovery mode');
-office_assert(substr_count($routes,"go('auto_recovery_verify');")===2,
-    'both recovery forms render same generic verification route');
-echo "PASS: shared office OTP, automatic detection, account selection and personal OTP safety.\n";
+office_assert(str_contains($routes,"safe_post('action',20)==='resend'")
+    && str_contains($passwordView,'Send New OTP')
+    && str_contains($passwordView,"recovery_otp_input('Six-Digit Recovery OTP')"),
+    'generic verification route supports resend and six-box OTP entry');
+office_assert(substr_count($routes,"go('auto_recovery_verify');")===3,
+    'both recovery forms and resend return to generic verification route');
+echo "PASS: shared office OTP, account selection, reset fallback and personal OTP flow.\n";

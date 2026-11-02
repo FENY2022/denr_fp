@@ -198,8 +198,7 @@ function view_staff_otp_reset(array $errors=[]): void
             . 'The code expires in 10 minutes. Your password can be reset only after the code is verified.</p>'
             . '<form method="post" action="'.e(url('staff_reset_password')).'">'
             . csrf_field().'<input type="hidden" name="action" value="verify_otp">'
-            . field('otp','Email Verification Code','','text',true,
-                'inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" autofocus')
+            . recovery_otp_input('Email Verification Code')
             . '<button class="btn btn-primary w-100" type="submit">Verify OTP</button>'
             . '</form><hr><a class="small" href="'.e(url('forgot_password')).'">'
             . 'Request a new code / return to recovery</a>'
@@ -335,8 +334,7 @@ function view_staff_username_verification(array $errors=[]): void
         . '10 minutes. Enter the code to securely reveal your username.</p>'
         . '<form method="post" action="' . e(url('verify_username')) . '">'
         . csrf_field()
-        . field('otp','Six-Digit Email OTP','','text',true,
-            'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"')
+        . recovery_otp_input('Six-Digit Email OTP')
         . '<button class="btn btn-primary w-100" type="submit">'
         . 'Verify Code &amp; Recover Username</button></form>'
         . '<hr><div class="d-flex justify-content-between flex-wrap gap-2">'

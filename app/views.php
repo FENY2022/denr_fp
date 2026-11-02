@@ -90,7 +90,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=33" rel="stylesheet">'
+        . '<link href="assets/style.css?v=34" rel="stylesheet">'
         . '<link href="assets/action-feedback.css?v=1" rel="stylesheet">'
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
@@ -171,6 +171,8 @@ function render_page(string $title, string $content): void
             ? '<script src="assets/otp-verification-success.js?v=1"></script>' : '')
         . (str_contains($content, 'data-decision-confirm-form')
             ? '<script src="assets/decision-confirm.js?v=1" defer></script>' : '')
+        . (str_contains($content, 'data-otp-boxes')
+            ? '<script src="assets/recovery-otp-input.js?v=1" defer></script>' : '')
         . '</body></html>';
 }
 

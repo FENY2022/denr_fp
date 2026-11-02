@@ -255,20 +255,25 @@ function view_auto_recovery_verify(array $errors=[]): void
         . '<p class="small text-secondary">If a recovery code was sent, enter the '
         . 'six-digit OTP below. Shared office email addresses are detected '
         . 'automatically. A verified shared mailbox can then select an account '
-        . 'and request a separate personal recovery OTP. '
+        . 'and continue password recovery. '
         . 'Applicants should use the password-reset link sent to their email.</p>'
         . '<form method="post" action="'.e(url('auto_recovery_verify')).'" '
         . 'data-inline-submit-loading>'.csrf_field()
-        . field('otp','Six-Digit Recovery OTP','','text',true,
-            'inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code"')
+        . '<input type="hidden" name="action" value="verify">'
+        . recovery_otp_input('Six-Digit Recovery OTP')
         . '<button type="submit" class="btn btn-primary w-100">'
         . '<i class="bi bi-shield-check me-2"></i>Verify Code &amp; Continue</button>'
-        . '</form><p class="small text-secondary mt-3 mb-0">'
+        . '</form><form method="post" action="'.e(url('auto_recovery_verify')).'" '
+        . 'class="mt-2">'.csrf_field()
+        . '<input type="hidden" name="action" value="resend">'
+        . '<button type="submit" class="btn btn-outline-primary w-100">'
+        . '<i class="bi bi-send me-2"></i>Send New OTP</button></form>'
+        . '<p class="small text-secondary mt-3 mb-0">'
         . 'OTP codes expire after 10 minutes. For security, the system does not '
         . 'indicate whether the entered email belongs to any account.</p>'
         . '<hr><a class="small" href="'.e(url(
             $purpose==='username'?'forgot_username':'forgot_password'
-        )).'">Request a New Code</a>'
+        )).'">Use a Different Email</a>'
         . '</div></div></div>';
     render_page('Verify Recovery Email',$html);
 }

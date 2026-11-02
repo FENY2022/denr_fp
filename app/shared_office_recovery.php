@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 /**
  * Shared-office recovery never grants access using an office mailbox alone.
- * First verify that mailbox (only then list staff), then require a separate
- * unique personal recovery mailbox to recover the selected account.
+ * First verify that mailbox (only then list staff), then bind recovery to the
+ * selected account. A separate personal OTP is used when one is available.
  *
  * Requires database/025_shared_office_recovery.sql.
  */
@@ -290,8 +290,8 @@ function shared_office_verified_email(): string
 }
 
 /**
- * Account choice never resets a password. It initiates an ordinary OTP to
- * the selected identity's DISTINCT and EXCLUSIVE personal recovery email.
+ * Use a separate personal OTP when available. If the selected account only
+ * has the already-verified office mailbox, issue a short password-reset grant.
  */
 function shared_office_choose_account(int $id,string $purpose): array
 {
@@ -309,16 +309,25 @@ function shared_office_choose_account(int $id,string $purpose): array
     }
     if ($selected === null) return ['Select one of the verified office accounts.'];
     $personal = shared_office_normalize_email((string)($selected['email'] ?? ''));
-    if ($personal === $officeEmail ||
-        !staff_recovery_email_exclusive($personal,$id)) {
-        return ['This account has no separate verified personal recovery email. '
-            . 'Contact your RICTU Super Administrator to update it and verify your identity.'];
-    }
+    $hasSeparatePersonal = $personal !== $officeEmail
+        && staff_recovery_email_exclusive($personal,$id);
 
-    // Consume the office mailbox grant before moving into separate personal OTP.
+    // Consume the office mailbox grant before granting one account-specific path.
     unset($_SESSION['shared_office_verified_email'],
         $_SESSION['shared_office_verified_expires_at'],
         $_SESSION['shared_office_pending_email']);
+    if ($purpose==='password' && !$hasSeparatePersonal) {
+        unset($_SESSION['staff_reset_pending_email']);
+        $_SESSION['staff_password_reset_user_id']=$id;
+        $_SESSION['staff_password_reset_expires_at']=time()+600;
+        session_regenerate_id(true);
+        $_SESSION['csrf_token']=bin2hex(random_bytes(32));
+        return [];
+    }
+    if (!$hasSeparatePersonal) {
+        return ['This account has no separate verified personal recovery email. '
+            . 'Contact your RICTU Super Administrator to recover its username.'];
+    }
     if ($purpose==='username') {
         unset($_SESSION['staff_recovered_username']);
         $_SESSION['staff_username_pending_email']=$personal;
@@ -332,6 +341,24 @@ function shared_office_choose_account(int $id,string $purpose): array
     return [];
 }
 
+/** Six accessible digit boxes backed by the existing single `otp` POST field. */
+function recovery_otp_input(string $label): string
+{
+    $labelId='recovery-otp-label';
+    $html='<div class="mb-3" data-otp-boxes>'
+        .'<label class="form-label d-block" id="'.e($labelId).'">'.e($label)
+        .' <span class="text-danger">*</span></label>'
+        .'<input type="hidden" name="otp" data-otp-value>'
+        .'<div class="recovery-otp-boxes" role="group" aria-labelledby="'.e($labelId).'">';
+    for ($digit=1;$digit<=6;$digit++) {
+        $html.='<input class="form-control recovery-otp-digit" type="text" '
+            .'inputmode="numeric" pattern="[0-9]" maxlength="1" required '
+            .'aria-label="OTP digit '.$digit.' of 6" data-otp-digit'
+            .($digit===1?' autocomplete="one-time-code" autofocus':' autocomplete="off"').'>';
+    }
+    return $html.'</div></div>';
+}
+
 function view_shared_office_recovery(): void
 {
     if (current_user()) go('dashboard');
@@ -340,8 +367,8 @@ function view_shared_office_recovery(): void
         . '<i class="bi bi-people me-2"></i>Shared Office Email Recovery</h2>'
         . '<p class="small text-secondary">If several DENR staff accounts use the same '
         . 'office email reference, you can verify access to that mailbox first, '
-        . 'then choose the intended staff account. A separate individual recovery '
-        . 'email is still required for the final OTP.</p>'
+        . 'then choose the intended staff account. A separate personal recovery '
+        . 'OTP is used when that account has one.</p>'
         . '<form method="post" action="'.e(url('shared_office_recovery')).'" data-inline-submit-loading>'
         . csrf_field()
         . field('office_email','Shared Office Email','','email',true,
@@ -374,8 +401,7 @@ function view_shared_office_verify(array $errors=[]): void
         . 'Verify it before the system displays account choices.</p>'
         . '<form method="post" action="'.e(url('shared_office_verify')).'">'
         . csrf_field()
-        . field('otp','Six-Digit Office Email OTP','','text',true,
-            'inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code"')
+        . recovery_otp_input('Six-Digit Office Email OTP')
         . '<button class="btn btn-primary w-100" type="submit">'
         . 'Verify Office Email</button></form>'
         . '<hr><a href="'.e(url('shared_office_recovery')).'" class="small">'
@@ -396,7 +422,7 @@ function view_shared_office_accounts(array $errors=[]): void
         . '<h2 class="h5"><i class="bi bi-person-check me-2"></i>'
         . 'Select Your DENR Account</h2>'
         . '<div class="alert alert-success small">Office email access verified. '
-        . 'Choose your account below. This verification alone cannot reset any password.</div>'
+        . 'Choose your own account below to continue secure recovery.</div>'
         . '<form method="post" action="'.e(url('shared_office_accounts')).'" '
         . 'id="shared-office-account-form">'
         . csrf_field()
@@ -417,9 +443,9 @@ function view_shared_office_accounts(array $errors=[]): void
     }
     $html .= '</div><button type="button" class="btn btn-primary w-100" '
         . 'data-office-open-confirm>Select This Account</button>'
-        . '</form><p class="small text-secondary mt-3 mb-0">A new OTP will be sent '
-        . 'only to the selected account’s separate personal recovery email. '
-        . 'If that address is missing or shared, contact the RICTU Super Administrator.</p>'
+        . '</form><p class="small text-secondary mt-3 mb-0">If the selected account has '
+        . 'a separate personal recovery email, a new OTP will be sent there. Otherwise, '
+        . 'the verified office mailbox permits a password reset for the selected account.</p>'
         . '<hr><a class="small" href="'.e(url('shared_office_recovery')).'">'
         . 'Start Over</a></div></div></div>'
         . '<div class="modal fade" id="shared-office-confirm-modal" tabindex="-1" '
@@ -431,8 +457,8 @@ function view_shared_office_accounts(array $errors=[]): void
         . 'aria-label="Close"></button></div>'
         . '<div class="modal-body"><p>Continue recovery for '
         . '<strong id="shared-office-confirm-name"></strong>?</p>'
-        . '<p class="small text-secondary">You will still need a separate '
-        . 'individual recovery email OTP.</p></div>'
+        . '<p class="small text-secondary">A separate personal OTP will be requested '
+        . 'when the selected account has one; otherwise you can create a new password now.</p></div>'
         . '<div class="modal-footer"><button type="button" '
         . 'class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
         . '<button type="button" class="btn btn-primary" '

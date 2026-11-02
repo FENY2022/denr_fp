@@ -859,3 +859,15 @@ body.page-loading{overflow:hidden}
   .fp-ro-status-tabs .nav-link{flex:1 1 100%}
   .fp-records-table{min-width:0}
 }
+
+.recovery-otp-boxes{
+  display:grid;grid-template-columns:repeat(6,minmax(0,3.25rem));
+  justify-content:center;gap:clamp(.35rem,2vw,.65rem)
+}
+.recovery-otp-digit{
+  aspect-ratio:1;padding:.45rem .2rem;text-align:center;
+  font-size:1.35rem;font-weight:700;line-height:1
+}
+@media(max-width:420px){
+  .recovery-otp-boxes{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
