@@ -44,10 +44,9 @@ function staff_otp_request(string $email, string $purpose = 'password'): void
             [$ip]
         );
         if ((int)($rate['n'] ?? 0)>=20) return;
-        $user = query_one(
-            "SELECT id,name,email,username FROM users WHERE email=? AND user_kind='internal'
-             AND status='active' LIMIT 1",[$email]
-        );
+        // Never select LIMIT 1 from multiple accounts or use a shared office
+        // mailbox as an account's only password/username recovery factor.
+        $user = staff_recovery_unique_account($email);
         if (!$user || ($purpose==='username' && trim((string)($user['username'] ?? ''))==='')) return;
         // Refuse ambiguous mailboxes shared with a client identity.
         if (query_one("SELECT id FROM user_client WHERE email=? LIMIT 1",[$email])) return;
@@ -98,11 +97,12 @@ function staff_otp_verify_password(string $email,string $code): ?int
     $pdo=db();
     try {
         $pdo->beginTransaction();
-        $user=query_one(
+        $matching=query_all(
             "SELECT id FROM users WHERE email=? AND user_kind='internal'
-             AND status='active' FOR UPDATE",[$email]
+             AND status='active' LIMIT 2 FOR UPDATE",[$email]
         );
-        if (!$user) {
+        $user=count($matching)===1 ? $matching[0] : null;
+        if (!$user || !staff_recovery_email_exclusive($email,(int)$user['id'])) {
             $pdo->rollBack();
             return null;
         }
@@ -202,7 +202,10 @@ function view_staff_otp_reset(array $errors=[]): void
                 'inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" autofocus')
             . '<button class="btn btn-primary w-100" type="submit">Verify OTP</button>'
             . '</form><hr><a class="small" href="'.e(url('forgot_password')).'">'
-            . 'Request a new code / return to recovery</a>';
+            . 'Request a new code / return to recovery</a>'
+            . '<p class="small mt-3">Using a shared office email? '
+            . '<a href="'.e(url('shared_office_recovery')).'">'
+            . 'Verify the office mailbox and select your account</a>.</p>';
     } else {
         $html.='<div class="alert alert-success py-2 small"><i class="bi bi-check-circle-fill me-2" '
             . 'aria-hidden="true"></i>Email verification code confirmed.</div>'
@@ -272,12 +275,14 @@ function staff_otp_verify_username(string $email,string $code): ?array
     $pdo = db();
     try {
         $pdo->beginTransaction();
-        $user = query_one(
+        $matching = query_all(
             "SELECT id,username FROM users
-             WHERE email=? AND user_kind='internal' AND status='active' FOR UPDATE",
-            [$email]
+             WHERE email=? AND user_kind='internal' AND status='active'
+             LIMIT 2 FOR UPDATE",[$email]
         );
+        $user=count($matching)===1 ? $matching[0] : null;
         if (!$user || trim((string)($user['username'] ?? ''))===''
+            || !staff_recovery_email_exclusive($email,(int)$user['id'])
             || query_one("SELECT id FROM user_client WHERE email=? LIMIT 1",[$email])) {
             $pdo->rollBack();
             return null;

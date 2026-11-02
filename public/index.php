@@ -61,6 +61,52 @@ try {
                 view_login(['Invalid username/email or password. Please try again.']);
             } else view_login();
             break;
+        case 'shared_office_recovery':
+            if ($post) {
+                check_csrf();
+                $email=shared_office_normalize_email(safe_post('office_email',190));
+                $purpose=(string)($_POST['purpose']??'password');
+                if (!in_array($purpose,['password','username'],true)) {
+                    show_error('Invalid recovery purpose.',400);
+                }
+                unset($_SESSION['shared_office_verified_email'],
+                    $_SESSION['shared_office_verified_expires_at']);
+                $_SESSION['shared_office_pending_email']=$email;
+                $_SESSION['shared_office_purpose']=$purpose;
+                shared_office_request($email);
+                flash('info','If this office mailbox is associated with multiple active DENR accounts, a verification code has been sent. Enter it to continue.');
+                go('shared_office_verify');
+            }
+            view_shared_office_recovery();
+            break;
+        case 'shared_office_verify':
+            if ($post) {
+                check_csrf();
+                $email=(string)($_SESSION['shared_office_pending_email']??'');
+                if (shared_office_verify($email,safe_post('otp',6))) {
+                    go('shared_office_accounts');
+                }
+                view_shared_office_verify([
+                    'Invalid or expired office verification code. Request a new code if needed.'
+                ]);
+            } else view_shared_office_verify();
+            break;
+        case 'shared_office_accounts':
+            if ($post) {
+                check_csrf();
+                $id=filter_var($_POST['staff_id']??null,FILTER_VALIDATE_INT,
+                    ['options'=>['min_range'=>1]]) ?: 0;
+                $purpose=(string)($_SESSION['shared_office_purpose']??'password');
+                $errors=shared_office_choose_account((int)$id,$purpose);
+                if ($errors) {
+                    view_shared_office_accounts($errors);
+                } elseif ($purpose==='username') {
+                    go('verify_username');
+                } else {
+                    go('staff_reset_password');
+                }
+            } else view_shared_office_accounts();
+            break;
         case 'forgot_password':
             if ($post) {
                 check_csrf();

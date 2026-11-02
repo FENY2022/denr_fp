@@ -45,9 +45,10 @@ check_staff_auth(str_contains($reset,"SELECT id FROM users WHERE email=?")
 check_staff_auth(str_contains($otp,"SELECT id FROM user_client WHERE email=? LIMIT 1"),
     'staff recovery also rejects client/staff mailbox conflicts');
 check_staff_auth(str_contains($otp,'random_int(0,999999)')
-    && str_contains($otp,'password_hash($code,PASSWORD_DEFAULT)')
+    && str_contains($otp,"password_hash(")
+    && str_contains($otp,"'username:'.$code")
     && str_contains($otp,'password_verify($code,'),
-    'OTP uses cryptographically secure randomness and a password hash');
+    'OTP uses cryptographically secure randomness and purpose-separated password hashes');
 check_staff_auth(str_contains($otp,'INTERVAL 10 MINUTE')
     && str_contains($otp,"failed_attempts']>=5"),
     'OTP expires after ten minutes and locks after five attempts');

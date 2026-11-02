@@ -1113,3 +1113,50 @@ unavailable, stored FP-OMS notifications still work.
 \`php tests/pusher_realtime_test.php\`, and
 \`node --check public/assets/fpoms-pusher.js\`. Live Pusher/SMTP tests
 require the actual deployment; no real secrets are contained in tests.
+
+
+## Shared office email recovery and account selection (Migration 025)
+
+When several DENR personnel use the same **office/reference email**, the
+**Forgot Password** and **Forgot Username** screens link to
+`/shared-office-recovery`. Entering an address there produces the **same
+generic response whether the email has accounts or not**. Only when at
+least two *active internal* users refer to that office mailbox does the
+system send a dedicated six-digit office-verification OTP. That code is
+hashed, valid for 10 minutes, limited by IP and mailbox (max 3 per
+15 minutes, 60-second cooldown, max 5 verification failures), and stored
+separately from individual staff password OTPs.
+
+After the office OTP is verified and consumed, a short-lived session grant
+(10 minutes) allows **Select Your DENR Account** to show the actual
+matching full names, usernames and offices; no staff identities appear
+before verification. A Bootstrap modal confirms the selection. Staff account
+IDs are revalidated against the verified office mailbox on POST and cannot
+be injected by URL or changed to another account. Office mailbox access
+does **not** reset the password or reveal a password-recovery OTP.
+
+The chosen account must have a **different, exclusive individual recovery
+email** (not the office mailbox, another staff member's reference mailbox,
+or an applicant's email). Only then is the existing six-digit
+staff password/username OTP sent to that personal email, with the
+existing two-stage reset and password-strength validation. If there is no
+eligible individual email, the user must ask an RICTU Super Administrator
+to verify their identity and update their account's Recovery Email in
+**Configuration → User Management**. No automatic association between a
+shared email address and a user's reset permission is allowed.
+The normal DENR **username + password** login and applicant email login
+are unchanged. All direct staff OTP requests and verification now enforce
+exclusive individual recovery addresses instead of a `LIMIT 1` guess.
+
+**Install:** make a full database backup and run
+`database/025_shared_office_recovery.sql` (one additive table,
+`shared_office_recovery_otps`) in the `denr_fp_oms` database.
+**SMTP must already work** for both office and personal email OTPs.
+No raw OTPs are stored, and no existing passwords or usernames are edited.
+On XAMPP, pull the latest GitHub `main`, apply Migration 025 in phpMyAdmin,
+and try two Active accounts that share one office/reference email and have
+distinct verified individual recovery emails. Confirm that an unregistered
+office mailbox shows only generic feedback and that a shared mailbox
+without individual recovery email cannot reset any password.
+Run `php tests/shared_office_recovery_test.php` and
+`node --check public/assets/shared-office-recovery.js`.

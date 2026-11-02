@@ -183,6 +183,9 @@ function view_forgot_password(): void
         . '<i class="bi bi-envelope-arrow-up me-1" aria-hidden="true"></i>Sending your password reset request. Please wait for confirmation…'
         . '</div></form>'
         . '<p class="small text-secondary mt-3 mb-0">For security, the system will show the same confirmation whether or not the email is registered.</p>'
+        . '<p class="small mt-3 mb-0"><i class="bi bi-people me-1"></i>'
+        . 'Using a shared DENR office email? '
+        . '<a href="' . e(url('shared_office_recovery')) . '">Select your account securely</a>.</p>'
         . '<hr><a class="small" href="' . url('login') . '">← Back to Sign In</a>'
         . '</div></div></div>';
 
@@ -217,6 +220,8 @@ function view_forgot_username(array $errors = []): void
         . '</button></form>'
         . '<p class="small text-secondary mt-3 mb-0">'
         . 'For security, the system does not indicate whether an account exists.</p>'
+        . '<p class="small mb-0">Shared office mailbox? '
+        . '<a href="' . e(url('shared_office_recovery')) . '">Verify office email and select account</a>.</p>'
         . '<hr><a class="small" href="' . e(url('login')) . '">← Back to Sign In</a>'
         . '</div></div></div>';
     render_page('Forgot Username', $html);
