@@ -498,14 +498,20 @@ function view_login(array $errors = []): void
     if ($prefilledEmail === null) $hint = '';
     $html = '<div class="row justify-content-center"><div class="col-md-7 col-lg-5"><div class="panel">'
         . errors_html($errors) . '<p class="text-secondary">Sign in to your applicant or DENR internal account.</p>'
-        . '<form method="post" action="' . url('login') . '">' . csrf_field()
+        . '<form id="login-form" method="post" action="' . url('login') . '">' . csrf_field()
         . ($next !== '' ? '<input type="hidden" name="next" value="' . e($next) . '">' : '')
         . ($hint !== '' ? '<input type="hidden" name="hint" value="' . e($hint) . '">' : '')
         . field('identifier','Username (DENR) or Email (Applicant)',
             form_value('identifier'),'text',true,'autocomplete="username" maxlength="190"')
         . ($prefilledEmail !== null
             ? '<p class="small text-secondary">DENR personnel: use your assigned username, not the email in the reviewer invitation.</p>' : '')
-        . field('password','Password','','password',true,'autocomplete="current-password"')
+        . '<div class="mb-3"><label class="form-label" for="password">Password '
+        . '<span class="text-danger">*</span></label><div class="input-group">'
+        . '<input class="form-control" id="password" name="password" type="password" required '
+        . 'autocomplete="current-password">'
+        . '<button class="btn btn-outline-secondary" type="button" id="login-password-toggle" '
+        . 'aria-controls="password" aria-pressed="false" aria-label="Show password" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div></div>'
         . '<button class="btn btn-primary w-100" type="submit">Sign in</button>'
         . '<div class="text-end mt-2"><a class="small fw-semibold" href="'
         . e(url('forgot_password')) . '">Forgot Username or Password?</a></div></form>'
@@ -517,7 +523,7 @@ function view_login(array $errors = []): void
         . '<div><strong>Install DENR FP-OMS</strong><small>Use FP-OMS like a desktop or mobile app</small></div></div>'
         . '<button type="button" id="installAppButton" class="btn btn-sm btn-outline-primary"><i class="bi bi-display me-1"></i>Install</button></div>'
         . '<p id="installAppHelp" class="install-help" role="status" aria-live="polite"></p>'
-        . '</div></div></div>';
+        . '</div></div></div><script src="assets/login-password.js?v=1" defer></script>';
     // Consume the success state once so refreshing /login never reopens it.
     $verificationModal = $_SESSION['registration_verified_modal'] ?? null;
     unset($_SESSION['registration_verified_modal']);
