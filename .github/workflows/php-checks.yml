@@ -57,6 +57,8 @@ jobs:
           node --check public/assets/registration-form-draft.js
           php tests/user_management_test.php
           php tests/user_management_export_test.php
+          php tests/pusher_realtime_test.php
+          node --check public/assets/fpoms-pusher.js
           php tests/staff_username_otp_test.php
           php tests/staff_username_recovery_test.php
           node --check public/assets/user-setup-modal.js

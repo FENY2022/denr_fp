@@ -254,6 +254,18 @@ try {
         case 'profile_photo':
             send_current_profile_photo(require_user());
             break;
+        case 'pusher_auth':
+            if (!$post) show_error('POST required.',405);
+            $user = require_user();
+            check_csrf();
+            header('Content-Type: application/json; charset=utf-8');
+            $auth = fpoms_pusher_auth($user,safe_post('channel_name',160),
+                safe_post('socket_id',80));
+            if ($auth===null) {
+                http_response_code(403);
+                echo json_encode(['error'=>'Forbidden']);
+            } else echo json_encode($auth);
+            exit;
         case 'notifications':
             view_notifications();
             break;

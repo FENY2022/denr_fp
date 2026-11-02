@@ -1054,3 +1054,10 @@ necessary and refresh User Management. Verify exports for All, Active,
 LPDD-FUS, CENRO, a name/office search, Pending Setup, and Suspended.
 Run `php tests/user_management_export_test.php` for database-free checks.
 No real user database or user data is included in the test.
+
+
+## Optional Pusher Channels realtime notifications
+
+Set `PUSHER_ENABLED=true`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET` and `PUSHER_CLUSTER=ap1` in the server-only `.env`. **Rotate the Pusher secret previously pasted into chat** before enabling; never put it in GitHub or frontend code. The key and cluster are public client configuration; the secret stays on the PHP server. PHP cURL and outbound HTTPS connectivity are required. No Composer dependency or database migration is needed.
+
+Existing persisted notifications are unchanged. When a notification is inserted, PHP sends a payload-free `notification-created` event to a user-specific authenticated private channel. The Vanilla JS client authorizes via a session-protected, CSRF-checked endpoint, then refreshes the page to load the latest notification bell and current actions from the database. A client cannot subscribe to another staff or applicant's channel. A disabled or unreachable Pusher service does not block database notifications. This initial implementation refreshes the whole page when an event arrives; future refinements can replace this with a targeted bell update. Run `php tests/pusher_realtime_test.php` and `node --check public/assets/fpoms-pusher.js` in staging, then test two distinct staff users and an applicant. Never send uploaded documents, applicant PII, or confidential application details in realtime events.

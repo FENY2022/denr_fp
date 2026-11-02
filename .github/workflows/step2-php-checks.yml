@@ -73,6 +73,10 @@ jobs:
           node --check public/assets/user-edit-modal.js
       - name: User Management filtered Excel export
         run: php tests/user_management_export_test.php
+      - name: Pusher realtime channel security checks
+        run: |
+          php tests/pusher_realtime_test.php
+          node --check public/assets/fpoms-pusher.js
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
       - name: Step 2 named documentary requirement checks

@@ -100,7 +100,11 @@ function render_page(string $title, string $content): void
                 . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
             : '')
         . '<script src="assets/app-shell.js?v=22" defer></script>'
-        . '<script src="assets/action-feedback.js?v=1" defer></script></head><body>';
+        . '<script src="assets/action-feedback.js?v=1" defer></script>'
+        . ($user && fpoms_pusher_enabled()
+            ? '<script src="https://js.pusher.com/8.4.0/pusher.min.js" defer></script>'
+                . '<script src="assets/fpoms-pusher.js?v=1" defer></script>' : '')
+        . '</head><body>';
 
     if ($user) {
         $brandHtml = '<a class="sidebar-brand" href="' . e(url('dashboard')) . '">'
@@ -140,6 +144,12 @@ function render_page(string $title, string $content): void
     foreach ($flashes as $message) {
         $type = in_array($message['type'], ['success', 'warning', 'danger', 'info'], true) ? $message['type'] : 'info';
         echo '<div class="alert alert-' . $type . '" role="status">' . e((string)$message['message']) . '</div>';
+    }
+    if ($user && fpoms_pusher_enabled()) {
+        echo '<script type="application/json" id="fpoms-pusher-config">'
+            . json_encode(array_merge(fpoms_pusher_client_config($user),['csrf'=>csrf_token()]),
+                JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)
+            . '</script>';
     }
     echo fpoms_format_visible_dates($content);
     echo '</main><footer class="footer"><div class="d-flex flex-wrap gap-2 justify-content-between">'

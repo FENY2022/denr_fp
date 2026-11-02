@@ -37,6 +37,7 @@ function create_notification(
             $routePage,
             $queryJson
         ]);
+        fpoms_pusher_publish($ownerKind,$userId);
     } catch (PDOException $e) {
         error_log('FP-OMS notification write skipped: ' . $e->getMessage());
     }
