@@ -828,3 +828,34 @@ body.page-loading{overflow:hidden}
   }
   .fp-recent-actions-table tbody td.fp-recent-action-cell::before{content:none}
 }
+
+/* Date/Time columns: human-readable two-line dates, no forced single-line layout. */
+.fp-date-time-wrap{
+  display:inline-flex;flex-direction:column;align-items:flex-start;
+  vertical-align:middle;white-space:normal;max-width:100%;
+  line-height:1.45;font-variant-numeric:tabular-nums;
+}
+.fp-date-part,.fp-time-part{display:block;white-space:normal;overflow-wrap:break-word}
+.fp-time-part{font-weight:500}
+.fp-date-time-heading{white-space:normal!important;overflow-wrap:normal}
+.table th,.table td{white-space:normal;overflow-wrap:break-word}
+/* Three real RO inbox tabs, with visible active state and comfortable tapping. */
+.fp-ro-status-tabs{gap:.55rem;align-items:stretch}
+.fp-ro-status-tabs .nav-link{
+  display:flex;align-items:center;justify-content:center;gap:.4rem;
+  flex-wrap:wrap;white-space:normal;text-align:center;
+  border:1px solid #d6e5d9;border-radius:10px;font-weight:700;
+  color:#075c32;background:#fff;
+}
+.fp-ro-status-tabs .nav-link.active{background:#08783f;color:#fff;border-color:#08783f}
+.fp-ro-status-tabs .badge{border-radius:999px}
+/* Allow Bootstrap row dropdowns to extend beyond Records table edges. */
+.fp-records-table-wrap{width:100%;min-width:0;overflow:visible}
+.fp-records-table{width:100%}
+.fp-records-table th,.fp-records-table td{vertical-align:middle}
+.fp-records-table .dropdown-menu{z-index:1085}
+.fp-records-table .fp-recent-action-cell{min-width:60px}
+@media(max-width:767.98px){
+  .fp-ro-status-tabs .nav-link{flex:1 1 100%}
+  .fp-records-table{min-width:0}
+}

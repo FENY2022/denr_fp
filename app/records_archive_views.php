@@ -1,6 +1,28 @@
 <?php
 declare(strict_types=1);
 
+/** Accessible three-dot dropdown shared by both Records archive tables. */
+function records_archive_row_menu_html(int $applicationId,bool $archived,string $modalId): string
+{
+    $label=$archived?'View Record':'Review / Archive';
+    return '<div class="dropdown fp-recent-action-menu">'
+        .'<button type="button" class="btn btn-sm btn-outline-secondary '
+        .'fp-recent-action-trigger" data-bs-toggle="dropdown" aria-expanded="false" '
+        .'aria-label="Actions for FP Application #'.$applicationId.'">'
+        .'<i class="bi bi-three-dots-vertical" aria-hidden="true"></i>'
+        .'<span class="visually-hidden">Open actions</span></button>'
+        .'<ul class="dropdown-menu dropdown-menu-end shadow-sm">'
+        .'<li><a class="dropdown-item" href="'
+        .e(url('permit_application',['id'=>$applicationId])).'">'
+        .'<i class="bi bi-'.($archived?'folder2-open':'archive').' me-2" aria-hidden="true"></i>'
+        .e($label).'</a></li>'
+        .'<li><button type="button" class="dropdown-item" data-bs-toggle="modal" '
+        .'data-bs-target="#'.e($modalId).'">'
+        .'<i class="bi bi-clock-history me-2" aria-hidden="true"></i>'
+        .'Audit Trail</button></li></ul></div>';
+}
+
+
 /** Reusable action in the RO completed-handoff case details. */
 function records_archive_action_panel_html(array $application): string
 {
@@ -84,6 +106,7 @@ function view_records_archive(): void
          LEFT JOIN users u ON u.id=ra.archived_by_user_id
          WHERE '.implode(' AND ',$where).'
          ORDER BY ra.archived_at DESC,ra.application_id DESC LIMIT 200',$params);
+    $auditModals=[];
     $html='<section class="panel"><h2 class="h5"><i class="bi bi-archive-fill me-2"></i>'
         .'Records Archiving</h2><p class="small text-secondary">'
         .'Records archive of completed Step 3 handoffs. Archiving does not close '
@@ -92,17 +115,20 @@ function view_records_archive(): void
         .'<span class="badge text-bg-info">'.count($pending).'</span></h3>';
     if (!$pending) $html.='<p class="small text-secondary">No completed RO handoffs awaiting archiving.</p>';
     else {
-        $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
+        $html.='<div class="fp-records-table-wrap"><table class="table table-hover align-middle fp-records-table">'
             .'<thead><tr><th>FP No.</th><th>Applicant</th><th>Project</th>'
-            .'<th>Forwarded to LPDD-FUS</th><th>Action</th></tr></thead><tbody>';
+            .'<th class="fp-date-time-heading">Forwarded to LPDD-FUS</th>'
+            .'<th class="text-center">Actions</th></tr></thead><tbody>';
         foreach ($pending as $item) {
             $html.='<tr><td>#'.(int)$item['id'].'</td>'
                 .'<td>'.e((string)$item['applicant_name']).'</td>'
                 .'<td>'.e((string)$item['project_title']).'</td>'
                 .'<td>'.e(fpoms_display_datetime((string)$item['forwarded_at'])).'</td>'
-                .'<td><a class="btn btn-sm btn-outline-success" href="'
-                .e(url('permit_application',['id'=>(int)$item['id']]))
-                .'">Review / Archive</a></td></tr>';
+                .'<td class="fp-recent-action-cell">'
+                .records_archive_row_menu_html((int)$item['id'],false,'records-audit-'.(int)$item['id'])
+                .'</td></tr>';
+            $id=(int)$item['id'];
+            $auditModals[$id]=permit_tracking_audit_modal_html($id,'records-audit-'.$id);
         }
         $html.='</tbody></table></div>';
     }
@@ -120,9 +146,10 @@ function view_records_archive(): void
         .'</form>';
     if (!$archived) $html.='<p class="text-secondary">No archived records match this filter.</p>';
     else {
-        $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
+        $html.='<div class="fp-records-table-wrap"><table class="table table-hover align-middle fp-records-table">'
             .'<thead><tr><th>FP No.</th><th>Applicant</th><th>Project</th>'
-            .'<th>Archived At</th><th>Archived By</th><th>Documents / Audit</th></tr></thead><tbody>';
+            .'<th class="fp-date-time-heading">Archived At</th><th>Archived By</th>'
+            .'<th class="text-center">Actions</th></tr></thead><tbody>';
         foreach ($archived as $item) {
             $id=(int)$item['application_id'];
             $html.='<tr><td>#'.$id.'</td>'
@@ -130,16 +157,16 @@ function view_records_archive(): void
                 .'<td>'.e((string)$item['project_title']).'</td>'
                 .'<td>'.e(fpoms_display_datetime((string)$item['archived_at'])).'</td>'
                 .'<td>'.e((string)($item['archived_by_name'] ?? 'DENR Personnel')).'</td>'
-                .'<td><div class="d-flex gap-2 flex-wrap">'
-                .'<a class="btn btn-sm btn-outline-primary" href="'
-                .e(url('permit_application',['id'=>$id,'view'=>'files'])).'">View Files</a>'
-                .'<a class="btn btn-sm btn-outline-secondary" href="'
-                .e(url('permit_application',['id'=>$id,'view'=>'audit']))
-                .'">View Audit Trail</a></div></td></tr>';
+                .'<td class="fp-recent-action-cell">'
+                .records_archive_row_menu_html($id,true,'records-audit-'.$id)
+                .'</td></tr>';
+            if (!isset($auditModals[$id])) {
+                $auditModals[$id]=permit_tracking_audit_modal_html($id,'records-audit-'.$id);
+            }
         }
         $html.='</tbody></table></div>';
     }
-    render_page('Records Archiving',$html.'</section>');
+    render_page('Records Archiving',$html.'</section>'.implode('',$auditModals));
 }
 function records_archive_valid_date(string $value): bool
 {

@@ -39,11 +39,21 @@ function fpoms_format_visible_dates(string $html): string
         if ($i%2===1) continue;
         $chunks[$i]=preg_replace_callback('~(?<=>)[^<>]+(?=<)~u',
             static function(array $node): string {
-                return preg_replace_callback(
+                $formatted=preg_replace_callback(
                     '~(?<![0-9-])\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?(?![0-9-])~',
                     static fn(array $m): string => fpoms_display_datetime($m[0]),
                     $node[0]
                 ) ?? $node[0];
+                // Existing and newly formatted visible dates wrap into a
+                // date line and time line; attributes/input values are intact.
+                return preg_replace_callback(
+                    '~\b((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4})\s+(\d{2}:\d{2}\s+(?:AM|PM))\b~',
+                    static fn(array $m): string =>
+                        '<span class="fp-date-time-wrap"><span class="fp-date-part">'
+                        . $m[1] . '</span><span class="fp-time-part">' . $m[2]
+                        . '</span></span>',
+                    $formatted
+                ) ?? $formatted;
             },$chunk) ?? $chunk;
     }
     return implode('',$chunks);
