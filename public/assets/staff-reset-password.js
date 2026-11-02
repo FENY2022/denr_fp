@@ -4,13 +4,12 @@
   const form = document.getElementById('staff-reset-password-form');
   if (!form) return;
 
-  const otp = form.querySelector('#otp');
   const password = form.querySelector('#password');
   const confirmation = form.querySelector('#confirm_password');
   const feedback = form.querySelector('#staff-password-feedback');
   const confirmFeedback = form.querySelector('#staff-confirm-feedback');
   const rules = [...form.querySelectorAll('[data-staff-password-rule]')];
-  if (!otp || !password || !confirmation || !feedback || !confirmFeedback) return;
+  if (!password || !confirmation || !feedback || !confirmFeedback) return;
 
   const byteLength = value => new TextEncoder().encode(value).length;
 

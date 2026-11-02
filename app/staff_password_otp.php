@@ -89,22 +89,22 @@ function staff_otp_request(string $email, string $purpose = 'password'): void
     }
 }
 
-function staff_otp_reset(string $email,string $code,string $new,string $confirm): array
+/** Verify and consume a password-recovery OTP before allowing password entry. */
+function staff_otp_verify_password(string $email,string $code): ?int
 {
-    if ($new!==$confirm) return ['Password confirmation does not match.'];
-    if ($error=check_password_strength($new)) return [$error];
-    if (preg_match('/^[0-9]{6}$/D',$code)!==1)
-        return ['Enter the six-digit verification code sent to your email.'];
+    $email=strtolower(trim($email));
+    if (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>190
+        || preg_match('/^[0-9]{6}$/D',$code)!==1) return null;
     $pdo=db();
     try {
         $pdo->beginTransaction();
         $user=query_one(
-            "SELECT id,password_hash FROM users WHERE email=? AND user_kind='internal'
-             AND status='active' FOR UPDATE", [strtolower(trim($email))]
+            "SELECT id FROM users WHERE email=? AND user_kind='internal'
+             AND status='active' FOR UPDATE",[$email]
         );
         if (!$user) {
             $pdo->rollBack();
-            return ['Invalid or expired verification code.'];
+            return null;
         }
         $id=(int)$user['id'];
         $row=query_one(
@@ -115,13 +115,50 @@ function staff_otp_reset(string $email,string $code,string $new,string $confirm)
         if (!$row || strtotime((string)$row['expires_at'])<=time()
             || (int)$row['failed_attempts']>=5) {
             $pdo->rollBack();
-            return ['Invalid or expired verification code. Request a new OTP.'];
+            return null;
         }
         if (!password_verify($code,(string)$row['code_hash'])) {
             $pdo->prepare('UPDATE staff_password_reset_otps SET failed_attempts=failed_attempts+1
                            WHERE id=?')->execute([(int)$row['id']]);
             $pdo->commit();
-            return ['Invalid or expired verification code.'];
+            return null;
+        }
+        $pdo->prepare('UPDATE staff_password_reset_otps SET used_at=NOW()
+                       WHERE user_id=? AND used_at IS NULL')->execute([$id]);
+        $pdo->commit();
+        return $id;
+    } catch (Throwable $err) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('FP-OMS staff password OTP verification failed: '.$err->getMessage());
+        return null;
+    }
+}
+
+/** Return the OTP-verified account while its short-lived reset grant is valid. */
+function staff_password_reset_verified_user_id(): int
+{
+    $id=(int)($_SESSION['staff_password_reset_user_id'] ?? 0);
+    $expires=(int)($_SESSION['staff_password_reset_expires_at'] ?? 0);
+    if ($id>0 && $expires>=time()) return $id;
+    unset($_SESSION['staff_password_reset_user_id'],$_SESSION['staff_password_reset_expires_at']);
+    return 0;
+}
+
+function staff_password_reset(int $id,string $new,string $confirm): array
+{
+    if ($id<=0) return ['Verify your email code before resetting your password.'];
+    if ($new!==$confirm) return ['Password confirmation does not match.'];
+    if ($error=check_password_strength($new)) return [$error];
+    $pdo=db();
+    try {
+        $pdo->beginTransaction();
+        $user=query_one(
+            "SELECT id,password_hash FROM users WHERE id=? AND user_kind='internal'
+             AND status='active' FOR UPDATE",[$id]
+        );
+        if (!$user) {
+            $pdo->rollBack();
+            return ['Unable to reset this account password.'];
         }
         if (password_verify($new,(string)$user['password_hash'])) {
             $pdo->rollBack();
@@ -129,17 +166,12 @@ function staff_otp_reset(string $email,string $code,string $new,string $confirm)
         }
         $pdo->prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?')
             ->execute([password_hash($new,PASSWORD_DEFAULT),$id]);
-        $pdo->prepare('UPDATE staff_password_reset_otps SET used_at=NOW()
-                       WHERE user_id=? AND used_at IS NULL')->execute([$id]);
         $pdo->prepare('UPDATE password_reset_tokens SET used_at=NOW()
                        WHERE user_id=? AND used_at IS NULL')->execute([$id]);
         audit($id,'auth.staff_password_otp_reset','user',$id);
         $pdo->commit();
         // Invalidate current session if that account was already signed in.
         if ((int)($_SESSION['user_id'] ?? 0)===$id) unset($_SESSION['user_id']);
-        unset($_SESSION['staff_reset_pending_email']);
-        session_regenerate_id(true);
-        $_SESSION['csrf_token']=bin2hex(random_bytes(32));
         return [];
     } catch (Throwable $err) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -152,20 +184,33 @@ function staff_otp_reset(string $email,string $code,string $new,string $confirm)
 function view_staff_otp_reset(array $errors=[]): void
 {
     if (current_user()) go('dashboard');
+    $verifiedId=staff_password_reset_verified_user_id();
     $email=(string)($_SESSION['staff_reset_pending_email'] ?? '');
-    if ($email==='' || !filter_var($email,FILTER_VALIDATE_EMAIL)) go('forgot_password');
+    if ($verifiedId<=0 && ($email==='' || !filter_var($email,FILTER_VALIDATE_EMAIL))) {
+        go('forgot_password');
+    }
     $html='<div class="row justify-content-center"><div class="col-md-7 col-lg-5">'
         . '<div class="panel">'.errors_html($errors)
         . '<h2 class="h5"><i class="bi bi-envelope-check me-2"></i>'
-        . 'DENR Staff Password Recovery</h2>'
-        . '<p class="small text-secondary">If your email belongs to an active DENR '
-        . 'account, enter the 6-digit code sent to it. The code expires in 10 minutes. '
-        . 'Applicants should use the password reset link sent to their email.</p>'
-        . '<form id="staff-reset-password-form" method="post" action="'.e(url('staff_reset_password')).'">'
-        . csrf_field()
-        . field('otp','Email Verification Code','','text',true,
-            'inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code"')
-        . '<div class="row g-3 mb-3"><div class="col-md-6">'
+        . ($verifiedId>0 ? 'Create New Password' : 'Verify Email Code').'</h2>';
+    if ($verifiedId<=0) {
+        $html.='<p class="small text-secondary">Enter the 6-digit verification code sent to your email. '
+            . 'The code expires in 10 minutes. Your password can be reset only after the code is verified.</p>'
+            . '<form method="post" action="'.e(url('staff_reset_password')).'">'
+            . csrf_field().'<input type="hidden" name="action" value="verify_otp">'
+            . field('otp','Email Verification Code','','text',true,
+                'inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" autofocus')
+            . '<button class="btn btn-primary w-100" type="submit">Verify OTP</button>'
+            . '</form><hr><a class="small" href="'.e(url('forgot_password')).'">'
+            . 'Request a new code / return to recovery</a>';
+    } else {
+        $html.='<div class="alert alert-success py-2 small"><i class="bi bi-check-circle-fill me-2" '
+            . 'aria-hidden="true"></i>Email verification code confirmed.</div>'
+            . '<p class="small text-secondary">Enter and confirm your new password below. '
+            . 'This verified reset session expires after 10 minutes.</p>'
+            . '<form id="staff-reset-password-form" method="post" action="'.e(url('staff_reset_password')).'">'
+            . csrf_field().'<input type="hidden" name="action" value="reset_password">'
+            . '<div class="row g-3 mb-3"><div class="col-md-6">'
         . '<label class="form-label" for="password">New password <span class="text-danger">*</span></label>'
         . '<div class="input-group"><input class="form-control" id="password" name="password" '
         . 'type="password" required autocomplete="new-password" minlength="12" maxlength="200" '
@@ -203,11 +248,10 @@ function view_staff_otp_reset(array $errors=[]): void
         . '<div id="staff-confirm-feedback" class="small text-secondary mt-2" role="status" aria-live="polite">'
         . 'Re-enter your new password to confirm.</div>'
         . '</div></div>'
-        . '<button class="btn btn-primary w-100" type="submit">Verify OTP and Reset Password</button>'
-        . '</form><hr>'
-        . '<a class="small" href="'.e(url('forgot_password')).'">'
-        . 'Request a new code / return to recovery</a>'
-        . '</div></div></div><script src="assets/staff-reset-password.js?v=1" defer></script>';
+            . '<button class="btn btn-primary w-100" type="submit">Reset Password</button>'
+            . '</form><script src="assets/staff-reset-password.js?v=2" defer></script>';
+    }
+    $html.='</div></div></div>';
     render_page('Staff Password Recovery',$html);
 }
 

@@ -67,6 +67,8 @@ try {
                 $email = strtolower(trim(safe_post('email',190)));
                 request_password_reset($email); // applicant email link only
                 staff_otp_request($email); // DENR staff receive a six-digit code
+                unset($_SESSION['staff_password_reset_user_id'],
+                    $_SESSION['staff_password_reset_expires_at']);
                 $_SESSION['staff_reset_pending_email'] = $email;
                 flash('info', 'If the email is registered, a recovery message was sent. DENR staff: enter the OTP. Applicants: use the password-reset link in your inbox.');
                 go('staff_reset_password');
@@ -115,14 +117,38 @@ try {
         case 'staff_reset_password':
             if ($post) {
                 check_csrf();
-                $email = (string)($_SESSION['staff_reset_pending_email'] ?? '');
-                $errors = staff_otp_reset($email,
-                    safe_post('otp',6), (string)($_POST['password'] ?? ''),
-                    (string)($_POST['confirm_password'] ?? ''));
-                if ($errors) view_staff_otp_reset($errors);
-                else {
+                $action=(string)($_POST['action'] ?? '');
+                if ($action==='verify_otp') {
+                    $email=(string)($_SESSION['staff_reset_pending_email'] ?? '');
+                    $id=staff_otp_verify_password($email,safe_post('otp',6));
+                    if ($id===null) {
+                        view_staff_otp_reset([
+                            'Invalid or expired verification code. Request a new OTP if needed.'
+                        ]);
+                    } else {
+                        unset($_SESSION['staff_reset_pending_email']);
+                        $_SESSION['staff_password_reset_user_id']=$id;
+                        $_SESSION['staff_password_reset_expires_at']=time()+600;
+                        session_regenerate_id(true);
+                        $_SESSION['csrf_token']=bin2hex(random_bytes(32));
+                        go('staff_reset_password');
+                    }
+                } elseif ($action==='reset_password') {
+                    $id=staff_password_reset_verified_user_id();
+                    $errors=staff_password_reset($id,(string)($_POST['password'] ?? ''),
+                        (string)($_POST['confirm_password'] ?? ''));
+                    if ($errors) {
+                        view_staff_otp_reset($errors);
+                        break;
+                    }
+                    unset($_SESSION['staff_password_reset_user_id'],
+                        $_SESSION['staff_password_reset_expires_at']);
+                    session_regenerate_id(true);
+                    $_SESSION['csrf_token']=bin2hex(random_bytes(32));
                     flash('success','Password updated. Sign in with your DENR username.');
                     go('login');
+                } else {
+                    show_error('Invalid password recovery action.',400);
                 }
             } else view_staff_otp_reset();
             break;
