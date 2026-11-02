@@ -76,6 +76,7 @@ jobs:
       - name: Pusher realtime channel security checks
         run: |
           php tests/pusher_realtime_test.php
+          php tests/realtime_settings_test.php
           node --check public/assets/fpoms-pusher.js
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php

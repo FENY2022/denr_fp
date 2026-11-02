@@ -1061,3 +1061,55 @@ No real user database or user data is included in the test.
 Set `PUSHER_ENABLED=true`, `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET` and `PUSHER_CLUSTER=ap1` in the server-only `.env`. **Rotate the Pusher secret previously pasted into chat** before enabling; never put it in GitHub or frontend code. The key and cluster are public client configuration; the secret stays on the PHP server. PHP cURL and outbound HTTPS connectivity are required. No Composer dependency or database migration is needed.
 
 Existing persisted notifications are unchanged. When a notification is inserted, PHP sends a payload-free `notification-created` event to a user-specific authenticated private channel. The Vanilla JS client authorizes via a session-protected, CSRF-checked endpoint, then refreshes the page to load the latest notification bell and current actions from the database. A client cannot subscribe to another staff or applicant's channel. A disabled or unreachable Pusher service does not block database notifications. This initial implementation refreshes the whole page when an event arrives; future refinements can replace this with a targeted bell update. Run `php tests/pusher_realtime_test.php` and `node --check public/assets/fpoms-pusher.js` in staging, then test two distinct staff users and an applicant. Never send uploaded documents, applicant PII, or confidential application details in realtime events.
+
+
+## Realtime Notifications — Super Administrator Web Configuration
+
+Visit **Configuration → Realtime Notifications** while logged in as a
+Super Administrator. The screen supports:
+- App ID, App Key, Cluster and a masked App Secret field. Existing Pusher
+  App ID / public Key are prefilled for the first setup; the secret is never
+  prefilled or exposed. **Rotate any previously pasted secret** in the Pusher
+  dashboard first.
+- **Enable Realtime Notifications** toggle, **Save Settings**, **Test
+  Connection**, persistent last tested status and browser private-channel
+  subscription status. A successful HTTP API test means Pusher accepted the
+  request; it does not guarantee a WebSocket browser subscription.
+- Per-user authenticated private channels for staff and applicants, and
+  database notifications as the source of truth. Pusher sends only refresh
+  signals, never sensitive permit, identity or document contents.
+- The notification bell updates via a same-origin authenticated JSON
+  fragment instead of refreshing the entire page.
+- Notification delivery triggered inside a database transaction is
+  queued until the commit; a rolled-back notification will not be sent
+  through Pusher.
+
+**No manual server .env edit is needed for Pusher credentials.** On the first
+authorized visit, FP-OMS creates the small
+\`fpoms_realtime_settings\` database table automatically if the database
+account permits CREATE TABLE. For environments with restricted DDL rights,
+a DBA can instead import \`database/024_realtime_settings.sql\` once.
+There is no user-data migration or change to existing permit tables.
+The Pusher Secret is encrypted in the database using AES-256-GCM and a
+separately derived key from the existing FP-OMS protected-file master key
+stored **outside the webroot**. Back up that private key securely: restoring
+only the database without its matching key will not restore Pusher access.
+Legacy Pusher \`.env\` fields remain as a fallback *only until web settings
+are saved*. Once a saved row exists, it overrides legacy \`.env\` fields
+even when disabled. Never commit Pusher secrets to the repository.
+
+**Deployment:** pull GitHub main, log in as Super Admin, visit Configuration
+→ Realtime Notifications, paste the newly rotated secret, enable, and Save.
+Use Test Connection to check server-to-Pusher HTTPS. The browser status
+indicates whether the private WebSocket subscription completed. If the API
+test fails, inspect the sanitized reason (e.g. missing cURL, invalid Pusher
+credentials, cluster mismatch or blocked outbound HTTPS). If the browser
+subscription fails, inspect Network for the \`pusher-auth\` request and
+browser CSP/network errors. PHP cURL/OpenSSL, browser WebSocket access, and
+valid Pusher credentials are required for live delivery. If these are
+unavailable, stored FP-OMS notifications still work.
+
+**Regression checks:** \`php tests/realtime_settings_test.php\`,
+\`php tests/pusher_realtime_test.php\`, and
+\`node --check public/assets/fpoms-pusher.js\`. Live Pusher/SMTP tests
+require the actual deployment; no real secrets are contained in tests.
