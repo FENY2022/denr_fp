@@ -56,13 +56,13 @@ function permit_tracking_action_visual(string $action): array
 /** Every item comes from permit_step2_events. No editable event controls. */
 function permit_tracking_timeline_html(int $applicationId): string
 {
-    $events = array_reverse(step2_events($applicationId));
-    $html = '<section class="mt-4" aria-label="Chronological application audit trail">'
+    $events = step2_events($applicationId); // Already newest first (ORDER BY e.id DESC).
+    $html = '<section class="mt-4" aria-label="Application audit trail, latest first">'
         . '<h3 class="h6"><i class="bi bi-clock-history me-2"></i>'
         . 'Application Audit Trail</h3>'
         . '<p class="small text-secondary">Recorded submissions, document receipt, '
         . 'review decisions, corrections, reversion and forwarding. '
-        . 'Each event retains its original revision and timestamp.</p>';
+        . 'Newest recorded action appears first; original timestamps are preserved.</p>';
     if (!$events) {
         return $html . '<p class="small text-secondary">No recorded application actions.</p></section>';
     }
@@ -149,7 +149,7 @@ function permit_tracking_registration_audit_modal_html(
         $html .= '<p class="text-secondary">No review decisions recorded yet.</p>';
     } else {
         $html .= '<ol class="list-unstyled fp-audit-timeline">';
-        foreach (array_reverse($history) as $event) {
+        foreach ($history as $event) { // Registration review history query orders newest first.
             $approved = ($event['decision'] ?? '') === 'approved';
             $tone = $approved ? 'forwarded' : 'correction';
             $label = $approved ? 'Registration Approved'
@@ -260,7 +260,7 @@ function permit_tracking_staff_action_table_html(array $actions): string
     $html = '<div class="fp-recent-actions-table-wrap">'
         . '<table class="table table-hover align-middle fp-recent-actions-table">'
         . '<caption class="visually-hidden">Recent actions made by the signed-in DENR employee</caption>'
-        . '<thead><tr><th scope="col">Date / Time</th><th scope="col">My Action</th>'
+        . '<thead><tr><th scope="col" class="fp-date-time-heading">Date / Time</th><th scope="col">My Action</th>'
         . '<th scope="col">Application / Applicant</th>'
         . '<th scope="col">Current Office</th><th scope="col">Next</th>'
         . '<th scope="col" class="text-center">Actions</th></tr></thead><tbody>';

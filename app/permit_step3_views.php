@@ -61,47 +61,72 @@ function step3_action_panel_html(array $app): string
 function view_step3_ro_inbox(): void
 {
     step3_require_officer();
-    // Archive migration is mandatory for reliable Records workload filtering.
     if (!records_archive_schema_ready()) {
         show_error('Apply database migration 023 to enable Records action-list archiving.',503);
     }
+    // Tabs are filtered on the server; counts include all matching rows.
+    $tabs=[
+        'awaiting'=>['label'=>'Awaiting Receipt','status'=>'forwarded_to_ro'],
+        'received'=>['label'=>'Received / To Forward','status'=>'ro_received'],
+        'forwarded'=>['label'=>'Forwarded','status'=>'forwarded_to_lpdd']
+    ];
+    $tab=(string)($_GET['tab'] ?? 'awaiting');
+    if (!isset($tabs[$tab])) show_error('Invalid RO Receiving status tab.',400);
+    $tallies=query_all("SELECT a.status,COUNT(*) AS total
+        FROM permit_step2_applications a
+        LEFT JOIN permit_records_archives ra ON ra.application_id=a.id
+        WHERE ra.application_id IS NULL
+          AND a.status IN ('forwarded_to_ro','ro_received','forwarded_to_lpdd')
+        GROUP BY a.status");
+    $counts=['forwarded_to_ro'=>0,'ro_received'=>0,'forwarded_to_lpdd'=>0];
+    foreach ($tallies as $item) {
+        $status=(string)$item['status'];
+        if (array_key_exists($status,$counts)) $counts[$status]=(int)$item['total'];
+    }
+    $selected=$tabs[$tab]['status'];
     $apps=query_all("SELECT a.id,a.project_title,a.status,a.forwarded_at,
         c.name AS applicant_name,m.received_at
         FROM permit_step2_applications a
         JOIN user_client c ON c.id=a.client_id
         LEFT JOIN permit_step3_movements m ON m.application_id=a.id
         LEFT JOIN permit_records_archives ra ON ra.application_id=a.id
-        WHERE ra.application_id IS NULL AND a.status IN ('forwarded_to_ro','ro_received','forwarded_to_lpdd')
-        ORDER BY CASE a.status WHEN 'forwarded_to_ro' THEN 0
-           WHEN 'ro_received' THEN 1 ELSE 2 END,
-           a.forwarded_at DESC,a.id DESC LIMIT 200");
-    $pending=0;$received=0;$done=0;
-    foreach ($apps as $a) {
-        if ($a['status']==='forwarded_to_ro') $pending++;
-        elseif ($a['status']==='ro_received') $received++;
-        else $done++;
-    }
+        WHERE ra.application_id IS NULL AND a.status=?
+        ORDER BY a.forwarded_at DESC,a.id DESC LIMIT 200",[$selected]);
     $html='<div class="panel"><h2 class="h5">RO Receiving/Releasing – Step 3</h2>'
         .'<p class="small text-secondary">Electronic receipt and forwarding to LPDD-FUS. '
-        .'Annex A: within 1/2 day.</p><div class="d-flex flex-wrap gap-2 mb-3">'
-        .'<span class="badge text-bg-warning">Awaiting Receipt: '.$pending.'</span>'
-        .'<span class="badge text-bg-info">Received / To Forward: '.$received.'</span>'
-        .'<span class="badge text-bg-success">Forwarded: '.$done.'</span></div>';
-    if (!$apps) $html.='<p class="text-secondary">No applications forwarded from LPDD-FUS yet.</p>';
-    else {
+        .'Annex A: within 1/2 day. Archived Records actions are stored separately.</p>'
+        .'<nav class="nav nav-pills fp-ro-status-tabs d-flex flex-wrap mb-3" '
+        .'aria-label="RO Receiving status tabs">';
+    foreach ($tabs as $key=>$data) {
+        $active=$key===$tab;
+        $html.='<a class="nav-link'.($active?' active':'').'" href="'
+            .e(url('permit_ro_inbox',['tab'=>$key])).'"'
+            .($active?' aria-current="page"':'').'>'
+            .e($data['label']).': <span class="badge '
+            .($active?'text-bg-light':'text-bg-success').'">'
+            .$counts[$data['status']].'</span></a>';
+    }
+    $html.='</nav><h3 class="h6 mb-3">'.e($tabs[$tab]['label']).' '
+        .'<span class="badge text-bg-secondary">'.$counts[$selected].'</span></h3>';
+    if (!$apps) {
+        $html.='<p class="text-secondary">No applications under '
+            .e(strtolower($tabs[$tab]['label'])).'.</p>';
+    } else {
         $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
             .'<thead><tr><th>FP No.</th><th>Applicant</th><th>Project</th>'
-            .'<th>Step 2 Forwarded</th><th>RO Received</th><th>Status</th><th>Action</th>'
-            .'</tr></thead><tbody>';
+            .'<th class="fp-date-time-heading">Step 2 Forwarded</th>'
+            .'<th class="fp-date-time-heading">RO Received</th>'
+            .'<th>Status</th><th>Action</th></tr></thead><tbody>';
         foreach ($apps as $a) {
-            $html.='<tr><td>#'.(int)$a['id'].'</td><td>'.e((string)$a['applicant_name'])
-                .'</td><td>'.e((string)$a['project_title']).'</td>'
-                .'<td>'.e((string)$a['forwarded_at']).'</td>'
-                .'<td>'.e((string)($a['received_at'] ?? '—')).'</td>'
+            $html.='<tr><td>#'.(int)$a['id'].'</td>'
+                .'<td>'.e((string)$a['applicant_name']).'</td>'
+                .'<td>'.e((string)$a['project_title']).'</td>'
+                .'<td>'.e(fpoms_display_datetime((string)$a['forwarded_at'])).'</td>'
+                .'<td>'.e(fpoms_display_datetime((string)($a['received_at'] ?? ''))).'</td>'
                 .'<td>'.step2_status_badge((string)$a['status']).'</td>'
                 .'<td><a class="btn btn-sm btn-outline-primary" href="'
                 .e(url('permit_application',['id'=>(int)$a['id']])).'">'
-                .($a['status']==='forwarded_to_ro' ? 'Receive'
+                .($a['status']==='forwarded_to_ro'?'Receive'
                     :($a['status']==='ro_received'?'Forward':'View Record'))
                 .'</a></td></tr>';
         }
