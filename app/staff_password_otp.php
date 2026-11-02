@@ -99,7 +99,7 @@ function staff_otp_reset(string $email,string $code,string $new,string $confirm)
     try {
         $pdo->beginTransaction();
         $user=query_one(
-            "SELECT id FROM users WHERE email=? AND user_kind='internal'
+            "SELECT id,password_hash FROM users WHERE email=? AND user_kind='internal'
              AND status='active' FOR UPDATE", [strtolower(trim($email))]
         );
         if (!$user) {
@@ -122,6 +122,10 @@ function staff_otp_reset(string $email,string $code,string $new,string $confirm)
                            WHERE id=?')->execute([(int)$row['id']]);
             $pdo->commit();
             return ['Invalid or expired verification code.'];
+        }
+        if (password_verify($new,(string)$user['password_hash'])) {
+            $pdo->rollBack();
+            return ['New password must be different from your current password.'];
         }
         $pdo->prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?')
             ->execute([password_hash($new,PASSWORD_DEFAULT),$id]);
@@ -157,20 +161,53 @@ function view_staff_otp_reset(array $errors=[]): void
         . '<p class="small text-secondary">If your email belongs to an active DENR '
         . 'account, enter the 6-digit code sent to it. The code expires in 10 minutes. '
         . 'Applicants should use the password reset link sent to their email.</p>'
-        . '<form method="post" action="'.e(url('staff_reset_password')).'">'
+        . '<form id="staff-reset-password-form" method="post" action="'.e(url('staff_reset_password')).'">'
         . csrf_field()
         . field('otp','Email Verification Code','','text',true,
-            'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"')
-        . field('password','New Password','','password',true,
-            'autocomplete="new-password" minlength="12" maxlength="200"')
-        . field('confirm_password','Confirm New Password','','password',true,
-            'autocomplete="new-password" minlength="12" maxlength="200"')
-        . '<p class="small text-secondary">Minimum 12 characters, including letters and numbers.</p>'
+            'inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code"')
+        . '<div class="row g-3 mb-3"><div class="col-md-6">'
+        . '<label class="form-label" for="password">New password <span class="text-danger">*</span></label>'
+        . '<div class="input-group"><input class="form-control" id="password" name="password" '
+        . 'type="password" required autocomplete="new-password" minlength="12" maxlength="200" '
+        . 'aria-describedby="staff-password-rules staff-password-feedback">'
+        . '<button class="btn btn-outline-secondary" type="button" data-staff-password-toggle="password" '
+        . 'aria-controls="password" aria-pressed="false" aria-label="Show password" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div class="small fw-semibold mt-3 mb-1">Password requirements</div>'
+        . '<ul class="list-unstyled small mb-0" id="staff-password-rules" aria-label="Password validation requirements">'
+        . '<li class="text-secondary mb-1" data-staff-password-rule="minimum">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>At least 12 characters '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-staff-password-rule="letter">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>At least one letter (A–Z) '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-staff-password-rule="number">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>At least one number (0–9) '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-staff-password-rule="maximum">'
+        . '<i class="bi bi-circle me-2" aria-hidden="true"></i>Maximum 200 characters '
+        . '<span class="visually-hidden password-rule-status">Not met</span></li>'
+        . '<li class="text-secondary mb-1" data-staff-password-rule="different">'
+        . '<i class="bi bi-shield-check me-2" aria-hidden="true"></i>Different from current password '
+        . '<span class="visually-hidden password-rule-status">Verified securely when submitted</span></li>'
+        . '</ul><div id="staff-password-feedback" class="small text-secondary mt-2" '
+        . 'role="status" aria-live="polite">Enter a new password to check its requirements.</div>'
+        . '</div><div class="col-md-6">'
+        . '<label class="form-label" for="confirm_password">Confirm new password <span class="text-danger">*</span></label>'
+        . '<div class="input-group"><input class="form-control" id="confirm_password" name="confirm_password" '
+        . 'type="password" required autocomplete="new-password" minlength="12" maxlength="200" '
+        . 'aria-describedby="staff-confirm-feedback">'
+        . '<button class="btn btn-outline-secondary" type="button" data-staff-password-toggle="confirm_password" '
+        . 'aria-controls="confirm_password" aria-pressed="false" aria-label="Show confirmation password" title="Show password">'
+        . '<i class="bi bi-eye" aria-hidden="true"></i></button></div>'
+        . '<div id="staff-confirm-feedback" class="small text-secondary mt-2" role="status" aria-live="polite">'
+        . 'Re-enter your new password to confirm.</div>'
+        . '</div></div>'
         . '<button class="btn btn-primary w-100" type="submit">Verify OTP and Reset Password</button>'
         . '</form><hr>'
         . '<a class="small" href="'.e(url('forgot_password')).'">'
         . 'Request a new code / return to recovery</a>'
-        . '</div></div></div>';
+        . '</div></div></div><script src="assets/staff-reset-password.js?v=1" defer></script>';
     render_page('Staff Password Recovery',$html);
 }
 
