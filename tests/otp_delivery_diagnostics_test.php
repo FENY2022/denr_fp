@@ -19,6 +19,7 @@ $GLOBALS['diag_render']='';
 $GLOBALS['diag_table']=true;
 $GLOBALS['diag_stats']=['total'=>3,'active'=>1,'pending'=>2];
 $GLOBALS['diag_recent']=2;
+$GLOBALS['diag_last_sent']=null;
 $GLOBALS['diag_audits']=[];
 $_SESSION=[];
 
@@ -33,7 +34,7 @@ function query_one(string $sql,array $values=[]): ?array
         return $GLOBALS['diag_table']?['name'=>'shared_office_recovery_otps']:null;
     }
     if (str_contains($sql,'COUNT(*) AS n,MAX(created_at)')) {
-        return ['n'=>$GLOBALS['diag_recent'],'last_sent'=>null];
+        return ['n'=>$GLOBALS['diag_recent'],'last_sent'=>$GLOBALS['diag_last_sent']];
     }
     if (str_contains($sql,'SELECT id,created_at,expires_at,used_at,failed_attempts')) {
         return [
@@ -44,6 +45,20 @@ function query_one(string $sql,array $values=[]): ?array
     }
     throw new RuntimeException('Unexpected SQL: '.$sql);
 }
+class OtpTestDb
+{
+    public function exec(string $sql): int
+    {
+        if (!str_contains($sql,'CREATE TABLE IF NOT EXISTS shared_office_recovery_otps')
+            || str_contains($sql,'password_hash')===true
+            && !str_contains($sql,'code_hash')) {
+            throw new RuntimeException('Unexpected or destructive schema change');
+        }
+        $GLOBALS['diag_table']=true;
+        return 0;
+    }
+}
+function db(): OtpTestDb { return new OtpTestDb(); }
 function smtp_send_html(string $to,string $subject,string $html): bool
 {
     $GLOBALS['diag_sent_to']=$to;
@@ -104,10 +119,30 @@ $snapshot=fpoms_otp_diagnostics_snapshot('records.r13@example.invalid');
 diag_assert(str_contains($snapshot['reason'],'Rate limited'),
     '3 office challenges in 15 minutes shown as rate limited');
 $GLOBALS['diag_recent']=0;
+$GLOBALS['diag_last_sent']=date('Y-m-d H:i:s',time()-25);
+$snapshot=fpoms_otp_diagnostics_snapshot('records.r13@example.invalid');
+diag_assert($snapshot['cooldown_active']
+    && str_contains($snapshot['reason'],'60 seconds'),
+    '60-second resend cooldown is diagnosed');
+$GLOBALS['diag_last_sent']=null;
 $GLOBALS['diag_table']=false;
 $snapshot=fpoms_otp_diagnostics_snapshot('records.r13@example.invalid');
 diag_assert(str_contains($snapshot['reason'],'Missing Migration 025'),
     'missing database migration detected without querying absent table');
+$_SESSION['fpoms_otp_diag_email']='records.r13@example.invalid';
+view_otp_delivery_diagnostics();
+diag_assert(str_contains($GLOBALS['diag_render'],'Initialize OTP Table (Migration 025)'),
+    'missing schema offers authorized one-time setup button');
+// Explicit authorized migration initialization avoids requiring phpMyAdmin.
+$admin=require_role('super_admin');
+diag_assert(str_contains(fpoms_otp_initialize_table($admin),'table is ready')
+    && $GLOBALS['diag_table']===true,
+    'Super Admin can initialize missing Migration 025 table');
+$GLOBALS['diag_table']=false;
+diag_assert(str_contains(fpoms_otp_initialize_table(['id'=>0,'user_kind'=>'applicant']),
+    'Only a verified')
+    && $GLOBALS['diag_table']===false,
+    'non-administrator cannot initialize OTP table');
 $GLOBALS['diag_table']=true;
 $GLOBALS['diag_stats']=['total'=>3,'active'=>0,'pending'=>3];
 $snapshot=fpoms_otp_diagnostics_snapshot('records.r13@example.invalid');
@@ -158,7 +193,8 @@ $views=file_get_contents(__DIR__.'/../app/views.php');
 $bootstrap=file_get_contents(__DIR__.'/../app/bootstrap.php');
 $service=file_get_contents(__DIR__.'/../app/shared_office_recovery.php');
 diag_assert(str_contains($routes,"case 'otp_delivery_diagnostics':")
-    && str_contains($routes,"require_role('super_admin')"),
+    && str_contains($routes,"require_role('super_admin')")
+    && str_contains($routes,"$"."action==='install_025'"),
     'admin-only route');
 diag_assert(str_contains($routes,"check_csrf()")
     && str_contains($routes,"case 'otp_delivery_diagnostics':"),

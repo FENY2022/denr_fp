@@ -49,6 +49,42 @@ function fpoms_otp_smtp_preflight(): array
 }
 
 /**
+ * Explicit, CSRF-protected Super Admin action only. The public OTP route
+ * NEVER creates or modifies database schema. Matches migration 025 exactly.
+ */
+function fpoms_otp_initialize_table(array $admin): string
+{
+    if (($admin['user_kind']??'')!=='internal' || (int)($admin['id']??0)<1) {
+        return 'Only a verified DENR Super Administrator can initialize OTP storage.';
+    }
+    try {
+        db()->exec("CREATE TABLE IF NOT EXISTS shared_office_recovery_otps (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            email_hash CHAR(64) NOT NULL,
+            code_hash VARCHAR(255) NOT NULL,
+            requested_ip VARCHAR(45) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            failed_attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            used_at DATETIME NULL,
+            PRIMARY KEY (id),
+            KEY idx_office_otp_hash_time (email_hash,created_at),
+            KEY idx_office_otp_ip_time (requested_ip,created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        try {
+            audit((int)$admin['id'],'settings.shared_office_otp_table_initialized',
+                'settings',null);
+        } catch (Throwable $error) {
+            error_log('FP-OMS OTP table setup audit unavailable: '.get_class($error));
+        }
+        return 'Migration 025 table is ready. You may retry the shared office email OTP.';
+    } catch (Throwable $error) {
+        error_log('FP-OMS OTP table initialization failed: '.get_class($error));
+        return 'Could not create OTP storage. Check database CREATE TABLE permission, or import database/025_shared_office_recovery.sql in phpMyAdmin.';
+    }
+}
+
+/**
  * @return array{email:string,stats:array,table_ready:bool,mail:array,recent_count:int,last_requested:string,last_state:string,reason:string,errors:array}
  */
 function fpoms_otp_diagnostics_snapshot(string $email): array
@@ -58,6 +94,7 @@ function fpoms_otp_diagnostics_snapshot(string $email): array
     $snapshot=[
         'email'=>$email,'stats'=>['total'=>0,'active'=>0,'pending'=>0],
         'table_ready'=>false,'mail'=>$mail,'recent_count'=>0,
+        'cooldown_active'=>false,
         'last_requested'=>'','last_state'=>'No recorded OTP','reason'=>'',
         'errors'=>[]
     ];
@@ -88,6 +125,9 @@ function fpoms_otp_diagnostics_snapshot(string $email): array
                 [$hash]
             );
             $snapshot['recent_count']=(int)($rate['n']??0);
+            $latestRequested=(string)($rate['last_sent']??'');
+            $snapshot['cooldown_active']=$latestRequested!=='' &&
+                strtotime($latestRequested)>time()-60;
             $last=query_one(
                 'SELECT id,created_at,expires_at,used_at,failed_attempts
                  FROM shared_office_recovery_otps
@@ -120,6 +160,8 @@ function fpoms_otp_diagnostics_snapshot(string $email): array
         $snapshot['reason']='SMTP configuration is incomplete or disabled; see the checks below.';
     } elseif ($snapshot['recent_count']>=3) {
         $snapshot['reason']='Rate limited: at least three office OTP requests in the last 15 minutes.';
+    } elseif ($snapshot['cooldown_active']) {
+        $snapshot['reason']='Rate limited: wait at least 60 seconds after the last OTP request.';
     } else {
         $snapshot['reason']='Preflight passed. Confirm SMTP delivery by sending a test to the administrator email and checking the PHP error log.';
     }
@@ -194,12 +236,24 @@ function view_otp_delivery_diagnostics(array $errors=[],string $notice=''): void
             .'</td></tr>'
             . '<tr><th scope="row">OTP attempts in last 15 minutes</th><td>'
             .(int)$snapshot['recent_count'].' / 3 per mailbox</td></tr>'
+            . '<tr><th scope="row">60-second resend cooldown</th><td>'
+            .($snapshot['cooldown_active']?'Active':'Not active').'</td></tr>'
             . '<tr><th scope="row">Last OTP record</th><td>'
             .e($snapshot['last_requested']!==''?$snapshot['last_requested']:'None').'</td></tr>'
             . '<tr><th scope="row">Last OTP state</th><td>'
             .e($snapshot['last_state']).'</td></tr>'
             . '</tbody></table></div><p class="mb-2"><strong>Assessment: </strong>'
             .e($snapshot['reason']).'</p>';
+        if (!$snapshot['table_ready']) {
+            $html.='<form method="post" action="'.e(url('otp_delivery_diagnostics')).'" '
+                .'class="mt-3">'.csrf_field()
+                .'<input type="hidden" name="operation" value="install_025">'
+                .'<button class="btn btn-outline-warning" type="submit">'
+                .'<i class="bi bi-database-add me-1"></i>Initialize OTP Table (Migration 025)'
+                .'</button><div class="form-text">Creates only the missing shared-office '
+                .'OTP table. Requires database CREATE TABLE permission. '
+                .'No user passwords or accounts will be modified.</div></form>';
+        }
         foreach ($snapshot['errors'] as $error) {
             $html.='<div class="alert alert-warning small">'.e((string)$error).'</div>';
         }

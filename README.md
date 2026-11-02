@@ -1234,3 +1234,12 @@ and outbound HTTPS/TLS connectivity are required for real email delivery.
 Run `php tests/shared_office_recovery_test.php` and
 `php tests/otp_delivery_diagnostics_test.php`, then test with real
 DENR Active/Pending records and check the email inbox.
+
+**No phpMyAdmin required when DB DDL permissions allow it:** if Migration
+025 is missing, Super Admin → Configuration → OTP Delivery Diagnostics
+offers **Initialize OTP Table (Migration 025)**. This is an explicit,
+CSRF-protected Super Admin POST that creates only the missing table using
+CREATE TABLE IF NOT EXISTS. It never edits any user account or password.
+If CREATE TABLE permission is unavailable, run the existing SQL migration
+as the database administrator. The diagnostics also show the 60-second
+resend cooldown separately from the 3-in-15-minutes office OTP limit.

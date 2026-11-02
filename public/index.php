@@ -76,6 +76,8 @@ try {
                     }
                 } elseif ($action==='test_smtp') {
                     view_otp_delivery_diagnostics([],fpoms_otp_admin_test_mail($admin));
+                } elseif ($action==='install_025') {
+                    view_otp_delivery_diagnostics([],fpoms_otp_initialize_table($admin));
                 } else {
                     show_error('Invalid diagnostics action.',400);
                 }
