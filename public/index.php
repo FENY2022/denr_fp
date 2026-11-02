@@ -61,6 +61,28 @@ try {
                 view_login(['Invalid username/email or password. Please try again.']);
             } else view_login();
             break;
+        case 'otp_delivery_diagnostics':
+            $admin=require_role('super_admin');
+            if ($post) {
+                check_csrf();
+                $action=safe_post('operation',20);
+                if ($action==='analyze') {
+                    $email=shared_office_normalize_email(safe_post('office_email',190));
+                    if (!shared_office_email_valid($email)) {
+                        view_otp_delivery_diagnostics(['Enter a valid office email to analyze.']);
+                    } else {
+                        $_SESSION['fpoms_otp_diag_email']=$email;
+                        view_otp_delivery_diagnostics();
+                    }
+                } elseif ($action==='test_smtp') {
+                    view_otp_delivery_diagnostics([],fpoms_otp_admin_test_mail($admin));
+                } else {
+                    show_error('Invalid diagnostics action.',400);
+                }
+            } else {
+                view_otp_delivery_diagnostics();
+            }
+            break;
         case 'shared_office_recovery':
             if ($post) {
                 check_csrf();

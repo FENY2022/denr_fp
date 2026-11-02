@@ -76,6 +76,7 @@ jobs:
       - name: Shared office account recovery security checks
         run: |
           php tests/shared_office_recovery_test.php
+          php tests/otp_delivery_diagnostics_test.php
           node --check public/assets/shared-office-recovery.js
       - name: Pusher realtime channel security checks
         run: |

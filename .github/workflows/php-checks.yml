@@ -62,6 +62,7 @@ jobs:
           node --check public/assets/fpoms-pusher.js
           php tests/staff_username_otp_test.php
           php tests/shared_office_recovery_test.php
+          php tests/otp_delivery_diagnostics_test.php
           node --check public/assets/shared-office-recovery.js
           php tests/staff_username_recovery_test.php
           node --check public/assets/user-setup-modal.js

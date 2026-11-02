@@ -23,17 +23,46 @@ function shared_office_email_hash(string $email): string
     return hash('sha256', shared_office_normalize_email($email));
 }
 
-/** No user identities disclosed by initial mailbox lookup. */
-function shared_office_match_count(string $email): int
+/**
+ * Count active AND pending-setup DENR designations. Office references are
+ * frequently shared across pending designations, so counting only Active
+ * users made a real shared mailbox appear unique and suppressed the OTP.
+ * Suspended/other statuses are ineligible; do not return identities here.
+ *
+ * @return array{total:int,active:int,pending:int}
+ */
+function shared_office_reference_stats(string $email): array
 {
-    $row = query_one(
-        "SELECT COUNT(*) AS n FROM users u
-         WHERE u.user_kind='internal' AND u.status='active'
+    $email=shared_office_normalize_email($email);
+    if (!shared_office_email_valid($email)) return ['total'=>0,'active'=>0,'pending'=>0];
+    $row=query_one(
+        "SELECT COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN u.status='active' THEN 1 ELSE 0 END),0) AS active,
+            COALESCE(SUM(CASE WHEN u.status='pending_setup' THEN 1 ELSE 0 END),0) AS pending
+         FROM users u
+         WHERE u.user_kind='internal'
+           AND u.status IN ('active','pending_setup')
            AND (LOWER(TRIM(COALESCE(u.reference_email,'')))=?
              OR LOWER(TRIM(COALESCE(u.email,'')))=?)",
-        [$email, $email]
+        [$email,$email]
     );
-    return (int)($row['n'] ?? 0);
+    return [
+        'total'=>(int)($row['total']??0),
+        'active'=>(int)($row['active']??0),
+        'pending'=>(int)($row['pending']??0)
+    ];
+}
+
+/** Shared office email needs 2+ designations and 1+ eligible Active staff. */
+function shared_office_is_recoverable(array $stats): bool
+{
+    return (int)($stats['total']??0)>=2 && (int)($stats['active']??0)>=1;
+}
+
+/** Compatible aggregate count for existing diagnostics/test callers. */
+function shared_office_match_count(string $email): int
+{
+    return shared_office_reference_stats($email)['total'];
 }
 
 function shared_office_candidates(string $email): array
@@ -106,7 +135,7 @@ function shared_office_auto_start(string $email,string $purpose): bool
     if (!shared_office_email_valid($email)
         || !in_array($purpose,['password','username'],true)) return false;
     try {
-        if (shared_office_match_count($email) < 2) return false;
+        if (!shared_office_is_recoverable(shared_office_reference_stats($email))) return false;
     } catch (Throwable $error) {
         // Missing old schema, permissions, etc. must not break ordinary recovery.
         error_log('FP-OMS shared email detection unavailable: '.get_class($error));
@@ -154,8 +183,16 @@ function shared_office_request(string $email): void
         if ((int)($rate['n'] ?? 0) >= 3) return;
         $last = (string)($rate['last_sent'] ?? '');
         if ($last !== '' && strtotime($last) > time() - 60) return;
-        if (shared_office_match_count($email) < 2) return;
+        if (!shared_office_is_recoverable(shared_office_reference_stats($email))) return;
         if (query_one("SELECT id FROM user_client WHERE email=? LIMIT 1",[$email])) return;
+        // Don't consume a rate-limit slot or create an OTP when the mail
+        // transport is explicitly disabled; the admin preflight reports why.
+        if (function_exists('env_value')
+            && strtolower(trim(env_value('MAIL_ENABLED','false')))!=='true') {
+            error_log('FP-OMS shared office OTP SMTP_DISABLED mailbox_sha256_prefix='
+                .substr($hash,0,12));
+            return;
+        }
 
         $otp = str_pad((string)random_int(0,999999),6,'0',STR_PAD_LEFT);
         $pdo = db();
@@ -180,6 +217,11 @@ function shared_office_request(string $email): void
         if (!smtp_send_html($email,'DENR FP-OMS — Shared Office Verification OTP',$body)) {
             $pdo->prepare('UPDATE shared_office_recovery_otps SET used_at=NOW()
                            WHERE id=? AND used_at IS NULL')->execute([$otpId]);
+            error_log('FP-OMS shared office OTP SMTP_FAILED mailbox_sha256_prefix='
+                .substr($hash,0,12).' (consult PHPMailer error details)');
+        } else {
+            error_log('FP-OMS shared office OTP SMTP_ACCEPTED mailbox_sha256_prefix='
+                .substr($hash,0,12).' (inbox delivery not guaranteed)');
         }
     } catch (Throwable $error) {
         if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
@@ -204,7 +246,7 @@ function shared_office_verify(string $email,string $otp): bool
         );
         if (!$row || strtotime((string)$row['expires_at']) <= time()
             || (int)$row['failed_attempts'] >= 5
-            || shared_office_match_count($email) < 2) {
+            || !shared_office_is_recoverable(shared_office_reference_stats($email))) {
             $pdo->rollBack();
             return false;
         }
@@ -259,7 +301,7 @@ function shared_office_choose_account(int $id,string $purpose): array
     }
     $rows = shared_office_candidates($officeEmail);
     $selected = null;
-    if (count($rows) < 2) {
+    if (count($rows) < 1) {
         return ['Office account verification expired. Request a new code.'];
     }
     foreach ($rows as $row) {
@@ -347,7 +389,7 @@ function view_shared_office_accounts(array $errors=[]): void
     $email = shared_office_verified_email();
     if ($email==='') go('shared_office_recovery');
     $rows = shared_office_candidates($email);
-    if (count($rows)<2) go('shared_office_recovery');
+    if (count($rows)<1) go('shared_office_recovery');
     $purpose = (string)($_SESSION['shared_office_purpose'] ?? 'password');
     $html = '<div class="row justify-content-center"><div class="col-lg-7">'
         . '<div class="panel">'.errors_html($errors)

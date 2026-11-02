@@ -1,0 +1,58 @@
+name: Shared Office OTP Repair Checks
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/shared_office_recovery.php'
+      - 'app/otp_delivery_diagnostics.php'
+      - 'app/bootstrap.php'
+      - 'app/views.php'
+      - 'public/index.php'
+      - 'tests/shared_office_recovery_test.php'
+      - 'tests/otp_delivery_diagnostics_test.php'
+      - '.github/workflows/shared-office-otp-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shared-office-syntax:
+    name: Shared OTP PHP lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - run: |
+          php -l app/shared_office_recovery.php
+          php -l app/otp_delivery_diagnostics.php
+          php -l public/index.php
+          php -l app/bootstrap.php
+          php -l app/views.php
+          php -l tests/shared_office_recovery_test.php
+          php -l tests/otp_delivery_diagnostics_test.php
+
+  shared-office-regression:
+    name: Shared OTP recovery regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - run: php tests/shared_office_recovery_test.php
+
+  smtp-diagnostics-regression:
+    name: SMTP diagnostics regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+      - run: php tests/otp_delivery_diagnostics_test.php

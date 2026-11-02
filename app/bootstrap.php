@@ -66,6 +66,7 @@ require_once __DIR__ . '/registration_otp.php';
 require_once __DIR__ . '/registration_diagnostics.php';
 require_once __DIR__ . '/password_reset.php';
 require_once __DIR__ . '/shared_office_recovery.php';
+require_once __DIR__ . '/otp_delivery_diagnostics.php';
 require_once __DIR__ . '/staff_password_otp.php';
 require_once __DIR__ . '/registration.php';
 require_once __DIR__ . '/registration_attachments.php';

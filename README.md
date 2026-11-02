@@ -1187,3 +1187,50 @@ must already be applied for shared office OTPs. Working SMTP is also required.
 **No new database migration** is introduced by automatic detection.
 **Security checks:** php tests/shared_office_recovery_test.php (included
 in the two PHP workflows) and a live two-account XAMPP/SMTP smoke test.
+
+### Shared Office OTP repair and Super Administrator delivery diagnostics
+
+**Shared-email detection fix:** DENR office/reference emails now count staff
+designations with status **active** and **pending_setup** together. Previously,
+only Active staff records were counted; shared emails could be incorrectly
+treated as single-account addresses and no office OTP would be sent. At least
+two designations must share the same mailbox, and at least one account must
+be **Active** before the system sends an office OTP. Pending Setup accounts
+count toward determining sharing but **never** appear as selectable accounts
+and are not eligible for password reset. After office mailbox verification,
+one or more Active users can be selected; the selected user must still
+complete a **separate, unique personal recovery email OTP** before resetting
+a password. All applicant and normal DENR username/password logins remain
+unchanged. Office OTP still expires in 10 minutes and remains rate-limited
+(three per email per 15 minutes, minimum 60 seconds apart, 20 per IP per
+15 minutes, five invalid code attempts).
+
+**Super Admin → Configuration → OTP Delivery Diagnostics**:
+Enter an office email to inspect how many Active and Pending Setup DENR
+designations share it, whether Migration 025 is installed, how many
+office OTP records were created in the last 15 minutes, and the latest
+record's non-sensitive state. The screen checks MAIL_ENABLED, SMTP host/port,
+encryption, sender and whether SMTP credentials are present — *never*
+displays or stores the SMTP password. A separately rate-limited **Send SMTP
+Test to My Email** action delivers a harmless test message only to the
+authenticated Super Admin's configured email (not an arbitrary recipient).
+The test reports whether SMTP accepted the message, which does not itself
+guarantee that the recipient inbox accepted it.
+
+Application error logs identify office OTP transport failures with
+**SMTP_FAILED**, SMTP disabled with **SMTP_DISABLED**, and successful SMTP
+acceptance with **SMTP_ACCEPTED**. Diagnostic log entries contain only a
+short SHA-256 prefix of the email to correlate events, not email addresses,
+raw OTPs, or credentials. Email failures never leave an active OTP behind.
+The public recovery form remains generic, so outsiders cannot enumerate
+employee records via the recovery process.
+
+**Deployment prerequisites:** Pull the latest main. Migration 025
+(`database/025_shared_office_recovery.sql`) still needs to be installed
+in the local `denr_fp_oms` database. No new migration is introduced by
+this repair; no existing user accounts, statuses, passwords, or reset data
+are changed by the code update. Valid SMTP credentials with MAIL_ENABLED=true
+and outbound HTTPS/TLS connectivity are required for real email delivery.
+Run `php tests/shared_office_recovery_test.php` and
+`php tests/otp_delivery_diagnostics_test.php`, then test with real
+DENR Active/Pending records and check the email inbox.

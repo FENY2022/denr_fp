@@ -55,10 +55,20 @@ function db(): OfficeRecoveryDb
 }
 function query_one(string $sql,array $args=[]): ?array
 {
-    if (str_contains($sql,'COUNT(*) AS n FROM users u')) {
+    if (str_contains($sql,'COUNT(*) AS total') && str_contains($sql,'FROM users u')) {
         $address=(string)($args[0]??'');
-        return ['n'=>$address==='individual.one@example.invalid'?1:
-            ($address==='unknown@example.invalid'?0:2)];
+        if ($address==='individual.one@example.invalid') {
+            return ['total'=>1,'active'=>1,'pending'=>0];
+        }
+        if ($address==='unknown@example.invalid') {
+            return ['total'=>0,'active'=>0,'pending'=>0];
+        }
+        if ($address==='pending.only@example.invalid') {
+            return ['total'=>3,'active'=>0,'pending'=>3];
+        }
+        // One activated staff account + one Pending Setup designation
+        // still constitutes a shared office mailbox.
+        return ['total'=>2,'active'=>1,'pending'=>1];
     }
     if (str_contains($sql,'COUNT(*) AS n,MAX(id) AS staff_id')) {
         return ['n'=>1,'staff_id'=>str_contains($args[0],'two')?5:4];
@@ -167,6 +177,22 @@ office_assert(shared_office_choose_account(5,'password')!==[],
     'shared office mailbox cannot be used as the final recovery factor');
 $GLOBALS['mock_records'][1]['email']='individual.two@example.invalid';
 
+// Only one Active account can remain selectable even though another
+// Pending Setup designation makes this office email genuinely shared.
+$_SESSION['shared_office_verified_email']='records.r13@example.invalid';
+$_SESSION['shared_office_verified_expires_at']=time()+600;
+$GLOBALS['mock_records']=array_slice($GLOBALS['mock_records'],0,1);
+view_shared_office_accounts();
+office_assert(str_contains($GLOBALS['render'],'Staff One')
+    && !str_contains($GLOBALS['render'],'Staff Two'),
+    'only one Active account displayed when other shared designation is Pending Setup');
+office_assert(shared_office_choose_account(4,'password')===[],
+    'single Active account is selectable after shared office OTP');
+$GLOBALS['mock_records'][]=[
+    'id'=>5,'name'=>'Staff Two','username'=>'stafftwo5',
+    'email'=>'individual.two@example.invalid','office_station'=>'RO Records'
+];
+
 $_SESSION['shared_office_verified_email']='records.r13@example.invalid';
 $_SESSION['shared_office_verified_expires_at']=time()+600;
 $_SESSION['shared_office_purpose']='username';
@@ -206,6 +232,10 @@ office_assert(str_contains($js,'form.requestSubmit()')
 // references automatically, before initiating individual staff/client flows.
 $_SESSION=[];
 $GLOBALS['mock_email']=null;
+office_assert(shared_office_reference_stats('records.r13@example.invalid')['total']===2
+    && shared_office_reference_stats('records.r13@example.invalid')['active']===1
+    && shared_office_reference_stats('records.r13@example.invalid')['pending']===1,
+    'shared email counts pending and active designations together');
 office_assert(shared_office_auto_start('records.r13@example.invalid','password'),
     'shared mailbox auto-detected for password recovery');
 office_assert(($_SESSION['shared_office_pending_email']??'')==='records.r13@example.invalid'
@@ -236,6 +266,8 @@ office_assert(!shared_office_auto_start('individual.one@example.invalid','passwo
     'single individual recovery email stays on normal OTP flow');
 office_assert(!shared_office_auto_start('unknown@example.invalid','password'),
     'unregistered email remains on generic normal recovery path');
+office_assert(!shared_office_auto_start('pending.only@example.invalid','password'),
+    'all-pending shared designations have no recoverable active staff account');
 office_assert(!shared_office_auto_start('not-an-email','password'),
     'malformed email cannot start shared recovery');
 office_assert(!shared_office_auto_start('records.r13@example.invalid','invalid'),
