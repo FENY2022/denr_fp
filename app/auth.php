@@ -11,7 +11,10 @@ function authenticate(string $identifier, string $password): bool
     $ip = client_ip();
     $blockedEmail = query_one('SELECT COUNT(*) AS n FROM login_attempts WHERE was_successful=0 AND attempted_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND email_hash=?', [$hash]);
     $blockedIp = query_one('SELECT COUNT(*) AS n FROM login_attempts WHERE was_successful=0 AND attempted_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND ip_address=?', [$ip]);
-    if ((int)($blockedEmail['n'] ?? 0) >= 8 || (int)($blockedIp['n'] ?? 0) >= 40) return false;
+    // A successful password must not be rejected solely because of old
+    // failed attempts. Preserve throttling for incorrect credentials.
+    $temporarilyLimited = (int)($blockedEmail['n'] ?? 0) >= 8
+        || (int)($blockedIp['n'] ?? 0) >= 40;
 
     $staff = !$isEmail && staff_username_valid($identifier)
         ? query_one("SELECT * FROM users WHERE username=? AND user_kind='internal'",[$identifier])
@@ -47,7 +50,14 @@ function authenticate(string $identifier, string $password): bool
         && password_verify($password, $user['password_hash']);
     db()->prepare('INSERT INTO login_attempts (email_hash,ip_address,was_successful) VALUES (?,?,?)')
         ->execute([$hash,$ip,(int)(bool)$success]);
-    if (!$success) return false;
+    if (!$success) {
+        // Keep a short cooldown for repeated incorrect passwords, but do
+        // not prevent legitimate users from authenticating with a correct one.
+        if ($temporarilyLimited) {
+            usleep(300000);
+        }
+        return false;
+    }
     session_regenerate_id(true);
     unset($_SESSION['user_id'], $_SESSION['client_id'], $_SESSION['registration_pending_client_id']);
     $_SESSION[$isClient ? 'client_id' : 'user_id'] = (int)$user['id'];
