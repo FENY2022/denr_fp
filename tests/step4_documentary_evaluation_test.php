@@ -92,8 +92,10 @@ step4_assert(str_contains($views,'data-step4-child-modal')
     && str_contains($views,'data-step4-child-preview')
     && str_contains($views,'data-step4-file-prev')
     && str_contains($views,'data-step4-back-files')
+    && str_contains($views,'data-step4-fullscreen')
+    && str_contains($views,'data-step4-fullscreen-label')
     && !str_contains($views,'id="step4-decision-modal"'),
-    'View File opens a closable child modal while preserving the parent Step 4 wizard');
+    'View File opens a closable child modal with an optional full-screen viewer');
 step4_assert(str_contains($views,'data-step4-progress-count')
     && str_contains($views,'data-step4-progress-meter')
     && str_contains($views,'data-step4-step-label'),
@@ -122,6 +124,8 @@ step4_assert(str_contains($reviewJs,'updateProgress')
     && str_contains($reviewJs,'updateSummary')
     && str_contains($reviewJs,'openChild')
     && str_contains($reviewJs,'closeChild')
+    && str_contains($reviewJs,'setChildFullscreen')
+    && str_contains($reviewJs,"'Exit Full Screen'")
     && str_contains($reviewJs,'openFile')
     && str_contains($reviewJs,'form.requestSubmit()')
     && str_contains($reviewJs,"completeButton.disabled = completed < total"),
@@ -130,6 +134,7 @@ step4_assert(str_contains($reviewJs,'updateProgress')
 step4_assert(str_contains($modalCss,'#step4-evaluation-modal')
     && str_contains($modalCss,'.step4-child-modal')
     && str_contains($modalCss,'.step4-child-dialog')
+    && str_contains($modalCss,'.step4-child-modal.step4-child-fullscreen')
     && str_contains($modalCss,'.step4-modal-pdf')
     && str_contains($nav,'permit-step4-modal.css'),
     'Large Step 4 modal and nested child document viewer styles are loaded on the evaluation page');
