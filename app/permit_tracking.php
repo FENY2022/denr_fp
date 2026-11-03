@@ -49,8 +49,32 @@ function permit_tracking_state(array $app): array
         'forwarded_to_lpdd' => [
             'office'=>'LPDD-FUS (Regional Office)',
             'next_role'=>'LPDD-FUS Documentary Evaluation Personnel',
-            'next_action'=>'Await Step 4 documentary evaluation; the payment request follows only after completeness review',
+            'next_action'=>'Start Step 4 formal documentary evaluation',
             'assignment'=>'No individual assignee is recorded for this step'
+        ],
+        'step4_under_evaluation' => [
+            'office'=>'LPDD-FUS (Regional Office)',
+            'next_role'=>'LPDD-FUS Documentary Evaluation Personnel',
+            'next_action'=>'Evaluate completeness and sufficiency of every documentary requirement',
+            'assignment'=>'Current Step 4 review record identifies the reviewer'
+        ],
+        'step4_corrections_required' => [
+            'office'=>'Applicant / Client',
+            'next_role'=>'Applicant',
+            'next_action'=>'Correct deficiencies, complete missing documentary requirements, and resubmit for Step 4 re-evaluation',
+            'assignment'=>'Application owner'
+        ],
+        'step4_resubmitted' => [
+            'office'=>'LPDD-FUS (Regional Office)',
+            'next_role'=>'LPDD-FUS Documentary Evaluation Personnel',
+            'next_action'=>'Re-evaluate the applicant compliance submission under Step 4',
+            'assignment'=>'No individual assignee is recorded until review starts'
+        ],
+        'step4_complete' => [
+            'office'=>'LPDD-FUS / CENRO Step 5 Preparation',
+            'next_role'=>'CENRO Technical Working Group',
+            'next_action'=>'Submit required hard copies, complete application-fee payment, and proceed with scheduled field validation / assessment',
+            'assignment'=>'Step 5 formal processing is not yet implemented'
         ],
         default => [
             'office'=>'Unknown / workflow not implemented',
@@ -71,6 +95,10 @@ function permit_tracking_event_label(string $action): string
         'forwarded_to_ro'=>'Forwarded to RO Receiving',
         'ro_documents_received'=>'Documents Received by RO Receiving',
         'forwarded_to_lpdd'=>'Forwarded to LPDD-FUS for Step 4',
+        'step4_review_started'=>'Step 4 Documentary Evaluation Started',
+        'step4_returned_for_compliance'=>'Step 4 Returned for Compliance',
+        'step4_resubmitted'=>'Step 4 Compliance Resubmitted',
+        'step4_complete'=>'Step 4 Complete & Sufficient',
         'ro_archived'=>'Records Action Archived',
         'reverted'=>'Reverted by Applicant',
         default=>ucwords(str_replace('_',' ', $action))
@@ -84,7 +112,9 @@ function permit_tracking_event_destination(string $action): string
         'returned_for_correction','reverted'=>'Applicant / Client',
         'forwarded_to_ro'=>'RO Receiving/Releasing',
         'ro_documents_received'=>'RO Receiving/Releasing',
-        'forwarded_to_lpdd'=>'LPDD-FUS (Regional Office)',
+        'forwarded_to_lpdd','step4_review_started','step4_resubmitted'=>'LPDD-FUS (Regional Office)',
+        'step4_returned_for_compliance'=>'Applicant / Client',
+        'step4_complete'=>'CENRO TWG / Step 5 Preparation',
         'ro_archived'=>'Records Archiving',
         default=>'Not recorded'
     };
@@ -192,7 +222,11 @@ function permit_tracking_historical_staff_access(array $staff, int $applicationI
     return query_one(
         'SELECT id FROM permit_step2_events
          WHERE application_id=? AND actor_user_id=?
-         AND action IN (\'documents_received\',\'returned_for_correction\',\'forwarded_to_ro\',\'ro_documents_received\',\'forwarded_to_lpdd\')
+         AND action IN (
+           \'documents_received\',\'returned_for_correction\',\'forwarded_to_ro\',
+           \'ro_documents_received\',\'forwarded_to_lpdd\',\'step4_review_started\',
+           \'step4_returned_for_compliance\',\'step4_resubmitted\',\'step4_complete\'
+         )
          LIMIT 1',
         [$applicationId,(int)$staff['id']]
     ) !== null;
