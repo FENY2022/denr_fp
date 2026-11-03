@@ -100,6 +100,8 @@ function render_page(string $title, string $content): void
             ? '<link href="assets/registration-review-confirm.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="registration-document-modal"')
             ? '<link href="assets/registration-document-preview.css?v=2" rel="stylesheet">' : '')
+        . (str_contains($content, 'id="step4-evaluation-modal"')
+            ? '<link href="assets/permit-step4-modal.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'data-fp-location-map=')
             ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
                 . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
