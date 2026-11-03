@@ -63,6 +63,10 @@ step4_assert(str_contains($views,'Under Evaluation')
     && str_contains($views,'Returned for Compliance')
     && str_contains($views,'Complete & Sufficient'),
     'Step 4 queue tabs cover documentary evaluation flow');
+step4_assert(str_contains($views,'View All Uploaded Files')
+    && str_contains($views,'data-document-preview')
+    && str_contains($views,'View File'),
+    'Step 4 reviewers can open submitted files from the evaluation checklist');
 step4_assert(str_contains($views,'name="assessment[')
     && str_contains($views,'field_validation_schedule'),
     'requirement-level assessments and field schedule are rendered');
