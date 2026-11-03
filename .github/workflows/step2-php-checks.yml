@@ -73,6 +73,10 @@ jobs:
           node --check public/assets/user-edit-modal.js
       - name: User Management filtered Excel export
         run: php tests/user_management_export_test.php
+      - name: User Management session revocation and login security logs
+        run: |
+          php tests/user_session_security_test.php
+          node --check public/assets/user-session-security.js
       - name: Shared office account recovery security checks
         run: |
           php tests/shared_office_recovery_test.php
