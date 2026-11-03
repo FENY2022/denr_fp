@@ -1,14 +1,11 @@
 (() => {
   'use strict';
 
-  // One full-screen Bootstrap modal owns the wizard, file list, PDF/image
-  // preview, and the final confirmation. Never open a second modal here.
   const modal = document.getElementById('step4-evaluation-modal');
-  // Bootstrap's fixed full-screen dialog must not be clipped by the
-  // application's sidebar/column stacking contexts.
   if (modal && document.body && modal.parentElement !== document.body) {
     document.body.appendChild(modal);
   }
+
   const form = modal?.querySelector('#step4-decision-form');
   const wizard = modal?.querySelector('[data-step4-wizard]');
   if (!modal || !form || !wizard || !window.bootstrap?.Modal) return;
@@ -36,26 +33,27 @@
   const progressCount = wizard.querySelector('[data-step4-progress-count]');
   const progressPercent = wizard.querySelector('[data-step4-progress-percent]');
   const progressMeter = wizard.querySelector('[data-step4-progress-meter]');
-
-  const wizardView = modal.querySelector('[data-step4-main-view]');
-  const filesView = modal.querySelector('[data-step4-files-view]');
-  const previewView = modal.querySelector('[data-step4-preview-view]');
-  const wizardFooter = modal.querySelector('[data-step4-wizard-footer]');
-  const filesFooter = modal.querySelector('[data-step4-files-footer]');
-  const previewFooter = modal.querySelector('[data-step4-preview-footer]');
   const modalBody = modal.querySelector('[data-step4-modal-body]');
   const previousButton = modal.querySelector('[data-step4-prev]');
   const nextButton = modal.querySelector('[data-step4-next]');
   const decisionControls = modal.querySelector('[data-step4-decision-controls]');
 
-  const previewName = modal.querySelector('[data-step4-preview-name]');
-  const previewCategory = modal.querySelector('[data-step4-preview-category]');
-  const previewArea = modal.querySelector('[data-step4-preview-area]');
-  const previewError = modal.querySelector('[data-step4-preview-error]');
-  const download = modal.querySelector('[data-step4-download]');
-  const filePrevious = modal.querySelector('[data-step4-file-prev]');
-  const fileNext = modal.querySelector('[data-step4-file-next]');
-  const fileCount = modal.querySelector('[data-step4-file-count]');
+  // Child document modal owned by the Step 4 parent modal.
+  const child = modal.querySelector('[data-step4-child-modal]');
+  const childTitle = child?.querySelector('[data-step4-child-title]');
+  const childFiles = child?.querySelector('[data-step4-child-files]');
+  const childPreview = child?.querySelector('[data-step4-child-preview]');
+  const childClosers = [...(child?.querySelectorAll('[data-step4-child-close]') || [])];
+  const backFiles = child?.querySelector('[data-step4-back-files]');
+  const previewNavigation = child?.querySelector('[data-step4-preview-navigation]');
+  const previewName = child?.querySelector('[data-step4-preview-name]');
+  const previewCategory = child?.querySelector('[data-step4-preview-category]');
+  const previewArea = child?.querySelector('[data-step4-preview-area]');
+  const previewError = child?.querySelector('[data-step4-preview-error]');
+  const download = child?.querySelector('[data-step4-download]');
+  const filePrevious = child?.querySelector('[data-step4-file-prev]');
+  const fileNext = child?.querySelector('[data-step4-file-next]');
+  const fileCount = child?.querySelector('[data-step4-file-count]');
 
   const assessmentMeta = {
     complete: ['Complete', 'success'],
@@ -65,16 +63,17 @@
   };
 
   let currentStep = Math.min(4, Math.max(1, Number(wizard.dataset.step4InitialStep || 1)));
-  let mode = 'wizard';
-  let returnFromPreview = 'wizard';
   let currentFileIndex = -1;
-  const links = [...modal.querySelectorAll('[data-step4-file-link]')]
+  let childOrigin = 'direct';
+  let childTrigger = null;
+
+  const fileLinks = [...modal.querySelectorAll('[data-step4-file-link]')]
     .filter(link => ['application/pdf', 'image/png', 'image/jpeg']
       .includes(link.dataset.documentMime));
   const files = [];
   const fileIndices = new Map();
 
-  for (const link of links) {
+  for (const link of fileLinks) {
     const key = link.dataset.documentId || link.href;
     if (!fileIndices.has(key)) {
       fileIndices.set(key, files.length);
@@ -102,22 +101,43 @@
     validation.classList.toggle('d-none', !text);
   }
 
-  function showMode(nextMode) {
-    mode = nextMode;
-    const items = [
-      [wizardView, 'wizard'], [filesView, 'files'], [previewView, 'preview'],
-      [wizardFooter, 'wizard'], [filesFooter, 'files'], [previewFooter, 'preview']
-    ];
-    for (const [element, key] of items) {
-      element?.classList.toggle('d-none', key !== mode);
-    }
-    if (modalBody) modalBody.scrollTop = 0;
-  }
-
   function clearPreview() {
     previewArea?.replaceChildren();
     currentFileIndex = -1;
-    if (previewError) previewError.classList.add('d-none');
+    previewError?.classList.add('d-none');
+    if (download) {
+      download.removeAttribute('href');
+      download.removeAttribute('download');
+    }
+  }
+
+  function showChildFiles() {
+    if (!child) return;
+    childFiles?.classList.remove('d-none');
+    childPreview?.classList.add('d-none');
+    previewNavigation?.classList.add('d-none');
+    backFiles?.classList.add('d-none');
+    if (childTitle) childTitle.textContent = 'Uploaded Documents';
+    if (previewCategory) previewCategory.textContent = '';
+    clearPreview();
+  }
+
+  function openChild(mode, trigger = null) {
+    if (!child) return;
+    childTrigger = trigger || document.activeElement;
+    child.classList.remove('d-none');
+    modal.classList.add('step4-child-open');
+    if (mode === 'files') showChildFiles();
+    child.querySelector('[data-step4-child-close]')?.focus();
+  }
+
+  function closeChild() {
+    if (!child) return;
+    child.classList.add('d-none');
+    modal.classList.remove('step4-child-open');
+    showChildFiles();
+    if (childTrigger && typeof childTrigger.focus === 'function') childTrigger.focus();
+    childTrigger = null;
   }
 
   function renderFile(index) {
@@ -125,37 +145,49 @@
     const link = files[index];
     const mime = link.dataset.documentMime;
     const name = link.dataset.documentName || 'Uploaded Document';
+    const category = link.dataset.documentCategory || '';
     clearPreview();
     currentFileIndex = index;
 
+    childFiles?.classList.add('d-none');
+    childPreview?.classList.remove('d-none');
+    previewNavigation?.classList.remove('d-none');
+    backFiles?.classList.toggle('d-none', childOrigin !== 'files');
+    if (childTitle) childTitle.textContent = 'Document Preview';
     if (previewName) previewName.textContent = name;
-    if (previewCategory) previewCategory.textContent = link.dataset.documentCategory || '';
-    const url = new URL(link.href, location.href);
-    if (url.origin !== location.origin) return;
-    url.searchParams.delete('preview');
+    if (previewCategory) previewCategory.textContent = category;
+
+    const previewUrl = new URL(link.href, location.href);
+    if (previewUrl.origin !== location.origin) {
+      previewError?.classList.remove('d-none');
+      return;
+    }
+    const downloadUrl = new URL(previewUrl.href);
+    downloadUrl.searchParams.delete('preview');
     if (download) {
-      download.href = url.href;
+      download.href = downloadUrl.href;
       download.download = name;
     }
+
     const media = document.createElement(mime === 'application/pdf' ? 'iframe' : 'img');
-    media.className = mime === 'application/pdf'
-      ? 'step4-modal-pdf' : 'step4-modal-image';
+    media.className = mime === 'application/pdf' ? 'step4-modal-pdf' : 'step4-modal-image';
     if (mime === 'application/pdf') media.title = name;
     else media.alt = name;
     media.addEventListener('error', () => previewError?.classList.remove('d-none'));
-    media.src = link.href;
+    media.src = previewUrl.href;
     previewArea.replaceChildren(media);
+
     if (fileCount) fileCount.textContent = (index + 1) + '/' + files.length;
     if (filePrevious) filePrevious.disabled = index === 0;
     if (fileNext) fileNext.disabled = index === files.length - 1;
   }
 
-  function openPreview(link) {
+  function openFile(link, origin = 'direct') {
     const key = link.dataset.documentId || link.href;
     const index = fileIndices.get(key);
     if (!Number.isInteger(index)) return;
-    returnFromPreview = mode;
-    showMode('preview');
+    childOrigin = origin;
+    openChild('preview', link);
     renderFile(index);
   }
 
@@ -181,6 +213,7 @@
   }
 
   function showStepError(step, text) {
+    if (!step) return;
     let inline = step.querySelector('[data-step4-inline-validation]');
     if (!inline) {
       inline = document.createElement('div');
@@ -255,7 +288,8 @@
     .some(select => ['incomplete', 'insufficient'].includes(select.value));
   const allSufficient = () => assessments
     .every(select => ['complete', 'not_applicable'].includes(select.value));
-  const stepFor = select => Number(select.closest('[data-step4-wizard-step]')?.dataset.step4WizardStep || 1);
+  const stepFor = select =>
+    Number(select.closest('[data-step4-wizard-step]')?.dataset.step4WizardStep || 1);
 
   nextButton?.addEventListener('click', () => {
     const active = steps.find(step => Number(step.dataset.step4WizardStep) === currentStep);
@@ -281,6 +315,7 @@
       if (currentStep === 4) updateSummary();
     });
   }
+
   for (const field of [overall, instructions, schedule]) {
     field?.addEventListener('input', () => {
       showValidation('');
@@ -304,6 +339,7 @@
         }
         return;
       }
+
       for (const select of assessments) {
         if (['incomplete','insufficient'].includes(select.value)) {
           const type = select.name.match(/^assessment\[(.+)\]$/)?.[1] || '';
@@ -356,7 +392,9 @@
           confirmButton.className = 'btn btn-success';
           confirmButton.textContent = 'Confirm Complete & Sufficient';
         }
-      } else return;
+      } else {
+        return;
+      }
 
       confirmation?.classList.remove('d-none');
       decisionControls?.classList.add('d-none');
@@ -366,47 +404,61 @@
   }
 
   cancelConfirmation?.addEventListener('click', cancelConfirm);
+
   confirmButton?.addEventListener('click', () => {
-    if (!hidden.value || currentStep !== 4 || mode !== 'wizard') return;
+    if (!hidden.value || currentStep !== 4 || !child?.classList.contains('d-none')) return;
     confirmButton.disabled = true;
     form.requestSubmit();
   });
 
   form.addEventListener('submit', event => {
-    if (!hidden.value || currentStep !== 4 || mode !== 'wizard') {
+    if (!hidden.value || currentStep !== 4 || !child?.classList.contains('d-none')) {
       event.preventDefault();
       cancelConfirm();
-      showMode('wizard');
       renderStep(4);
       showValidation('Confirm a Step 4 decision before submitting.');
     }
   });
 
-  modal.querySelector('[data-step4-view-all]')?.addEventListener('click', () => showMode('files'));
-  modal.querySelector('[data-step4-back-review]')?.addEventListener('click', () => showMode('wizard'));
-  modal.querySelector('[data-step4-back-preview]')?.addEventListener('click', () => {
-    clearPreview();
-    showMode(returnFromPreview);
+  modal.querySelector('[data-step4-view-all]')?.addEventListener('click', event => {
+    childOrigin = 'files';
+    openChild('files', event.currentTarget);
   });
-  for (const link of links) {
+
+  for (const link of fileLinks) {
     link.addEventListener('click', event => {
       event.preventDefault();
-      openPreview(link);
+      const origin = link.closest('[data-step4-child-files]') ? 'files' : 'direct';
+      openFile(link, origin);
     });
   }
+
+  backFiles?.addEventListener('click', () => {
+    childOrigin = 'files';
+    showChildFiles();
+  });
   filePrevious?.addEventListener('click', () => renderFile(currentFileIndex - 1));
   fileNext?.addEventListener('click', () => renderFile(currentFileIndex + 1));
+  for (const closer of childClosers) closer.addEventListener('click', closeChild);
+
+  modal.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && child && !child.classList.contains('d-none')) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeChild();
+    }
+  });
 
   modal.addEventListener('hidden.bs.modal', () => {
-    clearPreview();
+    closeChild();
     cancelConfirm();
-    showMode('wizard');
-    // Preserve entered values on this page; none are saved until final submission.
+    // Keep entered form values on the current page; no decision is persisted
+    // until the reviewer confirms the final Step 4 action.
   });
 
   updateProgress();
   renderStep(currentStep);
-  showMode('wizard');
+
   if (Number(wizard.dataset.step4InitialStep) > 1) {
     window.bootstrap.Modal.getOrCreateInstance(modal).show();
   }
