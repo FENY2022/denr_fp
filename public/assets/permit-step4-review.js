@@ -4,6 +4,11 @@
   // One full-screen Bootstrap modal owns the wizard, file list, PDF/image
   // preview, and the final confirmation. Never open a second modal here.
   const modal = document.getElementById('step4-evaluation-modal');
+  // Bootstrap's fixed full-screen dialog must not be clipped by the
+  // application's sidebar/column stacking contexts.
+  if (modal && document.body && modal.parentElement !== document.body) {
+    document.body.appendChild(modal);
+  }
   const form = modal?.querySelector('#step4-decision-form');
   const wizard = modal?.querySelector('[data-step4-wizard]');
   if (!modal || !form || !wizard || !window.bootstrap?.Modal) return;
@@ -120,7 +125,6 @@
     const link = files[index];
     const mime = link.dataset.documentMime;
     const name = link.dataset.documentName || 'Uploaded Document';
-    currentFileIndex = index;
     clearPreview();
     currentFileIndex = index;
 
