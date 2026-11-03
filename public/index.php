@@ -748,6 +748,23 @@ try {
             if ($post) show_error('Excel download requires a GET request.',405);
             user_management_export_download();
             break;
+        case 'user_login_logs':
+            if ($post) show_error('Login Logs is read-only.',405);
+            view_user_login_logs();
+            break;
+        case 'user_force_logout':
+            $admin=require_role('super_admin');
+            if (!$post) show_error('Force Logout requires a confirmed POST request.',405);
+            check_csrf();
+            $id=filter_var($_POST['user_id'] ?? 0,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]) ?: 0;
+            $errors=user_management_force_logout($admin,(int)$id,safe_post('reason',500));
+            if ($errors) {
+                flash('danger',(string)$errors[0]);
+            } else {
+                flash('success','All active sessions for the selected account were revoked.');
+            }
+            go('user_management');
         case 'user_create':
             $admin = require_role('super_admin');
             if ($post) {
