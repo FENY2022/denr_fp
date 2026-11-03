@@ -52,28 +52,33 @@ function fpoms_xlsx_archive(array $entries): string
 }
 
 /**
- * Produce a genuine XLSX, with frozen/filterable headers and text-only user data.
+ * Produce a genuine XLSX with frozen/filterable headers and text-only user data.
  *
- * @param list<array<string,mixed>> $users Active DENR staff filtered on the server
+ * @param list<array<string,mixed>> $users DENR internal users matching current filters
  */
-function fpoms_active_user_workbook(array $users,string $query,string $roleLabel): string
-{
-    $headers=['Full Name','Username','Recovery Email','Contact Number',
-        'Office / Station','User Role','Account Status','Activation Date'];
+function fpoms_user_management_workbook(
+    array $users,string $query,string $roleLabel,string $statusLabel
+): string {
+    $headers=[
+        'Full Name','Username','Recovery Email','Office Email (Reference)',
+        'Office / Station','Contact Number','User Role','Account Status',
+        'Activation Date','Last Login'
+    ];
     $lastRow=max(4,count($users)+4);
-    $title='DENR CARAGA FP-OMS | ACTIVE ACCOUNTS';
+    $title='DENR CARAGA FP-OMS | USER MANAGEMENT';
     $details='Exported: '.date('Y-m-d H:i')
         .' | Search: '.($query==='' ? 'All' : $query)
         .' | Role: '.($roleLabel==='' ? 'All Roles' : $roleLabel)
-        .' | Status: Active only';
+        .' | Status: '.($statusLabel==='' ? 'All Statuses' : $statusLabel);
+
     $sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-        .'<dimension ref="A1:H'.$lastRow.'"/>'
+        .'<dimension ref="A1:J'.$lastRow.'"/>'
         .'<sheetViews><sheetView workbookViewId="0">'
         .'<pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/>'
         .'</sheetView></sheetViews><sheetFormatPr defaultRowHeight="17"/>'
         .'<cols>';
-    foreach ([29,23,34,21,32,44,18,23] as $i=>$width) {
+    foreach ([29,23,34,34,32,21,44,20,23,23] as $i=>$width) {
         $sheet.='<col min="'.($i+1).'" max="'.($i+1).'" width="'.$width.'" customWidth="1"/>';
     }
     $sheet.='</cols><sheetData><row r="1" ht="30" customHeight="1">'
@@ -83,22 +88,35 @@ function fpoms_active_user_workbook(array $users,string $query,string $roleLabel
         .'<row r="4" ht="26" customHeight="1">';
     foreach ($headers as $col=>$label) $sheet.=fpoms_xlsx_cell($col+1,4,$label,2);
     $sheet.='</row>';
+
     foreach ($users as $index=>$user) {
         $row=$index+5;
+        $status=match ((string)($user['status']??'')) {
+            'active'=>'Active',
+            'suspended'=>'Suspended',
+            'pending_setup'=>'Pending Setup',
+            default=>(string)($user['status']??'')
+        };
         $values=[
-            (string)($user['name']??''),(string)($user['username']??''),
-            (string)($user['email']??''),(string)($user['contact_number']??''),
+            (string)($user['name']??''),
+            (string)($user['username']??''),
+            (string)($user['email']??''),
+            (string)($user['reference_email']??''),
             (string)($user['office_station']??''),
+            (string)($user['contact_number']??''),
             (string)($user['role_names']??'Unassigned'),
-            'Active',(string)($user['activated_at']??'')
+            $status,
+            (string)($user['activated_at']??''),
+            (string)($user['last_login_at']??'')
         ];
         $sheet.='<row r="'.$row.'">';
         foreach ($values as $col=>$value) $sheet.=fpoms_xlsx_cell($col+1,$row,$value);
         $sheet.='</row>';
     }
-    $sheet.='</sheetData><autoFilter ref="A4:H'.$lastRow.'"/>'
-        .'<mergeCells count="2"><mergeCell ref="A1:H1"/>'
-        .'<mergeCell ref="A2:H2"/></mergeCells>'
+
+    $sheet.='</sheetData><autoFilter ref="A4:J'.$lastRow.'"/>'
+        .'<mergeCells count="2"><mergeCell ref="A1:J1"/>'
+        .'<mergeCell ref="A2:J2"/></mergeCells>'
         .'<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5"'
         .' header="0.3" footer="0.3"/></worksheet>';
 
@@ -120,6 +138,7 @@ function fpoms_active_user_workbook(array $users,string $query,string $roleLabel
         .'<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0"/>'
         .'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0"'
         .' builtinId="0"/></cellStyles></styleSheet>';
+
     return fpoms_xlsx_archive([
         '[Content_Types].xml'=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -136,7 +155,7 @@ function fpoms_active_user_workbook(array $users,string $query,string $roleLabel
         'xl/workbook.xml'=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
             .' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-            .'<sheets><sheet name="Active Users" sheetId="1" r:id="rId1"/></sheets>'
+            .'<sheets><sheet name="User Management" sheetId="1" r:id="rId1"/></sheets>'
             .'</workbook>',
         'xl/_rels/workbook.xml.rels'=>'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -146,4 +165,10 @@ function fpoms_active_user_workbook(array $users,string $query,string $roleLabel
         'xl/styles.xml'=>$styles,
         'xl/worksheets/sheet1.xml'=>$sheet
     ]);
+}
+
+/** Backward-compatible helper for any older caller expecting the Active-only name. */
+function fpoms_active_user_workbook(array $users,string $query,string $roleLabel): string
+{
+    return fpoms_user_management_workbook($users,$query,$roleLabel,'Active');
 }
