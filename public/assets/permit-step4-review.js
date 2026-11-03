@@ -55,10 +55,10 @@
   };
 
   const assessmentFor = type =>
-    form.querySelector('[name="assessment[' + CSS.escape(type) + ']"]');
+    form.elements.namedItem('assessment[' + type + ']');
 
   const remarksFor = type =>
-    form.querySelector('[name="requirement_remarks[' + CSS.escape(type) + ']"]');
+    form.elements.namedItem('requirement_remarks[' + type + ']');
 
   const stepRequirementSelects = step =>
     [...step.querySelectorAll('[data-step4-assessment]')];
@@ -86,8 +86,8 @@
     for (const select of assessments) {
       const type = select.name.match(/^assessment\[(.+)\]$/)?.[1] || '';
       if (!type) continue;
-      const badge = form.querySelector('[data-step4-summary-assessment="' + CSS.escape(type) + '"]');
-      const note = form.querySelector('[data-step4-summary-remarks="' + CSS.escape(type) + '"]');
+      const badge = form.querySelector('[data-step4-summary-assessment="' + type + '"]');
+      const note = form.querySelector('[data-step4-summary-remarks="' + type + '"]');
       const meta = assessmentMeta[select.value] || ['Not assessed', 'secondary'];
       if (badge) {
         badge.textContent = meta[0];
