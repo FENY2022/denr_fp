@@ -737,9 +737,18 @@ function step2_send_document(array $viewer, int $documentId): never
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'lpdd_fus');
     $ro = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'ro_receiving')
-        && in_array((string)$doc['application_status'],['forwarded_to_ro','ro_received','forwarded_to_lpdd'],true);
+        && in_array((string)$doc['application_status'],[
+            'forwarded_to_ro','ro_received','forwarded_to_lpdd',
+            'step4_under_evaluation','step4_corrections_required',
+            'step4_resubmitted','step4_complete'
+        ],true);
+    $cenro = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'cenro_twg')
+        && (string)$doc['application_status']==='step4_complete';
     $historical = permit_tracking_historical_staff_access($viewer,(int)$doc['application_id']);
-    if (!$mine && !$lpdd && !$ro && !$historical) show_error('Document not found or access denied.',404);
+    if (!$mine && !$lpdd && !$ro && !$cenro && !$historical) {
+        show_error('Document not found or access denied.',404);
+    }
 
     $storageRoot = realpath(PROJECT_ROOT . '/storage/fp_step2');
     $path = realpath(PROJECT_ROOT . '/storage/' . (string)$doc['stored_path']);
