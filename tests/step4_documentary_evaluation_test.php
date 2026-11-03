@@ -98,8 +98,11 @@ step4_assert(str_contains($views,'data-step4-child-modal')
     'View File opens a closable child modal with an optional full-screen viewer');
 step4_assert(str_contains($views,'data-step4-progress-count')
     && str_contains($views,'data-step4-progress-meter')
-    && str_contains($views,'data-step4-step-label'),
-    'wizard exposes live requirement progress and current step');
+    && str_contains($views,'data-step4-step-label')
+    && str_contains($views,'data-step4-sticky-progress')
+    && str_contains($modalCss,'.step4-sticky-progress')
+    && str_contains($modalCss,'position: sticky'),
+    'wizard keeps live requirement progress and current step visible while scrolling');
 step4_assert(str_contains($views,'data-step4-summary-assessment')
     && str_contains($views,'data-step4-summary-overall')
     && str_contains($views,'data-step4-summary-schedule'),
