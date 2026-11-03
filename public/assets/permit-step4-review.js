@@ -33,6 +33,7 @@
   const progressCount = wizard.querySelector('[data-step4-progress-count]');
   const progressPercent = wizard.querySelector('[data-step4-progress-percent]');
   const progressMeter = wizard.querySelector('[data-step4-progress-meter]');
+  const stickyProgress = wizard.querySelector('[data-step4-sticky-progress]');
   const modalBody = modal.querySelector('[data-step4-modal-body]');
   const previousButton = modal.querySelector('[data-step4-prev]');
   const nextButton = modal.querySelector('[data-step4-next]');
@@ -68,6 +69,8 @@
   let currentFileIndex = -1;
   let childOrigin = 'direct';
   let childTrigger = null;
+  let lastProgressScrollTop = modalBody?.scrollTop || 0;
+  let ignoreProgressScroll = false;
 
   const fileLinks = [...modal.querySelectorAll('[data-step4-file-link]')]
     .filter(link => ['application/pdf', 'image/png', 'image/jpeg']
@@ -81,6 +84,14 @@
       fileIndices.set(key, files.length);
       files.push(link);
     }
+  }
+
+  function setProgressCompact(compact) {
+    if (!stickyProgress) return;
+    stickyProgress.classList.toggle('step4-progress-compact', compact);
+    stickyProgress.setAttribute('aria-label', compact
+      ? 'Documentary evaluation progress — compact view'
+      : 'Documentary evaluation progress — expanded view');
   }
 
   function updateProgress() {
@@ -297,7 +308,11 @@
     if (nextButton) nextButton.textContent = currentStep === 3 ? 'Review Decision →' : 'Next →';
     if (currentStep === 4) updateSummary();
     showValidation('');
-    if (modalBody) modalBody.scrollTop = 0;
+    setProgressCompact(false);
+    if (modalBody) {
+      modalBody.scrollTop = 0;
+      lastProgressScrollTop = 0;
+    }
   }
 
   const assessed = () => assessments.length > 0
@@ -324,6 +339,31 @@
     cancelConfirm();
     renderStep(currentStep - 1);
   });
+
+  modalBody?.addEventListener('scroll', () => {
+    if (ignoreProgressScroll || !stickyProgress || !child?.classList.contains('d-none')) return;
+
+    const current = modalBody.scrollTop;
+    const delta = current - lastProgressScrollTop;
+
+    // At the top, always show the complete tracker. Scrolling down past the
+    // introductory area leaves only the progress bar; any meaningful upward
+    // scroll expands the tracker again.
+    if (current <= 24) {
+      setProgressCompact(false);
+    } else if (delta > 6 && current > 80) {
+      setProgressCompact(true);
+    } else if (delta < -6) {
+      setProgressCompact(false);
+    }
+
+    lastProgressScrollTop = current;
+    ignoreProgressScroll = true;
+    requestAnimationFrame(() => {
+      lastProgressScrollTop = modalBody.scrollTop;
+      ignoreProgressScroll = false;
+    });
+  }, { passive: true });
 
   for (const select of assessments) {
     select.addEventListener('change', () => {
