@@ -696,8 +696,39 @@ try {
             }
             break;
         case 'permit_step4_queue':
-            if ($post) show_error('This incoming queue is read-only.',405);
-            view_step4_incoming_queue();
+            if ($post) show_error('Step 4 queue is read-only.',405);
+            view_step4_queue();
+            break;
+        case 'permit_step4_start':
+            $reviewer=step4_require_reviewer();
+            if (!$post) show_error('Starting Step 4 requires a confirmed POST.',405);
+            check_csrf();
+            $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            $errors=step4_start($reviewer,(int)$id);
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                flash('success','Step 4 documentary evaluation started.');
+                go('permit_application',['id'=>(int)$id]);
+            }
+            break;
+        case 'permit_step4_decision':
+            $reviewer=step4_require_reviewer();
+            if (!$post) show_error('Step 4 decisions require a confirmed POST.',405);
+            check_csrf();
+            $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            $errors=step4_decide($reviewer,(int)$id,$_POST);
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                $decision=(string)($_POST['decision'] ?? '');
+                flash('success',$decision==='complete'
+                    ? 'Step 4 completed: documentary requirements are complete and sufficient.'
+                    : 'Application returned to the applicant for documentary compliance.');
+                go('permit_step4_queue',['tab'=>$decision==='complete'?'complete':'returned']);
+            }
             break;
         case 'permit_ro_inbox':
             if ($post) show_error('This page is read-only.',405);
