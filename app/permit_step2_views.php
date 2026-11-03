@@ -421,7 +421,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html = '<div class="mb-3"><a href="' . url('permit_applications')
         . '">← My FP Applications</a></div><div class="row g-3">'
         . '<div class="col-lg-8"><div class="panel">'
-        . '<header class="step2-form-intro"><span class="step2-form-kicker">Annex A · Step 2</span>'
+        . '<header class="step2-form-intro"><span class="step2-form-kicker">'
+        . ($step4Correction ? 'Annex A · Step 4 Compliance' : 'Annex A · Step 2')
+        . '</span>'
         . '<h2 class="h4 mb-2">' . ($step4Correction
             ? 'Step 4 Compliance – Edit and Resubmit FP Application #' . $applicationId
             : ($editing ? 'Edit and Resubmit FP Application #' . $applicationId
@@ -432,12 +434,16 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . 'using the official checklist approved by DENR.</p></header>'
         . step2_form_section_navigation_html();
     if ($editing) {
+        $returnAction=$step4Correction
+            ? 'step4_returned_for_compliance' : 'returned_for_correction';
         $latest = query_one(
             "SELECT remarks FROM permit_step2_events
-             WHERE application_id=? AND action='returned_for_correction'
-             ORDER BY id DESC LIMIT 1", [$applicationId]
+             WHERE application_id=? AND action=?
+             ORDER BY id DESC LIMIT 1", [$applicationId,$returnAction]
         );
-        $html .= '<div class="alert alert-warning"><strong>Reviewer corrections required:</strong><p class="mb-0">'
+        $html .= '<div class="alert alert-warning"><strong>'
+            . ($step4Correction ? 'Step 4 documentary compliance required:' : 'Reviewer corrections required:')
+            . '</strong><p class="mb-0">'
             . nl2br(e((string)($latest['remarks'] ?? 'Please follow the review instructions.')))
             . '</p></div>';
     }
@@ -538,7 +544,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . 'id="step2-section-4" aria-labelledby="step2-section-title-4" data-step2-form-section="4">'
         . step2_form_section_heading_html(4,'Review and Submit','check-circle')
         . '<p class="small text-secondary">Review the project details, location, and uploaded '
-        . 'documents above before sending the application to LPDD-FUS Initial Review.</p>'
+        . ($step4Correction
+            ? 'documents above before resubmitting compliance to LPDD-FUS Step 4.'
+            : 'documents above before sending the application to LPDD-FUS Initial Review.')
+        . '</p>'
          . '<p class="small text-secondary" data-step2-autosave-status role="status">'
         . ($persistent ? 'Draft saved securely to your account when you edit fields.'
             : 'Persistent draft autosave requires migration 016.') . '</p>'
