@@ -322,7 +322,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
                 .'Step 4 requirement. Use <strong>View All Uploaded Files</strong> to inspect them before deciding.</div>'
             : '')
         .errors_html($errors)
-        .'<div class="border rounded-3 p-3 mb-3 bg-body">'
+        .'<div class="border rounded-3 p-3 mb-3 bg-body step4-sticky-progress" data-step4-sticky-progress>'
         .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">'
         .'<div><strong data-step4-step-label>Step 1 of 4</strong>'
         .'<div class="small text-secondary" data-step4-step-title>Core Application Documents</div></div>'
