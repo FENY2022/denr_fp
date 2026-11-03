@@ -299,9 +299,12 @@ office_assert(str_contains($routes,"case 'auto_recovery_verify':")
     && str_contains($routes,'staff_otp_verify_username($email,$code)'),
     'one verification route dispatches OTP by server-side recovery mode');
 office_assert(str_contains($routes,"safe_post('action',20)==='resend'")
+    && str_contains($routes,"Please wait '.\$wait.' seconds")
+    && str_contains($routes,"auto_recovery_last_requested_at")
     && str_contains($passwordView,'Send New OTP')
+    && str_contains($passwordView,'requested after 60 seconds')
     && str_contains($passwordView,"recovery_otp_input('Six-Digit Recovery OTP')"),
-    'generic verification route supports resend and six-box OTP entry');
+    'generic verification route enforces visible resend cooldown and six-box OTP entry');
 office_assert(substr_count($routes,"go('auto_recovery_verify');")===3,
     'both recovery forms and resend return to generic verification route');
 echo "PASS: shared office OTP, account selection, reset fallback and personal OTP flow.\n";

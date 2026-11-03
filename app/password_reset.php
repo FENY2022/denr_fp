@@ -269,7 +269,8 @@ function view_auto_recovery_verify(array $errors=[]): void
         . '<button type="submit" class="btn btn-outline-primary w-100">'
         . '<i class="bi bi-send me-2"></i>Send New OTP</button></form>'
         . '<p class="small text-secondary mt-3 mb-0">'
-        . 'OTP codes expire after 10 minutes. For security, the system does not '
+        . 'A new OTP can be requested after 60 seconds. OTP codes expire after '
+        . '10 minutes. For security, the system does not '
         . 'indicate whether the entered email belongs to any account.</p>'
         . '<hr><a class="small" href="'.e(url(
             $purpose==='username'?'forgot_username':'forgot_password'

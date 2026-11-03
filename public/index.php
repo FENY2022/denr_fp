@@ -151,6 +151,7 @@ try {
                 $_SESSION['auto_recovery_email']=$email;
                 $_SESSION['auto_recovery_purpose']='password';
                 $_SESSION['auto_recovery_mode']=$officeFlow?'office':'individual';
+                $_SESSION['auto_recovery_last_requested_at']=time();
                 flash('info','If the email is registered, a recovery message has been requested. Enter a verification code if received, or use the applicant password-reset link in your email.');
                 go('auto_recovery_verify');
             } else {
@@ -175,6 +176,7 @@ try {
                 $_SESSION['auto_recovery_email']=$email;
                 $_SESSION['auto_recovery_purpose']='username';
                 $_SESSION['auto_recovery_mode']=$officeFlow?'office':'individual';
+                $_SESSION['auto_recovery_last_requested_at']=time();
                 flash('info','If this email belongs to an active DENR account, a recovery code has been requested. Enter the code if received.');
                 go('auto_recovery_verify');
             } else {
@@ -188,15 +190,22 @@ try {
                 $purpose=(string)($_SESSION['auto_recovery_purpose']??'');
                 $mode=(string)($_SESSION['auto_recovery_mode']??'');
                 if (safe_post('action',20)==='resend') {
-                    if ($mode==='office') {
-                        shared_office_request($email);
-                    } elseif ($mode==='individual' && $purpose==='password') {
-                        request_password_reset($email);
-                        staff_otp_request($email);
-                    } elseif ($mode==='individual' && $purpose==='username') {
-                        staff_otp_request($email,'username');
+                    $lastRequested=(int)($_SESSION['auto_recovery_last_requested_at']??0);
+                    $wait=max(0,60-(time()-$lastRequested));
+                    if ($wait>0) {
+                        flash('info','Please wait '.$wait.' seconds before requesting a new OTP.');
+                    } else {
+                        if ($mode==='office') {
+                            shared_office_request($email);
+                        } elseif ($mode==='individual' && $purpose==='password') {
+                            request_password_reset($email);
+                            staff_otp_request($email);
+                        } elseif ($mode==='individual' && $purpose==='username') {
+                            staff_otp_request($email,'username');
+                        }
+                        $_SESSION['auto_recovery_last_requested_at']=time();
+                        flash('info','If the email is eligible and not rate-limited, a new recovery message has been requested.');
                     }
-                    flash('info','If the email is eligible, a new recovery message has been requested.');
                     go('auto_recovery_verify');
                 }
                 $code=safe_post('otp',6);
@@ -206,7 +215,8 @@ try {
                     if ($verified) {
                         unset($_SESSION['auto_recovery_email'],
                             $_SESSION['auto_recovery_purpose'],
-                            $_SESSION['auto_recovery_mode']);
+                            $_SESSION['auto_recovery_mode'],
+                            $_SESSION['auto_recovery_last_requested_at']);
                         go('shared_office_accounts');
                     }
                 } elseif ($mode==='individual' && $purpose==='password') {
@@ -215,7 +225,8 @@ try {
                         unset($_SESSION['staff_reset_pending_email'],
                             $_SESSION['auto_recovery_email'],
                             $_SESSION['auto_recovery_purpose'],
-                            $_SESSION['auto_recovery_mode']);
+                            $_SESSION['auto_recovery_mode'],
+                            $_SESSION['auto_recovery_last_requested_at']);
                         $_SESSION['staff_password_reset_user_id']=$id;
                         $_SESSION['staff_password_reset_expires_at']=time()+600;
                         session_regenerate_id(true);
@@ -228,7 +239,8 @@ try {
                         unset($_SESSION['staff_username_pending_email'],
                             $_SESSION['auto_recovery_email'],
                             $_SESSION['auto_recovery_purpose'],
-                            $_SESSION['auto_recovery_mode']);
+                            $_SESSION['auto_recovery_mode'],
+                            $_SESSION['auto_recovery_last_requested_at']);
                         $_SESSION['staff_recovered_username']=$account['username'];
                         session_regenerate_id(true);
                         $_SESSION['csrf_token']=bin2hex(random_bytes(32));
