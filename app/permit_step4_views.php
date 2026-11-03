@@ -323,16 +323,16 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
             : '')
         .errors_html($errors)
         .'<div class="border rounded-3 p-3 mb-3 bg-body step4-sticky-progress" data-step4-sticky-progress>'
-        .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">'
+        .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap" data-step4-progress-details>'
         .'<div><strong data-step4-step-label>Step 1 of 4</strong>'
         .'<div class="small text-secondary" data-step4-step-title>Core Application Documents</div></div>'
         .'<span class="badge text-bg-light border" data-step4-progress-percent>'.$progressPercent.'%</span></div>'
         .'<progress class="w-100 mt-2" value="'.$assessedCount.'" max="'.$totalRequirements.'" '
         .'aria-label="Step 4 documentary evaluation progress" data-step4-progress-meter>'
         .$assessedCount.' of '.$totalRequirements.'</progress>'
-        .'<div class="small text-secondary mt-1"><span data-step4-progress-count>'.$assessedCount.'</span> of '
+        .'<div class="small text-secondary mt-1" data-step4-progress-details><span data-step4-progress-count>'.$assessedCount.'</span> of '
         .$totalRequirements.' documentary requirements assessed</div>'
-        .'<div class="d-flex justify-content-between gap-2 mt-3 small" aria-label="Step 4 wizard steps">'
+        .'<div class="d-flex justify-content-between gap-2 mt-3 small" data-step4-progress-details aria-label="Step 4 wizard steps">'
         .'<span data-step4-step-indicator="1" class="fw-semibold text-success">01 Documents</span>'
         .'<span data-step4-step-indicator="2" class="text-secondary">02 Clearances</span>'
         .'<span data-step4-step-indicator="3" class="text-secondary">03 Evaluation</span>'
@@ -495,7 +495,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<button type="button" class="btn btn-secondary" data-step4-child-close>Close</button>'
         .'</div></div></div>'
         .'</div></div></div>'
-        .'<script src="assets/permit-step4-review.js?v=6" defer></script>';
+        .'<script src="assets/permit-step4-review.js?v=7" defer></script>';
 
     return $html;
 }
