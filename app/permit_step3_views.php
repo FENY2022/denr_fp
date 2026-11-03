@@ -135,37 +135,8 @@ function view_step3_ro_inbox(): void
     render_page('RO Receiving – Step 3',$html.'</div>');
 }
 
-/** Step 4 is a visible incoming handoff, NOT active documentary evaluation/payment. */
+/** Backward-compatible alias; Step 4 is now an active documentary evaluation module. */
 function view_step4_incoming_queue(): void
 {
-    require_role('lpdd_fus');
-    step3_require_schema();
-    $apps=query_all("SELECT a.id,a.project_title,c.name AS applicant_name,m.forwarded_at
-        FROM permit_step2_applications a
-        JOIN permit_step3_movements m ON m.application_id=a.id
-        JOIN user_client c ON c.id=a.client_id
-        WHERE a.status='forwarded_to_lpdd' AND m.forwarded_at IS NOT NULL
-        ORDER BY m.forwarded_at ASC,a.id ASC LIMIT 200");
-    $html='<div class="panel"><h2 class="h5">Step 4 – LPDD-FUS Incoming Applications</h2>'
-        .'<div class="alert alert-info small">Read-only handoff queue. Formal documentary '
-        .'evaluation and payment requests are not enabled yet. '
-        .'Under Annex A, payment is requested only after documentary requirements '
-        .'are found complete and sufficient.</div>';
-    if (!$apps) $html.='<p class="text-secondary">No applications received from RO Step 3.</p>';
-    else {
-        $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
-            .'<thead><tr><th>FP No.</th><th>Applicant</th><th>Project</th>'
-            .'<th>Received from RO</th><th></th></tr></thead><tbody>';
-        foreach ($apps as $a) {
-            $html.='<tr><td>#'.(int)$a['id'].'</td>'
-                .'<td>'.e((string)$a['applicant_name']).'</td>'
-                .'<td>'.e((string)$a['project_title']).'</td>'
-                .'<td>'.e((string)$a['forwarded_at']).'</td>'
-                .'<td><a class="btn btn-sm btn-outline-primary" href="'
-                .e(url('permit_application',['id'=>(int)$a['id']]))
-                .'">View Documents / Audit Trail</a></td></tr>';
-        }
-        $html.='</tbody></table></div>';
-    }
-    render_page('Step 4 Incoming Queue',$html.'</div>');
+    view_step4_queue();
 }
