@@ -11,7 +11,26 @@
   const confirm = modal.querySelector('[data-step4-confirm]');
   const validation = form.querySelector('[data-step4-validation]');
   const schedule = form.elements.namedItem('field_validation_schedule');
+  const assessments = [...form.querySelectorAll('[data-step4-assessment]')];
+  const progressCount = document.querySelector('[data-step4-progress-count]');
+  const progressPercent = document.querySelector('[data-step4-progress-percent]');
+  const progressMeter = document.querySelector('[data-step4-progress-meter]');
+  const completeButton = form.querySelector('[data-step4-decision="complete"]');
   const instance = window.bootstrap.Modal.getOrCreateInstance(modal);
+
+  const updateProgress = () => {
+    const completed = assessments.filter(select => select.value !== '').length;
+    const total = assessments.length;
+    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+    if (progressCount) progressCount.textContent = String(completed);
+    if (progressPercent) progressPercent.textContent = percent + '%';
+    if (progressMeter) {
+      progressMeter.value = completed;
+      progressMeter.max = Math.max(1, total);
+      progressMeter.textContent = completed + ' of ' + total;
+    }
+    if (completeButton) completeButton.disabled = completed < total;
+  };
 
   const showValidation = text => {
     if (!validation) return;
@@ -19,16 +38,22 @@
     validation.classList.toggle('d-none', !text);
   };
 
-  const assessed = () => {
-    const selects = [...form.querySelectorAll('select[name^="assessment["]')];
-    return selects.length > 0 && selects.every(select => select.value !== '');
-  };
+  const assessed = () => assessments.length > 0
+    && assessments.every(select => select.value !== '');
 
-  const hasDeficiency = () => [...form.querySelectorAll('select[name^="assessment["]')]
+  const hasDeficiency = () => assessments
     .some(select => ['incomplete','insufficient'].includes(select.value));
 
-  const allSufficient = () => [...form.querySelectorAll('select[name^="assessment["]')]
+  const allSufficient = () => assessments
     .every(select => ['complete','not_applicable'].includes(select.value));
+
+  for (const select of assessments) {
+    select.addEventListener('change', () => {
+      showValidation('');
+      updateProgress();
+    });
+  }
+  updateProgress();
 
   for (const button of form.querySelectorAll('[data-step4-decision]')) {
     button.addEventListener('click', () => {
@@ -37,7 +62,12 @@
 
       if (!assessed()) {
         showValidation('Assess every documentary requirement before recording a Step 4 decision.');
-        form.querySelector('select[name^="assessment["]:invalid')?.focus();
+        const missing = assessments.find(select => select.value === '');
+        if (missing) {
+          const collapse = missing.closest('.accordion-collapse');
+          if (collapse) window.bootstrap.Collapse?.getOrCreateInstance(collapse, { toggle: false })?.show();
+          missing.focus();
+        }
         return;
       }
 
