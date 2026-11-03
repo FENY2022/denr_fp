@@ -41,11 +41,11 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         }
         if (in_array('super_admin', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Administration</div>'
-                . '<details class="sidebar-config-menu"' . (in_array($active, ['user_management','user_create','user_edit','realtime_settings','otp_delivery_diagnostics'], true) ? ' open' : '') . '>'
+                . '<details class="sidebar-config-menu"' . (in_array($active, ['user_management','user_create','user_edit','user_login_logs','realtime_settings','otp_delivery_diagnostics'], true) ? ' open' : '') . '>'
                 . '<summary class="sidebar-link"><i class="bi bi-gear-fill"></i><span>Configuration</span><i class="bi bi-chevron-down ms-auto"></i></summary>'
                 . '<div class="ps-3">'
                 . shell_nav_item('user_management','User Management','people-fill',
-                    in_array($active, ['user_management','user_create','user_edit'], true) ? 'user_management' : $active)
+                    in_array($active, ['user_management','user_create','user_edit','user_login_logs'], true) ? 'user_management' : $active)
                 . shell_nav_item('realtime_settings','Realtime Notifications','broadcast',$active)
                 . shell_nav_item('otp_delivery_diagnostics','OTP Delivery Diagnostics','envelope-exclamation',$active)
                 . '</div></details>';
