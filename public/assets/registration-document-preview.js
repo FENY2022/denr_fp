@@ -14,11 +14,21 @@
   const counter = modal.querySelector('[data-document-counter]');
   if (!area || !title || !download || !error) return;
 
-  // The current page renders one registration at a time. Only its submitted,
-  // authorized document links are used; no extra documents are fetched here.
-  const documents = [...document.querySelectorAll('[data-document-preview]')]
+  // The same authorized file can be linked in more than one panel
+  // (for example Step 4 requirement cards and View All Files). Keep one
+  // navigation entry per document while still binding every visible link.
+  const previewLinks = [...document.querySelectorAll('[data-document-preview]')]
     .filter(link => ['application/pdf', 'image/jpeg', 'image/png']
       .includes(link.dataset.documentMime));
+  const documents = [];
+  const documentIndexes = new Map();
+  for (const link of previewLinks) {
+    const key = link.dataset.documentId || new URL(link.href, location.href).href;
+    if (!documentIndexes.has(key)) {
+      documentIndexes.set(key, documents.length);
+      documents.push(link);
+    }
+  }
 
   let currentIndex = -1;
   let scale = 1;
@@ -87,10 +97,12 @@
     if (openModal) window.bootstrap.Modal.getOrCreateInstance(modal).show();
   }
 
-  for (const [index, link] of documents.entries()) {
+  for (const link of previewLinks) {
     link.addEventListener('click', event => {
       event.preventDefault();
-      viewDocument(index, true);
+      const key = link.dataset.documentId || new URL(link.href, location.href).href;
+      const index = documentIndexes.get(key);
+      if (Number.isInteger(index)) viewDocument(index, true);
     });
   }
 
