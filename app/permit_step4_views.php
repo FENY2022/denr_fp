@@ -110,6 +110,50 @@ function step4_uploaded_counts(array $documents): array
     return $counts;
 }
 
+/** @return array<string,list<array<string,mixed>>> */
+function step4_documents_by_requirement(array $documents): array
+{
+    $groups=[];
+    foreach ($documents as $document) {
+        $type=(string)($document['requirement_type'] ?? 'other');
+        $groups[$type][]=$document;
+    }
+    return $groups;
+}
+
+function step4_requirement_uploaded_files_html(string $type,array $documents): string
+{
+    if (!$documents) {
+        return '<div class="small text-secondary mt-2">'
+            . '<i class="bi bi-file-earmark-x me-1" aria-hidden="true"></i>'
+            . 'No categorized file is available under this requirement.</div>';
+    }
+
+    $html='<div class="mt-2"><div class="small fw-semibold mb-2">'
+        . '<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>Uploaded File(s)</div>'
+        . '<div class="vstack gap-2">';
+    foreach ($documents as $doc) {
+        $mime=(string)($doc['mime_type'] ?? '');
+        $icon=$mime==='application/pdf' ? 'file-earmark-pdf' : 'file-earmark-image';
+        $name=(string)($doc['original_name'] ?? 'Uploaded document');
+        $preview=url('permit_document',['id'=>(int)$doc['id'],'preview'=>1]);
+        $html.='<div class="border rounded-2 p-2 d-flex align-items-center gap-2 flex-wrap">'
+            .'<i class="bi bi-'.e($icon).' fs-5" aria-hidden="true"></i>'
+            .'<div class="flex-grow-1 min-w-0"><div class="small fw-semibold text-break">'
+            .e($name).'</div><div class="small text-secondary">Revision '
+            .(int)($doc['revision'] ?? 0).' · '
+            .e(round(((int)($doc['file_size'] ?? 0))/1024,1).' KB').'</div></div>'
+            .'<a class="btn btn-sm btn-outline-primary" data-document-preview '
+            .'data-document-id="'.(int)$doc['id'].'" '
+            .'data-document-mime="'.e($mime).'" '
+            .'data-document-name="'.e($name).'" '
+            .'data-document-category="'.e(step2_requirement_label($type)).'" '
+            .'href="'.e($preview).'">'
+            .'<i class="bi bi-eye me-1" aria-hidden="true"></i>View File</a></div>';
+    }
+    return $html.'</div></div>';
+}
+
 function step4_start_panel_html(array $app): string
 {
     $id=(int)$app['id'];
@@ -146,13 +190,23 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
     }
     $saved=step4_review_items((int)$review['id']);
     $counts=step4_uploaded_counts($documents);
+    $groupedDocuments=step4_documents_by_requirement($documents);
     $postAssess=is_array($_POST['assessment'] ?? null) ? $_POST['assessment'] : [];
     $postRemarks=is_array($_POST['requirement_remarks'] ?? null) ? $_POST['requirement_remarks'] : [];
 
-    $html='<div class="panel soft"><h3 class="h6 mb-1">'
-        .'<i class="bi bi-clipboard-check me-2"></i>LPDD-FUS Step 4 Documentary Evaluation</h3>'
-        .'<p class="small text-secondary">Assess every documentary requirement for completeness '
-        .'and sufficiency. Requirements marked * / ** may be set Not Applicable when justified.</p>'
+    $html='<div class="panel soft"><div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">'
+        .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
+        .'LPDD-FUS Step 4 Documentary Evaluation</h3>'
+        .'<p class="small text-secondary mb-0">Assess every documentary requirement for completeness '
+        .'and sufficiency. Requirements marked * / ** may be set Not Applicable when justified.</p></div>'
+        .'<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" '
+        .'data-bs-target="#fp-files-modal">'
+        .'<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View All Uploaded Files</button></div>'
+        .(!empty($groupedDocuments['other'])
+            ? '<div class="alert alert-warning small py-2"><strong>Unclassified files detected:</strong> '
+                .count($groupedDocuments['other']).' earlier uploaded file(s) are not assigned to a named '
+                .'Step 4 requirement. Use <strong>View All Uploaded Files</strong> to inspect them before deciding.</div>'
+            : '')
         .errors_html($errors)
         .'<form id="step4-decision-form" method="post" action="'
         .e(url('permit_step4_decision',['id'=>$id])).'">'.csrf_field()
@@ -169,7 +223,10 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
             .'<div class="small text-secondary">Uploaded file(s), all revisions: '.$uploaded.'</div></div>'
             .'<span class="badge '.($uploaded>0?'text-bg-success':'text-bg-secondary').'">'
             .($uploaded>0?'Files available':'No categorized file').'</span></div>'
-            .'<div class="row g-2"><div class="col-md-5">'
+            .step4_requirement_uploaded_files_html(
+                $type,is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : []
+            )
+            .'<div class="row g-2 mt-1"><div class="col-md-5">'
             .'<label class="form-label" for="step4-assessment-'.e($type).'">Assessment</label>'
             .'<select class="form-select" id="step4-assessment-'.e($type).'" '
             .'name="assessment['.e($type).']" required>'
