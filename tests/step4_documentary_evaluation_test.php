@@ -100,9 +100,14 @@ step4_assert(str_contains($views,'data-step4-progress-count')
     && str_contains($views,'data-step4-progress-meter')
     && str_contains($views,'data-step4-step-label')
     && str_contains($views,'data-step4-sticky-progress')
+    && str_contains($views,'data-step4-progress-details')
     && str_contains($modalCss,'.step4-sticky-progress')
-    && str_contains($modalCss,'position: sticky'),
-    'wizard keeps live requirement progress and current step visible while scrolling');
+    && str_contains($modalCss,'position: sticky')
+    && str_contains($modalCss,'.step4-progress-compact')
+    && str_contains($reviewJs,'setProgressCompact')
+    && str_contains($reviewJs,"delta > 6")
+    && str_contains($reviewJs,"delta < -6"),
+    'wizard collapses to a sticky progress bar on downward scroll and expands on upward scroll');
 step4_assert(str_contains($views,'data-step4-summary-assessment')
     && str_contains($views,'data-step4-summary-overall')
     && str_contains($views,'data-step4-summary-schedule'),
