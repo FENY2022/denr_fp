@@ -16,11 +16,13 @@ function user_management_tabs(string $active): string
 {
     $tabs = [
         ['accounts','All Users','people'],
+        ['login_logs','Login Logs','shield-lock'],
         ['create','Add User','person-plus']
     ];
     $html = '<nav class="nav nav-pills flex-wrap gap-2 mb-4" aria-label="User Management">';
     foreach ($tabs as [$code,$label,$icon]) {
-        $link = $code === 'create' ? url('user_create') : url('user_management');
+        $link = $code === 'create' ? url('user_create')
+            : ($code === 'login_logs' ? url('user_login_logs') : url('user_management'));
         $html .= '<a class="nav-link' . ($active === $code ? ' active' : '')
             . '" href="' . e($link) . '"><i class="bi bi-' . e($icon)
             . ' me-1" aria-hidden="true"></i>' . e($label) . '</a>';
@@ -394,6 +396,8 @@ function view_user_management(
                        SUM(status='active') AS active_count
                        FROM users WHERE user_kind='internal'") ?: [];
     $records = user_management_accounts($query,$role,$status);
+    $securityReady=function_exists('user_session_security_ready')
+        && user_session_security_ready();
 
     $html = ($reopenUserId > 0 || $reopenEditUserId > 0 ? '' : errors_html($errors))
         . '<div class="panel mb-4"><div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">'
@@ -451,6 +455,10 @@ function view_user_management(
         . 'DENR users sign in using their username and password. '
         . 'The email address is for recovery OTP and notifications, not for staff sign-in. '
         . '<strong>Verify that the recovery email belongs only to the employee.</strong></div>'
+        . (!$securityReady
+            ? '<div class="alert alert-warning small"><strong>Session Security Setup Required:</strong> '
+              . 'Apply <code>database/026_user_session_security.sql</code> once using a database administrator '
+              . 'before Force Logout and Login Logs can be used.</div>' : '')
         . '<div class="table-responsive"><table class="table table-hover table-sm align-middle">'
         . '<thead><tr><th>Full Name</th><th>Username</th><th>Recovery Email</th><th>Office Email (Reference)</th>'
         . '<th>Office / Contact</th><th>Role</th><th>Status</th><th>Action</th></tr></thead><tbody>';
@@ -494,7 +502,13 @@ function view_user_management(
                 . 'data-setup-url="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
                 . '<i class="bi bi-person-gear me-1" aria-hidden="true"></i>Set Up</a></td></tr>';
         } else {
-            $html .= '<td><a class="btn btn-sm btn-outline-primary" role="button" '
+            $isSelf=(int)$person['id'] === (int)$admin['id'];
+            $html .= '<td><div class="dropdown">'
+                . '<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" '
+                . 'data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account actions">'
+                . '<i class="bi bi-three-dots-vertical" aria-hidden="true"></i> Manage</button>'
+                . '<ul class="dropdown-menu dropdown-menu-end">'
+                . '<li><a class="dropdown-item" role="button" '
                 . 'href="' . e(url('user_edit',['id'=>(int)$person['id']])) . '" '
                 . 'data-bs-toggle="modal" data-bs-target="#userEditModal" '
                 . 'data-user-edit-trigger data-user-id="' . (int)$person['id'] . '" '
@@ -507,10 +521,24 @@ function view_user_management(
                 . 'data-user-roles="' . e((string)($person['role_names'] ?? '')) . '" '
                 . 'data-user-status="' . e((string)$person['status']) . '" '
                 . 'data-user-username="' . e((string)($person['username'] ?? '')) . '" '
-                . 'data-can-reset="' . ((int)$person['id'] === (int)$admin['id'] ? '0' : '1') . '" '
-                . 'data-is-self="' . ((int)$person['id'] === (int)$admin['id'] ? '1' : '0') . '" '
+                . 'data-can-reset="' . ($isSelf ? '0' : '1') . '" '
+                . 'data-is-self="' . ($isSelf ? '1' : '0') . '" '
                 . 'data-edit-url="' . e(url('user_edit',['id'=>(int)$person['id']])) . '">'
-                . '<i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit</a></td></tr>';
+                . '<i class="bi bi-pencil-square me-2" aria-hidden="true"></i>Edit Account</a></li>'
+                . '<li><a class="dropdown-item' . (!$securityReady ? ' disabled' : '') . '" '
+                . 'href="' . ($securityReady
+                    ? e(url('user_login_logs',['user_id'=>(int)$person['id']])) : '#') . '"'
+                . (!$securityReady ? ' aria-disabled="true" tabindex="-1"' : '') . '>'
+                . '<i class="bi bi-clock-history me-2" aria-hidden="true"></i>View Login Logs</a></li>'
+                . '<li><hr class="dropdown-divider"></li>'
+                . '<li><button class="dropdown-item text-danger" type="button" '
+                . 'data-bs-toggle="modal" data-bs-target="#forceLogoutModal" '
+                . 'data-force-logout-trigger data-user-id="' . (int)$person['id'] . '" '
+                . 'data-user-name="' . e((string)$person['name']) . '" '
+                . 'data-user-username="' . e((string)($person['username'] ?? '')) . '"'
+                . (($isSelf || !$securityReady) ? ' disabled' : '') . '>'
+                . '<i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Force Logout</button></li>'
+                . '</ul></div></td></tr>';
         }
     }
     if (!$records) $html .= '<tr><td colspan="8" class="text-center text-secondary py-4">No matching users found.</td></tr>';
@@ -519,7 +547,127 @@ function view_user_management(
         . 'Applicant registrations and accounts are managed separately.</p></div>';
     $html .= user_management_setup_modal($reopenUserId > 0 ? $errors : [], $reopenUserId);
     $html .= user_management_edit_modal($reopenEditUserId > 0 ? $errors : [], $reopenEditUserId, $reopenEditAction);
+    $html .= user_management_force_logout_modal($securityReady);
     render_page('User Management',$html);
+}
+
+function user_management_force_logout_modal(bool $securityReady): string
+{
+    return '<div class="modal fade" id="forceLogoutModal" tabindex="-1" '
+        . 'aria-labelledby="forceLogoutModalLabel" aria-hidden="true">'
+        . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        . '<div class="modal-header"><div><h2 class="modal-title h5 mb-1" id="forceLogoutModalLabel">'
+        . 'Force Logout All Sessions</h2><p class="small text-secondary mb-0">'
+        . 'Immediately revoke every active FP-OMS session for this DENR account.</p></div>'
+        . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+        . '<form id="forceLogoutForm" method="post" action="' . e(url('user_force_logout')) . '">'
+        . '<div class="modal-body">' . csrf_field()
+        . '<input type="hidden" name="user_id" value="">'
+        . '<div class="alert alert-warning small"><strong>Account:</strong> '
+        . '<span data-force-logout-account></span><br>'
+        . 'The user will be required to sign in again on every browser/device on their next request.</div>'
+        . '<label class="form-label" for="forceLogoutReason">Security Reason '
+        . '<span class="text-danger">*</span></label>'
+        . '<textarea class="form-control" id="forceLogoutReason" name="reason" '
+        . 'rows="3" minlength="3" maxlength="500" required '
+        . 'placeholder="Example: Lost device, suspected unauthorized access, security review"></textarea>'
+        . '<div class="form-text">This reason is recorded in the audit trail and login security log.</div>'
+        . (!$securityReady
+            ? '<div class="alert alert-danger small mt-3 mb-0">Migration 026 is required before this action can run.</div>'
+            : '')
+        . '</div><div class="modal-footer">'
+        . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        . '<button type="submit" class="btn btn-danger"' . (!$securityReady ? ' disabled' : '') . '>'
+        . '<i class="bi bi-shield-x me-1" aria-hidden="true"></i>Force Logout</button>'
+        . '</div></form></div></div></div>'
+        . '<script src="assets/user-session-security.js?v=1" defer></script>';
+}
+
+function user_management_event_badge(string $event): string
+{
+    $labels=[
+        'login_success'=>['success','Login Successful'],
+        'login_failed'=>['danger','Login Failed'],
+        'logout'=>['secondary','Normal Logout'],
+        'forced_logout'=>['warning','Forced Logout']
+    ];
+    [$tone,$label]=$labels[$event] ?? ['secondary',$event];
+    return '<span class="badge text-bg-' . e($tone) . '">' . e($label) . '</span>';
+}
+
+function view_user_login_logs(): void
+{
+    require_role('super_admin');
+    $securityReady=function_exists('user_session_security_ready')
+        && user_session_security_ready();
+    $userId=filter_var($_GET['user_id'] ?? 0,FILTER_VALIDATE_INT,
+        ['options'=>['min_range'=>1]]) ?: 0;
+    $event=trim((string)($_GET['event'] ?? ''));
+    if ($event!=='' && (!function_exists('user_session_event_valid')
+        || !user_session_event_valid($event))) $event='';
+    $logs=$securityReady
+        ? user_management_login_logs((int)$userId,$event,400) : [];
+
+    $html=user_management_tabs('login_logs')
+        . '<div class="panel mb-4"><div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">'
+        . '<div><h2 class="h5 mb-1"><i class="bi bi-shield-lock me-2"></i>Account Login Logs</h2>'
+        . '<p class="text-secondary small mb-0">Latest DENR internal-account sign-in and session security events. '
+        . 'Passwords, OTPs, reset tokens, and session IDs are never recorded here.</p></div>'
+        . '<a class="btn btn-sm btn-outline-secondary" href="' . e(url('user_management')) . '">'
+        . '<i class="bi bi-arrow-left me-1"></i>Back to Accounts</a></div></div>';
+
+    if (!$securityReady) {
+        $html.='<div class="alert alert-warning"><strong>Migration required.</strong> '
+            . 'Apply <code>database/026_user_session_security.sql</code> once with a database administrator, '
+            . 'then reload this page.</div>';
+        render_page('Login Logs',$html);
+        return;
+    }
+
+    $target=$userId>0 ? user_management_user((int)$userId) : null;
+    $html.='<div class="panel">'
+        . ($target ? '<div class="alert alert-info small"><strong>Filtered account:</strong> '
+            . e((string)$target['name']) . ' · ' . e((string)($target['username'] ?? '')) . ' '
+            . '<a class="ms-2" href="' . e(url('user_login_logs')) . '">Clear account filter</a></div>' : '')
+        . '<form method="get" action="' . e(url('user_login_logs')) . '" class="row g-2 mb-3">'
+        . ($userId>0 ? '<input type="hidden" name="user_id" value="' . (int)$userId . '">' : '')
+        . '<div class="col-md-5"><label class="form-label" for="loginEventFilter">Event</label>'
+        . '<select class="form-select" id="loginEventFilter" name="event">'
+        . '<option value="">All Events</option>';
+    foreach ([
+        'login_success'=>'Login Successful','login_failed'=>'Login Failed',
+        'logout'=>'Normal Logout','forced_logout'=>'Forced Logout'
+    ] as $value=>$label) {
+        $html.='<option value="' . e($value) . '"' . ($event===$value ? ' selected' : '') . '>'
+            . e($label) . '</option>';
+    }
+    $html.='</select></div><div class="col-md-3 d-flex align-items-end">'
+        . '<button class="btn btn-primary w-100" type="submit">Apply Filter</button></div></form>'
+        . '<div class="table-responsive"><table class="table table-hover table-sm align-middle">'
+        . '<thead><tr><th>Date / Time</th><th>Account</th><th>Event</th>'
+        . '<th>IP Address</th><th>Device / Browser</th><th>Administrator / Reason</th></tr></thead><tbody>';
+    foreach ($logs as $log) {
+        $account=(string)($log['account_name'] ?? '');
+        if ($account==='') $account='Unknown / unmatched username';
+        $username=(string)($log['current_username'] ?? $log['username_snapshot'] ?? '');
+        $actor=(string)($log['actor_name'] ?? '');
+        $reason=(string)($log['reason'] ?? '');
+        $html.='<tr><td class="text-nowrap">' . e(notification_time_label((string)$log['created_at'])) . '</td>'
+            . '<td><strong>' . e($account) . '</strong>'
+            . ($username!=='' ? '<div class="small text-secondary">' . e($username) . '</div>' : '') . '</td>'
+            . '<td>' . user_management_event_badge((string)$log['event_type']) . '</td>'
+            . '<td class="text-nowrap">' . e((string)$log['ip_address']) . '</td>'
+            . '<td>' . e(user_session_browser_label((string)$log['user_agent'])) . '</td>'
+            . '<td>' . ($actor!=='' ? '<strong>' . e($actor) . '</strong>' : '<span class="text-secondary">—</span>')
+            . ($reason!=='' ? '<div class="small text-secondary">' . e($reason) . '</div>' : '') . '</td></tr>';
+    }
+    if (!$logs) {
+        $html.='<tr><td colspan="6" class="text-center text-secondary py-4">No matching login security logs.</td></tr>';
+    }
+    $html.='</tbody></table></div><p class="small text-secondary mb-0">'
+        . 'Newest entries are shown first. Unknown username attempts are retained without exposing passwords or secrets.'
+        . '</p></div>';
+    render_page('Login Logs',$html);
 }
 
 /** Manual account creation for personnel who are not already listed as Pending Setup. */
