@@ -37,6 +37,18 @@
   z-index: 12;
   background: var(--bs-body-bg, #fff);
   box-shadow: 0 .35rem .75rem rgba(20, 35, 28, .08);
+  transition: padding .18s ease, box-shadow .18s ease;
+}
+#step4-evaluation-modal .step4-sticky-progress.step4-progress-compact {
+  padding-block: .5rem !important;
+  box-shadow: 0 .25rem .6rem rgba(20, 35, 28, .12);
+}
+#step4-evaluation-modal .step4-sticky-progress.step4-progress-compact [data-step4-progress-details] {
+  display: none !important;
+}
+#step4-evaluation-modal .step4-sticky-progress.step4-progress-compact [data-step4-progress-meter] {
+  margin-top: 0 !important;
+  display: block;
 }
 #step4-evaluation-modal [data-step4-summary-remarks],
 #step4-evaluation-modal [data-step4-summary-overall],
