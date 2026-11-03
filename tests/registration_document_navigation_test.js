@@ -43,7 +43,7 @@ function element(tag = 'DIV') {
   };
 }
 
-function run(total) {
+function run(total, duplicateFirst = false) {
   const modal = element();
   const preview = element();
   const title = element();
@@ -70,10 +70,19 @@ function run(total) {
     link.dataset.documentMime = index % 3 === 0 ? 'application/pdf'
       : (index % 3 === 1 ? 'image/png' : 'image/jpeg');
     link.dataset.documentName = 'Client document ' + (index + 1) + '.pdf';
+    link.dataset.documentId = String(index + 56);
     link.href = 'http://localhost/denr_fp/denr_fp/public/download_reg'
       + '?id=' + (index + 56) + '&preview=1';
     return link;
   });
+  if (duplicateFirst && links[0]) {
+    const duplicate = element('A');
+    duplicate.dataset.documentMime = links[0].dataset.documentMime;
+    duplicate.dataset.documentName = links[0].dataset.documentName;
+    duplicate.dataset.documentId = links[0].dataset.documentId;
+    duplicate.href = links[0].href;
+    links.push(duplicate);
+  }
   const byId = {
     'registration-document-modal': modal,
     'registration-document-preview': preview,
@@ -147,6 +156,13 @@ assert.equal(ui.preview.children.length, 0, 'prior PDF iframe removed on close')
 assert.equal(ui.previous.disabled, true);
 assert.equal(ui.next.disabled, true);
 
+const duplicated = run(3, true);
+assert.equal(duplicated.counter.textContent, '0/3',
+  'duplicate links for the same uploaded file do not increase navigation count');
+duplicated.links[3].dispatch('click');
+assert.equal(duplicated.counter.textContent, '1/3',
+  'duplicate Step 4 file link opens the same unique document');
+
 const one = run(1);
 one.links[0].dispatch('click');
 assert.equal(one.counter.textContent, '1/1');
@@ -157,4 +173,4 @@ assert.equal(empty.counter.textContent, '0/0');
 assert.equal(empty.previous.disabled, true);
 assert.equal(empty.next.disabled, true);
 
-console.log('PASS: Document navigation, 3/10 counter, PDF/image switching, download links, zoom and boundaries.');
+console.log('PASS: Document navigation, unique-file counting, PDF/image switching, download links, zoom and boundaries.');
