@@ -143,7 +143,7 @@ function step4_requirement_uploaded_files_html(string $type,array $documents): s
             .e($name).'</div><div class="small text-secondary">Revision '
             .(int)($doc['revision'] ?? 0).' · '
             .e(round(((int)($doc['file_size'] ?? 0))/1024,1).' KB').'</div></div>'
-            .'<a class="btn btn-sm btn-outline-primary" data-document-preview '
+            .'<a class="btn btn-sm btn-outline-primary" data-step4-file-link '
             .'data-document-id="'.(int)$doc['id'].'" '
             .'data-document-mime="'.e($mime).'" '
             .'data-document-name="'.e($name).'" '
@@ -152,6 +152,35 @@ function step4_requirement_uploaded_files_html(string $type,array $documents): s
             .'<i class="bi bi-eye me-1" aria-hidden="true"></i>View File</a></div>';
     }
     return $html.'</div></div>';
+}
+
+
+/** In-modal file directory; all links use the existing authorized permit_document route. */
+function step4_modal_all_files_html(array $documents): string
+{
+    $html='<section class="d-none" data-step4-files-view>'
+        .'<h3 class="h5 mb-1">All Uploaded Documents</h3>'
+        .'<p class="small text-secondary">Select a file to preview within this Step 4 window. '
+        .'Earlier revisions remain available. Files without a category are shown separately.</p>';
+    if (!$documents) {
+        return $html.'<div class="alert alert-light border">No uploaded documents recorded for this application.</div></section>';
+    }
+    $groups=step4_documents_by_requirement($documents);
+    foreach (step2_requirement_types() as $type=>$label) {
+        if (empty($groups[$type])) continue;
+        $html.='<div class="border rounded-3 p-3 mb-3">'
+            .'<h4 class="h6">'.e($label).' <span class="badge text-bg-secondary">'
+            .count($groups[$type]).'</span></h4>'
+            .step4_requirement_uploaded_files_html($type,$groups[$type]).'</div>';
+    }
+    foreach ($groups as $type=>$docs) {
+        if (isset(step2_requirement_types()[$type])) continue;
+        $html.='<div class="border rounded-3 p-3 mb-3">'
+            .'<h4 class="h6">'.e(step2_requirement_label($type)).' '
+            .'<span class="badge text-bg-warning">'.count($docs).'</span></h4>'
+            .step4_requirement_uploaded_files_html($type,$docs).'</div>';
+    }
+    return $html.'</section>';
 }
 
 function step4_start_panel_html(array $app): string
@@ -255,14 +284,38 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         ? (int)round(($assessedCount/$totalRequirements)*100) : 0;
     $initialStep=$errors ? 4 : 1;
 
-    $html='<div class="panel soft" data-step4-wizard data-step4-initial-step="'.$initialStep.'">'
+    $html='<div class="panel soft">'
+        .'<h3 class="h6 mb-2"><i class="bi bi-clipboard-check me-2" aria-hidden="true"></i>'
+        .'Step 4 – Documentary Evaluation</h3>'
+        .'<p class="small text-secondary">Review the documentary requirements using a guided '
+        .'four-step workflow. The reviewer can inspect every uploaded file without opening another modal.</p>'
+        .'<button type="button" class="btn btn-success w-100" data-bs-toggle="modal" '
+        .'data-bs-target="#step4-evaluation-modal">'
+        .'<i class="bi bi-arrows-fullscreen me-2" aria-hidden="true"></i>'
+        .'Open Documentary Evaluation</button>'
+        .'<p class="small text-secondary mt-2 mb-0">No decision is saved until final confirmation.</p>'
+        .'</div>'
+        .'<div class="modal fade" id="step4-evaluation-modal" tabindex="-1" '
+        .'aria-labelledby="step4-evaluation-modal-title" aria-hidden="true" data-bs-backdrop="static">'
+        .'<div class="modal-dialog modal-fullscreen"><div class="modal-content step4-modal-content">'
+        .'<div class="modal-header">'
+        .'<div><h2 class="modal-title h5 mb-1" id="step4-evaluation-modal-title">'
+        .'Step 4 – Documentary Evaluation · FP #'.$id.'</h2>'
+        .'<p class="small text-secondary mb-0">'
+        .e((string)($app['applicant_name'] ?? 'Applicant')).' · '
+        .e((string)($app['project_title'] ?? 'FP Application'))
+        .' · Revision '.(int)$app['revision'].'</p></div>'
+        .'<button type="button" class="btn-close" data-bs-dismiss="modal" '
+        .'aria-label="Close Documentary Evaluation"></button></div>'
+        .'<div class="modal-body" data-step4-modal-body>'
+        .'<div data-step4-main-view data-step4-wizard '
+        .'data-step4-initial-step="'.$initialStep.'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
         .'LPDD-FUS Step 4 Documentary Evaluation</h3>'
         .'<p class="small text-secondary mb-0">Use Previous and Next to review one section at a time. '
         .'Your selections stay on this page until the final confirmed decision.</p></div>'
-        .'<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" '
-        .'data-bs-target="#fp-files-modal">'
+        .'<button type="button" class="btn btn-sm btn-outline-primary" data-step4-view-all>'
         .'<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View All Uploaded Files</button></div>'
         .(!empty($groupedDocuments['other'])
             ? '<div class="alert alert-warning small py-2"><strong>Unclassified files detected:</strong> '
@@ -308,10 +361,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         $docs=is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : [];
         $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark);
     }
-    $html.='</div>'
-        .'<div class="d-flex justify-content-end mt-3">'
-        .'<button type="button" class="btn btn-primary" data-step4-next>'
-        .'Next <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button></div></div></section>';
+    $html.='</div></div></section>';
 
     $html.='<section class="d-none" data-step4-wizard-step="2" '
         .'data-step4-step-name="Environmental / Regulatory Clearances">'
@@ -328,12 +378,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         $docs=is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : [];
         $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark);
     }
-    $html.='</div>'
-        .'<div class="d-flex justify-content-between gap-2 mt-3">'
-        .'<button type="button" class="btn btn-outline-secondary" data-step4-prev>'
-        .'<i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Previous</button>'
-        .'<button type="button" class="btn btn-primary" data-step4-next>'
-        .'Next <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button></div></div></section>';
+    $html.='</div></div></section>';
 
     $html.='<section class="d-none" data-step4-wizard-step="3" '
         .'data-step4-step-name="Overall Evaluation & Instructions">'
@@ -355,11 +400,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<span class="text-secondary">(required only for Complete & Sufficient)</span></label>'
         .'<input class="form-control" id="step4-field-schedule" name="field_validation_schedule" '
         .'type="datetime-local" value="'.e((string)($_POST['field_validation_schedule'] ?? '')).'">'
-        .'<div class="d-flex justify-content-between gap-2 mt-3">'
-        .'<button type="button" class="btn btn-outline-secondary" data-step4-prev>'
-        .'<i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Previous</button>'
-        .'<button type="button" class="btn btn-primary" data-step4-next>'
-        .'Review Decision <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button></div></div></section>';
+        .'</div></section>';
 
     $html.='<section class="d-none" data-step4-wizard-step="4" '
         .'data-step4-step-name="Review & Final Decision">'
@@ -387,29 +428,58 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="col-12"><div class="border rounded-2 p-2">'
         .'<div class="small text-secondary">Field Validation / Assessment Schedule</div>'
         .'<div class="small" data-step4-summary-schedule>Not set</div></div></div></div>'
-        .'<div class="alert alert-warning small d-none" data-step4-validation></div>'
-        .'<div class="d-grid gap-2">'
+        .'<div class="alert alert-warning small d-none" data-step4-validation role="alert"></div>'
+        .'<div class="alert alert-warning d-none mt-3" data-step4-confirm-panel '
+        .'role="alertdialog" aria-labelledby="step4-confirm-title">'
+        .'<h5 class="h6" id="step4-confirm-title" data-step4-modal-title>Confirm Step 4 Decision</h5>'
+        .'<p class="small" data-step4-modal-message></p>'
+        .'<div class="d-flex flex-wrap gap-2">'
+        .'<button type="button" class="btn btn-outline-secondary" data-step4-cancel-confirm>'
+        .'Cancel</button>'
+        .'<button type="button" class="btn btn-danger" data-step4-confirm>'
+        .'Confirm Decision</button></div></div>'
+        .'</div></section></form></div>'
+        .step4_modal_all_files_html($documents)
+        .'<section class="d-none" data-step4-preview-view>'
+        .'<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">'
+        .'<div><h3 class="h5 mb-1" data-step4-preview-name>Document Preview</h3>'
+        .'<p class="small text-secondary mb-0" data-step4-preview-category></p></div>'
+        .'<a class="btn btn-outline-primary" data-step4-download href="#">'
+        .'<i class="bi bi-download me-1" aria-hidden="true"></i>Download File</a></div>'
+        .'<div class="step4-document-viewer border rounded-3" data-step4-preview-area></div>'
+        .'<p class="small text-danger d-none mt-2" data-step4-preview-error>'
+        .'Preview unavailable. Use Download File to access the document.</p>'
+        .'</section>'
+        .'</div>'
+        .'<div class="modal-footer step4-modal-footer">'
+        .'<div class="d-flex align-items-center gap-2 flex-wrap me-auto" data-step4-wizard-footer>'
+        .'<span class="small text-secondary me-2" data-step4-footer-label>Step 1 of 4</span>'
+        .'<button type="button" class="btn btn-outline-secondary d-none" data-step4-prev>'
+        .'<i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Previous</button>'
+        .'<button type="button" class="btn btn-primary" data-step4-next>'
+        .'Next <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button>'
+        .'<div class="d-none d-flex flex-wrap gap-2" data-step4-decision-controls>'
         .'<button type="button" class="btn btn-success" data-step4-decision="complete" '
         .($assessedCount<$totalRequirements?'disabled':'').'>'
         .'<i class="bi bi-check-circle me-1"></i>Complete & Sufficient</button>'
         .'<button type="button" class="btn btn-outline-danger" data-step4-decision="return">'
-        .'<i class="bi bi-arrow-return-left me-1"></i>Incomplete / Insufficient – Return to Applicant</button>'
+        .'<i class="bi bi-arrow-return-left me-1"></i>Return to Applicant</button></div>'
         .'</div>'
-        .'<div class="mt-3"><button type="button" class="btn btn-outline-secondary" data-step4-prev>'
-        .'<i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Previous</button></div></div></section>'
-        .'</form>'
-        .'<div class="modal fade" id="step4-decision-modal" tabindex="-1" '
-        .'aria-labelledby="step4-decision-modal-title" aria-hidden="true">'
-        .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
-        .'<div class="modal-header"><h2 class="modal-title h5" id="step4-decision-modal-title" '
-        .'data-step4-modal-title>Confirm Step 4 Decision</h2>'
-        .'<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
-        .'<div class="modal-body"><p class="mb-0" data-step4-modal-message></p></div>'
-        .'<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" '
-        .'data-bs-dismiss="modal">Cancel</button>'
-        .'<button type="button" class="btn btn-primary" data-step4-confirm>Confirm Decision</button>'
+        .'<div class="d-none" data-step4-files-footer>'
+        .'<button type="button" class="btn btn-outline-primary" data-step4-back-review>'
+        .'<i class="bi bi-arrow-left me-1"></i>Back to Evaluation</button></div>'
+        .'<div class="d-none d-flex flex-wrap align-items-center gap-2" data-step4-preview-footer>'
+        .'<button type="button" class="btn btn-outline-secondary" data-step4-file-prev>'
+        .'<i class="bi bi-chevron-left"></i> Previous File</button>'
+        .'<span class="badge text-bg-light border" data-step4-file-count>0/0</span>'
+        .'<button type="button" class="btn btn-outline-secondary" data-step4-file-next>'
+        .'Next File <i class="bi bi-chevron-right"></i></button>'
+        .'<button type="button" class="btn btn-outline-primary" data-step4-back-preview>'
+        .'<i class="bi bi-arrow-left me-1"></i>Back</button></div>'
+        .'<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">'
+        .'Close</button>'
         .'</div></div></div></div>'
-        .'<script src="assets/permit-step4-review.js?v=3" defer></script></div>';
+        .'<script src="assets/permit-step4-review.js?v=4" defer></script>';
 
     return $html;
 }
