@@ -86,9 +86,16 @@ function step2_application_for_view(array $viewer, int $applicationId): array
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer, 'lpdd_fus');
     $receiving = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer, 'ro_receiving')
-        && in_array((string)$app['status'],['forwarded_to_ro','ro_received','forwarded_to_lpdd'],true);
+        && in_array((string)$app['status'],[
+            'forwarded_to_ro','ro_received','forwarded_to_lpdd',
+            'step4_under_evaluation','step4_corrections_required',
+            'step4_resubmitted','step4_complete'
+        ],true);
+    $cenro = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'cenro_twg')
+        && (string)$app['status']==='step4_complete';
     $historical = permit_tracking_historical_staff_access($viewer,$applicationId);
-    if (!$mine && !$reviewer && !$receiving && !$historical) {
+    if (!$mine && !$reviewer && !$receiving && !$cenro && !$historical) {
         show_error('You do not have permission to access this application.', 404);
     }
     return $app;
@@ -301,36 +308,64 @@ function step2_submit(array $client, array $data, array $files, int $application
                 'SELECT * FROM permit_step2_applications WHERE id=? AND client_id=? FOR UPDATE',
                 [$applicationId,$clientId]
             );
-            if (!$locked || !in_array($locked['status'],['corrections_required','reverted'],true)) {
+            if (!$locked || !in_array($locked['status'],[
+                'corrections_required','reverted','step4_corrections_required'
+            ],true)) {
                 $pdo->rollBack();
                 return ['This application is not currently available for corrections. Refresh the page.'];
             }
+            $step4Compliance=(string)$locked['status']==='step4_corrections_required';
             $revision = (int)$locked['revision'] + 1;
             if ($coordsReady) {
-                $pdo->prepare(
-                    "UPDATE permit_step2_applications
-                     SET project_title=?,project_location=?,project_latitude=?,
-                         project_longitude=?,purpose=?,revision=?,
-                         status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
-                         reviewer_user_id=NULL,forwarded_at=NULL,
-                         received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
-                )->execute([
-                    $data['project_title'],$data['project_location'],$lat,$lon,
-                    $data['purpose'] ?: null,$revision,$applicationId,$clientId
-                ]);
+                if ($step4Compliance) {
+                    $pdo->prepare(
+                        "UPDATE permit_step2_applications
+                         SET project_title=?,project_location=?,project_latitude=?,
+                             project_longitude=?,purpose=?,revision=?,
+                             status='step4_resubmitted',last_submitted_at=NOW()
+                         WHERE id=? AND client_id=?"
+                    )->execute([
+                        $data['project_title'],$data['project_location'],$lat,$lon,
+                        $data['purpose'] ?: null,$revision,$applicationId,$clientId
+                    ]);
+                } else {
+                    $pdo->prepare(
+                        "UPDATE permit_step2_applications
+                         SET project_title=?,project_location=?,project_latitude=?,
+                             project_longitude=?,purpose=?,revision=?,
+                             status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
+                             reviewer_user_id=NULL,forwarded_at=NULL,
+                             received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
+                    )->execute([
+                        $data['project_title'],$data['project_location'],$lat,$lon,
+                        $data['purpose'] ?: null,$revision,$applicationId,$clientId
+                    ]);
+                }
             } else {
-                $pdo->prepare(
-                    "UPDATE permit_step2_applications
-                     SET project_title=?,project_location=?,purpose=?,revision=?,
-                         status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
-                         reviewer_user_id=NULL,forwarded_at=NULL,
-                         received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
-                )->execute([
-                    $data['project_title'],$data['project_location'],$data['purpose'] ?: null,
-                    $revision,$applicationId,$clientId
-                ]);
+                if ($step4Compliance) {
+                    $pdo->prepare(
+                        "UPDATE permit_step2_applications
+                         SET project_title=?,project_location=?,purpose=?,revision=?,
+                             status='step4_resubmitted',last_submitted_at=NOW()
+                         WHERE id=? AND client_id=?"
+                    )->execute([
+                        $data['project_title'],$data['project_location'],$data['purpose'] ?: null,
+                        $revision,$applicationId,$clientId
+                    ]);
+                } else {
+                    $pdo->prepare(
+                        "UPDATE permit_step2_applications
+                         SET project_title=?,project_location=?,purpose=?,revision=?,
+                             status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
+                             reviewer_user_id=NULL,forwarded_at=NULL,
+                             received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
+                    )->execute([
+                        $data['project_title'],$data['project_location'],$data['purpose'] ?: null,
+                        $revision,$applicationId,$clientId
+                    ]);
+                }
             }
-            $action = 'resubmitted';
+            $action = $step4Compliance ? 'step4_resubmitted' : 'resubmitted';
         } else {
             if ($coordsReady) {
                 $pdo->prepare(
@@ -446,14 +481,24 @@ function step2_submit(array $client, array $data, array $files, int $application
         foreach ($draftFilesToRemove as $source) @unlink($source);
 
         try {
-            notify_role(
-                'lpdd_fus',
-                $action === 'submitted' ? 'New FP Application for Initial Review' : 'FP Application Resubmitted',
-                'FP application #' . $applicationId . ' from ' . (string)$client['name']
-                    . ' is awaiting LPDD-FUS initial review.',
-                'file-earmark-text','info','permit_initial_queue'
-            );
-            step2_email_reviewer_alert($applicationId, (string)$client['name'], $action);
+            if ($action==='step4_resubmitted') {
+                notify_role(
+                    'lpdd_fus',
+                    'FP Application Resubmitted for Step 4',
+                    'FP application #' . $applicationId . ' from ' . (string)$client['name']
+                        . ' was resubmitted for documentary re-evaluation.',
+                    'arrow-repeat','info','permit_step4_queue',['tab'=>'resubmitted']
+                );
+            } else {
+                notify_role(
+                    'lpdd_fus',
+                    $action === 'submitted' ? 'New FP Application for Initial Review' : 'FP Application Resubmitted',
+                    'FP application #' . $applicationId . ' from ' . (string)$client['name']
+                        . ' is awaiting LPDD-FUS initial review.',
+                    'file-earmark-text','info','permit_initial_queue'
+                );
+                step2_email_reviewer_alert($applicationId, (string)$client['name'], $action);
+            }
         } catch (Throwable $notifyError) {
             error_log('FP-OMS Step 2 staff alert failed: ' . $notifyError->getMessage());
         }
