@@ -54,6 +54,8 @@
   const filePrevious = child?.querySelector('[data-step4-file-prev]');
   const fileNext = child?.querySelector('[data-step4-file-next]');
   const fileCount = child?.querySelector('[data-step4-file-count]');
+  const fullscreenButton = child?.querySelector('[data-step4-fullscreen]');
+  const fullscreenLabel = child?.querySelector('[data-step4-fullscreen-label]');
 
   const assessmentMeta = {
     complete: ['Complete', 'success'],
@@ -131,8 +133,24 @@
     child.querySelector('[data-step4-child-close]')?.focus();
   }
 
+  function setChildFullscreen(active) {
+    if (!child) return;
+    child.classList.toggle('step4-child-fullscreen', active);
+    if (fullscreenLabel) fullscreenLabel.textContent = active ? 'Exit Full Screen' : 'Full Screen';
+    if (fullscreenButton) {
+      fullscreenButton.classList.toggle('btn-outline-primary', !active);
+      fullscreenButton.classList.toggle('btn-primary', active);
+      fullscreenButton.setAttribute('aria-pressed', active ? 'true' : 'false');
+      const icon = fullscreenButton.querySelector('i');
+      if (icon) icon.className = active
+        ? 'bi bi-fullscreen-exit me-1'
+        : 'bi bi-arrows-fullscreen me-1';
+    }
+  }
+
   function closeChild() {
     if (!child) return;
+    setChildFullscreen(false);
     child.classList.add('d-none');
     modal.classList.remove('step4-child-open');
     showChildFiles();
@@ -437,6 +455,9 @@
     childOrigin = 'files';
     showChildFiles();
   });
+  fullscreenButton?.addEventListener('click', () => {
+    setChildFullscreen(!child.classList.contains('step4-child-fullscreen'));
+  });
   filePrevious?.addEventListener('click', () => renderFile(currentFileIndex - 1));
   fileNext?.addEventListener('click', () => renderFile(currentFileIndex + 1));
   for (const closer of childClosers) closer.addEventListener('click', closeChild);
@@ -445,7 +466,11 @@
     if (event.key === 'Escape' && child && !child.classList.contains('d-none')) {
       event.preventDefault();
       event.stopPropagation();
-      closeChild();
+      if (child.classList.contains('step4-child-fullscreen')) {
+        setChildFullscreen(false);
+      } else {
+        closeChild();
+      }
     }
   });
 
