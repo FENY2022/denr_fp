@@ -1,0 +1,79 @@
+/* Step 4 Documentary Evaluation – full-screen guided review.
+   No inline styles: compatible with FP-OMS Content Security Policy. */
+#step4-evaluation-modal .step4-modal-content {
+  height: 100%;
+  min-height: 0;
+}
+#step4-evaluation-modal .modal-header {
+  flex: 0 0 auto;
+  background: #f5fbf6;
+  border-bottom: 1px solid #d6e6d9;
+}
+#step4-evaluation-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.4rem clamp(1rem, 5vw, 4rem);
+}
+#step4-evaluation-modal .step4-modal-footer {
+  flex: 0 0 auto;
+  background: var(--bs-body-bg, #fff);
+  border-top: 1px solid #dee2e6;
+  padding: .8rem clamp(.8rem, 3vw, 2rem);
+}
+#step4-evaluation-modal [data-step4-main-view],
+#step4-evaluation-modal [data-step4-files-view],
+#step4-evaluation-modal [data-step4-preview-view] {
+  max-width: 1180px;
+  margin-inline: auto;
+}
+#step4-evaluation-modal [data-step4-wizard-step] {
+  min-height: 12rem;
+}
+#step4-evaluation-modal .step4-document-viewer {
+  min-height: min(65vh, 600px);
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+#step4-evaluation-modal .step4-modal-pdf {
+  display: block;
+  border: 0;
+  width: 100%;
+  height: min(71vh, 850px);
+  min-height: 450px;
+}
+#step4-evaluation-modal .step4-modal-image {
+  display: block;
+  max-width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
+}
+#step4-evaluation-modal [data-step4-summary-remarks],
+#step4-evaluation-modal [data-step4-summary-overall],
+#step4-evaluation-modal [data-step4-summary-instructions] {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+#step4-evaluation-modal [data-step4-step-indicator] {
+  white-space: nowrap;
+}
+@media (max-width: 575.98px) {
+  #step4-evaluation-modal .modal-body {
+    padding: .9rem .7rem;
+  }
+  #step4-evaluation-modal .modal-header,
+  #step4-evaluation-modal .modal-footer {
+    padding: .7rem;
+  }
+  #step4-evaluation-modal .step4-modal-footer > [data-step4-wizard-footer] {
+    width: 100%;
+  }
+  #step4-evaluation-modal .step4-modal-pdf {
+    height: 65vh;
+    min-height: 320px;
+  }
+}
