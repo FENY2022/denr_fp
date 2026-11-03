@@ -120,6 +120,37 @@
   pointer-events: none;
 }
 
+/* Optional full-screen mode for the child document viewer.
+   It covers the browser viewport while keeping the parent Step 4 modal mounted. */
+#step4-evaluation-modal .step4-child-modal.step4-child-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1095;
+  padding: 0;
+}
+#step4-evaluation-modal .step4-child-modal.step4-child-fullscreen .step4-child-dialog {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+#step4-evaluation-modal .step4-child-modal.step4-child-fullscreen .step4-child-body {
+  padding: .75rem;
+}
+#step4-evaluation-modal .step4-child-modal.step4-child-fullscreen .step4-document-viewer {
+  min-height: calc(100vh - 150px);
+  height: calc(100vh - 150px);
+}
+#step4-evaluation-modal .step4-child-modal.step4-child-fullscreen .step4-modal-pdf {
+  height: calc(100vh - 150px);
+  min-height: 0;
+}
+#step4-evaluation-modal .step4-child-modal.step4-child-fullscreen .step4-modal-image {
+  max-height: calc(100vh - 150px);
+}
+
 @media (max-width: 991.98px) {
   #step4-evaluation-modal .step4-modal-content {
     height: 92vh;
