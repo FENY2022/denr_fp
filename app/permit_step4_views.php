@@ -274,10 +274,9 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="small text-secondary"><span data-step4-progress-count>'.$assessedCount.'</span> of '
         .$totalRequirements.' requirements assessed</div></div>'
         .'<span class="badge text-bg-light border" data-step4-progress-percent>'.$progressPercent.'%</span></div>'
-        .'<div class="progress mt-2" role="progressbar" aria-label="Step 4 documentary evaluation progress" '
-        .'aria-valuemin="0" aria-valuemax="'.$totalRequirements.'" aria-valuenow="'.$assessedCount.'" '
-        .'data-step4-progress-bar-wrapper>'
-        .'<div class="progress-bar" style="width:'.$progressPercent.'%" data-step4-progress-bar></div></div></div>'
+        .'<progress class="w-100 mt-2" value="'.$assessedCount.'" max="'.$totalRequirements.'" '
+        .'aria-label="Step 4 documentary evaluation progress" data-step4-progress-meter>'
+        .$assessedCount.' of '.$totalRequirements.'</progress></div>'
         .'<form id="step4-decision-form" method="post" action="'
         .e(url('permit_step4_decision',['id'=>$id])).'">'.csrf_field()
         .'<input type="hidden" name="decision" value="" data-step4-decision-value>'
