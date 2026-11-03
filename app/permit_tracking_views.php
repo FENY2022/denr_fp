@@ -47,6 +47,10 @@ function permit_tracking_action_visual(string $action): array
         'forwarded_to_ro' => ['tone'=>'forwarded','icon'=>'check-circle-fill','category'=>'Forwarded'],
         'ro_documents_received' => ['tone'=>'received','icon'=>'inbox-fill','category'=>'RO Received'],
         'forwarded_to_lpdd' => ['tone'=>'forwarded','icon'=>'send-check-fill','category'=>'Forwarded to LPDD-FUS'],
+        'step4_review_started' => ['tone'=>'received','icon'=>'clipboard-check-fill','category'=>'Step 4 Review Started'],
+        'step4_returned_for_compliance' => ['tone'=>'correction','icon'=>'exclamation-triangle-fill','category'=>'Step 4 Compliance Required'],
+        'step4_resubmitted' => ['tone'=>'resubmitted','icon'=>'arrow-repeat','category'=>'Step 4 Resubmitted'],
+        'step4_complete' => ['tone'=>'forwarded','icon'=>'check-circle-fill','category'=>'Step 4 Complete'],
         'ro_archived' => ['tone'=>'received','icon'=>'archive-fill','category'=>'Archived by Records'],
         'reverted' => ['tone'=>'reverted','icon'=>'arrow-counterclockwise','category'=>'Reverted'],
         default => ['tone'=>'other','icon'=>'clock-history','category'=>'Recorded']
