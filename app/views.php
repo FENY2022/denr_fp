@@ -29,14 +29,14 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         if (in_array('lpdd_fus', $roles, true)) {
             $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active)
                 . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active)
-                . shell_nav_item('permit_step4_queue', 'Step 4 Incoming (Read-only)', 'file-earmark-arrow-down', $active);
+                . shell_nav_item('permit_step4_queue', 'Step 4 Documentary Evaluation', 'clipboard-data', $active);
         }
         if (in_array('ro_receiving', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Records Management</div>'
                 . shell_nav_item('permit_ro_inbox', 'RO Receiving – Step 3', 'inboxes', $active)
                 . shell_nav_item('records_archive', 'Records Archiving', 'archive-fill', $active);
         }
-        foreach ([['clipboard-data','Document Evaluation'],['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
+        foreach ([['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
             $html .= '<span class="sidebar-link" aria-disabled="true" title="Available in a later phase"><i class="bi bi-' . e($icon) . '"></i><span>' . e($label) . ' · Soon</span></span>';
         }
         if (in_array('super_admin', $roles, true)) {
