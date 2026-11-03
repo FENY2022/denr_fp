@@ -155,15 +155,13 @@ function step4_requirement_uploaded_files_html(string $type,array $documents): s
 }
 
 
-/** In-modal file directory; all links use the existing authorized permit_document route. */
-function step4_modal_all_files_html(array $documents): string
+/** Child-modal file directory; every link uses the authorized permit_document route. */
+function step4_modal_all_files_content_html(array $documents): string
 {
-    $html='<section class="d-none" data-step4-files-view>'
-        .'<h3 class="h5 mb-1">All Uploaded Documents</h3>'
-        .'<p class="small text-secondary">Select a file to preview within this Step 4 window. '
-        .'Earlier revisions remain available. Files without a category are shown separately.</p>';
+    $html='<p class="small text-secondary">Select a file to preview. Earlier revisions remain available. '
+        .'Closing this child modal returns to the current Step 4 review step.</p>';
     if (!$documents) {
-        return $html.'<div class="alert alert-light border">No uploaded documents recorded for this application.</div></section>';
+        return $html.'<div class="alert alert-light border">No uploaded documents recorded for this application.</div>';
     }
     $groups=step4_documents_by_requirement($documents);
     foreach (step2_requirement_types() as $type=>$label) {
@@ -180,7 +178,7 @@ function step4_modal_all_files_html(array $documents): string
             .'<span class="badge text-bg-warning">'.count($docs).'</span></h4>'
             .step4_requirement_uploaded_files_html($type,$docs).'</div>';
     }
-    return $html.'</section>';
+    return $html;
 }
 
 function step4_start_panel_html(array $app): string
@@ -288,16 +286,17 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<h3 class="h6 mb-2"><i class="bi bi-clipboard-check me-2" aria-hidden="true"></i>'
         .'Step 4 – Documentary Evaluation</h3>'
         .'<p class="small text-secondary">Review the documentary requirements using a guided '
-        .'four-step workflow. The reviewer can inspect every uploaded file without opening another modal.</p>'
+        .'four-step workflow. Uploaded files open in a child preview modal without closing this evaluation.</p>'
         .'<button type="button" class="btn btn-success w-100" data-bs-toggle="modal" '
         .'data-bs-target="#step4-evaluation-modal">'
-        .'<i class="bi bi-arrows-fullscreen me-2" aria-hidden="true"></i>'
+        .'<i class="bi bi-clipboard2-check me-2" aria-hidden="true"></i>'
         .'Open Documentary Evaluation</button>'
         .'<p class="small text-secondary mt-2 mb-0">No decision is saved until final confirmation.</p>'
         .'</div>'
         .'<div class="modal fade" id="step4-evaluation-modal" tabindex="-1" '
         .'aria-labelledby="step4-evaluation-modal-title" aria-hidden="true" data-bs-backdrop="static">'
-        .'<div class="modal-dialog modal-fullscreen"><div class="modal-content step4-modal-content">'
+        .'<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
+        .'<div class="modal-content step4-modal-content">'
         .'<div class="modal-header">'
         .'<div><h2 class="modal-title h5 mb-1" id="step4-evaluation-modal-title">'
         .'Step 4 – Documentary Evaluation · FP #'.$id.'</h2>'
@@ -314,7 +313,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
         .'LPDD-FUS Step 4 Documentary Evaluation</h3>'
         .'<p class="small text-secondary mb-0">Use Previous and Next to review one section at a time. '
-        .'Your selections stay on this page until the final confirmed decision.</p></div>'
+        .'Your selections stay in this evaluation while opening and closing document previews.</p></div>'
         .'<button type="button" class="btn btn-sm btn-outline-primary" data-step4-view-all>'
         .'<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View All Uploaded Files</button></div>'
         .(!empty($groupedDocuments['other'])
@@ -439,17 +438,6 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<button type="button" class="btn btn-danger" data-step4-confirm>'
         .'Confirm Decision</button></div></div>'
         .'</div></section></form></div>'
-        .step4_modal_all_files_html($documents)
-        .'<section class="d-none" data-step4-preview-view>'
-        .'<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">'
-        .'<div><h3 class="h5 mb-1" data-step4-preview-name>Document Preview</h3>'
-        .'<p class="small text-secondary mb-0" data-step4-preview-category></p></div>'
-        .'<a class="btn btn-outline-primary" data-step4-download href="#">'
-        .'<i class="bi bi-download me-1" aria-hidden="true"></i>Download File</a></div>'
-        .'<div class="step4-document-viewer border rounded-3" data-step4-preview-area></div>'
-        .'<p class="small text-danger d-none mt-2" data-step4-preview-error>'
-        .'Preview unavailable. Use Download File to access the document.</p>'
-        .'</section>'
         .'</div>'
         .'<div class="modal-footer step4-modal-footer">'
         .'<div class="d-flex align-items-center gap-2 flex-wrap me-auto" data-step4-wizard-footer>'
@@ -465,21 +453,45 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<button type="button" class="btn btn-outline-danger" data-step4-decision="return">'
         .'<i class="bi bi-arrow-return-left me-1"></i>Return to Applicant</button></div>'
         .'</div>'
-        .'<div class="d-none" data-step4-files-footer>'
-        .'<button type="button" class="btn btn-outline-primary" data-step4-back-review>'
-        .'<i class="bi bi-arrow-left me-1"></i>Back to Evaluation</button></div>'
-        .'<div class="d-none d-flex flex-wrap align-items-center gap-2" data-step4-preview-footer>'
-        .'<button type="button" class="btn btn-outline-secondary" data-step4-file-prev>'
+        .'<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>'
+        .'</div>'
+        .'<div class="step4-child-modal d-none" data-step4-child-modal role="dialog" '
+        .'aria-modal="true" aria-labelledby="step4-child-modal-title">'
+        .'<div class="step4-child-backdrop" data-step4-child-close aria-hidden="true"></div>'
+        .'<div class="step4-child-dialog" role="document">'
+        .'<div class="step4-child-header">'
+        .'<div><h3 class="h5 mb-1" id="step4-child-modal-title" data-step4-child-title>'
+        .'Uploaded Documents</h3>'
+        .'<p class="small text-secondary mb-0" data-step4-preview-category></p></div>'
+        .'<button type="button" class="btn-close" data-step4-child-close '
+        .'aria-label="Close document preview"></button></div>'
+        .'<div class="step4-child-body">'
+        .'<section data-step4-child-files>'
+        .step4_modal_all_files_content_html($documents)
+        .'</section>'
+        .'<section class="d-none" data-step4-child-preview>'
+        .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">'
+        .'<strong data-step4-preview-name>Document Preview</strong>'
+        .'<a class="btn btn-sm btn-outline-primary" data-step4-download href="#">'
+        .'<i class="bi bi-download me-1" aria-hidden="true"></i>Download File</a></div>'
+        .'<div class="step4-document-viewer border rounded-3" data-step4-preview-area></div>'
+        .'<p class="small text-danger d-none mt-2" data-step4-preview-error>'
+        .'Preview unavailable. Use Download File to access the document.</p>'
+        .'</section></div>'
+        .'<div class="step4-child-footer">'
+        .'<div class="d-none d-flex align-items-center gap-2 flex-wrap me-auto" '
+        .'data-step4-preview-navigation>'
+        .'<button type="button" class="btn btn-sm btn-outline-secondary" data-step4-file-prev>'
         .'<i class="bi bi-chevron-left"></i> Previous File</button>'
         .'<span class="badge text-bg-light border" data-step4-file-count>0/0</span>'
-        .'<button type="button" class="btn btn-outline-secondary" data-step4-file-next>'
+        .'<button type="button" class="btn btn-sm btn-outline-secondary" data-step4-file-next>'
         .'Next File <i class="bi bi-chevron-right"></i></button>'
-        .'<button type="button" class="btn btn-outline-primary" data-step4-back-preview>'
-        .'<i class="bi bi-arrow-left me-1"></i>Back</button></div>'
-        .'<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">'
-        .'Close</button>'
-        .'</div></div></div></div>'
-        .'<script src="assets/permit-step4-review.js?v=4" defer></script>';
+        .'<button type="button" class="btn btn-sm btn-outline-primary d-none" data-step4-back-files>'
+        .'<i class="bi bi-arrow-left me-1"></i>Back to File List</button></div>'
+        .'<button type="button" class="btn btn-secondary" data-step4-child-close>Close</button>'
+        .'</div></div></div>'
+        .'</div></div></div>'
+        .'<script src="assets/permit-step4-review.js?v=5" defer></script>';
 
     return $html;
 }
