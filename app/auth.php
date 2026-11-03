@@ -51,6 +51,13 @@ function authenticate(string $identifier, string $password): bool
     db()->prepare('INSERT INTO login_attempts (email_hash,ip_address,was_successful) VALUES (?,?,?)')
         ->execute([$hash,$ip,(int)(bool)$success]);
     if (!$success) {
+        if (!$isEmail && staff_username_valid($identifier)
+            && function_exists('user_session_log_event')) {
+            user_session_log_event(
+                $staff ? (int)$staff['id'] : null,
+                $identifier,'login_failed'
+            );
+        }
         // Keep a short cooldown for repeated incorrect passwords, but do
         // not prevent legitimate users from authenticating with a correct one.
         if ($temporarilyLimited) {
@@ -59,13 +66,24 @@ function authenticate(string $identifier, string $password): bool
         return false;
     }
     session_regenerate_id(true);
-    unset($_SESSION['user_id'], $_SESSION['client_id'], $_SESSION['registration_pending_client_id']);
+    unset($_SESSION['user_id'], $_SESSION['client_id'], $_SESSION['registration_pending_client_id'],
+        $_SESSION['user_session_version']);
     $_SESSION[$isClient ? 'client_id' : 'user_id'] = (int)$user['id'];
+    if (!$isClient && array_key_exists('session_version',$user)) {
+        $_SESSION['user_session_version']=(int)$user['session_version'];
+    }
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     $table = $isClient ? 'user_client' : 'users';
     db()->prepare("UPDATE {$table} SET last_login_at=NOW() WHERE id=?")->execute([(int)$user['id']]);
-    if ($isClient) audit_client((int)$user['id'], 'auth.login', 'client', (int)$user['id']);
-    else audit((int)$user['id'], 'auth.login', 'user', (int)$user['id']);
+    if ($isClient) {
+        audit_client((int)$user['id'], 'auth.login', 'client', (int)$user['id']);
+    } else {
+        audit((int)$user['id'], 'auth.login', 'user', (int)$user['id']);
+        if (function_exists('user_session_log_event')) {
+            user_session_log_event((int)$user['id'],(string)($user['username'] ?? ''),
+                'login_success');
+        }
+    }
     return true;
 }
 
@@ -73,8 +91,14 @@ function logout_user(): void
 {
     $clientId = (int)($_SESSION['client_id'] ?? 0);
     $userId = (int)($_SESSION['user_id'] ?? 0);
-    if ($clientId > 0) audit_client($clientId, 'auth.logout', 'client', $clientId);
-    elseif ($userId > 0) audit($userId, 'auth.logout', 'user', $userId);
+    if ($clientId > 0) {
+        audit_client($clientId, 'auth.logout', 'client', $clientId);
+    } elseif ($userId > 0) {
+        audit($userId, 'auth.logout', 'user', $userId);
+        if (function_exists('user_session_log_user')) {
+            user_session_log_user($userId,'logout');
+        }
+    }
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $p = session_get_cookie_params();
