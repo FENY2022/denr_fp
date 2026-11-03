@@ -40,6 +40,7 @@ $routes=file_get_contents(__DIR__.'/../public/index.php');
 $tracking=file_get_contents(__DIR__.'/../app/permit_tracking.php');
 $nav=file_get_contents(__DIR__.'/../app/views.php');
 $reviewJs=file_get_contents(__DIR__.'/../public/assets/permit-step4-review.js');
+$modalCss=file_get_contents(__DIR__.'/../public/assets/permit-step4-modal.css');
 
 foreach ([
     'step4_under_evaluation','step4_corrections_required',
@@ -65,9 +66,9 @@ step4_assert(str_contains($views,'Under Evaluation')
     && str_contains($views,'Complete & Sufficient'),
     'Step 4 queue tabs cover documentary evaluation flow');
 step4_assert(str_contains($views,'View All Uploaded Files')
-    && str_contains($views,'data-document-preview')
+    && str_contains($views,'data-step4-file-link')
     && str_contains($views,'View File'),
-    'Step 4 reviewers can open submitted files from the evaluation checklist');
+    'Step 4 reviewers can preview submitted files within the full-screen evaluation modal');
 step4_assert(str_contains($views,'Core Application Documents')
     && str_contains($views,'Environmental / Regulatory Clearances')
     && str_contains($views,'Overall Evaluation & Instructions')
@@ -79,6 +80,17 @@ step4_assert(str_contains($views,'data-step4-wizard')
     && str_contains($views,'data-step4-next')
     && str_contains($views,'data-step4-prev'),
     'Step 4 uses Previous and Next wizard navigation');
+step4_assert(str_contains($views,'id="step4-evaluation-modal"')
+    && str_contains($views,'modal-dialog modal-fullscreen')
+    && str_contains($views,'Open Documentary Evaluation')
+    && str_contains($views,'data-step4-wizard-footer'),
+    'Step 4 review opens as a full-screen modal with persistent footer navigation');
+step4_assert(str_contains($views,'data-step4-files-view')
+    && str_contains($views,'data-step4-preview-view')
+    && str_contains($views,'data-step4-file-prev')
+    && str_contains($views,'data-step4-back-review')
+    && !str_contains($views,'id="step4-decision-modal"'),
+    'Step 4 file previews and final confirmation stay inside the same full-screen modal');
 step4_assert(str_contains($views,'data-step4-progress-count')
     && str_contains($views,'data-step4-progress-meter')
     && str_contains($views,'data-step4-step-label'),
@@ -103,9 +115,17 @@ step4_assert(str_contains($nav,'Step 4 Documentary Evaluation')
     'Step 4 is active navigation instead of a future placeholder');
 step4_assert(str_contains($reviewJs,'updateProgress')
     && str_contains($reviewJs,'renderStep')
-    && str_contains($reviewJs,'validateRequirementStep')
+    && str_contains($reviewJs,'validationForStep')
     && str_contains($reviewJs,'updateSummary')
+    && str_contains($reviewJs,'showMode')
+    && str_contains($reviewJs,'openPreview')
+    && str_contains($reviewJs,'form.requestSubmit()')
     && str_contains($reviewJs,"completeButton.disabled = completed < total"),
-    'Step 4 wizard validates each section, preserves inputs, updates summary and gates completion');
+    'Full-screen Step 4 wizard validates sections, preserves inputs and previews documents');
+
+step4_assert(str_contains($modalCss,'#step4-evaluation-modal')
+    && str_contains($modalCss,'.step4-modal-pdf')
+    && str_contains($nav,'permit-step4-modal.css'),
+    'Full-screen Step 4 PDF viewer styles are loaded on the evaluation page');
 
 echo "PASS: Step 4 documentary evaluation, compliance loop, tracking and routing contracts.\n";
