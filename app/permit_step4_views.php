@@ -244,21 +244,23 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
     $groupedDocuments=step4_documents_by_requirement($documents);
     $postAssess=is_array($_POST['assessment'] ?? null) ? $_POST['assessment'] : [];
     $postRemarks=is_array($_POST['requirement_remarks'] ?? null) ? $_POST['requirement_remarks'] : [];
-    $totalRequirements=count(step2_requirement_types());
+    $requirements=step2_requirement_types();
+    $totalRequirements=count($requirements);
     $assessedCount=0;
-    foreach (step2_requirement_types() as $type=>$label) {
+    foreach ($requirements as $type=>$label) {
         $value=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
         if (in_array($value,step4_allowed_assessments(),true)) $assessedCount++;
     }
     $progressPercent=$totalRequirements>0
         ? (int)round(($assessedCount/$totalRequirements)*100) : 0;
+    $initialStep=$errors ? 4 : 1;
 
-    $html='<div class="panel soft">'
+    $html='<div class="panel soft" data-step4-wizard data-step4-initial-step="'.$initialStep.'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
         .'LPDD-FUS Step 4 Documentary Evaluation</h3>'
-        .'<p class="small text-secondary mb-0">Review the uploaded documents by section, '
-        .'then record the overall evaluation and final decision.</p></div>'
+        .'<p class="small text-secondary mb-0">Use Previous and Next to review one section at a time. '
+        .'Your selections stay on this page until the final confirmed decision.</p></div>'
         .'<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" '
         .'data-bs-target="#fp-files-modal">'
         .'<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View All Uploaded Files</button></div>'
@@ -270,63 +272,76 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .errors_html($errors)
         .'<div class="border rounded-3 p-3 mb-3 bg-body">'
         .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">'
-        .'<div><strong>Documentary Evaluation Progress</strong>'
-        .'<div class="small text-secondary"><span data-step4-progress-count>'.$assessedCount.'</span> of '
-        .$totalRequirements.' requirements assessed</div></div>'
+        .'<div><strong data-step4-step-label>Step 1 of 4</strong>'
+        .'<div class="small text-secondary" data-step4-step-title>Core Application Documents</div></div>'
         .'<span class="badge text-bg-light border" data-step4-progress-percent>'.$progressPercent.'%</span></div>'
         .'<progress class="w-100 mt-2" value="'.$assessedCount.'" max="'.$totalRequirements.'" '
         .'aria-label="Step 4 documentary evaluation progress" data-step4-progress-meter>'
-        .$assessedCount.' of '.$totalRequirements.'</progress></div>'
+        .$assessedCount.' of '.$totalRequirements.'</progress>'
+        .'<div class="small text-secondary mt-1"><span data-step4-progress-count>'.$assessedCount.'</span> of '
+        .$totalRequirements.' documentary requirements assessed</div>'
+        .'<div class="d-flex justify-content-between gap-2 mt-3 small" aria-label="Step 4 wizard steps">'
+        .'<span data-step4-step-indicator="1" class="fw-semibold text-success">01 Documents</span>'
+        .'<span data-step4-step-indicator="2" class="text-secondary">02 Clearances</span>'
+        .'<span data-step4-step-indicator="3" class="text-secondary">03 Evaluation</span>'
+        .'<span data-step4-step-indicator="4" class="text-secondary">04 Review</span>'
+        .'</div></div>'
         .'<form id="step4-decision-form" method="post" action="'
         .e(url('permit_step4_decision',['id'=>$id])).'">'.csrf_field()
-        .'<input type="hidden" name="decision" value="" data-step4-decision-value>'
-        .'<div class="accordion mb-3" id="step4-document-sections">';
+        .'<input type="hidden" name="decision" value="" data-step4-decision-value>';
 
-    foreach (step4_requirement_sections() as $sectionKey=>$section) {
-        $sectionId='step4-section-'.$sectionKey;
-        $headingId=$sectionId.'-heading';
-        $collapseId=$sectionId.'-collapse';
-        $sectionAssessed=0;
-        $sectionFiles=0;
-        foreach ($section['requirements'] as $type) {
-            $current=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
-            if (in_array($current,step4_allowed_assessments(),true)) $sectionAssessed++;
-            $sectionFiles+=count(is_array($groupedDocuments[$type] ?? null)
-                ? $groupedDocuments[$type] : []);
-        }
+    $sections=step4_requirement_sections();
+    $core=$sections['core'];
+    $regulatory=$sections['regulatory'];
 
-        $html.='<div class="accordion-item">'
-            .'<h4 class="accordion-header" id="'.e($headingId).'">'
-            .'<button class="accordion-button'.($sectionKey==='core'?'':' collapsed').'" type="button" '
-            .'data-bs-toggle="collapse" data-bs-target="#'.e($collapseId).'" '
-            .'aria-expanded="'.($sectionKey==='core'?'true':'false').'" '
-            .'aria-controls="'.e($collapseId).'">'
-            .'<span class="badge text-bg-success me-2">'.e((string)$section['number']).'</span>'
-            .'<span><strong>'.e((string)$section['title']).'</strong>'
-            .'<span class="small text-secondary ms-2">'.$sectionAssessed.'/'
-            .count($section['requirements']).' assessed · '.$sectionFiles.' file(s)</span></span>'
-            .'</button></h4>'
-            .'<div id="'.e($collapseId).'" class="accordion-collapse collapse'
-            .($sectionKey==='core'?' show':'').'" aria-labelledby="'.e($headingId).'" '
-            .'data-bs-parent="#step4-document-sections">'
-            .'<div class="accordion-body"><div class="vstack gap-3">';
-
-        foreach ($section['requirements'] as $type) {
-            $label=step2_requirement_types()[$type] ?? step2_requirement_label($type);
-            $current=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
-            $remark=(string)($postRemarks[$type] ?? $saved[$type]['remarks'] ?? '');
-            $docs=is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : [];
-            $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark);
-        }
-        $html.='</div></div></div></div>';
+    $html.='<section data-step4-wizard-step="1" data-step4-step-name="Core Application Documents">'
+        .'<div class="border rounded-3 p-3 bg-body">'
+        .'<div class="d-flex align-items-start gap-2 mb-3">'
+        .'<span class="badge text-bg-success">01</span>'
+        .'<div><h4 class="h6 mb-1">Core Application Documents</h4>'
+        .'<p class="small text-secondary mb-0">Review the principal application documents before continuing.</p></div></div>'
+        .'<div class="vstack gap-3">';
+    foreach ($core['requirements'] as $type) {
+        $label=$requirements[$type] ?? step2_requirement_label($type);
+        $current=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
+        $remark=(string)($postRemarks[$type] ?? $saved[$type]['remarks'] ?? '');
+        $docs=is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : [];
+        $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark);
     }
-
     $html.='</div>'
-        .'<section class="border rounded-3 p-3 mb-3 bg-body" id="step4-overall-section">'
-        .'<div class="d-flex align-items-center gap-2 mb-3">'
+        .'<div class="d-flex justify-content-end mt-3">'
+        .'<button type="button" class="btn btn-primary" data-step4-next>'
+        .'Next <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button></div></div></section>';
+
+    $html.='<section class="d-none" data-step4-wizard-step="2" '
+        .'data-step4-step-name="Environmental / Regulatory Clearances">'
+        .'<div class="border rounded-3 p-3 bg-body">'
+        .'<div class="d-flex align-items-start gap-2 mb-3">'
+        .'<span class="badge text-bg-success">02</span>'
+        .'<div><h4 class="h6 mb-1">Environmental / Regulatory Clearances</h4>'
+        .'<p class="small text-secondary mb-0">Review applicable clearances and supporting regulatory documents.</p></div></div>'
+        .'<div class="vstack gap-3">';
+    foreach ($regulatory['requirements'] as $type) {
+        $label=$requirements[$type] ?? step2_requirement_label($type);
+        $current=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
+        $remark=(string)($postRemarks[$type] ?? $saved[$type]['remarks'] ?? '');
+        $docs=is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : [];
+        $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark);
+    }
+    $html.='</div>'
+        .'<div class="d-flex justify-content-between gap-2 mt-3">'
+        .'<button type="button" class="btn btn-outline-secondary" data-step4-prev>'
+        .'<i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Previous</button>'
+        .'<button type="button" class="btn btn-primary" data-step4-next>'
+        .'Next <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button></div></div></section>';
+
+    $html.='<section class="d-none" data-step4-wizard-step="3" '
+        .'data-step4-step-name="Overall Evaluation & Instructions">'
+        .'<div class="border rounded-3 p-3 bg-body">'
+        .'<div class="d-flex align-items-start gap-2 mb-3">'
         .'<span class="badge text-bg-success">03</span>'
-        .'<div><h4 class="h6 mb-0">Overall Evaluation & Instructions</h4>'
-        .'<div class="small text-secondary">Summarize the documentary findings and next instructions.</div></div></div>'
+        .'<div><h4 class="h6 mb-1">Overall Evaluation & Instructions</h4>'
+        .'<p class="small text-secondary mb-0">Summarize findings and prepare any applicant or field-validation instructions.</p></div></div>'
         .'<label class="form-label" for="step4-overall-remarks">Overall Evaluation Remarks</label>'
         .'<textarea class="form-control mb-3" id="step4-overall-remarks" name="overall_remarks" '
         .'rows="4" maxlength="4000" placeholder="Summarize findings / deficiencies">'
@@ -337,15 +352,41 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'placeholder="Hard-copy, payment, compliance, or other instructions">'
         .e((string)($_POST['applicant_instructions'] ?? $review['applicant_instructions'] ?? '')).'</textarea>'
         .'<label class="form-label" for="step4-field-schedule">Field Validation / Assessment Schedule '
-        .'<span class="text-secondary">(required for Complete & Sufficient)</span></label>'
+        .'<span class="text-secondary">(required only for Complete & Sufficient)</span></label>'
         .'<input class="form-control" id="step4-field-schedule" name="field_validation_schedule" '
         .'type="datetime-local" value="'.e((string)($_POST['field_validation_schedule'] ?? '')).'">'
-        .'</section>'
-        .'<section class="border rounded-3 p-3 bg-body" id="step4-final-decision-section">'
-        .'<div class="d-flex align-items-center gap-2 mb-3">'
+        .'<div class="d-flex justify-content-between gap-2 mt-3">'
+        .'<button type="button" class="btn btn-outline-secondary" data-step4-prev>'
+        .'<i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Previous</button>'
+        .'<button type="button" class="btn btn-primary" data-step4-next>'
+        .'Review Decision <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button></div></div></section>';
+
+    $html.='<section class="d-none" data-step4-wizard-step="4" '
+        .'data-step4-step-name="Review & Final Decision">'
+        .'<div class="border rounded-3 p-3 bg-body">'
+        .'<div class="d-flex align-items-start gap-2 mb-3">'
         .'<span class="badge text-bg-success">04</span>'
-        .'<div><h4 class="h6 mb-0">Final Documentary Evaluation Decision</h4>'
-        .'<div class="small text-secondary">Complete all six requirement assessments before finalizing.</div></div></div>'
+        .'<div><h4 class="h6 mb-1">Review & Final Decision</h4>'
+        .'<p class="small text-secondary mb-0">Verify all assessments and remarks before recording the official Step 4 decision.</p></div></div>'
+        .'<div class="table-responsive mb-3"><table class="table table-sm align-middle mb-0">'
+        .'<thead><tr><th>Documentary Requirement</th><th>Assessment</th><th>Remarks</th></tr></thead><tbody>';
+    foreach ($requirements as $type=>$label) {
+        $html.='<tr><td>'.e($label).'</td>'
+            .'<td><span class="badge text-bg-secondary" data-step4-summary-assessment="'.e($type).'">'
+            .'Not assessed</span></td>'
+            .'<td class="small text-secondary" data-step4-summary-remarks="'.e($type).'">—</td></tr>';
+    }
+    $html.='</tbody></table></div>'
+        .'<div class="row g-2 mb-3">'
+        .'<div class="col-md-6"><div class="border rounded-2 p-2 h-100">'
+        .'<div class="small text-secondary">Overall Evaluation Remarks</div>'
+        .'<div class="small" data-step4-summary-overall>—</div></div></div>'
+        .'<div class="col-md-6"><div class="border rounded-2 p-2 h-100">'
+        .'<div class="small text-secondary">Applicant Instructions</div>'
+        .'<div class="small" data-step4-summary-instructions>—</div></div></div>'
+        .'<div class="col-12"><div class="border rounded-2 p-2">'
+        .'<div class="small text-secondary">Field Validation / Assessment Schedule</div>'
+        .'<div class="small" data-step4-summary-schedule>Not set</div></div></div></div>'
         .'<div class="alert alert-warning small d-none" data-step4-validation></div>'
         .'<div class="d-grid gap-2">'
         .'<button type="button" class="btn btn-success" data-step4-decision="complete" '
@@ -353,7 +394,10 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<i class="bi bi-check-circle me-1"></i>Complete & Sufficient</button>'
         .'<button type="button" class="btn btn-outline-danger" data-step4-decision="return">'
         .'<i class="bi bi-arrow-return-left me-1"></i>Incomplete / Insufficient – Return to Applicant</button>'
-        .'</div></section></form>'
+        .'</div>'
+        .'<div class="mt-3"><button type="button" class="btn btn-outline-secondary" data-step4-prev>'
+        .'<i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Previous</button></div></div></section>'
+        .'</form>'
         .'<div class="modal fade" id="step4-decision-modal" tabindex="-1" '
         .'aria-labelledby="step4-decision-modal-title" aria-hidden="true">'
         .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
@@ -365,7 +409,8 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'data-bs-dismiss="modal">Cancel</button>'
         .'<button type="button" class="btn btn-primary" data-step4-confirm>Confirm Decision</button>'
         .'</div></div></div></div>'
-        .'<script src="assets/permit-step4-review.js?v=2" defer></script></div>';
+        .'<script src="assets/permit-step4-review.js?v=3" defer></script></div>';
+
     return $html;
 }
 
