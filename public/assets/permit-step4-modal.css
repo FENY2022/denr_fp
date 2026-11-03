@@ -31,6 +31,13 @@
 #step4-evaluation-modal [data-step4-wizard-step] {
   min-height: 12rem;
 }
+#step4-evaluation-modal .step4-sticky-progress {
+  position: sticky;
+  top: -1px;
+  z-index: 12;
+  background: var(--bs-body-bg, #fff);
+  box-shadow: 0 .35rem .75rem rgba(20, 35, 28, .08);
+}
 #step4-evaluation-modal [data-step4-summary-remarks],
 #step4-evaluation-modal [data-step4-summary-overall],
 #step4-evaluation-modal [data-step4-summary-instructions] {
