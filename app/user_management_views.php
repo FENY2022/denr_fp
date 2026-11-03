@@ -428,29 +428,22 @@ function view_user_management(
         $html .= '<option value="' . e($value) . '"' . ($value === $status ? ' selected' : '') . '>'
             . e($label) . '</option>';
     }
-    $html .= '</select></div><div class="col-lg-3 d-flex gap-2">'
-        . '<button class="btn btn-primary flex-grow-1" type="submit">Filter</button>'
-        . '<a class="btn btn-outline-secondary" href="' . e(url('user_management')) . '">Clear</a></div>'
+    $html .= '</select></div><div class="col-lg-3 d-flex gap-2 flex-wrap">'
+        . '<button class="btn btn-primary flex-grow-1" type="submit">'
+        . '<i class="bi bi-funnel me-1" aria-hidden="true"></i>Filter</button>'
+        . '<a class="btn btn-outline-secondary" href="' . e(url('user_management')) . '">Clear</a>'
+        . '<a class="btn btn-success" href="'
+        . e(url('user_management_export',[
+              'q'=>$query,'role'=>$role,'state'=>$status
+          ])) . '" aria-label="Download users matching the current Search, Role, and Status filters as Excel">'
+        . '<i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Download Excel</a></div>'
         . '</form>'
-        . '<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">'
-        . '<h3 class="h6 mb-0">Internal Accounts and Designated Personnel</h3>'
-        . '<div class="d-flex gap-2 align-items-center flex-wrap">'
-        . ($status==='pending_setup' || $status==='suspended'
-            ? '<button type="button" class="btn btn-sm btn-outline-success" disabled '
-              . 'title="Only Active accounts can be exported. Change the status filter to Active or All Statuses.">'
-              . '<i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Download Excel</button>'
-            : '<a class="btn btn-sm btn-success" href="'
-              . e(url('user_management_export',[
-                    'q'=>$query,'role'=>$role,'state'=>$status
-                ])) . '" aria-label="Download Active accounts matching current filters as Excel">'
-              . '<i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Download Excel</a>')
+        . '<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">'
+        . '<div><h3 class="h6 mb-1">Internal Accounts and Designated Personnel</h3>'
+        . '<p class="small text-secondary mb-0">Search → Role → Status → Filter → Download Excel. '
+        . 'The workbook follows the same current filters and includes all matching records, not only visible rows.</p></div>'
         . '<a class="btn btn-sm btn-outline-primary" href="' . e(url('user_create')) . '">'
-        . '<i class="bi bi-person-plus me-1"></i>Add User</a></div></div>'
-        . ($status==='pending_setup' || $status==='suspended'
-            ? '<p class="small text-secondary mb-2">Excel export is available only for Active accounts. '
-              . 'Select Active or All Statuses to download matching active users.</p>'
-            : '<p class="small text-secondary mb-2">Excel downloads include Active accounts only, '
-              . 'using the current Search and Role filters (all matching records, not only visible rows).</p>')
+        . '<i class="bi bi-person-plus me-1"></i>Add User</a></div>'
         . '<div class="alert alert-info small">Office Email comes from the uploaded FP-OMS personnel form. '
         . 'DENR users sign in using their username and password. '
         . 'The email address is for recovery OTP and notifications, not for staff sign-in. '
