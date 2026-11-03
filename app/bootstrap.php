@@ -56,6 +56,7 @@ require_once __DIR__ . '/file_keys.php';
 require_once __DIR__ . '/file_crypto.php';
 require_once __DIR__ . '/staff_username.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/user_session_security.php';
 require_once __DIR__ . '/realtime_settings.php';
 require_once __DIR__ . '/pusher_realtime.php';
 require_once __DIR__ . '/notifications.php';
