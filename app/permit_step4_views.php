@@ -463,8 +463,12 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div><h3 class="h5 mb-1" id="step4-child-modal-title" data-step4-child-title>'
         .'Uploaded Documents</h3>'
         .'<p class="small text-secondary mb-0" data-step4-preview-category></p></div>'
+        .'<div class="d-flex align-items-center gap-2">'
+        .'<button type="button" class="btn btn-sm btn-outline-primary" data-step4-fullscreen>'
+        .'<i class="bi bi-arrows-fullscreen me-1" aria-hidden="true"></i>'
+        .'<span data-step4-fullscreen-label>Full Screen</span></button>'
         .'<button type="button" class="btn-close" data-step4-child-close '
-        .'aria-label="Close document preview"></button></div>'
+        .'aria-label="Close document preview"></button></div></div>'
         .'<div class="step4-child-body">'
         .'<section data-step4-child-files>'
         .step4_modal_all_files_content_html($documents)
@@ -491,7 +495,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<button type="button" class="btn btn-secondary" data-step4-child-close>Close</button>'
         .'</div></div></div>'
         .'</div></div></div>'
-        .'<script src="assets/permit-step4-review.js?v=5" defer></script>';
+        .'<script src="assets/permit-step4-review.js?v=6" defer></script>';
 
     return $html;
 }
