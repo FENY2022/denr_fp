@@ -81,16 +81,19 @@ step4_assert(str_contains($views,'data-step4-wizard')
     && str_contains($views,'data-step4-prev'),
     'Step 4 uses Previous and Next wizard navigation');
 step4_assert(str_contains($views,'id="step4-evaluation-modal"')
-    && str_contains($views,'modal-dialog modal-fullscreen')
+    && str_contains($views,'modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable')
+    && !str_contains($views,'modal-dialog modal-fullscreen')
     && str_contains($views,'Open Documentary Evaluation')
     && str_contains($views,'data-step4-wizard-footer'),
-    'Step 4 review opens as a full-screen modal with persistent footer navigation');
-step4_assert(str_contains($views,'data-step4-files-view')
-    && str_contains($views,'data-step4-preview-view')
+    'Step 4 review opens as a large centered modal with persistent footer navigation');
+step4_assert(str_contains($views,'data-step4-child-modal')
+    && str_contains($views,'data-step4-child-close')
+    && str_contains($views,'data-step4-child-files')
+    && str_contains($views,'data-step4-child-preview')
     && str_contains($views,'data-step4-file-prev')
-    && str_contains($views,'data-step4-back-review')
+    && str_contains($views,'data-step4-back-files')
     && !str_contains($views,'id="step4-decision-modal"'),
-    'Step 4 file previews and final confirmation stay inside the same full-screen modal');
+    'View File opens a closable child modal while preserving the parent Step 4 wizard');
 step4_assert(str_contains($views,'data-step4-progress-count')
     && str_contains($views,'data-step4-progress-meter')
     && str_contains($views,'data-step4-step-label'),
@@ -117,15 +120,18 @@ step4_assert(str_contains($reviewJs,'updateProgress')
     && str_contains($reviewJs,'renderStep')
     && str_contains($reviewJs,'validationForStep')
     && str_contains($reviewJs,'updateSummary')
-    && str_contains($reviewJs,'showMode')
-    && str_contains($reviewJs,'openPreview')
+    && str_contains($reviewJs,'openChild')
+    && str_contains($reviewJs,'closeChild')
+    && str_contains($reviewJs,'openFile')
     && str_contains($reviewJs,'form.requestSubmit()')
     && str_contains($reviewJs,"completeButton.disabled = completed < total"),
-    'Full-screen Step 4 wizard validates sections, preserves inputs and previews documents');
+    'Step 4 wizard preserves inputs while a separate child document modal opens and closes');
 
 step4_assert(str_contains($modalCss,'#step4-evaluation-modal')
+    && str_contains($modalCss,'.step4-child-modal')
+    && str_contains($modalCss,'.step4-child-dialog')
     && str_contains($modalCss,'.step4-modal-pdf')
     && str_contains($nav,'permit-step4-modal.css'),
-    'Full-screen Step 4 PDF viewer styles are loaded on the evaluation page');
+    'Large Step 4 modal and nested child document viewer styles are loaded on the evaluation page');
 
 echo "PASS: Step 4 documentary evaluation, compliance loop, tracking and routing contracts.\n";
