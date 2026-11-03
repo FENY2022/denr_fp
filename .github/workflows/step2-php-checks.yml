@@ -87,6 +87,10 @@ jobs:
           php tests/pusher_realtime_test.php
           php tests/realtime_settings_test.php
           node --check public/assets/fpoms-pusher.js
+      - name: Step 4 documentary evaluation and compliance loop
+        run: |
+          php tests/step4_documentary_evaluation_test.php
+          node --check public/assets/permit-step4-review.js
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
       - name: Step 2 named documentary requirement checks
