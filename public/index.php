@@ -456,6 +456,17 @@ try {
                     }
                 } elseif ($operation === 'test') {
                     $result = fpoms_realtime_test_connection($admin);
+                    $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+                    $requestedWith = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+                    if (str_contains($accept,'application/json') || $requestedWith === 'xmlhttprequest') {
+                        header('Content-Type: application/json; charset=utf-8');
+                        header('Cache-Control: private, no-store');
+                        echo json_encode([
+                            'success'=>(bool)$result['success'],
+                            'message'=>(string)$result['message']
+                        ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);
+                        exit;
+                    }
                     view_realtime_settings([], (string)$result['message']);
                 } else show_error('Invalid realtime settings action.',400);
             } else view_realtime_settings();

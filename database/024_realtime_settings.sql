@@ -1,7 +1,7 @@
 -- DENR CARAGA FP-OMS | 024: optional realtime notification settings.
--- Configuration -> Realtime Notifications creates this table automatically
--- when a Super Admin first visits the page (given CREATE TABLE permission).
--- This SQL is an alternative for DB accounts without DDL privileges.
+-- Configuration -> Realtime Notifications uses an existing table without DDL.
+-- It attempts one-time creation only when the table is genuinely missing.
+-- Run this SQL with an administrator account when the app DB user has no CREATE privilege.
 -- Back up denr_fp_oms before applying. No existing users or permits modified.
 -- Pusher secrets are stored as AES-256-GCM ciphertext by PHP using the
 -- already existing private FP-OMS encryption master key outside the webroot.

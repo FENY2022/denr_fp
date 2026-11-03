@@ -108,7 +108,7 @@ function render_page(string $title, string $content): void
         . '<script src="assets/action-feedback.js?v=1" defer></script>'
         . ($user && fpoms_pusher_enabled()
             ? '<script src="https://js.pusher.com/8.4.0/pusher.min.js" defer></script>'
-                . '<script src="assets/fpoms-pusher.js?v=2" defer></script>' : '')
+                . '<script src="assets/fpoms-pusher.js?v=3" defer></script>' : '')
         . '</head><body>';
 
     if ($user) {

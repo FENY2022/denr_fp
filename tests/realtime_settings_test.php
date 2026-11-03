@@ -122,12 +122,17 @@ realtime_assert(fpoms_pusher_enabled(),'enabled saved credentials activate Pushe
 realtime_assert(fpoms_pusher_client_config(['id'=>4,'user_kind'=>'internal'])['channel']
     ==='private-fpoms-staff-4','staff channel isolation retained');
 
+$existingDdlCount=count($GLOBALS['test_db']->ddl);
 view_realtime_settings();
+realtime_assert(count($GLOBALS['test_db']->ddl)===$existingDdlCount,
+    'existing settings table does not require CREATE privilege');
 realtime_assert(str_contains($GLOBALS['test_render'],'Realtime Notifications')
     && str_contains($GLOBALS['test_render'],'Save Settings')
     && str_contains($GLOBALS['test_render'],'Test Connection')
-    && str_contains($GLOBALS['test_render'],'Connection Status'),
-    'settings UI contains save, test and status controls');
+    && str_contains($GLOBALS['test_render'],'Connection Status')
+    && str_contains($GLOBALS['test_render'],'realtime-test-form')
+    && str_contains($GLOBALS['test_render'],'PHP cURL'),
+    'settings UI contains save, AJAX test and runtime status controls');
 realtime_assert(!str_contains($GLOBALS['test_render'],$secret),
     'saved secret must never appear in HTML');
 realtime_assert(str_contains($GLOBALS['test_render'],'leave blank to keep existing'),
@@ -152,7 +157,9 @@ realtime_assert(str_contains($step2,'fpoms_pusher_flush_pending();'),
     'Step 2 realtime events flush after transaction commit');
 realtime_assert(str_contains($browser,"'pusher:subscription_succeeded'")
     && str_contains($browser,"'notification-created'")
-    && str_contains($browser,'notificationsEndpoint'),
-    'browser receives private events and updates the notification bell');
+    && str_contains($browser,'notificationsEndpoint')
+    && str_contains($browser,'realtime-test-form')
+    && str_contains($browser,'X-Requested-With'),
+    'browser receives private events, updates the bell and tests without page reload');
 realtime_assert(!str_contains($browser,$secret),'public JavaScript never stores secret');
 echo "PASS: encrypted Super Admin realtime settings, no env edits and safe notification wiring.\n";

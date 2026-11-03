@@ -30,7 +30,9 @@ assert_rt(str_contains($bootstrap,'wss://*.pusher.com'),'CSP websocket');
 assert_rt(str_contains($routes,"case 'pusher_auth':")
     && str_contains($routes,'check_csrf()'),'auth requires session and CSRF');
 assert_rt(str_contains($views,'fpoms-pusher-config'),'client config');
-assert_rt(str_contains($notifs,'fpoms_pusher_publish($ownerKind,$userId)'),'notification trigger');
+assert_rt(str_contains($notifs,'fpoms_pusher_notify_after_write($ownerKind, $userId'),'transaction-safe notification trigger');
 assert_rt(str_contains($js,"channel.bind('notification-created'"),'event listener');
+assert_rt(str_contains($js,"document.getElementById('realtime-test-form')")
+    && str_contains($js,"'X-Requested-With': 'XMLHttpRequest'"),'AJAX connection test keeps subscription alive');
 assert_rt(!str_contains($js,'test_secret_not_real'),'no secret in frontend');
 echo "PASS: Pusher realtime channel isolation and wiring.\n";

@@ -6,8 +6,23 @@ declare(strict_types=1);
  * from the existing off-webroot FP-OMS encryption master key.
  * No Pusher credentials are ever placed in Git or the public directory.
  */
+function fpoms_realtime_table_ready(): bool
+{
+    try {
+        // COUNT(*) returns one row even when the settings table is empty.
+        // Existing deployments therefore need SELECT, not permanent CREATE.
+        query_one('SELECT COUNT(*) AS n FROM fpoms_realtime_settings');
+        return true;
+    } catch (PDOException $e) {
+        return false;
+    }
+}
+
 function fpoms_realtime_create_table(): void
 {
+    // Only bootstrap the table when it is genuinely missing/unavailable.
+    if (fpoms_realtime_table_ready()) return;
+
     db()->exec("CREATE TABLE IF NOT EXISTS fpoms_realtime_settings (
         id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
         enabled TINYINT(1) NOT NULL DEFAULT 0,
@@ -214,7 +229,7 @@ function view_realtime_settings(array $errors = [], string $notice = ''): void
     try {
         fpoms_realtime_create_table();
     } catch (Throwable $e) {
-        $setupError = 'Unable to initialize realtime settings storage. Database CREATE TABLE permission is required once.';
+        $setupError = 'Realtime settings storage is unavailable. If the table is missing, apply database/024_realtime_settings.sql once with an administrator account.';
     }
     $row = fpoms_realtime_saved_row();
     $configured = $row !== null && !empty($row['secret_ciphertext'])
@@ -278,6 +293,12 @@ function view_realtime_settings(array $errors = [], string $notice = ''): void
         . '<p class="mb-2"><strong>Configuration:</strong> '
         . ($configured ? '<span class="text-success">Credentials saved</span>'
             : '<span class="text-secondary">Not yet configured</span>') . '</p>'
+        . '<p class="mb-2"><strong>PHP cURL:</strong> '
+        . (function_exists('curl_init') ? '<span class="text-success">Available</span>'
+            : '<span class="text-danger">Missing</span>') . '</p>'
+        . '<p class="mb-2"><strong>OpenSSL:</strong> '
+        . (function_exists('openssl_encrypt') ? '<span class="text-success">Available</span>'
+            : '<span class="text-danger">Missing</span>') . '</p>'
         . '<p class="mb-2"><strong>API test:</strong> ';
     if ($testOk === null) {
         $html .= '<span class="text-secondary">Not tested</span>';
@@ -292,11 +313,12 @@ function view_realtime_settings(array $errors = [], string $notice = ''): void
         . '<span id="realtime-browser-status">'
         . ($enabled && $configured ? 'Waiting for connection' : 'Disabled — enable and save settings first.')
         . '</span></p>'
-        . '<form method="post" action="' . e(url('realtime_settings')) . '">'
+        . '<form id="realtime-test-form" method="post" action="' . e(url('realtime_settings')) . '">'
         . csrf_field() . '<input type="hidden" name="operation" value="test">'
         . '<button class="btn btn-outline-primary w-100" type="submit"'
         . (!$configured ? ' disabled' : '') . '>'
         . '<i class="bi bi-plug me-1"></i>Test Connection</button></form>'
+        . '<div id="realtime-test-result" class="small mt-2" role="status" aria-live="polite"></div>'
         . '<p class="small text-secondary mt-3 mb-0">The Pusher API test checks server credentials '
         . 'and outbound HTTPS. Browser subscription requires this feature to be enabled, '
         . 'a valid session and available WebSocket connectivity.</p></div></div></div>';
