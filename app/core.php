@@ -163,7 +163,11 @@ function current_user(): ?array
         ? client_by_id((int)$_SESSION['client_id'])
         : user_by_id((int)$_SESSION['user_id']);
     if (!$user || in_array($user['status'], ['suspended', 'pending_setup', 'pending_email_verification'], true)) {
-        unset($_SESSION['user_id'], $_SESSION['client_id']);
+        unset($_SESSION['user_id'], $_SESSION['client_id'], $_SESSION['user_session_version']);
+        return null;
+    }
+    if (!$isClient && function_exists('user_session_validate_current')
+        && !user_session_validate_current($user)) {
         return null;
     }
     return $user;
