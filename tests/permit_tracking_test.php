@@ -156,7 +156,7 @@ tracking_assert(str_contains($stylesheet,'.fp-audit-icon')
     && str_contains($stylesheet,'border-left:5px solid var(--fp-audit-accent)'),
     'color indicator has border, icon and visible label');
 tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
-        'assets/style.css?v=32'), 'new stylesheet cache version');
+        'assets/style.css?v=35'), 'new stylesheet cache version');
 tracking_assert(str_contains($timeline,'fp-audit-event--submitted')
     && str_contains($timeline,'fp-audit-event--received')
     && str_contains($timeline,'fp-audit-icon')
@@ -181,7 +181,7 @@ $trackingViews = (string)file_get_contents(__DIR__.'/../app/permit_tracking_view
 tracking_assert(str_contains($trackingViews,"'view'=>'audit'"), 'staff action has audit link');
 tracking_assert(str_contains($trackingViews,"'view'=>'files'"), 'staff action has file link');
 tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
-    'permit-case-modals.js?v=2'), 'modal transition script loaded');
+    'permit-case-modals.js?v=4'), 'modal transition script loaded');
 $modalScript = (string)file_get_contents(__DIR__.'/../public/assets/permit-case-modals.js');
 tracking_assert(str_contains($modalScript,"hidden.bs.modal")
     && str_contains($modalScript,"returnToFileList")

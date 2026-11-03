@@ -431,6 +431,11 @@ body.page-loading{overflow:hidden}
   border-radius:10px;background:#f7fbf8;color:var(--amsos-ink);transition:.15s ease;
 }
 .step2-requirement-file:hover{border-color:#abd1ba;background:#eef8f2;color:var(--amsos-green-dark)}
+.step2-requirement-file.step2-requirement-file--viewed{
+  border-color:#dfc56b;background:#fff7d6;color:#554814;
+}
+.step2-requirement-file.step2-requirement-file--viewed:hover{border-color:#c9aa3e;background:#ffefad;color:#44390e}
+.step2-requirement-file.step2-requirement-file--viewed>i:first-child{color:#9a7610}
 .step2-requirement-file>i:first-child{flex:0 0 auto;color:var(--amsos-green);font-size:1.15rem}
 .step2-requirement-file>span{min-width:0}.step2-requirement-file strong{display:block;overflow-wrap:anywhere;font-size:.8rem}
 .step2-requirement-file small{display:block;margin-top:.1rem;color:var(--amsos-muted);font-size:.68rem}

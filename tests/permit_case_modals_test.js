@@ -6,6 +6,11 @@ const script = fs.readFileSync(__dirname + '/../public/assets/permit-case-modals
 
 function makePage(selection) {
   class Element {}
+  const filesBody = new Element();
+  filesBody.scrollTop = 0;
+  filesBody.handlers = {};
+  filesBody.addEventListener = (type, fn) => { filesBody.handlers[type] = fn; };
+  filesBody.dispatch = type => filesBody.handlers[type]?.();
   class ModalNode extends Element {
     constructor(id) {
       super();
@@ -23,6 +28,12 @@ function makePage(selection) {
     contains(link) {
       return link === documentLink;
     }
+    querySelector(selector) {
+      return this === files && selector === '.modal-body' ? filesBody : null;
+    }
+    querySelectorAll(selector) {
+      return this === files && selector === 'a[data-document-preview]' ? [documentLink] : [];
+    }
   }
   const files = new ModalNode('fp-files-modal');
   const audit = new ModalNode('fp-audit-trail-modal');
@@ -34,6 +45,9 @@ function makePage(selection) {
     'registration-document-modal': preview
   };
   const documentLink = new Element();
+  documentLink.dataset = { documentId: '73' };
+  documentLink.classNames = new Set();
+  documentLink.classList = { add: name => documentLink.classNames.add(name) };
   documentLink.closest = selector =>
     selector === 'a[data-document-preview]' ? documentLink : null;
   documentLink.click = () => {
@@ -46,6 +60,7 @@ function makePage(selection) {
         node.visible = true;
         if (node === files) counters.files++;
         if (node === audit) counters.audit++;
+        node.dispatch('shown.bs.modal');
       },
       hide() {
         node.visible = false;
@@ -53,13 +68,22 @@ function makePage(selection) {
       }
     };
   }};
+  const stored = new Map();
   vm.runInNewContext(script, {
     Element,
     URLSearchParams,
-    window: { bootstrap: { Modal: modal }, location: { search: '?view=' + selection } },
+    window: {
+      bootstrap: { Modal: modal },
+      location: { search: '?id=5&view=' + selection, pathname: '/permit-application' },
+      sessionStorage: {
+        getItem: key => stored.get(key) ?? null,
+        setItem: (key, value) => stored.set(key, value)
+      },
+      requestAnimationFrame: callback => callback()
+    },
     document: { getElementById: id => lookup[id] ?? null }
   }, { filename: 'permit-case-modals.js' });
-  return { files, audit, preview, documentLink, counters };
+  return { files, filesBody, audit, preview, documentLink, counters, stored };
 }
 
 const audit = makePage('audit');
@@ -69,6 +93,7 @@ const files = makePage('files');
 assert.equal(files.files.visible, true, 'files direct link shows file list');
 assert.equal(files.audit.visible, false, 'files direct link does not show audit');
 let prevented = false, intercepted = false;
+files.filesBody.scrollTop = 480;
 files.files.dispatch('click', {
   target: files.documentLink,
   preventDefault() { prevented = true; },
@@ -78,8 +103,13 @@ assert.equal(prevented, true, 'file click handled without navigation');
 assert.equal(intercepted, true, 'file click never opens stacked modals');
 assert.equal(files.files.visible, false, 'file list closes before preview');
 assert.equal(files.counters.preview, 1, 'existing viewer receives one link click');
+assert.equal(files.documentLink.classNames.has('step2-requirement-file--viewed'), true,
+  'opened document is visibly marked as viewed');
+files.filesBody.scrollTop = 0;
+files.filesBody.dispatch('scroll');
 files.preview.dispatch('hidden.bs.modal');
 assert.equal(files.files.visible, true, 'closing preview returns to files list');
+assert.equal(files.filesBody.scrollTop, 480, 'returning to file list restores exact scroll position');
 assert.equal(makePage('bogus').counters.files, 0, 'unknown view ignored');
 assert.equal(makePage('bogus').counters.audit, 0, 'unknown view does not show audit');
 

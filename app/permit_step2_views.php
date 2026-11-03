@@ -160,6 +160,7 @@ function step2_document_requirement_group_html(string $type, string $label, arra
         $url = url('permit_document',['id'=>(int)$doc['id'],'preview'=>1]);
         $fileIcon = $mime === 'application/pdf' ? 'file-earmark-pdf' : 'file-earmark-image';
         $html .= '<a class="step2-requirement-file" data-document-preview '
+            . 'data-document-id="' . (int)$doc['id'] . '" '
             . 'data-document-mime="' . e($mime) . '" data-document-name="' . e($name) . '" '
             . 'data-document-category="' . e($label) . '" '
             . 'href="' . e($url) . '"><i class="bi bi-' . $fileIcon . '" aria-hidden="true"></i>'
