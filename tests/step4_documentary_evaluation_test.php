@@ -71,12 +71,25 @@ step4_assert(str_contains($views,'View All Uploaded Files')
 step4_assert(str_contains($views,'Core Application Documents')
     && str_contains($views,'Environmental / Regulatory Clearances')
     && str_contains($views,'Overall Evaluation & Instructions')
-    && str_contains($views,'Final Documentary Evaluation Decision'),
-    'Step 4 review is organized into four numbered sections');
+    && str_contains($views,'Review & Final Decision'),
+    'Step 4 review is organized into four guided wizard steps');
+step4_assert(str_contains($views,'data-step4-wizard')
+    && str_contains($views,'data-step4-wizard-step="1"')
+    && str_contains($views,'data-step4-wizard-step="4"')
+    && str_contains($views,'data-step4-next')
+    && str_contains($views,'data-step4-prev'),
+    'Step 4 uses Previous and Next wizard navigation');
 step4_assert(str_contains($views,'data-step4-progress-count')
     && str_contains($views,'data-step4-progress-meter')
-    && str_contains($views,'id="step4-document-sections"'),
-    'sectioned Step 4 review exposes progress and accordion controls');
+    && str_contains($views,'data-step4-step-label'),
+    'wizard exposes live requirement progress and current step');
+step4_assert(str_contains($views,'data-step4-summary-assessment')
+    && str_contains($views,'data-step4-summary-overall')
+    && str_contains($views,'data-step4-summary-schedule'),
+    'final wizard step renders a review summary before decision');
+step4_assert(!str_contains($views,'id="step4-document-sections"')
+    && !str_contains($views,'accordion-collapse'),
+    'Step 4 no longer depends on accordion navigation');
 step4_assert(!str_contains($views,'style="width:'),
     'Step 4 progress does not rely on CSP-blocked inline styles');
 step4_assert(str_contains($views,'name="assessment[')
@@ -89,8 +102,10 @@ step4_assert(str_contains($nav,'Step 4 Documentary Evaluation')
     && !str_contains($nav,"['clipboard-data','Document Evaluation']"),
     'Step 4 is active navigation instead of a future placeholder');
 step4_assert(str_contains($reviewJs,'updateProgress')
-    && str_contains($reviewJs,'data-step4-progress-meter')
+    && str_contains($reviewJs,'renderStep')
+    && str_contains($reviewJs,'validateRequirementStep')
+    && str_contains($reviewJs,'updateSummary')
     && str_contains($reviewJs,"completeButton.disabled = completed < total"),
-    'Step 4 section progress updates live and gates Complete & Sufficient');
+    'Step 4 wizard validates each section, preserves inputs, updates summary and gates completion');
 
 echo "PASS: Step 4 documentary evaluation, compliance loop, tracking and routing contracts.\n";
