@@ -189,7 +189,7 @@ function view_step2_applications(): void
     $client = step2_require_applicant();
     $receiptField = step2_revert_schema_ready() ? 'received_at' : 'NULL AS received_at';
     $apps = query_all(
-        'SELECT id,project_title,project_location,status,revision,' . $receiptField . ',last_submitted_at
+        'SELECT id,project_title,project_location,status,flow_version,revision,' . $receiptField . ',last_submitted_at
          FROM permit_step2_applications WHERE client_id=?
          ORDER BY created_at DESC,id DESC LIMIT 100', [(int)$client['id']]
     );
@@ -227,7 +227,7 @@ function view_step2_applications(): void
                 . e((string)$app['project_title']) . '</strong><div class="text-secondary small">'
                 . e((string)$app['project_location']) . '</div></td><td>'
                 . e(review_queue_display_date($app['last_submitted_at'])) . '</td><td>' . (int)$app['revision']
-                . '</td><td>' . step2_status_badge((string)$app['status']) . '</td>'
+                . '</td><td>' . permit_flow_status_badge($app) . '</td>'
                 . '<td>' . ((string)$app['status']==='step4_complete'
                     ? permit_payment_status_badge(['status'=>$paymentMap[(int)$app['id']] ?? 'awaiting_payment'])
                     : '<span class="text-secondary small">Not yet required</span>') . '</td>'
@@ -680,7 +680,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">'
         . '<h2 class="h5">FP Application #' . $applicationId . '</h2>'
         . '<span class="badge text-bg-secondary">'.($modern?'Updated Annex A':'Legacy Annex A').'</span>'
-        . step2_status_badge((string)$app['status']) . '</div>'
+        . permit_flow_status_badge($app) . '</div>'
         . '<dl class="row details mt-3">'
         . '<dt class="col-sm-4">Applicant</dt><dd class="col-sm-8">'
         . e((string)$app['applicant_name']) . '</dd>'
