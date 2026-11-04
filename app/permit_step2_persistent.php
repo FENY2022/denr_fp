@@ -18,8 +18,8 @@ function step2_persistent_form(int $clientId, int $scope): ?array
 {
     if (!step2_persistent_ready()) return null;
     $select = step2_location_schema_ready()
-        ? 'project_title,project_location,project_latitude,project_longitude,purpose'
-        : 'project_title,project_location,purpose';
+        ? 'project_title,project_type,project_type_other,project_location,project_latitude,project_longitude,purpose'
+        : 'project_title,project_type,project_type_other,project_location,purpose';
     return query_one(
         'SELECT '.$select.' FROM permit_step2_form_drafts
          WHERE client_id=? AND application_id=?',
@@ -30,8 +30,15 @@ function step2_persistent_form(int $clientId, int $scope): ?array
 function step2_persistent_save_fields(array $client, int $scope, array $fields): array
 {
     if (!step2_persistent_ready()) return ['error'=>'Apply database migration 016 to save your draft.'];
+    if (!step2_project_type_schema_ready()) return ['error'=>'Apply database migration 030 for project type fields.'];
     if (!step2_draft_scope_allowed($client,$scope)) return ['error'=>'Draft is no longer editable.'];
     $title = (string)($fields['project_title'] ?? '');
+    $projectType=(string)($fields['project_type'] ?? '');
+    $projectOther=trim((string)($fields['project_type_other'] ?? ''));
+    if (strlen($projectType)>20 || strlen($projectOther)>160
+        || ($projectType!=='' && !isset(step2_project_types()[$projectType]))) {
+        return ['error'=>'Select a valid project type and enter at most 160 characters for Other.'];
+    }
     $location = (string)($fields['project_location'] ?? '');
     $purpose = (string)($fields['purpose'] ?? '');
     $lat = (string)($fields['project_latitude'] ?? '');
@@ -48,22 +55,24 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
             // is applied only at final submission, not at each autosave keystroke.
             db()->prepare(
                 'INSERT INTO permit_step2_form_drafts
-                 (client_id,application_id,project_title,project_location,
+                 (client_id,application_id,project_title,project_type,project_type_other,project_location,
                   project_latitude,project_longitude,purpose)
-                 VALUES (?,?,?,?,?,?,?)
+                 VALUES (?,?,?,?,?,?,?,?,?)
                  ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
+                 project_type=VALUES(project_type),project_type_other=VALUES(project_type_other),
                  project_location=VALUES(project_location),
                  project_latitude=VALUES(project_latitude),
                  project_longitude=VALUES(project_longitude),purpose=VALUES(purpose)'
-            )->execute([(int)$client['id'],$scope,$title,$location,$lat,$lon,$purpose]);
+            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$lat,$lon,$purpose]);
         } else {
             db()->prepare(
                 'INSERT INTO permit_step2_form_drafts
-                 (client_id,application_id,project_title,project_location,purpose)
-                 VALUES (?,?,?,?,?)
+                 (client_id,application_id,project_title,project_type,project_type_other,project_location,purpose)
+                 VALUES (?,?,?,?,?,?,?)
                  ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
+                 project_type=VALUES(project_type),project_type_other=VALUES(project_type_other),
                  project_location=VALUES(project_location),purpose=VALUES(purpose)'
-            )->execute([(int)$client['id'],$scope,$title,$location,$purpose]);
+            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$purpose]);
         }
         return ['saved'=>true];
     } catch (Throwable $error) {
@@ -103,9 +112,9 @@ function step2_persistent_clear(array $client, int $scope): array
         if ($scope > 0) {
             $pdo->prepare(
                 'INSERT INTO permit_step2_form_drafts
-                 (client_id,application_id,project_title,project_location,purpose)
-                 VALUES (?,?,?,?,?)'
-            )->execute([$clientId,$scope,'','','']);
+                 (client_id,application_id,project_title,project_type,project_type_other,project_location,purpose)
+                 VALUES (?,?,?,?,?,?,?)'
+            )->execute([$clientId,$scope,'','','','','']);
         }
         $pdo->commit();
         foreach ($paths as $relative) {
