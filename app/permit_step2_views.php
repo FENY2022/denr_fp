@@ -429,6 +429,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $persistent = step2_persistent_ready();
     $fieldDraft = $persistent ? step2_persistent_form((int)$client['id'],$applicationId) : null;
     $title = (string)($_POST['project_title'] ?? $fieldDraft['project_title'] ?? $app['project_title'] ?? '');
+    $projectType=(string)($_POST['project_type'] ?? $fieldDraft['project_type'] ?? $app['project_type'] ?? '');
+    $projectOther=(string)($_POST['project_type_other'] ?? $fieldDraft['project_type_other'] ?? $app['project_type_other'] ?? '');
     $location = (string)($_POST['project_location'] ?? $fieldDraft['project_location'] ?? $app['project_location'] ?? '');
     $hasCoordinates = step2_location_schema_ready();
     $latitude = $hasCoordinates
@@ -471,6 +473,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             . nl2br(e((string)($latest['remarks'] ?? 'Please follow the review instructions.')))
             . '</p></div>';
     }
+    if (!step2_project_type_schema_ready()) {
+        $html .= '<div class="alert alert-warning"><strong>Database migration 030 is required.</strong> '
+            . 'Type of Project and autosave cannot be submitted until the ICT administrator installs it.</div>';
+    }
     if (!step2_category_schema_ready()) {
         $html .= '<div class="alert alert-warning"><strong>Database migration 019 '
             . 'is required.</strong> Ask the ICT administrator to install it before '
@@ -487,6 +493,23 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
          . '<span class="text-danger">*</span></label>'
          . '<input class="form-control" id="project_title" name="project_title" required minlength="5" '
          . 'maxlength="180" value="' . e($title) . '"></div>'
+        . '<div class="mb-3"><label class="form-label" for="project_type">Type of Project '
+        . '<span class="text-danger">*</span></label>'
+        . '<select class="form-select" id="project_type" name="project_type" '
+        . 'data-fp-project-type required>'
+        . '<option value="">Select Type of Project</option>';
+    foreach (step2_project_types() as $type=>$label) {
+        $html.='<option value="'.e($type).'"'.($projectType===$type?' selected':'').'>'
+            .e($label).'</option>';
+    }
+    $html.='</select><div class="form-text">Solar and Biomass are exempt from Annex 1 #10. '
+        .'For Other, specify your project and upload the required DOE ESC/COA (#10).</div></div>'
+        .'<div class="mb-3'.($projectType==='other'?'':' d-none').'" data-fp-other-project-wrap>'
+        .'<label class="form-label" for="project_type_other">Specify Other Type of Project '
+        .'<span class="text-danger">*</span></label>'
+        .'<input class="form-control" id="project_type_other" name="project_type_other" '
+        .'data-fp-other-project maxlength="160" minlength="3" '
+        .($projectType==='other'?'required ':'').'value="'.e($projectOther).'"></div>'
         . '<div class="mb-3"><label class="form-label" for="purpose">Project Description (optional)</label>'
         . '<textarea class="form-control" id="purpose" name="purpose" rows="4" '
         . 'maxlength="2000">' . e($purpose) . '</textarea></div></section>'
@@ -509,13 +532,21 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<h3 class="h6 text-success">FP Supporting Documentary Requirements</h3>'
         . '<p class="small text-secondary">Select a requirement and upload the matching '
         . 'PDF/JPG/PNG. Multiple files may be uploaded per requirement, subject '
-        . 'to the existing 10-file total. The * and ** markers are preserved '
-        . 'as supplied; LPDD-FUS determines applicability.</p>'
+        . 'to the existing 10-file total. Other Attached Document is optional. '
+        . 'Annex 1 #3 (Cashier proof of payment) is handled after Step 4 by LPDD-FUS; '
+        . '#4 (GIS map) is uploaded by the Secretariat after deliberation. '
+        . 'ECC/CNC and NCIP final clearances have the post-issuance timelines below.</p>'
         . '<div class="row g-2">';
-    foreach (step2_requirement_types() as $type => $label) {
-        $html .= '<div class="col-md-6"><div class="border rounded-3 p-3 h-100" '
-            . 'data-step2-requirement-card="' . e($type) . '">'
+    foreach (step2_upload_categories() as $type => $label) {
+        $html .= '<div class="col-md-6'.($type==='doe_esc_coa' && step2_project_doe_exempt($projectType)?' d-none':'').'">'
+            .'<div class="border rounded-3 p-3 h-100" '
+            . 'data-step2-requirement-card="' . e($type) . '"'
+            . ($type==='doe_esc_coa'?' data-step2-doe-upload':'').'>
             . '<div class="small fw-semibold mb-2">' . e($label) . '</div>'
+            . (($note=step2_requirement_note($type,$projectType))!==''
+                ? '<p class="small text-secondary mb-2">'.e($note).'</p>' : '')
+            . ($type==='other'?'<p class="small text-secondary">Optional supporting attachments; '
+                .'not a replacement for Annex 1 named requirements.</p>':'')
              . '<button class="btn btn-sm btn-outline-success" type="button" '
              . 'data-step2-pick-requirement="' . e($type) . '">'
              . '<i class="bi bi-upload me-1" aria-hidden="true"></i>'
@@ -537,8 +568,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<select class="form-select mb-2" id="step2_requirement_type" '
         . 'name="document_category" data-step2-category-select>'
         . '<option value="">Choose the matching requirement before selecting files</option>';
-    foreach (step2_requirement_types() as $type => $label) {
-        $html .= '<option value="' . e($type) . '">' . e($label) . '</option>';
+    foreach (step2_upload_categories() as $type => $label) {
+        $html .= '<option value="' . e($type) . '"' .
+            ($type==='doe_esc_coa' && step2_project_doe_exempt($projectType)?' disabled':'')
+            . '>' . e($label) . '</option>';
     }
     $html .= '</select>'
         . '<div data-step2-direct-categories></div>'
@@ -606,7 +639,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=10" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=11" defer></script>'
+        . '<script src="assets/permit-project-type.js?v=1" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
@@ -642,6 +676,9 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . e((string)$app['applicant_name']) . '</dd>'
         . '<dt class="col-sm-4">Project</dt><dd class="col-sm-8">'
         . e((string)$app['project_title']) . '</dd>'
+        . '<dt class="col-sm-4">Type of Project</dt><dd class="col-sm-8">'
+        . e(step2_project_label((string)($app['project_type'] ?? ''),
+            (string)($app['project_type_other'] ?? ''))) . '</dd>'
         . '<dt class="col-sm-4">Location</dt><dd class="col-sm-8">'
         . e((string)$app['project_location']) . '</dd>'
         . '<dt class="col-sm-4">Description</dt><dd class="col-sm-8">'
