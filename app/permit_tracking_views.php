@@ -51,7 +51,7 @@ function permit_tracking_action_visual(string $action): array
         'step4_returned_for_compliance' => ['tone'=>'correction','icon'=>'exclamation-triangle-fill','category'=>'Step 4 Compliance Required'],
         'step4_resubmitted' => ['tone'=>'resubmitted','icon'=>'arrow-repeat','category'=>'Step 4 Resubmitted'],
         'step4_complete' => ['tone'=>'forwarded','icon'=>'check-circle-fill','category'=>'Step 4 Complete'],
-        'payment_verified_fuu' => ['tone'=>'received','icon'=>'check-circle-fill','category'=>'Payment Verified'],
+        'payment_verified_lpdd_fus' => ['tone'=>'received','icon'=>'check-circle-fill','category'=>'Payment Verified'],
         'ro_archived' => ['tone'=>'received','icon'=>'archive-fill','category'=>'Archived by Records'],
         'reverted' => ['tone'=>'reverted','icon'=>'arrow-counterclockwise','category'=>'Reverted'],
         default => ['tone'=>'other','icon'=>'clock-history','category'=>'Recorded']
