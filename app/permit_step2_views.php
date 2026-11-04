@@ -83,7 +83,7 @@ function step2_document_list_html(array $docs): string
     }
     if (!empty($groups['other'])) {
         $html .= step2_document_requirement_group_html(
-            'other','Other / Earlier Supporting Documents',$groups['other']
+            'other','Other Attached Documents',$groups['other']
         );
     }
     return $html . '</div>';
