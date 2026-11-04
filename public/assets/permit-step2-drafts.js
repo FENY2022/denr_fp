@@ -7,6 +7,7 @@
   const categoryInput = root.querySelector('[data-step2-category-select]');
   const categoryFields = root.querySelector('[data-step2-direct-categories]');
   if (!categoryInput) return;
+  root.classList.add('is-enhanced');
   const validCategories = new Set(
     [...categoryInput.options].map(opt=>opt.value).filter(Boolean));
   const categoryLabel = name =>

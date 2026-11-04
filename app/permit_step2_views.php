@@ -565,6 +565,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . $applicationId . '" data-max-bytes="'
         . max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880')) . '">'
 
+        . '<div class="step2-upload-fallback">'
         . '<label for="step2_requirement_type" class="form-label">'
         . 'Document Category <span class="text-danger">*</span></label>'
         . '<select class="form-select mb-2" id="step2_requirement_type" '
@@ -583,7 +584,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . (!$editing && !$draftMode ? 'required ' : '') . '>'
         . '<div class="form-text">Up to 10 files per submission. PDF/JPG/PNG, maximum '
         . e((string)$maxMb) . ' MB each. Documents are saved privately outside the website. '
-        . 'Each saved file retains its selected category for LPDD-FUS review.</div>'
+        . 'Each saved file retains its selected category for LPDD-FUS review.</div></div>'
         . ($draftMode ? step2_draft_list_html($savedDocs,$persistent)
             : step2_direct_selected_files_html())
         . '<p class="small text-secondary mt-2" role="status" data-step2-feedback></p>'
@@ -642,7 +643,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
         . '<script src="assets/permit-project-type.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=11" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=12" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'

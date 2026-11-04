@@ -10,7 +10,7 @@ function check_step2_draft(bool $ok, string $reason): void
     if (!$ok) throw new RuntimeException('Step 2 draft test: '.$reason);
 }
 $empty = step2_draft_list_html([]);
-check_step2_draft(str_contains($empty,'SELECTED FILES'),'heading');
+check_step2_draft(str_contains($empty,'TOTAL FILES'),'heading');
 check_step2_draft(str_contains($empty,'data-step2-count>0'),'empty counter');
 check_step2_draft(str_contains($empty,'expire in 24 hours'),'expiry note');
 $full = step2_draft_list_html([
@@ -24,14 +24,14 @@ check_step2_draft(!str_contains($full,'<script>'),'avoid raw html injection');
 check_step2_draft(step2_draft_real_path('../../.env') === null,'path traversal rejected');
 check_step2_draft(step2_draft_real_path('fp_step2/1/some.pdf') === null,'permanent path rejected');
 $direct = step2_direct_selected_files_html();
-check_step2_draft(str_contains($direct,'SELECTED FILES'),'fallback list exists without migration 015');
+check_step2_draft(str_contains($direct,'TOTAL FILES'),'fallback list exists without migration 015');
 check_step2_draft(str_contains($direct,'data-step2-count>0'),'fallback count starts at zero');
 check_step2_draft(str_contains($direct,'not yet saved'),'fallback never claims staged uploads');
 check_step2_draft(str_contains($direct,'will be lost if you refresh'),'fallback explains no refresh persistence');
 check_step2_draft(!str_contains($direct,'is-saved'),'fallback does not mark files saved');
 $viewSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 check_step2_draft(str_contains($viewSource,"step2_direct_selected_files_html()"),'fallback is rendered');
-check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=11'),'current script loads in both modes');
+check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=12'),'current script loads in both modes');
 check_step2_draft(str_contains($viewSource,'data-step2-js-warning'),'JavaScript unavailable notice exists');
 check_step2_draft(str_contains($viewSource,'data-draft-key="fpoms.permit.'),'form draft is scoped to applicant and application');
 $modalSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');

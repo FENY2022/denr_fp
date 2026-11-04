@@ -79,8 +79,9 @@ function step2_draft_real_path(string $relative): ?string
 /** A visible list even before migration 015, without falsely claiming files were saved. */
 function step2_direct_selected_files_html(): string
 {
-    return '<section class="registration-selected-files" id="step2-selected-files" aria-live="polite">'
-        . '<div class="selected-files-heading"><span>SELECTED FILES</span>'
+    return '<section class="registration-selected-files step2-upload-summary" '
+        . 'id="step2-selected-files" aria-live="polite">'
+        . '<div class="selected-files-heading"><span>TOTAL FILES</span>'
         . '<span class="selected-files-total" data-step2-count>0</span></div>'
         . '<p class="selected-files-guidance">Selected files will be uploaded when you submit the '
         . 'application. They are not yet saved and will be lost if you refresh or leave this page. '
@@ -94,8 +95,9 @@ function step2_direct_selected_files_html(): string
 /** Server-rendered queue allows a page refresh to restore saved-file cards. */
 function step2_draft_list_html(array $docs, bool $persistent=false): string
 {
-    $html = '<section class="registration-selected-files" id="step2-selected-files" aria-live="polite">'
-        . '<div class="selected-files-heading"><span>SELECTED FILES</span>'
+    $html = '<section class="registration-selected-files step2-upload-summary" '
+        . 'id="step2-selected-files" aria-live="polite">'
+        . '<div class="selected-files-heading"><span>TOTAL FILES</span>'
         . '<span class="selected-files-total" data-step2-count>'.count($docs).'</span></div>'
         . '<p class="selected-files-guidance">'
         . ($persistent

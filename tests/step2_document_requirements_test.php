@@ -52,7 +52,8 @@ $migration=(string)file_get_contents(__DIR__.'/../database/019_step2_document_re
 fp_category_check(str_contains($view,'data-fp-requirement-guide')
     && str_contains($view,'data-step2-pick-requirement')
     && str_contains($view,'data-step2-category-select')
-    && str_contains($view,'data-step2-requirement-files'),
+    && str_contains($view,'data-step2-requirement-files')
+    && str_contains($view,'step2-upload-fallback'),
     'six choices, upload buttons and matching file areas rendered');
 fp_category_check(substr_count($view,'data-step2-form-section=')===4
     && str_contains($view,"step2_form_section_heading_html(4,'Review and Submit'"),
@@ -67,7 +68,7 @@ fp_category_check(str_contains($view,'data-document-previous disabled')
     && str_contains($view,'data-document-next disabled')
     && str_contains($view,'data-document-counter'),
     'permit document preview renders previous, next and position controls');
-fp_category_check(str_contains($view,'permit-step2-drafts.js?v=11'),
+fp_category_check(str_contains($view,'permit-step2-drafts.js?v=12'),
     'updated browser uploader script loaded');
 fp_category_check(str_contains($script,'placeFileCard')
     && str_contains($script,'step2RequirementType'),

@@ -581,6 +581,21 @@ body.page-loading{overflow:hidden}
 .selected-file-card.has-error .selected-file-status{color:#ad4a4a}
 .selected-files-empty{margin:.3rem 0 0;font-size:.78rem;color:#738b7e}
 
+/* Requirement cards are the primary Step 2 upload interface when JS is available. */
+#step2-draft-uploader.is-enhanced .step2-upload-fallback{display:none}
+#step2-draft-uploader.is-enhanced .step2-upload-summary{
+  margin-top:.75rem;
+  padding:.65rem .8rem;
+  border:0;
+  border-radius:10px;
+  background:#f3f8f5;
+  box-shadow:none;
+}
+#step2-draft-uploader.is-enhanced .step2-upload-summary .selected-files-guidance,
+#step2-draft-uploader.is-enhanced .step2-upload-summary .selected-file-list,
+#step2-draft-uploader.is-enhanced .step2-upload-summary .selected-files-empty{display:none}
+#step2-draft-uploader.is-enhanced .step2-upload-summary .selected-upload-queue{margin:.55rem 0 0}
+
 /* Identify missing fields after the applicant attempts to continue. */
 #applicant-registration-form.was-validated .form-control:required:invalid,
 #applicant-registration-form.was-validated .form-select:required:invalid{
