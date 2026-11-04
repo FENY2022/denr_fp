@@ -659,20 +659,27 @@ function view_step2_application(int $applicationId, array $errors = []): void
     $documents = step2_documents($applicationId);
     $mine = $viewer['user_kind'] === 'applicant';
     $reviewer = !$mine && has_role($viewer,'lpdd_fus');
+    $modern=permit_flow_is_new($app);
     $step4Statuses=[
         'forwarded_to_lpdd','step4_under_evaluation','step4_corrections_required',
         'step4_resubmitted','step4_complete'
     ];
     $back = $mine ? 'permit_applications'
         : ($reviewer
-            ? (in_array((string)$app['status'],$step4Statuses,true)
-                ? 'permit_step4_queue' : 'permit_initial_queue')
-            : (has_role($viewer,'ro_receiving') ? 'permit_ro_inbox' : 'dashboard'));
+            ? ($modern
+                ? (in_array((string)$app['status'],[
+                    'submitted','step4_under_evaluation','step4_corrections_required',
+                    'step4_resubmitted'],true)
+                    ? 'permit_initial_queue' : 'permit_flow_queue')
+                : (in_array((string)$app['status'],$step4Statuses,true)
+                    ? 'permit_step4_queue' : 'permit_initial_queue'))
+            : (has_role($viewer,'ro_receiving') ? 'permit_ro_inbox' : 'permit_flow_queue'));
     $html = '<div class="mb-3"><a href="' . url($back) . '">← Back to list</a></div>'
         . '<div class="row g-3"><div class="col-lg-8"><div class="panel">'
         . errors_html($errors)
         . '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">'
         . '<h2 class="h5">FP Application #' . $applicationId . '</h2>'
+        . '<span class="badge text-bg-secondary">'.($modern?'Updated Annex A':'Legacy Annex A').'</span>'
         . step2_status_badge((string)$app['status']) . '</div>'
         . '<dl class="row details mt-3">'
         . '<dt class="col-sm-4">Applicant</dt><dd class="col-sm-8">'
@@ -691,6 +698,13 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . '<dt class="col-sm-4">Last submitted</dt><dd class="col-sm-8">'
         . e((string)$app['last_submitted_at']) . '</dd></dl>'
         . permit_tracking_summary_html($app)
+        . ($modern
+            ? '<div class="alert alert-info mt-2 mb-3"><strong>Updated Annex A:</strong> '
+                .'Step 2 LPDD-FUS documentary completeness → Step 3 RO Receiving → '
+                .'Step 4 payment notice, schedule and CENRO instructions → Steps 5–11. '
+                .'<a href="'.e(url('permit_flow',['id'=>$applicationId]))
+                .'" class="alert-link">Open Annex A Workflow / Audit</a></div>'
+            : '')
         . ((string)$app['status']==='step4_complete'
             ? '<div class="alert alert-info mt-3 mb-3" role="status">'
                 .'<h3 class="h6 mb-2">Next Action – Application Fee</h3>'
@@ -721,12 +735,15 @@ function view_step2_application(int $applicationId, array $errors = []): void
         $html .= '<div class="panel soft"><h3 class="h6">Next Action</h3>'
             . (in_array((string)$app['status'],['corrections_required','step4_corrections_required'],true)
                 ? '<p>'.($app['status']==='step4_corrections_required'
-                        ? 'LPDD-FUS Step 4 evaluation requires documentary compliance. Review the findings below, correct deficiencies, and resubmit the required documents.'
+                        ? ($modern
+                            ? 'LPDD-FUS Step 2 determined that documentary compliance is required. Review the actual RED-signed deficiency notice, correct deficiencies, and resubmit for Step 2 re-evaluation.'
+                            : 'LPDD-FUS Step 4 evaluation requires documentary compliance. Review findings, correct deficiencies, and resubmit.')
                         : 'LPDD-FUS requested corrections. Review the remarks under View Audit Trail, then edit and resubmit your FP documents.')
                     . '</p><a class="btn btn-primary" href="'
                     . e(url('permit_apply',['id'=>$applicationId])) . '">'
                     . ($app['status']==='step4_corrections_required'
-                        ? 'Comply / Resubmit to Step 4' : 'Correct / Resubmit') . '</a>'
+                        ? ($modern?'Comply / Resubmit to Step 2':'Comply / Resubmit to Step 4')
+                        : 'Correct / Resubmit') . '</a>'
                 : '<p class="mb-0">'
                     . (in_array((string)$app['status'],[
                         'forwarded_to_ro','ro_received','forwarded_to_lpdd',
@@ -740,7 +757,20 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '</div>'
             . (in_array((string)$app['status'],['step4_corrections_required','step4_complete'],true)
                 && step4_schema_ready() ? step4_result_panel_html($app) : '')
-            . step2_revert_client_html($app);
+            . step2_revert_client_html($app)
+            . ($modern ? permit_flow_public_documents_html($app,$viewer) : '');
+    } elseif ($reviewer && $modern
+        && in_array((string)$app['status'],[
+            'submitted','step4_under_evaluation','step4_resubmitted',
+            'step4_corrections_required'],true)) {
+        $html .= step4_panel_html($app,$documents,$errors);
+    } elseif ($reviewer && $modern && (string)$app['status']==='forwarded_to_lpdd') {
+        $html .= '<div class="panel soft"><h3 class="h6">Step 4 – LPDD-FUS Actions</h3>'
+            .'<p>Step 2 documentary evaluation is already completed. '
+            .'RO Receiving forwarded the application back for payment notice, '
+            .'field schedule and CENRO instructions.</p>'
+            .'<a class="btn btn-primary" href="'.e(url('permit_flow',['id'=>$applicationId]))
+            .'">Open Step 4 Actions</a></div>';
     } elseif ($reviewer && $app['status'] === 'submitted') {
         $html .= '<div class="panel soft"><h3 class="h6">LPDD-FUS Technical Staff – Initial Review</h3>'
             . step2_receive_documents_html($app)
@@ -770,7 +800,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '<noscript><p class="alert alert-warning small mt-3 mb-0">'
             . 'Enable JavaScript to confirm and submit a review decision.</p></noscript>'
             . '</form></div>';
-    } elseif ($reviewer && in_array((string)$app['status'],$step4Statuses,true)) {
+    } elseif ($reviewer && !$modern && in_array((string)$app['status'],$step4Statuses,true)) {
         $html .= step4_panel_html($app,$documents,$errors);
     } elseif (has_role($viewer,'cenro_twg') && (string)$app['status']==='step4_complete') {
         $html .= step4_result_panel_html($app);
@@ -792,7 +822,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
             ? permit_payment_panel_html($app,$viewer,$errors) : '')
         . step2_files_modal_html($documents)
         . permit_tracking_audit_modal_html($applicationId)
-        . ($reviewer && $app['status'] === 'submitted' ? decision_confirmation_modal_html() : '');
+        . ($reviewer && !$modern && $app['status'] === 'submitted'
+            ? decision_confirmation_modal_html() : '');
     if (step2_location_schema_ready()) {
         $html .= step2_location_preview_html($app);
         if (($app['project_latitude'] ?? null) !== null
@@ -808,14 +839,20 @@ function view_step2_review_queue(): void
 {
     step2_require_reviewer();
     $apps = query_all(
-        "SELECT a.id,a.project_title,a.revision,a.last_submitted_at,c.name AS applicant_name
+        "SELECT a.id,a.project_title,a.flow_version,a.status,a.revision,
+                a.last_submitted_at,c.name AS applicant_name
          FROM permit_step2_applications a JOIN user_client c ON c.id=a.client_id
-         WHERE a.status='submitted' ORDER BY a.last_submitted_at ASC,a.id ASC LIMIT 200"
+         WHERE (a.flow_version=1 AND a.status='submitted')
+            OR (a.flow_version=2 AND a.status IN (
+                'submitted','step4_under_evaluation',
+                'step4_resubmitted','step4_corrections_required'))
+         ORDER BY a.last_submitted_at ASC,a.id ASC LIMIT 200"
     );
-    $html = '<div class="panel"><h2 class="h5">LPDD-FUS Initial FP Review Queue '
+    $html = '<div class="panel"><h2 class="h5">LPDD-FUS – Step 2 Completeness & Sufficiency '
         . '<span class="badge text-bg-primary">' . count($apps) . '</span></h2>'
-        . '<p class="text-secondary small">Annex A Step 2: review initial documentary completeness '
-        . 'before forwarding to RO Receiving. Return incomplete submissions for correction.</p>';
+        . '<p class="text-secondary small">Updated Annex A: applicant submits directly '
+        . 'to LPDD-FUS, which decides documentary completeness and sufficiency BEFORE Step 3 RO Receiving. '
+        . 'Legacy applications continue the original review route.</p>';
     if (!$apps) $html .= '<div class="alert alert-success">No FP applications awaiting initial review.</div>';
     else {
         $html .= '<div class="table-responsive"><table class="table table-hover align-middle">'
@@ -827,7 +864,10 @@ function view_step2_review_queue(): void
                 . '</td><td>' . e((string)$app['last_submitted_at']) . '</td><td>'
                 . '<a class="btn btn-sm btn-outline-primary" href="'
                 . e(url('permit_application',['id'=>(int)$app['id']]))
-                . '">Initial Review</a></td></tr>';
+                . '">'.((int)$app['flow_version']===2
+                    ? ((string)$app['status']==='step4_corrections_required'
+                        ? 'View Deficiencies' : 'Evaluate Completeness')
+                    : 'Legacy Initial Review').'</a></td></tr>';
         }
         $html .= '</tbody></table></div>';
     }
