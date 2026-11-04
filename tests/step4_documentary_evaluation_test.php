@@ -127,12 +127,12 @@ step4_assert(!str_contains($views,'style="width:'),
 step4_assert(str_contains($views,'name="assessment[')
     && str_contains($views,'field_validation_schedule'),
     'requirement-level assessments and field schedule are rendered');
-step4_assert(str_contains($tracking,"'step4_complete' => [")
-    && str_contains($tracking,"'next_role'=>'CENRO Technical Working Group'"),
-    'tracking hands complete Step 4 cases toward CENRO Step 5 preparation');
-step4_assert(str_contains($nav,'Step 4 Documentary Evaluation')
-    && !str_contains($nav,"['clipboard-data','Document Evaluation']"),
-    'Step 4 is active navigation instead of a future placeholder');
+step4_assert(str_contains($tracking,'permit_tracking_step4_payment_state')
+    && str_contains($tracking,'permit_flow_current_tracking'),
+    'tracking preserves the legacy payment stage and routes updated cases through Steps 5–11');
+step4_assert(str_contains($nav,'Legacy Step 4 Reviews')
+    && str_contains($nav,'Updated Annex A · Steps 4–11'),
+    'legacy Step 4 evaluation remains accessible while new Annex A is active');
 step4_assert(str_contains($reviewJs,'updateProgress')
     && str_contains($reviewJs,'renderStep')
     && str_contains($reviewJs,'validationForStep')
