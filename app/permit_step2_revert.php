@@ -136,9 +136,10 @@ function step2_receive_documents(array $reviewer, int $applicationId): array
         $app=query_one(
             'SELECT * FROM permit_step2_applications WHERE id=? FOR UPDATE',[$applicationId]
         );
-        if (!$app || $app['status'] !== 'submitted' || !empty($app['received_at'])) {
+        if (!$app || $app['status'] !== 'submitted' || !empty($app['received_at'])
+            || permit_flow_is_new($app)) {
             $pdo->rollBack();
-            return ['This application is no longer available to receive. Refresh the page.'];
+            return ['Updated Annex A applications are assessed by LPDD-FUS Step 2 and formally received by RO Step 3. This LPDD receipt action is for legacy applications only.'];
         }
         $pdo->prepare(
             'UPDATE permit_step2_applications SET received_at=NOW(),received_by_user_id=?
