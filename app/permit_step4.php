@@ -248,6 +248,9 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         }
     }
     if ($errors) return $errors;
+    if ($decision==='complete' && !permit_payment_schema_ready()) {
+        return ['Apply database migration 028 to enable payment tracking and FUU notification before completing Step 4.'];
+    }
 
     $pdo=db();
     try {
@@ -310,6 +313,16 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             $applicationId,(int)$reviewer['id'],$event,(int)$app['revision'],
             $overall!=='' ? $overall : null
         ]);
+        if ($complete) {
+            // Payment is a separate FUU workflow. Never set paid/verified here.
+            $pdo->prepare(
+                "INSERT INTO permit_payment_verifications
+                 (application_id,status,notified_at)
+                 VALUES (?,'awaiting_payment',NOW())
+                 ON DUPLICATE KEY UPDATE
+                    notified_at=COALESCE(notified_at,VALUES(notified_at))"
+            )->execute([$applicationId]);
+        }
         audit((int)$reviewer['id'],'permit.step4.'.$event,
             'permit_step2_application',$applicationId,[
                 'revision'=>(int)$app['revision'],
@@ -321,13 +334,18 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
 
         try {
             if ($complete) {
-                $message='FP application #'.$applicationId.' completed Step 4 documentary evaluation. '
-                    .'Submit the required hard copies and pay the application fee at the Regional Office. '
-                    .'Field validation/assessment schedule: '.fpoms_display_datetime((string)$schedule).'.';
+                $message=permit_payment_instructions($applicationId)
+                    .' Field validation/assessment schedule: '
+                    .fpoms_display_datetime((string)$schedule).'.';
                 create_client_notification(
                     (int)$app['client_id'],
                     'Documentary Requirements Complete & Sufficient',
                     $message,'check-circle','success','permit_application',['id'=>$applicationId]
+                );
+                notify_role(
+                    'fuu','FP Application – Awaiting Cashier Payment / FUU Verification',
+                    'FP application #'.$applicationId.' completed Step 4. Applicant has been notified to pay at the DENR Regional Office Cashier and present the OR to FUU for verification.',
+                    'receipt','info','fuu_payment_queue',['tab'=>'awaiting']
                 );
                 notify_role(
                     'cenro_twg','FP Application Ready for Step 5 Preparation',
@@ -370,7 +388,9 @@ function step4_send_applicant_email(
     if ($complete) {
         $body.='<p>LPDD-FUS completed the documentary evaluation and found the submitted documentary requirements complete and sufficient.</p>'
             .'<ul><li>Submit the required hard copies.</li>'
-            .'<li>Pay the required application fee at the DENR Regional Office.</li>'
+            .'<li>Proceed to the DENR CARAGA Regional Office Cashier to pay the required application fee in accordance with official payment instructions.</li>'
+            .'<li><strong>After paying at the Cashier, proceed directly to the Forest Utilization Unit (FUU) and present your Official Receipt (OR) for payment verification.</strong></li>'
+            .'<li>Authorized FUU personnel will check the OR, record the payment details, and upload the receipt into FP-OMS. Payment is not verified until FUU confirms it.</li>'
             .'<li>Field validation / assessment schedule: <strong>'
             .e(fpoms_display_datetime((string)$schedule)).'</strong></li></ul>';
     } else {
