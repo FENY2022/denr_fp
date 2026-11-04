@@ -18,16 +18,78 @@ function step2_requirement_types(): array
     ];
 }
 
+/** Annex 1 project classification. Other requires a named type and DOE #10. */
+function step2_project_types(): array
+{
+    return [
+        'solar'=>'Solar',
+        'biomass'=>'Biomass',
+        'other'=>'Other'
+    ];
+}
+
+function step2_project_label(string $type, ?string $other=''): string
+{
+    if ($type==='other') {
+        $name=trim((string)$other);
+        return $name!=='' ? 'Other – '.$name : 'Other (not specified)';
+    }
+    return step2_project_types()[$type] ?? 'Not recorded (legacy application)';
+}
+
+function step2_project_type_schema_ready(): bool
+{
+    try {
+        db()->query('SELECT project_type,project_type_other FROM permit_step2_applications LIMIT 0');
+        db()->query('SELECT project_type,project_type_other FROM permit_step2_form_drafts LIMIT 0');
+        return true;
+    } catch (Throwable $e) {
+        error_log('FP-OMS Annex 1 migration 030 required: '.$e->getMessage());
+        return false;
+    }
+}
+
+function step2_project_requires_doe(string $type): bool
+{
+    return $type==='other';
+}
+
+function step2_project_doe_exempt(string $type): bool
+{
+    return in_array($type,['solar','biomass'],true);
+}
+
+/** Not every Annex 1 item is due at the initial application stage. */
+function step2_requirement_note(string $type, string $projectType=''): string
+{
+    return match ($type) {
+        'ecc_cnc'=>'ECC/CNC shall be secured within six (6) months after FP issuance.',
+        'ncip_clearance'=>'NCIP Clearance shall be secured within one (1) year after FP issuance; stamped proof of application is an accepted checklist alternative.',
+        'doe_esc_coa'=>step2_project_doe_exempt($projectType)
+            ? 'Not Applicable: Solar and Biomass are exempt from Annex 1 requirement #10.'
+            : ($projectType==='other'
+                ? 'Required for Other project types: upload DOE ESC or COA.'
+                : 'Solar and Biomass are exempt; other project types must provide DOE ESC or COA.'),
+        default=>''
+    };
+}
+
+/** Optional extra attachments are not a seventh mandatory assessment. */
+function step2_upload_categories(): array
+{
+    return step2_requirement_types() + ['other'=>'Other Attached Document (Optional)'];
+}
+
 function step2_requirement_label(?string $type): string
 {
     $choices = step2_requirement_types();
-    if ($type === 'other') return 'Other / Earlier Supporting Document';
+    if ($type === 'other') return 'Other Attached Document';
     return $choices[$type ?? ''] ?? 'Unclassified Supporting Document';
 }
 
 function step2_requirement_valid(string $value): bool
 {
-    return isset(step2_requirement_types()[$value]);
+    return isset(step2_upload_categories()[$value]);
 }
 
 function step2_requirement_icon(string $type): string
@@ -39,6 +101,7 @@ function step2_requirement_icon(string $type): string
         'ecc_cnc' => 'shield-check',
         'ncip_clearance' => 'people',
         'doe_esc_coa' => 'lightning-charge',
+        'other' => 'paperclip',
         default => 'file-earmark',
     };
 }
@@ -83,9 +146,9 @@ function step2_requirement_checklist_html(array $documents): string
     }
     $html .= '</ul>';
     if (!empty($count['other'])) {
-        $html .= '<p class="alert alert-warning small mt-3 mb-0">'
-            . (int)$count['other'] . ' earlier/unclassified document(s) retained. '
-            . 'Do not infer their requirements from filenames alone.</p>';
+        $html .= '<p class="alert alert-info small mt-3 mb-0">'
+            . (int)$count['other'] . ' Other Attached Document(s) retained. '
+            . 'These are supplemental uploads, not a substitute for a named requirement.</p>';
     }
     return $html . '</div>';
 }
