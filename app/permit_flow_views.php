@@ -48,6 +48,51 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
         $html.='<p class="small text-success"><i class="bi bi-check-circle me-1"></i>'
             .'CENRO hard-copy notice recorded and sent.</p>';
     }
+    if ($step===5 && has_role($user,'cenro_twg')
+        && !permit_flow_event_exists($id,5,'twg_instructed')) {
+        $html.='<form method="post" action="'.e(url('permit_flow_milestone',['id'=>$id])).'">'
+            .csrf_field()
+            .'<input type="hidden" name="action" value="twg_instructed">'
+            .'<label class="form-label" for="twg-instructions-note">TWG Instruction / Field Assessment Details *</label>'
+            .'<textarea class="form-control mb-2" name="remarks" id="twg-instructions-note" minlength="10" '
+            .'maxlength="3000" required rows="2" placeholder="Record instructions issued to TWG"></textarea>'
+            .'<button class="btn btn-outline-primary mb-3" name="confirmation" value="1" type="submit">'
+            .'Record TWG Field Validation Instruction</button></form>';
+    }
+    if ($step===5 && permit_flow_event_exists($id,5,'twg_instructed')) {
+        $html.='<p class="small text-success">TWG instruction officially recorded.</p>';
+    }
+    if ($step===6) {
+        $scheduled=permit_flow_event_exists($id,6,'rrdc_scheduled');
+        $deliberated=permit_flow_event_exists($id,6,'rrdc_deliberated');
+        if ($scheduled) $html.='<p class="small text-success">CDD RRDC Schedule: '
+            .e(fpoms_display_datetime((string)($case['rrdc_schedule']??''))).'</p>';
+        if (!$scheduled && has_role($user,'cdd')) {
+            $html.='<form method="post" action="'.e(url('permit_flow_milestone',['id'=>$id])).'">'
+                .csrf_field()
+                .'<input type="hidden" name="action" value="rrdc_scheduled">'
+                .'<label class="form-label" for="rrdc-schedule">RRDC Deliberation Schedule *</label>'
+                .'<input class="form-control mb-2" type="datetime-local" name="rrdc_schedule" id="rrdc-schedule" required>'
+                .'<label class="form-label" for="rrdc-schedule-remarks">Scheduling / Member Notification Details *</label>'
+                .'<textarea class="form-control mb-2" id="rrdc-schedule-remarks" name="remarks" '
+                .'minlength="10" maxlength="3000" required rows="2"></textarea>'
+                .'<button class="btn btn-outline-primary mb-3" name="confirmation" value="1" type="submit">'
+                .'Record RRDC Schedule & Notify Members</button></form>';
+        }
+        if ($deliberated) $html.='<p class="small text-success">RRDC hybrid deliberation recorded.</p>';
+        if ($scheduled && !$deliberated
+            && (has_role($user,'rrdc_member') || has_role($user,'rrdc_secretariat'))) {
+            $html.='<form method="post" action="'.e(url('permit_flow_milestone',['id'=>$id])).'">'
+                .csrf_field()
+                .'<input type="hidden" name="action" value="rrdc_deliberated">'
+                .'<label class="form-label" for="rrdc-deliberation-remarks">RRDC Deliberation Record *</label>'
+                .'<textarea class="form-control mb-2" id="rrdc-deliberation-remarks" name="remarks" '
+                .'minlength="10" maxlength="3000" required rows="3" '
+                .'placeholder="Summarize actual hybrid deliberation and recorded agreements"></textarea>'
+                .'<button class="btn btn-outline-primary mb-3" name="confirmation" value="1" type="submit">'
+                .'Record Completed RRDC Deliberation</button></form>';
+        }
+    }
     if ($categories) {
         $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
             .'<thead><tr><th>Required Documents</th><th>Status</th><th>Upload / View</th></tr></thead><tbody>';
@@ -84,6 +129,14 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
     $missing=permit_flow_missing_artifacts($id,$step);
     if ($missing) $html.='<div class="alert alert-warning small">Before completing this step, upload: '
         .e(implode('; ',$missing)).'</div>';
+    $milestoneMissing=($step===5 && (
+        !permit_flow_event_exists($id,5,'hardcopy_notice_sent')
+        || !permit_flow_event_exists($id,5,'twg_instructed')))
+        || ($step===6 && (
+            !permit_flow_event_exists($id,6,'rrdc_scheduled')
+            || !permit_flow_event_exists($id,6,'rrdc_deliberated')));
+    if ($milestoneMissing) $html.='<div class="alert alert-warning small">'
+        .'Required CENRO/RRDC action checkpoints must be recorded before forwarding.</div>';
     if (permit_flow_staff_can_act($user,$step)) {
         $html.='<form method="post" action="'.e(url('permit_flow_advance',['id'=>$id,'step'=>$step])).'">'
             .csrf_field();
@@ -104,7 +157,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             .'I confirm the required actions and uploaded documents have been checked. '
             .'This records an authorized hand-off, not an automatic or fabricated signature.</label></div>'
             .'<button class="btn btn-success w-100" name="confirmation" value="1" type="submit"'
-            .($missing?' disabled':'').'>'
+            .($missing || $milestoneMissing?' disabled':'').'>'
             .e($step===11?'Confirm Release & Issue Feasibility Permit':'Complete Step '.$step.' & Forward')
             .'</button></form>';
     } else {
