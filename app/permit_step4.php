@@ -68,8 +68,8 @@ function step4_assessment_label(string $assessment): string
 {
     return match ($assessment) {
         'complete'=>'Complete',
-        'incomplete'=>'Incomplete / Missing',
-        'insufficient'=>'Insufficient',
+        'incomplete'=>'Lacking',
+        'insufficient'=>'Inappropriate',
         'not_applicable'=>'Not Applicable',
         default=>'Not Reviewed'
     };
@@ -81,13 +81,18 @@ function step4_allowed_assessments(): array
 }
 
 /** @return array{items:array<string,array{assessment:string,remarks:string}>,errors:list<string>} */
-function step4_parse_requirement_assessments(array $input): array
+function step4_parse_requirement_assessments(array $input,string $projectType=''): array
 {
     $assessments=is_array($input['assessment'] ?? null) ? $input['assessment'] : [];
     $remarks=is_array($input['requirement_remarks'] ?? null) ? $input['requirement_remarks'] : [];
     $items=[];
     $errors=[];
     foreach (step2_requirement_types() as $type=>$label) {
+        if ($type==='doe_esc_coa' && step2_project_doe_exempt($projectType)) {
+            $items[$type]=['assessment'=>'not_applicable',
+                'remarks'=>'Exempt from Annex 1 #10 for Solar/Biomass.'];
+            continue;
+        }
         $assessment=trim((string)($assessments[$type] ?? ''));
         $note=trim((string)($remarks[$type] ?? ''));
         if (!in_array($assessment,step4_allowed_assessments(),true)) {
@@ -211,10 +216,14 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         return ['LPDD-FUS reviewer authorization is required.'];
     }
     if (!step4_schema_ready()) return ['Migration 027 is required.'];
+    if (!step2_project_type_schema_ready()) return ['Migration 030 is required.'];
+    $project=step2_application($applicationId);
+    if (!$project) return ['FP application not found.'];
 
     $decision=trim((string)($input['decision'] ?? ''));
     if (!in_array($decision,['return','complete'],true)) return ['Invalid Step 4 decision.'];
-    $parsed=step4_parse_requirement_assessments($input);
+    $projectType=(string)($project['project_type'] ?? 'unspecified');
+    $parsed=step4_parse_requirement_assessments($input,$projectType);
     $errors=$parsed['errors'];
     $overall=trim((string)($input['overall_remarks'] ?? ''));
     $instructions=trim((string)($input['applicant_instructions'] ?? ''));
@@ -232,7 +241,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         }
     }
     if ($decision==='return') {
-        if (!$hasDeficiency) $errors[]='Mark at least one requirement Incomplete / Missing or Insufficient before returning.';
+        if (!$hasDeficiency) $errors[]='Mark at least one requirement Lacking or Inappropriate before returning.';
         if (strlen($overall)<10) $errors[]='Provide an overall deficiency explanation of at least 10 characters.';
     }
 
@@ -240,6 +249,10 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
     if ($decision==='complete') {
         if (!$allSufficient || count($parsed['items'])!==count(step2_requirement_types())) {
             $errors[]='Every requirement must be Complete or Not Applicable before marking the documentary requirements complete and sufficient.';
+        }
+        if (step2_project_requires_doe($projectType)
+            && ($parsed['items']['doe_esc_coa']['assessment'] ?? '')!=='complete') {
+            $errors[]='For Other project types, Annex 1 #10 (DOE ESC/COA) must be assessed Complete.';
         }
         $rawSchedule=trim((string)($input['field_validation_schedule'] ?? ''));
         $schedule=step4_parse_schedule($rawSchedule);
@@ -357,7 +370,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
                 create_client_notification(
                     (int)$app['client_id'],
                     'Step 4 Compliance Required',
-                    'LPDD-FUS found incomplete or insufficient documentary requirements for FP application #'.$applicationId.'. Correct the deficiencies and resubmit the required documents.',
+                    'LPDD-FUS found lacking or inappropriate documentary requirements for FP application #'.$applicationId.'. Correct the deficiencies and resubmit the required documents.',
                     'exclamation-triangle','warning','permit_application',['id'=>$applicationId]
                 );
             }
@@ -394,7 +407,7 @@ function step4_send_applicant_email(
             .'<li>Field validation / assessment schedule: <strong>'
             .e(fpoms_display_datetime((string)$schedule)).'</strong></li></ul>';
     } else {
-        $body.='<p>LPDD-FUS found incomplete or insufficient documentary requirements. '
+        $body.='<p>LPDD-FUS found lacking or inappropriate documentary requirements. '
             .'Please correct the deficiencies, complete the missing requirements, and resubmit through FP-OMS.</p>';
     }
     if ($remarks!=='') $body.='<p><strong>Review remarks:</strong><br>'.nl2br(e($remarks)).'</p>';
