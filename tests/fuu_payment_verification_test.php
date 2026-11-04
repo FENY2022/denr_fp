@@ -102,8 +102,6 @@ fuu_assert(str_contains($appViews,'View Payment Instructions')
     && str_contains($appViews,'#fp-payment-verification')
     && str_contains($appViews,'Next Action – Application Fee'),
     'client can locate payment status and next action from My FP Applications');
-fuu_assert(str_contains($step4,'permit_payment_schema_ready') || true,
-    'payment module is available to Step 4 workflow');
 
 fuu_assert(str_contains($step4Views,'Payment Status')
     && str_contains($step4Views,'View Payment Status')
