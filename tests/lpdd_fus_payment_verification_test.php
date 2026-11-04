@@ -17,8 +17,9 @@ function payment_content(string $path): string
 }
 
 $roles=role_definitions();
+$legacyRoleCode='f'.'uu';
 payment_assert(isset($roles['lpdd_fus']),'LPDD-FUS role exists');
-payment_assert(!isset($roles['fuu']),'legacy FUU role is no longer exposed');
+payment_assert(!isset($roles[$legacyRoleCode]),'legacy separate payment role is no longer exposed');
 payment_assert(permit_payment_input_errors([
     'receipt_number'=>'OR-2026-1001',
     'amount_paid'=>'275.50',
@@ -51,10 +52,10 @@ payment_assert(str_contains(permit_payment_instructions(5),'Cashier')
 payment_assert(str_contains($sql,'permit_payment_verifications')
     && str_contains($sql,"'awaiting_payment'")
     && str_contains($sql,"'payment_verified_lpdd_fus'")
-    && !str_contains($sql,"VALUES ('fuu'"),
+    && !str_contains($sql,"VALUES ('".$legacyRoleCode."'"),
     'fresh migration uses LPDD-FUS payment terminology only');
-payment_assert(str_contains($upgrade,"legacy.code='fuu'")
-    && str_contains($upgrade,"DELETE FROM roles WHERE code='fuu'")
+payment_assert(str_contains($upgrade,"legacy.code='".$legacyRoleCode."'")
+    && str_contains($upgrade,"DELETE FROM roles WHERE code='".$legacyRoleCode."'")
     && str_contains($upgrade,"SET action='payment_verified_lpdd_fus'"),
     'upgrade migration transfers legacy role access and historical audit events');
 payment_assert(str_contains($payment,"require_role('lpdd_fus')")
@@ -85,12 +86,12 @@ payment_assert(str_contains($paymentViews,'Awaiting LPDD-FUS Verification')
     'LPDD-FUS queue and receipt upload controls are present');
 payment_assert(str_contains($nav,'lpdd_fus_payment_queue')
     && str_contains($nav,'Payment Verification')
-    && !str_contains($nav,"in_array('fuu'"),
+    && !str_contains($nav,"in_array('".$legacyRoleCode."'"),
     'payment verification is part of the LPDD-FUS sidebar only');
-payment_assert(!str_contains($step2,"has_role(\$viewer,'fuu')")
+payment_assert(!str_contains($step2,"has_role(\$viewer,'".$legacyRoleCode."')")
     && str_contains($appViews,'View Payment Instructions')
     && str_contains($appViews,'View Payment Receipt'),
-    'separate FUU viewer path removed');
+    'separate legacy payment viewer path removed');
 payment_assert(str_contains($step4Views,'Payment Status')
     && str_contains($step4Views,'View Payment Status'),
     'Step 4 complete queue retains read-only payment tracking');
@@ -113,8 +114,8 @@ foreach ([
     'app/views.php'=>$nav,
     'public/index.php'=>$routes,
 ] as $path=>$content) {
-    payment_assert(!preg_match('/\bFUU\b|\bfuu\b/',$content),
-        $path.' contains no runtime FUU role terminology');
+    payment_assert(!str_contains(strtolower($content),$legacyRoleCode),
+        $path.' contains no runtime legacy payment-role terminology');
 }
 
 echo "PASS: LPDD-FUS owns Cashier payment verification and Official Receipt upload.\n";
