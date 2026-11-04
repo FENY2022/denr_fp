@@ -730,21 +730,21 @@ try {
                 go('permit_step4_queue',['tab'=>$decision==='complete'?'complete':'returned']);
             }
             break;
-        case 'fuu_payment_queue':
+        case 'lpdd_fus_payment_queue':
             if ($post) show_error('Payment queue is read-only.',405);
-            view_fuu_payment_queue();
+            view_lpdd_fus_payment_queue();
             break;
         case 'permit_payment_verify':
-            $fuu=permit_payment_require_fuu();
+            $lpddFus=permit_payment_require_lpdd_fus();
             if (!$post) show_error('Payment verification requires a confirmed POST.',405);
             check_csrf();
             $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
                 ['options'=>['min_range'=>1]]);
             if (!$id) show_error('Invalid FP application ID.',400);
-            $errors=permit_payment_verify($fuu,(int)$id,$_POST,$_FILES);
+            $errors=permit_payment_verify($lpddFus,(int)$id,$_POST,$_FILES);
             if ($errors) view_step2_application((int)$id,$errors);
             else {
-                flash('success','Cashier Official Receipt uploaded and payment verified by FUU.');
+                flash('success','Cashier Official Receipt uploaded and payment verified by LPDD-FUS.');
                 go('permit_application',['id'=>(int)$id]);
             }
             break;
