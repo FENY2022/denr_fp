@@ -27,7 +27,7 @@ function registration_validation(array $data): array
         $errors[] = 'Contact number must be 7–40 characters and contain only phone characters.';
     }
     if (!in_array((string)($data['organization_type'] ?? 'individual'),
-        ['individual','corporation','government'],true)) {
+        ['individual','corporation','government','lgu'],true)) {
         $errors[] = 'Select a valid Applicant / Organization Type.';
     }
     return $errors;
@@ -56,10 +56,12 @@ function role_definitions(): array
         'lpdd_chief' => ['LPDD Chief', 'Initial the memo, permit and TOR'],
         'ard_ts' => ['ARD-TS', 'Endorse and initial documents for RED'],
         'red' => ['Regional Executive Director', 'Final approval of FP/TOR and related documents'],
-        'cenro_twg' => ['CENRO Technical Working Group', 'Field validation, CSW, GIS/shapefiles and certifications'],
+        'cenro_twg' => ['CENRO Technical Working Group', 'Field validation, CENRO/GIS report, maps, shapefiles and certifications'],
         'penro_user' => ['PENRO User', 'Coordination with CENRO field offices'],
         'rrdc_member' => ['RRDC Member', 'Review and deliberation committee'],
         'rrdc_secretariat' => ['RRDC Secretariat', 'Meeting minutes, agreements and signed documents'],
-        'gis_focal' => ['GIS Focal', 'Prepare final GIS maps and geographical information']
+        'gis_focal' => ['GIS Focal', 'Prepare final GIS maps and geographical information'],
+        'smd'=>['SMD / GIS Mapping','RRDC Day 1 final map preparation'],
+        'cdd'=>['CDD','RRDC scheduling, meeting minutes and agreements']
     ];
 }
