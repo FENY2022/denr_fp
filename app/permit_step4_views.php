@@ -357,6 +357,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'aria-label="Close Documentary Evaluation"></button></div>'
         .'<div class="modal-body" data-step4-modal-body>'
         .'<div data-step4-main-view data-step4-wizard '
+        .'data-step4-project-type="'.e($projectType).'" '
         .'data-step4-initial-step="'.$initialStep.'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
