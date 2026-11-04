@@ -367,7 +367,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<button type="button" class="btn btn-sm btn-outline-primary" data-step4-view-all>'
         .'<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View All Uploaded Files</button></div>'
         .(!empty($groupedDocuments['other'])
-            ? '<div class="alert alert-warning small py-2"><strong>Unclassified files detected:</strong> '
+            ? '<div class="alert alert-info small py-2"><strong>Other Attached Documents:</strong> '
                 .count($groupedDocuments['other']).' optional Other Attached Document file(s) are not assigned to a named '
                 .'Step 4 requirement. Use <strong>View All Uploaded Files</strong> to inspect them before deciding.</div>'
             : '')
