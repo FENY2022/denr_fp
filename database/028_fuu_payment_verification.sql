@@ -40,7 +40,7 @@ ALTER TABLE permit_step2_events
     'submitted','returned_for_correction','resubmitted','forwarded_to_ro',
     'documents_received','reverted','ro_documents_received','forwarded_to_lpdd',
     'step4_review_started','step4_returned_for_compliance',
-    'step4_resubmitted','step4_complete','payment_verified_fuu'
+    'step4_resubmitted','step4_complete','ro_archived','payment_verified_fuu'
   ) NOT NULL;
 
 -- Backfill only the tracking queue for previously completed Step 4 cases.
