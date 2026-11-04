@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Annex A payment stage: applicant pays at the DENR Regional Office Cashier,
- * then presents the Official Receipt to FUU. Only an active FUU account can
+ * then presents the Official Receipt to LPDD-FUS. Only an active LPDD-FUS account can
  * record payment verification and upload the protected receipt.
  */
 
@@ -11,7 +11,6 @@ function permit_payment_schema_ready(): bool
 {
     try {
         db()->query('SELECT application_id,status,receipt_number,verified_at FROM permit_payment_verifications LIMIT 0');
-        db()->query("SELECT id FROM roles WHERE code='fuu' LIMIT 0");
         return true;
     } catch (Throwable $e) {
         error_log('FP-OMS payment migration 028 required: '.$e->getMessage());
@@ -22,13 +21,13 @@ function permit_payment_schema_ready(): bool
 function permit_payment_require_schema(): void
 {
     if (!permit_payment_schema_ready()) {
-        show_error('Apply database migration 028 to enable FUU payment verification.',503);
+        show_error('Apply database migration 028 to enable LPDD-FUS payment verification.',503);
     }
 }
 
-function permit_payment_require_fuu(): array
+function permit_payment_require_lpdd_fus(): array
 {
-    $staff=require_role('fuu');
+    $staff=require_role('lpdd_fus');
     permit_payment_require_schema();
     return $staff;
 }
@@ -50,10 +49,10 @@ function permit_payment_instructions(int $applicationId): string
         .' is complete and sufficient in documentary requirements. '
         .'Please submit the required hard copies and proceed to the DENR CARAGA Regional Office Cashier '
         .'to pay the required application fee according to official payment instructions. '
-        .'After paying at the Cashier, please proceed directly to the Forest Utilization Unit (FUU) '
+        .'After paying at the Cashier, please proceed directly to the LPDD-FUS '
         .'and present your Official Receipt (OR) for payment verification. '
-        .'The authorized FUU personnel will verify the payment details and upload the OR in FP-OMS. '
-        .'Payment remains Awaiting FUU Verification until the authorized FUU account confirms it.';
+        .'The authorized LPDD-FUS personnel will verify the payment details and upload the OR in FP-OMS. '
+        .'Payment remains Awaiting LPDD-FUS Verification until the authorized LPDD-FUS account confirms it.';
 }
 
 function permit_payment_input_errors(array $input): array
@@ -81,11 +80,11 @@ function permit_payment_input_errors(array $input): array
     return $errors;
 }
 
-function permit_payment_verify(array $fuu,int $applicationId,array $input,array $files): array
+function permit_payment_verify(array $lpddFus,int $applicationId,array $input,array $files): array
 {
-    if (($fuu['user_kind']??'')!=='internal' || ($fuu['status']??'')!=='active'
-        || !has_role($fuu,'fuu')) {
-        return ['An active FUU account is required to verify payments.'];
+    if (($lpddFus['user_kind']??'')!=='internal' || ($lpddFus['status']??'')!=='active'
+        || !has_role($lpddFus,'lpdd_fus')) {
+        return ['An active LPDD-FUS account is required to verify payments.'];
     }
     if (!permit_payment_schema_ready()) return ['Apply database migration 028 first.'];
     if (($input['confirmation']??'')!=='verify_payment') {
@@ -150,7 +149,7 @@ function permit_payment_verify(array $fuu,int $applicationId,array $input,array 
             number_format((float)$input['amount_paid'],2,'.',''),
             trim((string)$input['payment_date']),
             (string)$upload['name'],$relative,(string)$upload['mime'],
-            (int)$upload['size'],$digest,(int)$fuu['id'],
+            (int)$upload['size'],$digest,(int)$lpddFus['id'],
             trim((string)($input['notes']??'')) ?: null,$applicationId
         ]);
         if ($stmt->rowCount()!==1) throw new RuntimeException('Concurrent payment verification blocked.');
@@ -158,12 +157,12 @@ function permit_payment_verify(array $fuu,int $applicationId,array $input,array 
         $pdo->prepare(
             'INSERT INTO permit_step2_events
                 (application_id,actor_user_id,action,revision,remarks)
-             VALUES (?,? ,\'payment_verified_fuu\',?,?)'
+             VALUES (?,? ,\'payment_verified_lpdd_fus\',?,?)'
         )->execute([
-            $applicationId,(int)$fuu['id'],(int)$app['revision'],
-            'FUU verified Cashier payment; OR No. '.trim((string)$input['receipt_number'])
+            $applicationId,(int)$lpddFus['id'],(int)$app['revision'],
+            'LPDD-FUS verified Cashier payment; OR No. '.trim((string)$input['receipt_number'])
         ]);
-        audit((int)$fuu['id'],'permit.payment.verified','permit_step2_application',$applicationId,[
+        audit((int)$lpddFus['id'],'permit.payment.verified','permit_step2_application',$applicationId,[
             'receipt_number'=>trim((string)$input['receipt_number']),
             'payment_date'=>trim((string)$input['payment_date']),
             'amount_paid'=>number_format((float)$input['amount_paid'],2,'.',''),
@@ -174,18 +173,18 @@ function permit_payment_verify(array $fuu,int $applicationId,array $input,array 
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         if ($stored!==null && is_file($stored)) @unlink($stored);
-        error_log('FP-OMS FUU payment verification error: '.$e->getMessage());
+        error_log('FP-OMS LPDD-FUS payment verification error: '.$e->getMessage());
         return ['Payment verification could not be saved. Check migration 028 and private storage permissions.'];
     }
 
     $name=(string)($app['applicant_name']??'Applicant');
     $or=trim((string)$input['receipt_number']);
-    $message='FUU verified payment for FP application #'.$applicationId
+    $message='LPDD-FUS verified payment for FP application #'.$applicationId
         .' (OR No. '.$or.'). Your payment status is now Payment Verified.';
     try {
-        create_client_notification((int)$app['client_id'],'Payment Verified by FUU',
+        create_client_notification((int)$app['client_id'],'Payment Verified by LPDD-FUS',
             $message,'receipt','success','permit_application',['id'=>$applicationId]);
-        notify_role('lpdd_fus','FP Payment Verified by FUU',
+        notify_role('lpdd_fus','FP Payment Verified by LPDD-FUS',
             $message,'cash-coin','success','permit_application',['id'=>$applicationId]);
     } catch (Throwable $e) {
         error_log('FP-OMS payment notification failed: '.$e->getMessage());
@@ -193,14 +192,14 @@ function permit_payment_verify(array $fuu,int $applicationId,array $input,array 
     $email=(string)($app['applicant_email']??'');
     if (filter_var($email,FILTER_VALIDATE_EMAIL)) {
         $body='<p>Your FP application <strong>#'.$applicationId.'</strong> has '
-            .'received official payment verification from the Forest Utilization Unit (FUU).</p>'
+            .'received official payment verification from the LPDD-FUS.</p>'
             .'<p><strong>Payment status:</strong> Payment Verified<br>'
             .'<strong>Official Receipt No.:</strong> '.e($or).'<br>'
             .'<strong>Payment date:</strong> '.e((string)$input['payment_date']).'</p>'
             .'<p>You may log in to FP-OMS to view the payment record and secure receipt.</p>';
         try {
-            smtp_send_html($email,'FP Application #'.$applicationId.' – FUU Payment Verified',
-                registration_email_layout('Payment Verified by FUU',$name,$body),
+            smtp_send_html($email,'FP Application #'.$applicationId.' – LPDD-FUS Payment Verified',
+                registration_email_layout('Payment Verified by LPDD-FUS',$name,$body),
                 $message);
         } catch (Throwable $e) {
             error_log('FP-OMS payment confirmation email failed: '.$e->getMessage());
@@ -221,7 +220,7 @@ function permit_payment_send_receipt(array $viewer,int $applicationId): never
     $mine=($viewer['user_kind']??'')==='applicant'
         && (int)$viewer['id']===(int)$app['client_id'];
     $staff=($viewer['user_kind']??'')==='internal' && ($viewer['status']??'')==='active'
-        && (has_role($viewer,'fuu') || has_role($viewer,'lpdd_fus'));
+        && (has_role($viewer,'lpdd_fus') || has_role($viewer,'lpdd_fus'));
     if (!$mine && !$staff) show_error('Receipt not found or access denied.',404);
 
     $base=realpath(PROJECT_ROOT.'/storage/fp_payments');
