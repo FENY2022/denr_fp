@@ -104,7 +104,9 @@ fuu_assert(str_contains($appViews,'View Payment Instructions')
 fuu_assert(str_contains($paymentViews,'id="fp-payment-verification"')
     && str_contains($paymentViews,'Your Next Steps')
     && str_contains($paymentViews,'Proceed directly to FUU')
-    && str_contains($paymentViews,'Verify Payment')
+    && str_contains($paymentViews,'Verify Payment & Upload OR')
+    && str_contains($paymentViews,'Review Payment & Upload OR')
+    && str_contains($paymentViews,'Confirm Payment & Upload OR')
     && str_contains($paymentViews,"'#fp-payment-verification'"),
     'FUU queue directly opens the payment action and applicant sees cashier-to-FUU guidance');
 
