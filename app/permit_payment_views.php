@@ -15,7 +15,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
     if ((string)$app['status']!=='step4_complete') return '';
     $payment=permit_payment_record((int)$app['id']);
     $verified=$payment && (string)$payment['status']==='verified';
-    $isFuu=($viewer['user_kind']??'')==='internal'
+    $isLpddFus=($viewer['user_kind']??'')==='internal'
         && ($viewer['status']??'')==='active' && has_role($viewer,'lpdd_fus');
     $id=(int)$app['id'];
 
@@ -66,7 +66,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
         .'</ol></div>'
         .'<p class="small text-secondary">You cannot confirm payment yourself. '
         .'Only authorized LPDD-FUS personnel may verify and upload the Official Receipt.</p>';
-    if (!$isFuu) return $html.'</section>';
+    if (!$isLpddFus) return $html.'</section>';
 
     $html.=errors_html($errors)
         .'<hr><h4 class="h6">LPDD-FUS – Verify Payment & Upload Official Receipt</h4>'
