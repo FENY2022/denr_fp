@@ -426,6 +426,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     }
     $editing = $app !== null;
     $step4Correction = $editing && (string)$app['status']==='step4_corrections_required';
+    $modernCorrection=$step4Correction && permit_flow_is_new($app);
     $persistent = step2_persistent_ready();
     $fieldDraft = $persistent ? step2_persistent_form((int)$client['id'],$applicationId) : null;
     $title = (string)($_POST['project_title'] ?? $fieldDraft['project_title'] ?? $app['project_title'] ?? '');
@@ -605,7 +606,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . step2_form_section_heading_html(4,'Review and Submit','check-circle')
         . '<p class="small text-secondary">Review the project details, location, and uploaded '
         . ($step4Correction
-            ? 'documents above before resubmitting compliance to LPDD-FUS Step 4.'
+            ? ($modernCorrection
+                ? 'documents above before resubmitting to LPDD-FUS Step 2 completeness evaluation.'
+                : 'documents above before resubmitting compliance to legacy LPDD-FUS Step 4.')
             : 'documents above before sending the application to LPDD-FUS Initial Review.')
         . '</p>'
          . '<p class="small text-secondary" data-step2-autosave-status role="status">'
@@ -618,7 +621,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             : '<div class="alert alert-warning small">Database migration 016 is '
                 . 'required to keep fields and uploaded files across logins until submission.</div>')
          . '<button class="btn btn-primary mb-2" type="submit">'
-         . ($step4Correction ? 'Resubmit Compliance for Step 4 Re-evaluation'
+         . ($step4Correction ? ($modernCorrection
+                ? 'Resubmit Compliance for Step 2 Re-evaluation'
+                : 'Resubmit Compliance for Legacy Step 4')
             : ($editing ? 'Resubmit Corrections for Initial Review'
                 : 'Submit to LPDD-FUS Initial Review'))
         . '</button></section></form></div></div><div class="col-lg-4">'
