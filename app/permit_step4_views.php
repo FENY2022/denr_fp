@@ -39,7 +39,7 @@ function view_step4_queue(): void
 
     $selected=$tabs[$tab]['status'];
     $apps=query_all(
-        "SELECT a.id,a.project_title,a.revision,a.status,a.last_submitted_at,
+        "SELECT a.id,a.project_title,a.project_type,a.project_type_other,a.revision,a.status,a.last_submitted_at,
                 c.name AS applicant_name,m.forwarded_at,
                 r.started_at,r.decided_at,r.field_validation_schedule
          FROM permit_step2_applications a
@@ -86,7 +86,7 @@ function view_step4_queue(): void
             .e(strtolower($tabs[$tab]['label'])).'.</div>';
     } else {
         $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
-            .'<thead><tr><th>FP No.</th><th>Applicant</th><th>Project</th><th>Revision</th>'
+            .'<thead><tr><th>FP No.</th><th>Applicant</th><th>Project</th><th>Type of Project</th><th>Revision</th>'
             .'<th>Date / Time</th><th>Status</th>'
             .($selected==='step4_complete' ? '<th>Payment Status</th>' : '')
             .'<th>Action</th></tr></thead><tbody>';
@@ -103,6 +103,8 @@ function view_step4_queue(): void
             $html.='<tr><td>#'.(int)$app['id'].'</td>'
                 .'<td>'.e((string)$app['applicant_name']).'</td>'
                 .'<td><strong>'.e((string)$app['project_title']).'</strong></td>'
+                .'<td>'.e(step2_project_label((string)($app['project_type']??''),
+                    (string)($app['project_type_other']??''))).'</td>'
                 .'<td>'.(int)$app['revision'].'</td>'
                 .'<td>'.e(fpoms_display_datetime($date)).'</td>'
                 .'<td>'.step2_status_badge((string)$app['status']).'</td>'
