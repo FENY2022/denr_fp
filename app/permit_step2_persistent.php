@@ -16,7 +16,7 @@ function step2_persistent_ready(): bool
 
 function step2_persistent_form(int $clientId, int $scope): ?array
 {
-    if (!step2_persistent_ready()) return null;
+    if (!step2_persistent_ready() || !step2_project_type_schema_ready()) return null;
     $select = step2_location_schema_ready()
         ? 'project_title,project_type,project_type_other,project_location,project_latitude,project_longitude,purpose'
         : 'project_title,project_type,project_type_other,project_location,purpose';
