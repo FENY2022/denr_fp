@@ -15,6 +15,12 @@ foreach (step2_requirement_types() as $type=>$label) {
     $valid['requirement_remarks'][$type]='';
 }
 $parsed=step4_parse_requirement_assessments($valid);
+$solar=step4_parse_requirement_assessments($valid,'solar');
+$biomass=step4_parse_requirement_assessments($valid,'biomass');
+step4_assert(($solar['items']['doe_esc_coa']['assessment']??'')==='not_applicable',
+    'Solar automatically exempts DOE requirement #10');
+step4_assert(($biomass['items']['doe_esc_coa']['assessment']??'')==='not_applicable',
+    'Biomass automatically exempts DOE requirement #10');
 step4_assert($parsed['errors']===[],'all required assessments accepted');
 step4_assert(count($parsed['items'])===count(step2_requirement_types()),
     'all documentary requirements are represented');
@@ -30,8 +36,9 @@ step4_assert(step4_parse_schedule('2026-11-10T09:30')==='2026-11-10 09:30:00',
     'valid datetime-local schedule normalized');
 step4_assert(step4_parse_schedule('not-a-date')===null,
     'invalid schedule rejected');
-step4_assert(step4_assessment_label('insufficient')==='Insufficient',
-    'assessment labels remain stable');
+step4_assert(step4_assessment_label('insufficient')==='Inappropriate'
+    && step4_assessment_label('incomplete')==='Lacking',
+    'assessment labels are updated for LPDD-FUS');
 
 $migration=file_get_contents(__DIR__.'/../database/027_step4_documentary_evaluation.sql');
 $step2=file_get_contents(__DIR__.'/../app/permit_step2.php');
