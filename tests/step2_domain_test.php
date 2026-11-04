@@ -14,6 +14,7 @@ function step2_assert(bool $condition, string $message): void
 
 $valid = [
     'project_title'=>'Community Forestry Study',
+    'project_type'=>'solar',
     'project_location'=>'Barangay Sample, Caraga Region',
     'purpose'=>'Initial field assessment request'
 ];
