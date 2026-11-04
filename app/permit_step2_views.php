@@ -541,7 +541,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         $html .= '<div class="col-md-6'.($type==='doe_esc_coa' && step2_project_doe_exempt($projectType)?' d-none':'').'">'
             .'<div class="border rounded-3 p-3 h-100" '
             . 'data-step2-requirement-card="' . e($type) . '"'
-            . ($type==='doe_esc_coa'?' data-step2-doe-upload':'').'>
+            . ($type==='doe_esc_coa'?' data-step2-doe-upload':'').'>'
             . '<div class="small fw-semibold mb-2">' . e($label) . '</div>'
             . (($note=step2_requirement_note($type,$projectType))!==''
                 ? '<p class="small text-secondary mb-2">'.e($note).'</p>' : '')
