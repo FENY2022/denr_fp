@@ -60,7 +60,7 @@ $uploadFormSource = (string)file_get_contents(__DIR__.'/../app/registration_atta
 $scriptSource = (string)file_get_contents(__DIR__.'/../public/assets/registration-requirements.js');
 entity_check(str_contains($registrationViewSource,'registration_requirement_guide_html()'),
     'always-visible guide rendered directly below organization dropdown');
-entity_check(str_contains($registrationViewSource,'registration-requirements.js?v=2'),
+entity_check(str_contains($registrationViewSource,'registration-requirements.js?v=3'),
     'client-side highlight script is cache-busted in both registration forms');
 entity_check(str_contains($uploadFormSource,'id="registration-supporting-document-upload"'),
     'supporting upload section is jump target');
