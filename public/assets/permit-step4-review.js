@@ -60,8 +60,8 @@
 
   const assessmentMeta = {
     complete: ['Complete', 'success'],
-    incomplete: ['Incomplete / Missing', 'danger'],
-    insufficient: ['Insufficient', 'warning'],
+    incomplete: ['Lacking', 'danger'],
+    insufficient: ['Inappropriate', 'warning'],
     not_applicable: ['Not Applicable', 'secondary']
   };
 
@@ -234,7 +234,7 @@
         const note = remarksFor(type);
         if (!note || note.value.trim().length < 5) {
           note?.focus();
-          return 'Add a deficiency remark of at least five characters for each incomplete or insufficient requirement.';
+          return 'Add a deficiency remark of at least five characters for each Lacking or Inappropriate requirement.';
         }
       }
     }
@@ -405,7 +405,7 @@
           if (!note || note.value.trim().length < 5) {
             renderStep(stepFor(select));
             showStepError(select.closest('[data-step4-wizard-step]'),
-              'A missing or insufficient requirement requires at least five characters of remarks.');
+              'A Lacking or Inappropriate requirement requires at least five characters of remarks.');
             note?.focus();
             return;
           }
@@ -414,7 +414,7 @@
 
       if (decision === 'return') {
         if (!hasDeficiency()) {
-          showValidation('Mark at least one requirement Incomplete / Missing or Insufficient before returning the application.');
+          showValidation('Mark at least one requirement Lacking or Inappropriate before returning the application.');
           return;
         }
         if ((overall?.value || '').trim().length < 10) {
@@ -432,6 +432,11 @@
           confirmButton.textContent = 'Confirm Return';
         }
       } else if (decision === 'complete') {
+        if (wizard.dataset.step4ProjectType === 'other'
+            && form.querySelector('[name="assessment[doe_esc_coa]"]')?.value !== 'complete') {
+          showValidation('Other project types require DOE ESC/COA (#10) assessed Complete.');
+          return;
+        }
         if (!allSufficient()) {
           showValidation('Every requirement must be Complete or Not Applicable.');
           return;
