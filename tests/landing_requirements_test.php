@@ -45,6 +45,8 @@ if (!str_contains((string)$items[2]['note'], 'After being evaluated as complete 
     || $items[5]['note'] !== 'During Account Registration.'
     || !str_contains((string)$items[7]['note'], 'six (6) months')
     || !str_contains((string)$items[8]['note'], 'one (1) year')
+    || !str_contains((string)$items[3]['note'], 'Secretariat')
+    || !str_contains((string)$items[9]['note'], 'Solar and Biomass')
 ) {
     throw new RuntimeException('The payment, account registration, or post-FP timing notes do not match Annex 1.');
 }
