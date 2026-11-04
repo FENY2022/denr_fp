@@ -12,7 +12,8 @@
   const required = {
     individual:[],
     corporation:['certificate_registration','secretary_certification'],
-    government:['head_authorization']
+    government:['head_authorization'],
+    lgu:[]
   };
   const descriptions = {
     certificate_registration:'Certified true copy of Certificate of Registration from the registering agency.',
@@ -46,6 +47,8 @@
         ? 'Corporation / Cooperative / Association selected: both documents (a) and (b) are required.'
         : selected === 'government'
         ? 'Government Agency / GOCC selected: authorization from the Head of Agency is required.'
+        : selected === 'lgu'
+        ? 'LGU selected: Valid ID applies. No separate LGU-specific supporting document is listed in Annex 1.'
         : selected === 'individual'
         ? 'Individual / Sole Proprietorship selected: existing registration and Valid ID requirements apply.'
         : 'Select your Applicant / Organization Type above to highlight the requirements that apply to you.';
