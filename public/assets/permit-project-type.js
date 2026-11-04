@@ -32,6 +32,7 @@
           : 'Select your Type of Project to determine whether DOE #10 applies.';
     }
   };
+  other.addEventListener('input', () => other.setCustomValidity(''));
   type.addEventListener('change', update);
   type.addEventListener('input', update);
   window.addEventListener('pageshow', update);
