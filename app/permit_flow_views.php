@@ -135,8 +135,10 @@ function permit_flow_public_documents_html(array $app,array $viewer): string
         && (int)$viewer['id']===(int)$app['client_id'];
     if (!$mine) return '';
     $all=permit_flow_artifacts($id);
+    $noticeIssued=permit_flow_event_exists($id,2,'deficiency_notice_issued');
     $permitted=array_values(array_filter($all,static fn(array $d): bool=>
-        ((int)$d['step_number']===2 && $d['category']==='red_signed_deficiency_notice')
+        ($noticeIssued && (int)$d['step_number']===2
+            && $d['category']==='red_signed_deficiency_notice')
         || ((int)$d['step_number']>=10 && in_array($d['category'],[
             'approved_fp','approved_tor','approved_map','approved_sheet',
             'memo_to_penro_cenro','transmittal'],true))));
