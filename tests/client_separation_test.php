@@ -38,7 +38,7 @@ assert_client_separation(str_contains($registration, 'INSERT INTO user_client')
     && str_contains($registration, 'applicant_registrations (client_id'),
     'Registration inserts to user_client and links company details');
 assert_client_separation(str_contains($registration, 'UPDATE user_client SET status='),
-    'FUU review changes applicant activation in user_client');
+    'LPDD-FUS review changes applicant activation in user_client');
 assert_client_separation(str_contains($profile, 'principal_table($user)')
     && str_contains($profile, 'SET representative_name=? WHERE client_id=?'),
     'Client profile edits update the client account and company representative');
