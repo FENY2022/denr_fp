@@ -36,7 +36,7 @@
   const maxBytes = Number(root.dataset.maxBytes || 5242880);
   const persistent = root.dataset.persistent === '1';
   const draftKey = form.dataset.draftKey || '';
-  const fields = ['project_title','project_location','purpose',
+  const fields = ['project_title','project_type','project_type_other','project_location','purpose',
     'project_latitude','project_longitude'];
   const saveStatus = form.querySelector('[data-step2-autosave-status]');
   const warning = root.querySelector('[data-step2-js-warning]');
