@@ -10,7 +10,9 @@ function step3_action_panel_html(array $app): string
     $html='<div class="panel soft"><h3 class="h6"><i class="bi bi-inboxes me-2"></i>'
         .'RO Receiving/Releasing – Step 3</h3>'
         .'<p class="small text-secondary">Receive the electronic application documents, then '
-        .'forward them to LPDD-FUS for Step 4 documentary evaluation. '
+        .(permit_flow_is_new($app)
+            ? 'forward complete applications to LPDD-FUS for Step 4 payment notice, field schedule and CENRO instruction. '
+            : 'forward them to LPDD-FUS for legacy Step 4 documentary evaluation. ')
         .'Annex A processing time: within 1/2 day.</p>';
     if ($movement) {
         $html.='<p class="small"><strong>RO Received:</strong> '.e((string)$movement['received_at'])
@@ -43,7 +45,9 @@ function step3_action_panel_html(array $app): string
             .'<div class="modal-body"><p><strong>FP Application #'.$id.'</strong> – '
             .e((string)$app['applicant_name']).'</p><p class="mb-0">'
             .($receive ? 'Confirm actual RO receipt of electronic documents.'
-                : 'Confirm forwarding to LPDD-FUS for Step 4 evaluation; this is not a payment instruction.')
+                : (permit_flow_is_new($app)
+                    ? 'Confirm forwarding complete documents to LPDD-FUS for Step 4 payment notice and CENRO instructions.'
+                    : 'Confirm forwarding to LPDD-FUS for legacy Step 4 evaluation.'))
             .'</p></div><div class="modal-footer"><button type="button" '
             .'class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
             .'<button type="submit" class="btn btn-success" form="'.$form.'">Confirm '
