@@ -249,7 +249,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
     }
     if ($errors) return $errors;
     if ($decision==='complete' && !permit_payment_schema_ready()) {
-        return ['Apply database migration 028 to enable payment tracking and FUU notification before completing Step 4.'];
+        return ['Apply database migration 028 to enable payment tracking and LPDD-FUS notification before completing Step 4.'];
     }
 
     $pdo=db();
@@ -314,7 +314,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             $overall!=='' ? $overall : null
         ]);
         if ($complete) {
-            // Payment is a separate FUU workflow. Never set paid/verified here.
+            // Payment is a separate LPDD-FUS workflow. Never set paid/verified here.
             $pdo->prepare(
                 "INSERT INTO permit_payment_verifications
                  (application_id,status,notified_at)
@@ -343,9 +343,9 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
                     $message,'check-circle','success','permit_application',['id'=>$applicationId]
                 );
                 notify_role(
-                    'fuu','FP Application – Awaiting Cashier Payment / FUU Verification',
-                    'FP application #'.$applicationId.' completed Step 4. Applicant has been notified to pay at the DENR Regional Office Cashier and present the OR to FUU for verification.',
-                    'receipt','info','fuu_payment_queue',['tab'=>'awaiting']
+                    'lpdd_fus','FP Application – Awaiting Cashier Payment / LPDD-FUS Verification',
+                    'FP application #'.$applicationId.' completed Step 4. Applicant has been notified to pay at the DENR Regional Office Cashier and present the OR to LPDD-FUS for verification.',
+                    'receipt','info','lpdd_fus_payment_queue',['tab'=>'awaiting']
                 );
                 notify_role(
                     'cenro_twg','FP Application Ready for Step 5 Preparation',
@@ -389,8 +389,8 @@ function step4_send_applicant_email(
         $body.='<p>LPDD-FUS completed the documentary evaluation and found the submitted documentary requirements complete and sufficient.</p>'
             .'<ul><li>Submit the required hard copies.</li>'
             .'<li>Proceed to the DENR CARAGA Regional Office Cashier to pay the required application fee in accordance with official payment instructions.</li>'
-            .'<li><strong>After paying at the Cashier, proceed directly to the Forest Utilization Unit (FUU) and present your Official Receipt (OR) for payment verification.</strong></li>'
-            .'<li>Authorized FUU personnel will check the OR, record the payment details, and upload the receipt into FP-OMS. Payment is not verified until FUU confirms it.</li>'
+            .'<li><strong>After paying at the Cashier, proceed directly to the Forest Utilization Unit (LPDD-FUS) and present your Official Receipt (OR) for payment verification.</strong></li>'
+            .'<li>Authorized LPDD-FUS personnel will check the OR, record the payment details, and upload the receipt into FP-OMS. Payment is not verified until LPDD-FUS confirms it.</li>'
             .'<li>Field validation / assessment schedule: <strong>'
             .e(fpoms_display_datetime((string)$schedule)).'</strong></li></ul>';
     } else {
