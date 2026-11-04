@@ -606,7 +606,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
         : ($reviewer
             ? (in_array((string)$app['status'],$step4Statuses,true)
                 ? 'permit_step4_queue' : 'permit_initial_queue')
-            : (has_role($viewer,'ro_receiving') ? 'permit_ro_inbox' : 'dashboard'));
+            : (has_role($viewer,'fuu') ? 'fuu_payment_queue'
+                : (has_role($viewer,'ro_receiving') ? 'permit_ro_inbox' : 'dashboard')));
     $html = '<div class="mb-3"><a href="' . url($back) . '">← Back to list</a></div>'
         . '<div class="row g-3"><div class="col-lg-8"><div class="panel">'
         . errors_html($errors)
@@ -695,6 +696,10 @@ function view_step2_application(int $applicationId, array $errors = []): void
         $html .= step4_panel_html($app,$documents,$errors);
     } elseif (has_role($viewer,'cenro_twg') && (string)$app['status']==='step4_complete') {
         $html .= step4_result_panel_html($app);
+    } elseif (has_role($viewer,'fuu') && (string)$app['status']==='step4_complete') {
+        $html .= '<div class="panel soft"><h3 class="h6">FUU Payment Verification</h3>'
+            .'<p class="small mb-0">Verify the Cashier-issued Official Receipt using '
+            .'the payment verification panel below.</p></div>';
     } elseif (has_role($viewer,'ro_receiving')
         && in_array((string)$app['status'],[
             'forwarded_to_ro','ro_received','forwarded_to_lpdd',
@@ -709,6 +714,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '. Check the audit trail for completed actions.</p></div>';
     }
     $html .= '</div></div>'
+        . ((string)$app['status']==='step4_complete'
+            ? permit_payment_panel_html($app,$viewer,$errors) : '')
         . step2_files_modal_html($documents)
         . permit_tracking_audit_modal_html($applicationId)
         . ($reviewer && $app['status'] === 'submitted' ? decision_confirmation_modal_html() : '');
