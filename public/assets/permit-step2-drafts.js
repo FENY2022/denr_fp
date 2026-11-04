@@ -11,7 +11,7 @@
     [...categoryInput.options].map(opt=>opt.value).filter(Boolean));
   const categoryLabel = name =>
     [...categoryInput.options].find(opt=>opt.value===name)?.textContent
-      || 'Other / Earlier Supporting Document';
+      || 'Other Attached Document';
   const categoryIsValid = value => validCategories.has(value);
   const requirementLists = new Map(
     [...document.querySelectorAll('[data-step2-requirement-files]')]
