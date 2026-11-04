@@ -122,7 +122,10 @@ function view_step4_queue(): void
                 .($selected==='step4_complete'
                     ? '<a class="btn btn-sm btn-outline-success" href="'
                         .e(url('permit_application',['id'=>(int)$app['id']]).'#fp-payment-verification')
-                        .'"><i class="bi bi-receipt me-1"></i>View Payment Status</a>'
+                        .'"><i class="bi bi-receipt me-1"></i>'
+                        .(($paymentMap[(int)$app['id']] ?? 'awaiting_payment')==='verified'
+                            ? 'View Payment Receipt' : 'Verify Payment &amp; Upload OR')
+                        .'</a>'
                     : '')
                 .'</div></td></tr>';
         }
