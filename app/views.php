@@ -464,7 +464,7 @@ function registration_verified_modal_html(bool $ackDeliveryFailed, string $appli
         . '<p>This is to acknowledge that we have successfully received your applicant account registration submitted through the '
         . '<strong>DENR CARAGA Feasibility Permit Online Management System (FP-OMS)</strong>.</p>'
         . '<p>Please be informed that your registration is currently <strong>PENDING VALIDATION</strong> by the concerned '
-        . '<strong>LPDD-FUS</strong>, through the assigned LPDD-FUS reviewing personnel. '
+        . '<strong>LPDD-FUS reviewing personnel</strong>. '
         . 'Your submitted information and supporting documents will be checked for completeness, accuracy, and compliance '
         . 'with applicable registration requirements.</p>'
         . '<p>Once validation is completed, you will receive another email regarding your account status. '
