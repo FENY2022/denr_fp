@@ -32,7 +32,7 @@ function landing_fp_requirements(): array
             'title' => 'GIS Generated map of the subject area for feasibility study',
             'icon' => 'geo-alt',
             'details' => [],
-            'note' => null,
+            'note' => 'After deliberation, the Secretariat uploads the GIS-generated map; this is not a client Step 2 upload.',
         ],
         [
             'title' => 'For corporation, cooperatives and association',
@@ -73,7 +73,7 @@ function landing_fp_requirements(): array
             'title' => 'Energy Service Contract (ESC) or Certificate of Authority (COA) from DOE',
             'icon' => 'lightning-charge',
             'details' => [],
-            'note' => null,
+            'note' => 'Exempt for Solar and Biomass projects. Required for Other project types.',
         ],
     ];
 }
