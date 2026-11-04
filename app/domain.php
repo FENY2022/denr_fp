@@ -53,6 +53,7 @@ function role_definitions(): array
         'applicant' => ['Feasibility Permit Applicant', 'Registration, account corrections, and (later) FP applications'],
         'ro_receiving' => ['RO Receiving/Releasing (Admin)', 'Receive applications, forward and release approvals'],
         'lpdd_fus' => ['LPDD-FUS', 'Registration review, documentary evaluation and FP drafting'],
+        'fuu' => ['Forest Utilization Unit (FUU)', 'Verify Cashier payments and securely upload official receipts'],
         'lpdd_chief' => ['LPDD Chief', 'Initial the memo, permit and TOR'],
         'ard_ts' => ['ARD-TS', 'Endorse and initial documents for RED'],
         'red' => ['Regional Executive Director', 'Final approval of FP/TOR and related documents'],
