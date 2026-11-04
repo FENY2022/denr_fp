@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS permit_flow_artifacts (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   application_id BIGINT UNSIGNED NOT NULL,
   step_number TINYINT UNSIGNED NOT NULL,
+  application_revision INT UNSIGNED NOT NULL DEFAULT 1,
   category VARCHAR(60) NOT NULL,
   original_name VARCHAR(220) NOT NULL,
   stored_path VARCHAR(400) NOT NULL,
