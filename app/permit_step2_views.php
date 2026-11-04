@@ -536,6 +536,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . 'Annex 1 #3 (Cashier proof of payment) is handled after Step 4 by LPDD-FUS; '
         . '#4 (GIS map) is uploaded by the Secretariat after deliberation. '
         . 'ECC/CNC and NCIP final clearances have the post-issuance timelines below.</p>'
+        . '<p class="alert alert-info small" data-fp-doe-hint role="status">'
+        . 'Select your Type of Project to determine whether DOE #10 applies.</p>'
         . '<div class="row g-2">';
     foreach (step2_upload_categories() as $type => $label) {
         $html .= '<div class="col-md-6'.($type==='doe_esc_coa' && step2_project_doe_exempt($projectType)?' d-none':'').'">'
@@ -639,8 +641,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=11" defer></script>'
         . '<script src="assets/permit-project-type.js?v=1" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=11" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
