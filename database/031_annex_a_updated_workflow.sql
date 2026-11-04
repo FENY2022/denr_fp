@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS permit_flow_cases (
   application_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
   current_step TINYINT UNSIGNED NOT NULL DEFAULT 4,
   field_validation_schedule DATETIME NULL,
+  rrdc_schedule DATETIME NULL,
   notice_text TEXT NULL,
   cenro_instructions TEXT NULL,
   completed_at DATETIME NULL,
