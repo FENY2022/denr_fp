@@ -31,7 +31,7 @@ function step2_draft_scope_allowed(array $client, int $applicationId): bool
     if ($applicationId === 0) return true;
     return query_one(
         "SELECT id FROM permit_step2_applications
-         WHERE id=? AND client_id=? AND status IN ('corrections_required','reverted')",
+         WHERE id=? AND client_id=? AND status IN ('corrections_required','reverted','step4_corrections_required')",
         [$applicationId,(int)$client['id']]
     ) !== null;
 }
