@@ -31,6 +31,9 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
                 . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active)
                 . shell_nav_item('permit_step4_queue', 'Step 4 Documentary Evaluation', 'clipboard-data', $active);
         }
+        if (in_array('fuu', $roles, true)) {
+            $html .= shell_nav_item('fuu_payment_queue', 'FUU – Payment Verification', 'receipt', $active);
+        }
         if (in_array('ro_receiving', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Records Management</div>'
                 . shell_nav_item('permit_ro_inbox', 'RO Receiving – Step 3', 'inboxes', $active)
