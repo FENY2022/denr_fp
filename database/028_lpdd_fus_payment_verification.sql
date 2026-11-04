@@ -30,6 +30,21 @@ CREATE TABLE IF NOT EXISTS permit_payment_verifications (
     REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Transitional enum preserves payment audit rows from deployments that used
+-- the previous separate payment-role implementation.
+ALTER TABLE permit_step2_events
+  MODIFY COLUMN action ENUM(
+    'submitted','returned_for_correction','resubmitted','forwarded_to_ro',
+    'documents_received','reverted','ro_documents_received','forwarded_to_lpdd',
+    'step4_review_started','step4_returned_for_compliance',
+    'step4_resubmitted','step4_complete','ro_archived',
+    'payment_verified_fuu','payment_verified_lpdd_fus'
+  ) NOT NULL;
+
+UPDATE permit_step2_events
+SET action='payment_verified_lpdd_fus'
+WHERE action='payment_verified_fuu';
+
 ALTER TABLE permit_step2_events
   MODIFY COLUMN action ENUM(
     'submitted','returned_for_correction','resubmitted','forwarded_to_ro',
