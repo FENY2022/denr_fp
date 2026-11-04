@@ -350,7 +350,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         ? '<div class="panel soft mb-3"><h3 class="h6">RED-Signed Deficiency Notice</h3>'
           .'<p class="small text-secondary">If returning the application, attach the actual RED-signed '
           .'electronic notice/template first. Do not generate or claim a RED signature automatically.</p>'
-          .(permit_flow_artifacts($id,2)
+          .(permit_flow_signed_notice_for_revision($id,(int)$app['revision'])
               ? '<span class="badge text-bg-success">Signed Notice Uploaded</span>'
               : '<span class="badge text-bg-warning">Signed Notice Required Before Return</span>')
           .'<form method="post" enctype="multipart/form-data" class="mt-2" action="'
@@ -390,7 +390,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div data-step4-main-view data-step4-wizard '
         .'data-step4-project-type="'.e($projectType).'" '
         .'data-step4-flow-version="'.($modern?'2':'1').'" '
-        .'data-step4-signed-notice="'.(permit_flow_artifacts($id,2)?'1':'0').'" '
+        .'data-step4-signed-notice="'.(permit_flow_signed_notice_for_revision($id,(int)$app['revision'])?'1':'0').'" '
         .'data-step4-initial-step="'.$initialStep.'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
