@@ -324,6 +324,8 @@ mysql -u root -p denr_fp_oms < database/013_registration_email_otp.sql
 mysql -u root -p denr_fp_oms < database/028_lpdd_fus_payment_verification.sql
 # Existing deployments that previously used a separate payment-verification role:
 mysql -u root -p denr_fp_oms < database/029_consolidate_legacy_payment_role_into_lpdd_fus.sql
+# Revised Annex 1 Type of Project (Solar, Biomass, Other), stored on both permanent applications and drafts:
+mysql -u root -p denr_fp_oms < database/030_annex1_project_types.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -461,6 +463,16 @@ WHERE TABLE_SCHEMA=DATABASE() AND
 ```
 
 Apply the **one-time SQL 011 and 013 migrations** only if needed, in their required order and after backing up `denr_fp_oms` plus private storage. **Do not rerun** a migration that has already completed or partially applied; restore/reconcile first. The CSP correction itself does not require new SQL. Refresh assets with `git pull origin main` and **Ctrl + Shift + R**, then test registration in XAMPP and verify the email-confirmation link arrives before the acknowledgment.
+
+## Annex 1 (2026) Type of Project and revised checklist
+
+Migration **030** adds `project_type` and `project_type_other` to permanent FP applications and authenticated drafts. Run it once after migration 016 and back up the database. Previously submitted applications remain `unspecified` instead of being silently classified as Other; new or corrected applications require a selection.
+
+- **Solar and Biomass:** Annex 1 #10 DOE ESC/COA is exempt. Existing DOE draft files remain visible for removal when the client changes type.
+- **Other:** Client specifies the project type and must upload DOE ESC/COA (#10). Server checks both newly submitted and earlier revision documents. Additional uploads can use **Other Attached Document**, which does not count as a seventh documentary requirement.
+- **Account registration:** LGU is an available organization type. Annex 1 provides no extra LGU-only category document beyond existing registration requirements.
+- **Later process:** Fee receipt (#3) is recorded by LPDD-FUS after Cashier payment; GIS map (#4) is uploaded by the Secretariat after deliberation. ECC/CNC (#8) and NCIP (#9) follow the post-issuance deadlines shown in Annex 1.
+- **Step 4:** Assessment labels are now **Lacking** and **Inappropriate**. Existing database values `incomplete` and `insufficient` are intentionally preserved for prior audit/history compatibility. DOE #10 is auto **Not Applicable** for Solar/Biomass, and must be assessed Complete for Other.
 
 ## LPDD-FUS single-role terminology
 
