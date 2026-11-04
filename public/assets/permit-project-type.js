@@ -17,7 +17,18 @@
     otherWrap.classList.toggle('d-none', !isOther);
     other.required = isOther;
     other.disabled = !isOther;
-    if (doeCard) doeCard.closest('.col-md-6')?.classList.toggle('d-none', exempt);
+    const savedDoe = !!form.querySelector(
+      '[data-step2-draft-id][data-step2-requirement-type="doe_esc_coa"]'
+    );
+    const directDoe = !!form.querySelector(
+      '[data-step2-requirement-type="doe_esc_coa"].is-pending'
+    );
+    // Keep a previously uploaded DOE file visible for removal on exempt types.
+    if (doeCard) {
+      doeCard.closest('.col-md-6')?.classList.toggle('d-none', exempt && !savedDoe && !directDoe);
+      const uploadButton = doeCard.querySelector('[data-step2-pick-requirement]');
+      if (uploadButton) uploadButton.disabled = exempt;
+    }
     const doeOption = category?.querySelector('option[value="doe_esc_coa"]');
     if (doeOption) doeOption.disabled = exempt;
     if (exempt && category?.value === 'doe_esc_coa') {
@@ -36,6 +47,9 @@
   type.addEventListener('change', update);
   type.addEventListener('input', update);
   window.addEventListener('pageshow', update);
+  if (doeCard && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(update).observe(doeCard,{childList:true,subtree:true});
+  }
   update();
 
   // Submission validation precedes the persistent-draft submit handler.
