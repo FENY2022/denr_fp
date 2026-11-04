@@ -216,7 +216,7 @@ function view_step2_applications(): void
         . '<div class="alert alert-info small mt-3">'
         . 'Once LPDD-FUS marks your documents <strong>Complete &amp; Sufficient</strong>, '
         . 'click <strong>View Payment Instructions</strong>. Pay at the DENR Regional Office Cashier, '
-        . 'then proceed to FUU with the Official Receipt for verification.</div>';
+        . 'then proceed to LPDD-FUS with the Official Receipt for verification.</div>';
     if (!$apps) $html .= '<p class="text-secondary mb-0">No FP applications submitted yet.</p>';
     else {
         $html .= '<div class="table-responsive"><table class="table table-hover align-middle">'
@@ -630,7 +630,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
         : ($reviewer
             ? (in_array((string)$app['status'],$step4Statuses,true)
                 ? 'permit_step4_queue' : 'permit_initial_queue')
-            : (has_role($viewer,'fuu') ? 'fuu_payment_queue'
+            : (has_role($viewer,'lpdd_fus') ? 'lpdd_fus_payment_queue'
                 : (has_role($viewer,'ro_receiving') ? 'permit_ro_inbox' : 'dashboard')));
     $html = '<div class="mb-3"><a href="' . url($back) . '">← Back to list</a></div>'
         . '<div class="row g-3"><div class="col-lg-8"><div class="panel">'
@@ -657,14 +657,14 @@ function view_step2_application(int $applicationId, array $errors = []): void
                 .'<h3 class="h6 mb-2">Next Action – Application Fee</h3>'
                 .'<p class="small mb-2">'.(
                     ($mine
-                        ? 'Pay at the DENR CARAGA Regional Office Cashier, then go directly to FUU with your Official Receipt.'
-                        : (has_role($viewer,'fuu')
+                        ? 'Pay at the DENR CARAGA Regional Office Cashier, then go directly to LPDD-FUS with your Official Receipt.'
+                        : (has_role($viewer,'lpdd_fus')
                             ? 'Check the original Cashier-issued Official Receipt before uploading and confirming payment.'
-                            : 'Check whether FUU has verified the Cashier payment.'))
+                            : 'Check whether LPDD-FUS has verified the Cashier payment.'))
                 ).'</p>'
                 .'<a class="btn btn-sm btn-success" href="#fp-payment-verification">'
                 .($mine ? 'View Payment Instructions / Status'
-                    : (has_role($viewer,'fuu') ? 'Verify Payment / View OR'
+                    : (has_role($viewer,'lpdd_fus') ? 'Verify Payment / View OR'
                         : 'View Payment Status')).'</a></div>'
             : '')
         . '<div class="d-flex flex-wrap gap-2 mb-3" aria-label="FP application documents and history">'
@@ -735,10 +735,6 @@ function view_step2_application(int $applicationId, array $errors = []): void
         $html .= step4_panel_html($app,$documents,$errors);
     } elseif (has_role($viewer,'cenro_twg') && (string)$app['status']==='step4_complete') {
         $html .= step4_result_panel_html($app);
-    } elseif (has_role($viewer,'fuu') && (string)$app['status']==='step4_complete') {
-        $html .= '<div class="panel soft"><h3 class="h6">FUU Payment Verification</h3>'
-            .'<p class="small mb-0">Verify the Cashier-issued Official Receipt using '
-            .'the payment verification panel below.</p></div>';
     } elseif (has_role($viewer,'ro_receiving')
         && in_array((string)$app['status'],[
             'forwarded_to_ro','ro_received','forwarded_to_lpdd',
