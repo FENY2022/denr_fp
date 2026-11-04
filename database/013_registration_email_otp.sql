@@ -1,4 +1,4 @@
--- FP-OMS 013 | Email OTP verification before FUU review and acknowledgment
+-- FP-OMS 013 | Email OTP verification before LPDD-FUS review and acknowledgment
 -- REQUIREMENTS: migration 011 (user_client) must already have been applied.
 -- Back up denr_fp_oms and take the registration system offline during migration.
 -- Apply ONCE before deploying the matching PHP application code.
