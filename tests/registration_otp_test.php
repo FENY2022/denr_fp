@@ -44,8 +44,7 @@ must_otp($ack['subject'] === 'Acknowledgment of Registration – DENR CARAGA FP-
     'Acknowledgment email has the requested exact subject');
 must_otp(str_contains($ack['plain'], 'PENDING VALIDATION')
     && str_contains($ack['plain'], 'LPDD-FUS')
-    && str_contains($ack['html'], 'LPDD-FUS')
-    && !str_contains($ack['plain'], 'LPDD-FUS'),
+    && str_contains($ack['html'], 'LPDD-FUS'),
     'Acknowledgment uses LPDD-FUS in HTML and plain text');
 
 $reg = file_get_contents(__DIR__ . '/../app/registration.php');
