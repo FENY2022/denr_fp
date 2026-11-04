@@ -519,7 +519,8 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="alert alert-warning small d-none" data-step4-validation role="alert"></div>'
         .'<div class="alert alert-warning d-none mt-3" data-step4-confirm-panel '
         .'role="alertdialog" aria-labelledby="step4-confirm-title">'
-        .'<h5 class="h6" id="step4-confirm-title" data-step4-modal-title>Confirm Step 4 Decision</h5>'
+        .'<h5 class="h6" id="step4-confirm-title" data-step4-modal-title>'
+        .($modern?'Confirm Step 2 Decision':'Confirm Step 4 Decision').'</h5>'
         .'<p class="small" data-step4-modal-message></p>'
         .'<div class="d-flex flex-wrap gap-2">'
         .'<button type="button" class="btn btn-outline-secondary" data-step4-cancel-confirm>'
@@ -634,7 +635,9 @@ function step4_result_panel_html(array $app): string
     }
     if ($returned) {
         $html.='<div class="alert alert-warning small mb-0">Waiting for applicant compliance and resubmission. '
-            .'The next applicant submission returns directly to Step 4 re-evaluation.</div>';
+            .(permit_flow_is_new($app)
+                ? 'The next submission returns directly to LPDD-FUS Step 2 re-evaluation.'
+                : 'The next submission returns to legacy Step 4 re-evaluation.').'</div>';
     }
     return $html.'</div>';
 }
