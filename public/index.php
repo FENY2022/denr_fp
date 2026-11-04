@@ -730,6 +730,32 @@ try {
                 go('permit_step4_queue',['tab'=>$decision==='complete'?'complete':'returned']);
             }
             break;
+        case 'fuu_payment_queue':
+            if ($post) show_error('Payment queue is read-only.',405);
+            view_fuu_payment_queue();
+            break;
+        case 'permit_payment_verify':
+            $fuu=permit_payment_require_fuu();
+            if (!$post) show_error('Payment verification requires a confirmed POST.',405);
+            check_csrf();
+            $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            $errors=permit_payment_verify($fuu,(int)$id,$_POST,$_FILES);
+            if ($errors) view_step2_application((int)$id,$errors);
+            else {
+                flash('success','Cashier Official Receipt uploaded and payment verified by FUU.');
+                go('permit_application',['id'=>(int)$id]);
+            }
+            break;
+        case 'permit_payment_receipt':
+            if ($post) show_error('Official Receipt download requires GET.',405);
+            $viewer=require_user();
+            $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            permit_payment_send_receipt($viewer,(int)$id);
+            break;
         case 'permit_ro_inbox':
             if ($post) show_error('This page is read-only.',405);
             view_step2_ro_inbox();
