@@ -23,7 +23,7 @@ function view_step4_queue(): void
     $tallies=query_all(
         "SELECT status,COUNT(*) AS total
          FROM permit_step2_applications
-         WHERE status IN (
+         WHERE flow_version=1 AND status IN (
            'forwarded_to_lpdd','step4_under_evaluation',
            'step4_corrections_required','step4_resubmitted','step4_complete'
          )
@@ -50,7 +50,7 @@ function view_step4_queue(): void
          LEFT JOIN permit_step3_movements m ON m.application_id=a.id
          LEFT JOIN permit_step4_reviews r
            ON r.application_id=a.id AND r.revision=a.revision
-         WHERE a.status=?
+         WHERE a.status=? AND a.flow_version=1
          ORDER BY COALESCE(r.started_at,m.forwarded_at,a.last_submitted_at) ASC,a.id ASC
          LIMIT 300",[$selected]
     );
@@ -227,10 +227,15 @@ function step4_modal_all_files_content_html(array $documents): string
 function step4_start_panel_html(array $app): string
 {
     $id=(int)$app['id'];
+    $modern=permit_flow_is_new($app);
     return '<div class="panel soft"><h3 class="h6">'
-        .'<i class="bi bi-clipboard2-check me-2"></i>Step 4 – Documentary Evaluation</h3>'
-        .'<p class="small text-secondary">The application was forwarded by RO Receiving. '
-        .'Start the formal completeness and sufficiency evaluation.</p>'
+        .'<i class="bi bi-clipboard2-check me-2"></i>'
+        .($modern?'Step 2 – Completeness & Sufficiency':'Step 4 – Documentary Evaluation').'</h3>'
+        .'<p class="small text-secondary">'
+        .($modern
+            ? 'Applicant submitted directly to LPDD-FUS. Review completeness and sufficiency BEFORE forwarding to RO Receiving.'
+            : 'The application was forwarded by RO Receiving. Start the formal documentary evaluation.')
+        .'</p>'
         .'<form id="step4-start-form" method="post" action="'
         .e(url('permit_step4_start',['id'=>$id])).'">'.csrf_field()
         .'<button type="button" class="btn btn-success w-100" data-bs-toggle="modal" '
@@ -239,7 +244,7 @@ function step4_start_panel_html(array $app): string
         .'aria-labelledby="step4-start-modal-title" aria-hidden="true">'
         .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
         .'<div class="modal-header"><h2 class="modal-title h5" id="step4-start-modal-title">'
-        .'Start Step 4 Evaluation?</h2><button type="button" class="btn-close" '
+        .'Start Documentary Evaluation?</h2><button type="button" class="btn-close" '
         .'data-bs-dismiss="modal" aria-label="Close"></button></div>'
         .'<div class="modal-body"><p><strong>FP Application #'.$id.'</strong></p>'
         .'<p class="mb-0">This records the start of formal LPDD-FUS documentary evaluation '
@@ -327,6 +332,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
     $postRemarks=is_array($_POST['requirement_remarks'] ?? null) ? $_POST['requirement_remarks'] : [];
     $requirements=step2_requirement_types();
     $projectType=(string)($app['project_type'] ?? 'unspecified');
+    $modern=permit_flow_is_new($app);
     $totalRequirements=count($requirements);
     $assessedCount=0;
     foreach ($requirements as $type=>$label) {
@@ -339,9 +345,24 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         ? (int)round(($assessedCount/$totalRequirements)*100) : 0;
     $initialStep=$errors ? 4 : 1;
 
-    $html='<div class="panel soft">'
+    $html=($modern
+        ? '<div class="panel soft mb-3"><h3 class="h6">RED-Signed Deficiency Notice</h3>'
+          .'<p class="small text-secondary">If returning the application, attach the actual RED-signed '
+          .'electronic notice/template first. Do not generate or claim a RED signature automatically.</p>'
+          .(permit_flow_artifacts($id,2)
+              ? '<span class="badge text-bg-success">Signed Notice Uploaded</span>'
+              : '<span class="badge text-bg-warning">Signed Notice Required Before Return</span>')
+          .'<form method="post" enctype="multipart/form-data" class="mt-2" action="'
+          .e(url('permit_flow_upload',['id'=>$id,'step'=>2])).'">'.csrf_field()
+          .'<input type="hidden" name="category" value="red_signed_deficiency_notice">'
+          .'<input type="file" class="form-control mb-2" name="document" '
+          .'accept=".pdf,.jpg,.jpeg,.png" required>'
+          .'<button class="btn btn-sm btn-outline-success" type="submit">'
+          .'Upload Actual RED-Signed Notice</button></form></div>'
+        : '')
+        .'<div class="panel soft">'
         .'<h3 class="h6 mb-2"><i class="bi bi-clipboard-check me-2" aria-hidden="true"></i>'
-        .'Step 4 – Documentary Evaluation</h3>'
+        .($modern?'Step 2 – Documentary Completeness & Sufficiency':'Step 4 – Documentary Evaluation').'</h3>'
         .'<p class="small text-secondary">Review the documentary requirements using a guided '
         .'four-step workflow. Uploaded files open in a child preview modal without closing this evaluation.</p>'
         .'<button type="button" class="btn btn-success w-100" data-bs-toggle="modal" '
@@ -356,7 +377,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="modal-content step4-modal-content">'
         .'<div class="modal-header">'
         .'<div><h2 class="modal-title h5 mb-1" id="step4-evaluation-modal-title">'
-        .'Step 4 – Documentary Evaluation · FP #'.$id.'</h2>'
+        .($modern?'Step 2 – Documentary Completeness · FP #':'Step 4 – Documentary Evaluation · FP #').$id.'</h2>'
         .'<p class="small text-secondary mb-0">'
         .e((string)($app['applicant_name'] ?? 'Applicant')).' · '
         .e((string)($app['project_title'] ?? 'FP Application'))
@@ -367,10 +388,12 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="modal-body" data-step4-modal-body>'
         .'<div data-step4-main-view data-step4-wizard '
         .'data-step4-project-type="'.e($projectType).'" '
+        .'data-step4-flow-version="'.($modern?'2':'1').'" '
+        .'data-step4-signed-notice="'.(permit_flow_artifacts($id,2)?'1':'0').'" '
         .'data-step4-initial-step="'.$initialStep.'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
-        .'LPDD-FUS Step 4 Documentary Evaluation</h3>'
+        .($modern?'LPDD-FUS Step 2 Documentary Completeness':'LPDD-FUS Step 4 Documentary Evaluation').'</h3>'
         .'<p class="small text-secondary mb-0">Use Previous and Next to review one section at a time. '
         .'Your selections stay in this evaluation while opening and closing document previews.</p></div>'
         .'<button type="button" class="btn btn-sm btn-outline-primary" data-step4-view-all>'
@@ -446,7 +469,9 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="d-flex align-items-start gap-2 mb-3">'
         .'<span class="badge text-bg-success">03</span>'
         .'<div><h4 class="h6 mb-1">Overall Evaluation & Instructions</h4>'
-        .'<p class="small text-secondary mb-0">Summarize findings and prepare any applicant or field-validation instructions.</p></div></div>'
+        .'<p class="small text-secondary mb-0">'.($modern
+            ? 'Summarize missing/inappropriate documents. Payment and field scheduling take place only in Step 4 after RO.'
+            : 'Summarize findings and prepare any applicant or field-validation instructions.').'</p></div></div>'
         .'<label class="form-label" for="step4-overall-remarks">Overall Evaluation Remarks</label>'
         .'<textarea class="form-control mb-3" id="step4-overall-remarks" name="overall_remarks" '
         .'rows="4" maxlength="4000" placeholder="Summarize findings / deficiencies">'
@@ -456,10 +481,12 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'name="applicant_instructions" rows="3" maxlength="3000" '
         .'placeholder="Hard-copy, payment, compliance, or other instructions">'
         .e((string)($_POST['applicant_instructions'] ?? $review['applicant_instructions'] ?? '')).'</textarea>'
-        .'<label class="form-label" for="step4-field-schedule">Field Validation / Assessment Schedule '
-        .'<span class="text-secondary">(required only for Complete & Sufficient)</span></label>'
-        .'<input class="form-control" id="step4-field-schedule" name="field_validation_schedule" '
-        .'type="datetime-local" value="'.e((string)($_POST['field_validation_schedule'] ?? '')).'">'
+        .($modern
+            ? '<div class="alert alert-info small">Field validation scheduling and the payment notice are completed in Step 4, after RO Receiving Step 3.</div>'
+            : '<label class="form-label" for="step4-field-schedule">Field Validation / Assessment Schedule '
+                .'<span class="text-secondary">(required only for Complete & Sufficient)</span></label>'
+                .'<input class="form-control" id="step4-field-schedule" name="field_validation_schedule" '
+                .'type="datetime-local" value="'.e((string)($_POST['field_validation_schedule'] ?? '')).'">')
         .'</div></section>';
 
     $html.='<section class="d-none" data-step4-wizard-step="4" '
@@ -486,7 +513,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="small text-secondary">Applicant Instructions</div>'
         .'<div class="small" data-step4-summary-instructions>—</div></div></div>'
         .'<div class="col-12"><div class="border rounded-2 p-2">'
-        .'<div class="small text-secondary">Field Validation / Assessment Schedule</div>'
+        .'<div class="small text-secondary">'.($modern?'Scheduling: After RO Step 3':'Field Validation / Assessment Schedule').'</div>'
         .'<div class="small" data-step4-summary-schedule>Not set</div></div></div></div>'
         .'<div class="alert alert-warning small d-none" data-step4-validation role="alert"></div>'
         .'<div class="alert alert-warning d-none mt-3" data-step4-confirm-panel '
@@ -568,7 +595,8 @@ function step4_result_panel_html(array $app): string
     $items=step4_review_items((int)$review['id']);
     $returned=(string)$review['review_status']==='returned';
     $html='<div class="panel soft"><h3 class="h6">'
-        .'<i class="bi bi-clipboard-data me-2"></i>Step 4 Documentary Evaluation</h3>'
+        .'<i class="bi bi-clipboard-data me-2"></i>'
+        .(permit_flow_is_new($app)?'Step 2 Completeness & Sufficiency':'Step 4 Documentary Evaluation').'</h3>'
         .'<p class="small"><strong>Review Status:</strong> '
         .e($returned?'Returned for Compliance':'Complete & Sufficient')
         .'<br><strong>Reviewer:</strong> '.e((string)($review['reviewer_name'] ?? 'LPDD-FUS'))
@@ -616,6 +644,8 @@ function step4_panel_html(array $app,array $documents,array $errors=[]): string
         return '<div class="alert alert-warning">Step 4 requires database migration 027.</div>';
     }
     return match ((string)$app['status']) {
+        'submitted'=>permit_flow_is_new($app)?step4_start_panel_html($app)
+            : '<div class="alert alert-info">This is a legacy Step 2 review.</div>',
         'forwarded_to_lpdd','step4_resubmitted'=>step4_start_panel_html($app),
         'step4_under_evaluation'=>step4_evaluation_panel_html($app,$documents,$errors),
         'step4_corrections_required','step4_complete'=>step4_result_panel_html($app),
