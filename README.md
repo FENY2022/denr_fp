@@ -464,6 +464,64 @@ WHERE TABLE_SCHEMA=DATABASE() AND
 
 Apply the **one-time SQL 011 and 013 migrations** only if needed, in their required order and after backing up `denr_fp_oms` plus private storage. **Do not rerun** a migration that has already completed or partially applied; restore/reconcile first. The CSP correction itself does not require new SQL. Refresh assets with `git pull origin main` and **Ctrl + Shift + R**, then test registration in XAMPP and verify the email-confirmation link arrives before the acknowledgment.
 
+## Updated Annex A – versioned 11-step FP issuance (migration 031)
+
+**Run migration 031 once after migrations 027, 028/029 and 030.** Make a full
+backup of `denr_fp_oms` and encrypted `storage/` before importing. It adds
+`flow_version`, `permit_flow_cases`, `permit_flow_artifacts`, and
+`permit_flow_events`, plus SMD and CDD roles. Assign new roles through
+Super Administrator → User Management. Do **not** run the old migration 028
+again if your installation already applied it; 031 is additive.
+
+```sh
+mysql -u root -p denr_fp_oms < database/031_annex_a_updated_workflow.sql
+```
+
+- **Existing applications:** `flow_version=1` and continue their existing
+  Step 2 → RO → legacy Step 4 review without rewriting historical actions,
+  uploaded files, signatures or payment records.
+- **New applications:** `flow_version=2`; Applicant → LPDD-FUS Step 2
+  documentary completeness/sufficiency decision → RO Receiving Step 3 →
+  LPDD-FUS Step 4 payment notice, assessment schedule and CENRO memo.
+  Applications returned at Step 2 require an **actual RED-signed** electronic
+  notice uploaded by LPDD-FUS before finalizing return. The system never
+  generates or forges a RED signature.
+- **Step 4:** The LPDD-FUS account uploads CENRO memo instructions, records
+  the assessment schedule, and notifies the applicant to pay at the Regional
+  Office Cashier. Payment is separately verified and its actual Official
+  Receipt uploaded by LPDD-FUS. CENRO requests hard copies in **Step 5**.
+- **Step 5:** CENRO notifies the applicant to submit hard copies, records TWG
+  instructions, and uploads CENRO/CSW report, GIS map, shapefiles (ZIP), TD,
+  and certification of authenticity.
+- **Step 6:** SMD/GIS uploads final map; CDD schedules RRDC and uploads
+  minutes and agreements; RRDC/Secretariat records actual deliberation,
+  signs approval sheets outside the system, then uploads the **Scanned with
+  Signed Final Map** and signed approval sheet. All milestones must be
+  recorded before forwarding.
+- **Step 7:** LPDD-FUS uploads generated Memo Endorsement, FP and TOR.
+  **Step 8:** LPDD uploads initialed versions.
+  **Step 9:** ARD-TS uploads signed memo and initialed FP/TOR.
+  **Step 10:** RED uploads actual approved FP, TOR, Map, Approval Sheet and
+  PENRO/CENRO memo. **Step 11:** RO records release and transmittal.
+- The client is notified after Step 4 payment instructions and Step 11
+  release, and can access final approved documents only **after** the RO
+  completes Step 11. Every file is encrypted and hash-verified on download.
+- `permit_flow_cases.current_step` is the authoritative stage for the new
+  path. Old `step4_*` status/event codes are retained for backwards
+  compatibility and interpreted as **Step 2** for new cases. Formal SLA
+  calculations (holidays, pause rules, statutory time boundaries) are
+  deliberately **not automated** without approved computation rules.
+
+The process is navigable at `/public/permit-flow-queue` and individual
+`/public/permit-flow?id=...`, accessible by relevant DENR role accounts.
+The first Step 2 queue is `/public/permit-initial-queue`, and the existing
+RO inbox remains `/public/permit-ro-inbox`.
+
+**Testing:** DB-free PHP source/contract tests and JavaScript checks are
+included, but local XAMPP/MySQL integration, email delivery, document
+upload/preview, role permissions and signed-document authenticity must be
+verified on staging before production.
+
 ## Annex 1 (2026) Type of Project and revised checklist
 
 Migration **030** adds `project_type` and `project_type_other` to permanent FP applications and authenticated drafts. Run it once after migration 016 and back up the database. Previously submitted applications remain `unspecified` instead of being silently classified as Other; new or corrected applications require a selection.
