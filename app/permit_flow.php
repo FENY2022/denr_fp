@@ -169,6 +169,18 @@ function permit_flow_artifacts(int $id,?int $step=null): array
          WHERE d.application_id=?'.($step!==null ? ' AND d.step_number=?' : '')
         .' ORDER BY d.id DESC',$step===null?[$id]:[$id,$step]);
 }
+/** Bind the actual RED-signed deficiency notice to the review revision. */
+function permit_flow_signed_notice_for_revision(int $id,int $revision): bool
+{
+    if (!permit_flow_ready() || $revision<1) return false;
+    return query_one(
+        "SELECT id FROM permit_flow_artifacts
+         WHERE application_id=? AND step_number=2 AND application_revision=?
+           AND category='red_signed_deficiency_notice' LIMIT 1",
+        [$id,$revision]
+    )!==null;
+}
+
 function permit_flow_events(int $id): array
 {
     if (!permit_flow_ready()) return [];
@@ -230,10 +242,11 @@ function permit_flow_upload(array $staff,int $id,int $step,string $category,mixe
         @chmod($absolute,0600);
         $digest=fpoms_file_plaintext_sha256($absolute);
         $pdo->prepare('INSERT INTO permit_flow_artifacts
-            (application_id,step_number,category,original_name,stored_path,mime_type,
-             file_size,sha256,uploaded_by) VALUES (?,?,?,?,?,?,?,?,?)')
-            ->execute([$id,$step,$category,$upload['name'],$path,$upload['mime'],
-                (int)$upload['size'],$digest,(int)$staff['id']]);
+            (application_id,step_number,application_revision,category,original_name,
+             stored_path,mime_type,file_size,sha256,uploaded_by)
+             VALUES (?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$id,$step,(int)$locked['revision'],$category,$upload['name'],
+                $path,$upload['mime'],(int)$upload['size'],$digest,(int)$staff['id']]);
         permit_flow_record_event($pdo,$id,$step,$staff,'document_uploaded',
             $category.': '.$upload['name']);
         $pdo->commit();
