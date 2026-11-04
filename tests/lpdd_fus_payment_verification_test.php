@@ -22,9 +22,9 @@ payment_assert(isset($roles['lpdd_fus']),'LPDD-FUS role exists');
 payment_assert(!isset($roles[$legacyRoleCode]),'legacy separate payment role is no longer exposed');
 payment_assert(permit_payment_input_errors([
     'receipt_number'=>'OR-2026-1001',
-    'amount_paid'=>'275.50',
+    'amount_paid'=>'3,500.00',
     'payment_date'=>date('Y-m-d')
-])===[],'valid OR number, amount and payment date accepted');
+])===[],'valid OR number, formatted amount and payment date accepted');
 payment_assert(permit_payment_input_errors([
     'receipt_number'=>'',
     'amount_paid'=>'-50',

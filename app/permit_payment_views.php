@@ -83,7 +83,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
         .'<div class="row g-2"><div class="col-md-6 mb-3">'
         .'<label class="form-label" for="lpdd-fus-amount-'.$id.'">Amount Paid (PHP) *</label>'
         .'<input class="form-control" id="lpdd-fus-amount-'.$id.'" name="amount_paid" '
-        .'type="number" min="0.01" max="99999999999.99" step="0.01" required '
+        .'type="text" inputmode="decimal" data-payment-amount maxlength="18" required '
         .'value="'.e((string)($_POST['amount_paid']??'')).'"></div>'
         .'<div class="col-md-6 mb-3">'
         .'<label class="form-label" for="lpdd-fus-date-'.$id.'">Cashier Payment Date *</label>'

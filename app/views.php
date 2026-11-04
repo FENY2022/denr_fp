@@ -176,6 +176,8 @@ function render_page(string $title, string $content): void
             ? '<script src="assets/decision-confirm.js?v=1" defer></script>' : '')
         . (str_contains($content, 'data-otp-boxes')
             ? '<script src="assets/recovery-otp-input.js?v=1" defer></script>' : '')
+        . (str_contains($content, 'data-payment-amount')
+            ? '<script src="assets/payment-amount.js?v=1" defer></script>' : '')
         . '</body></html>';
 }
 

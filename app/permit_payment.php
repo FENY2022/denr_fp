@@ -59,7 +59,7 @@ function permit_payment_input_errors(array $input): array
 {
     $errors=[];
     $or=trim((string)($input['receipt_number']??''));
-    $amount=trim((string)($input['amount_paid']??''));
+    $amount=str_replace(',','',trim((string)($input['amount_paid']??'')));
     $date=trim((string)($input['payment_date']??''));
     $notes=trim((string)($input['notes']??''));
     if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9\-\/ .#]{1,89}$/D',$or)) {
@@ -95,6 +95,7 @@ function permit_payment_verify(array $lpddFus,int $applicationId,array $input,ar
     if (isset($upload['error'])) $errors[]='Official Receipt: '.$upload['error'];
     elseif (!isset($upload['file'])) $errors[]='Upload the Cashier-issued Official Receipt.';
     if ($errors) return $errors;
+    $amount=str_replace(',','',trim((string)$input['amount_paid']));
 
     $pdo=db();
     $stored=null;
@@ -146,7 +147,7 @@ function permit_payment_verify(array $lpddFus,int $applicationId,array $input,ar
         );
         $stmt->execute([
             trim((string)$input['receipt_number']),
-            number_format((float)$input['amount_paid'],2,'.',''),
+            number_format((float)$amount,2,'.',''),
             trim((string)$input['payment_date']),
             (string)$upload['name'],$relative,(string)$upload['mime'],
             (int)$upload['size'],$digest,(int)$lpddFus['id'],
@@ -165,7 +166,7 @@ function permit_payment_verify(array $lpddFus,int $applicationId,array $input,ar
         audit((int)$lpddFus['id'],'permit.payment.verified','permit_step2_application',$applicationId,[
             'receipt_number'=>trim((string)$input['receipt_number']),
             'payment_date'=>trim((string)$input['payment_date']),
-            'amount_paid'=>number_format((float)$input['amount_paid'],2,'.',''),
+            'amount_paid'=>number_format((float)$amount,2,'.',''),
             'file_sha256'=>$digest
         ]);
         $pdo->commit();
