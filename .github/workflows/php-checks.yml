@@ -38,7 +38,7 @@ jobs:
           php tests/permit_tracking_test.php
           php tests/step3_domain_test.php
           php tests/step4_documentary_evaluation_test.php
-          php tests/fuu_payment_verification_test.php
+          php tests/lpdd_fus_payment_verification_test.php
           node --check public/assets/permit-step4-review.js
           php tests/records_archiving_test.php
           node --check public/assets/permit-case-modals.js
