@@ -19,7 +19,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
         && ($viewer['status']??'')==='active' && has_role($viewer,'fuu');
     $id=(int)$app['id'];
 
-    $html='<section class="panel soft mt-3">'
+    $html='<section class="panel soft mt-3" id="fp-payment-verification" tabindex="-1">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">'
         .'<h3 class="h6 mb-0"><i class="bi bi-receipt me-2"></i>Application Fee / FUU Payment Verification</h3>'
         .permit_payment_status_badge($payment).'</div>';
@@ -57,9 +57,15 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
 
     $html.='<p class="small mb-2"><strong>Payment Instructions for Applicant:</strong></p>'
         .'<p class="small">'.e(permit_payment_instructions($id)).'</p>'
-        .'<p class="small text-secondary">Do not upload payment proof yourself. '
-        .'Present the Cashier-issued Official Receipt to the Forest Utilization Unit (FUU). '
-        .'Only FUU can verify and upload the receipt.</p>';
+        .'<div class="border rounded-3 p-3 mb-3 bg-body">'
+        .'<h4 class="h6 mb-3">Your Next Steps</h4>'
+        .'<ol class="mb-0 small">'
+        .'<li class="mb-2"><strong>Go to DENR CARAGA Regional Office Cashier</strong> and pay the assessed application fee.</li>'
+        .'<li class="mb-2"><strong>Proceed directly to FUU</strong> with the original Cashier-issued Official Receipt.</li>'
+        .'<li><strong>Wait for FUU verification.</strong> The FUU personnel records payment details and uploads the receipt in FP-OMS.</li>'
+        .'</ol></div>'
+        .'<p class="small text-secondary">You cannot confirm payment yourself. '
+        .'Only authorized FUU personnel may verify and upload the Official Receipt.</p>';
     if (!$isFuu) return $html.'</section>';
 
     $html.=errors_html($errors)
@@ -140,6 +146,10 @@ function view_fuu_payment_queue(): void
         .'<p class="small text-secondary">After paying at the DENR Regional Office Cashier, '
         .'the applicant proceeds to FUU and presents the original Official Receipt. '
         .'FUU verifies the payment and securely uploads the OR.</p>'
+        .'<div class="alert alert-info small">'
+        .'<strong>FUU action:</strong> When the applicant presents the original Cashier OR, '
+        .'click <strong>Verify Payment</strong>, check the details, upload the scanned OR, '
+        .'and confirm. Do not mark as verified before checking the Cashier transaction.</div>'
         .'<nav class="nav nav-pills gap-2 mb-3">'
         .'<a class="nav-link'.($tab==='awaiting'?' active':'').'" href="'
         .e(url('fuu_payment_queue',['tab'=>'awaiting'])).'">Awaiting FUU Verification</a>'
@@ -155,7 +165,7 @@ function view_fuu_payment_queue(): void
             .e((string)$row['project_title']).'</td><td>'
             .permit_payment_status_badge(['status'=>$row['payment_status']]).'</td>'
             .'<td><a class="btn btn-sm btn-outline-primary" href="'
-            .e(url('permit_application',['id'=>(int)$row['id']])).'">'
+            .e(url('permit_application',['id'=>(int)$row['id']]).'#fp-payment-verification').'">'
             .($tab==='verified'?'View Verified Receipt':'Verify Payment').'</a></td></tr>';
     }
     $html.='</tbody></table></div></div>';
