@@ -10,7 +10,7 @@ function location_assert(bool $ok,string $message): void
 {
     if (!$ok) throw new RuntimeException('Project pinpoint: '.$message);
 }
-$base=['project_title'=>'Community Forestry Project',
+$base=['project_title'=>'Community Forestry Project','project_type'=>'biomass',
     'project_location'=>'Barangay Example, Agusan del Norte','purpose'=>''];
 location_assert(step2_validate_input($base)===[],'address only remains valid');
 location_assert(step2_validate_input($base+[
