@@ -13,7 +13,7 @@ function permit_tracking_summary_html(array $application): string
     return '<section class="panel mb-3" aria-label="Application tracking overview">'
         . '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">'
         . '<h3 class="h6 mb-0"><i class="bi bi-signpost-split me-2"></i>Application Tracking</h3>'
-        . step2_status_badge((string)($application['status'] ?? '')) . '</div>'
+        . permit_flow_status_badge($application) . '</div>'
         . '<div class="row g-3">'
         . '<div class="col-md-6"><div class="border rounded-3 p-3 h-100">'
         . '<div class="small text-secondary mb-1">Current Office / Location</div>'
