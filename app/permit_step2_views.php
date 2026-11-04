@@ -193,19 +193,34 @@ function view_step2_applications(): void
          FROM permit_step2_applications WHERE client_id=?
          ORDER BY created_at DESC,id DESC LIMIT 100', [(int)$client['id']]
     );
+    // Fetch payment status in one query instead of reading one record per application.
+    $paymentMap=[];
+    $paymentAppIds=array_values(array_map(
+        static fn(array $row): int => (int)$row['id'],
+        array_filter($apps,static fn(array $row): bool => (string)$row['status']==='step4_complete')
+    ));
+    if ($paymentAppIds && permit_payment_schema_ready()) {
+        $marks=implode(',',array_fill(0,count($paymentAppIds),'?'));
+        foreach (query_all(
+            'SELECT application_id,status FROM permit_payment_verifications '
+                .'WHERE application_id IN ('.$marks.')',$paymentAppIds
+        ) as $paymentRow) {
+            $paymentMap[(int)$paymentRow['application_id']]=(string)$paymentRow['status'];
+        }
+    }
     $html = '<div class="panel"><div class="d-flex flex-wrap justify-content-between align-items-center gap-3">'
         . '<div><h2 class="h5 mb-1">My FP Applications</h2>'
-        . '<p class="small text-secondary mb-0">Step 2: Submit documents for LPDD-FUS Technical Staff initial review.</p></div>'
+        . '<p class="small text-secondary mb-0">Track documentary reviews, payment instructions and verified receipts.</p></div>'
         . '<a class="btn btn-primary" href="' . url('permit_apply') . '">'
         . '<i class="bi bi-plus-circle me-1"></i>New FP Application</a></div>'
-        . '<div class="alert alert-info small mt-3">As required by Annex A, an application goes first to '
-        . '<strong>LPDD-FUS Technical Staff</strong> for an initial completeness check. '
-        . 'Only complete applications proceed to RO Receiving. '
-        . 'The official documentary checklist must be confirmed with LPDD/FUS before production use.</div>';
+        . '<div class="alert alert-info small mt-3">'
+        . 'Once LPDD-FUS marks your documents <strong>Complete &amp; Sufficient</strong>, '
+        . 'click <strong>View Payment Instructions</strong>. Pay at the DENR Regional Office Cashier, '
+        . 'then proceed to FUU with the Official Receipt for verification.</div>';
     if (!$apps) $html .= '<p class="text-secondary mb-0">No FP applications submitted yet.</p>';
     else {
         $html .= '<div class="table-responsive"><table class="table table-hover align-middle">'
-            . '<thead><tr><th>No.</th><th>Project</th><th>Submitted</th><th>Revision</th><th>Status</th><th>Current Office</th><th>Next to Act</th><th></th></tr></thead><tbody>';
+            . '<thead><tr><th>No.</th><th>Project</th><th>Submitted</th><th>Revision</th><th>Status</th><th>Payment</th><th>Current Office</th><th>Next to Act</th><th>Action</th></tr></thead><tbody>';
         foreach ($apps as $app) {
             $routing = permit_tracking_state($app);
             $html .= '<tr><td>#' . (int)$app['id'] . '</td><td><strong>'
@@ -213,8 +228,17 @@ function view_step2_applications(): void
                 . e((string)$app['project_location']) . '</div></td><td>'
                 . e(review_queue_display_date($app['last_submitted_at'])) . '</td><td>' . (int)$app['revision']
                 . '</td><td>' . step2_status_badge((string)$app['status']) . '</td>'
+                . '<td>' . ((string)$app['status']==='step4_complete'
+                    ? permit_payment_status_badge(['status'=>$paymentMap[(int)$app['id']] ?? 'awaiting_payment'])
+                    : '<span class="text-secondary small">Not yet required</span>') . '</td>'
                 . '<td>' . e($routing['office']) . '</td><td>' . e($routing['next_role']) . '</td>'
                 . '<td><div class="d-flex flex-wrap gap-2">'
+                . ((string)$app['status']==='step4_complete'
+                    ? '<a class="btn btn-sm btn-success" href="'
+                        .e(url('permit_application',['id'=>(int)$app['id']]).'#fp-payment-verification')
+                        .'">'.(($paymentMap[(int)$app['id']] ?? '')==='verified'
+                            ? 'View Payment Receipt' : 'View Payment Instructions').'</a>'
+                    : '')
                 . '<a class="btn btn-sm btn-outline-primary" href="'
                 . e(url('permit_application',['id'=>(int)$app['id']]))
                 . '">Details</a>'
@@ -628,6 +652,21 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . '<dt class="col-sm-4">Last submitted</dt><dd class="col-sm-8">'
         . e((string)$app['last_submitted_at']) . '</dd></dl>'
         . permit_tracking_summary_html($app)
+        . ((string)$app['status']==='step4_complete'
+            ? '<div class="alert alert-info mt-3 mb-3" role="status">'
+                .'<h3 class="h6 mb-2">Next Action – Application Fee</h3>'
+                .'<p class="small mb-2">'.(
+                    ($mine
+                        ? 'Pay at the DENR CARAGA Regional Office Cashier, then go directly to FUU with your Official Receipt.'
+                        : (has_role($viewer,'fuu')
+                            ? 'Check the original Cashier-issued Official Receipt before uploading and confirming payment.'
+                            : 'Check whether FUU has verified the Cashier payment.'))
+                ).'</p>'
+                .'<a class="btn btn-sm btn-success" href="#fp-payment-verification">'
+                .($mine ? 'View Payment Instructions / Status'
+                    : (has_role($viewer,'fuu') ? 'Verify Payment / View OR'
+                        : 'View Payment Status')).'</a></div>'
+            : '')
         . '<div class="d-flex flex-wrap gap-2 mb-3" aria-label="FP application documents and history">'
         . '<button type="button" class="btn btn-primary" data-bs-toggle="modal" '
         . 'data-bs-target="#fp-files-modal">'
