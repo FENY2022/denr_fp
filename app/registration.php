@@ -145,7 +145,7 @@ function register_applicant(array $values, string $email, string $password, stri
         audit_client($uid,'registration.submitted','registration',$regId,[
             'revision'=>1,'email_verification'=>'pending'
         ]);
-        // FUU review and acknowledgment are deferred until the client confirms the email link.
+        // LPDD-FUS review and acknowledgment are deferred until the client confirms the email link.
         $stage = 'commit-registration';
         $pdo->commit();
         // Only after DB commit: purge temporary upload originals, not permanent copies.
