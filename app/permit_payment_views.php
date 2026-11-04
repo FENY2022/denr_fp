@@ -69,7 +69,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
     if (!$isFuu) return $html.'</section>';
 
     $html.=errors_html($errors)
-        .'<hr><h4 class="h6">FUU – Verify Cashier Payment</h4>'
+        .'<hr><h4 class="h6">FUU – Verify Payment & Upload Official Receipt</h4>'
         .'<p class="small text-secondary">Compare the original Cashier Official Receipt with '
         .'the transaction details before submitting. This action is recorded in the audit trail.</p>'
         .'<form method="post" enctype="multipart/form-data" '
@@ -102,7 +102,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
         .'maxlength="2000" rows="3">'.e((string)($_POST['notes']??'')).'</textarea></div>'
         .'<button type="button" class="btn btn-success w-100" data-bs-toggle="modal" '
         .'data-bs-target="#fuu-payment-confirm-'.$id.'">'
-        .'<i class="bi bi-shield-check me-1"></i>Review & Confirm Payment</button></form>'
+        .'<i class="bi bi-shield-check me-1"></i>Review Payment & Upload OR</button></form>'
         .'<div class="modal fade" id="fuu-payment-confirm-'.$id.'" tabindex="-1" '
         .'aria-labelledby="fuu-payment-confirm-title-'.$id.'" aria-hidden="true">'
         .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
@@ -116,7 +116,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
         .'<div class="modal-footer">'
         .'<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
         .'<button type="submit" class="btn btn-success" name="confirmation" value="verify_payment" '
-        .'form="fuu-payment-form-'.$id.'">Confirm & Upload OR</button>'
+        .'form="fuu-payment-form-'.$id.'">Confirm Payment & Upload OR</button>'
         .'</div></div></div></div>';
     return $html.'</section>';
 }
@@ -148,7 +148,7 @@ function view_fuu_payment_queue(): void
         .'FUU verifies the payment and securely uploads the OR.</p>'
         .'<div class="alert alert-info small">'
         .'<strong>FUU action:</strong> When the applicant presents the original Cashier OR, '
-        .'click <strong>Verify Payment</strong>, check the details, upload the scanned OR, '
+        .'click <strong>Verify Payment &amp; Upload OR</strong>, check the details, upload the scanned OR, '
         .'and confirm. Do not mark as verified before checking the Cashier transaction.</div>'
         .'<nav class="nav nav-pills gap-2 mb-3">'
         .'<a class="nav-link'.($tab==='awaiting'?' active':'').'" href="'
@@ -166,7 +166,7 @@ function view_fuu_payment_queue(): void
             .permit_payment_status_badge(['status'=>$row['payment_status']]).'</td>'
             .'<td><a class="btn btn-sm btn-outline-primary" href="'
             .e(url('permit_application',['id'=>(int)$row['id']]).'#fp-payment-verification').'">'
-            .($tab==='verified'?'View Verified Receipt':'Verify Payment').'</a></td></tr>';
+            .($tab==='verified'?'View Verified Receipt':'Verify Payment & Upload OR').'</a></td></tr>';
     }
     $html.='</tbody></table></div></div>';
     render_page('FUU Payment Verification',$html);
