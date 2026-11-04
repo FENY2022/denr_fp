@@ -8,6 +8,7 @@ function registration_organization_types(): array
         'individual'=>'Individual / Sole Proprietorship',
         'corporation'=>'Corporation / Cooperative / Association',
         'government'=>'National Government Agency / GOCC / Government Instrumentality',
+        'lgu'=>'Local Government Unit (LGU)',
     ];
 }
 
@@ -79,7 +80,7 @@ function registration_requirement_guide_html(): string
         . '<p class="small mb-0">' . $authorization . '.</p>'
         . '</div></div></div>'
         . '<p class="small text-secondary mb-2">'
-        . '<strong>Individual / Sole Proprietorship:</strong> Existing registration '
+        . '<strong>Individual / Sole Proprietorship and Local Government Unit (LGU):</strong> Existing registration '
         . 'requirements apply; no new category-specific document is required.</p>'
         . '<p class="small text-secondary mb-2" role="status" '
         . 'data-registration-entity-guide-status>'
@@ -110,6 +111,10 @@ function registration_reviewer_requirement_guide_html(string $selected): string
         ],
         'individual' => [
             'For Individual / Sole Proprietorship',
+            []
+        ],
+        'lgu' => [
+            'For Local Government Unit (LGU)',
             []
         ],
     ];
