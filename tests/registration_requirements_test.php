@@ -8,7 +8,7 @@ function entity_check(bool $yes,string $label): void {
 }
 $orgs = registration_organization_types();
 $choices = registration_requirement_choices();
-entity_check(count($orgs)===3,'three entity groups offered');
+entity_check(count($orgs)===4,'four entity groups including LGU offered');
 entity_check(isset($choices['certificate_registration'],$choices['secretary_certification'],
     $choices['head_authorization'],$choices['other']),'required type keys available');
 $corporate = [
@@ -28,6 +28,8 @@ entity_check(count(registration_requirement_errors('corporation',$government))==
     'corporation must provide both distinct mandatory categories');
 entity_check(registration_requirement_errors('individual',[])===[],
     'individual applicant has no new mandated supporting category');
+entity_check(registration_requirement_errors('lgu',[])===[],
+    'LGU has no separate supporting document required by the supplied Annex 1');
 entity_check(registration_requirement_errors('forged',[])!==[],
     'unrecognized entity type is rejected');
 entity_check(registration_requirement_errors('corporation',[
@@ -43,6 +45,8 @@ entity_check(str_contains($guide,'data-registration-requirement-card="corporatio
     'corporation requirements appear without choosing a type');
 entity_check(str_contains($guide,'data-registration-requirement-card="government"'),
     'government requirements appear without choosing a type');
+entity_check(str_contains($guide,'Local Government Unit (LGU)'),
+    'LGU is shown on the registration requirements guide');
 entity_check(str_contains($guide,registration_requirement_label('certificate_registration')),
     'registration certificate is stated in the guide');
 entity_check(str_contains($guide,registration_requirement_label('secretary_certification')),
