@@ -630,8 +630,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
         : ($reviewer
             ? (in_array((string)$app['status'],$step4Statuses,true)
                 ? 'permit_step4_queue' : 'permit_initial_queue')
-            : (has_role($viewer,'lpdd_fus') ? 'lpdd_fus_payment_queue'
-                : (has_role($viewer,'ro_receiving') ? 'permit_ro_inbox' : 'dashboard')));
+            : (has_role($viewer,'ro_receiving') ? 'permit_ro_inbox' : 'dashboard'));
     $html = '<div class="mb-3"><a href="' . url($back) . '">← Back to list</a></div>'
         . '<div class="row g-3"><div class="col-lg-8"><div class="panel">'
         . errors_html($errors)
