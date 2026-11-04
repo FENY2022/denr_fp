@@ -124,7 +124,7 @@ function registration_otp_verify(string $submitted): array
         unset($_SESSION['registration_pending_client_id'], $_SESSION['registration_otp_delivery_failed']);
 
         // The client acknowledgment is the FIRST post-verification notification.
-        // Verification has committed; attempt SMTP synchronously before notifying Forest Utilization Section (FUU) reviewers.
+        // Verification has committed; attempt SMTP synchronously before notifying LPDD-FUS reviewers.
         // A transport failure does not undo verification and is shown in the modal.
         $acknowledgmentSent = false;
         try {
