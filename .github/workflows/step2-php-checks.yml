@@ -87,6 +87,8 @@ jobs:
           php tests/pusher_realtime_test.php
           php tests/realtime_settings_test.php
           node --check public/assets/fpoms-pusher.js
+      - name: Updated Annex A 11-step workflow and signed Final Map
+        run: php tests/annex_a_updated_workflow_test.php
       - name: Step 4 documentary evaluation and compliance loop
         run: |
           php tests/step4_documentary_evaluation_test.php
