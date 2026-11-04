@@ -216,6 +216,8 @@ function step2_input(): array
 {
     $data = [
         'project_title'=>safe_post('project_title',180),
+        'project_type'=>safe_post('project_type',20),
+        'project_type_other'=>safe_post('project_type_other',160),
         'project_location'=>safe_post('project_location',300),
         'purpose'=>safe_post('purpose',2000)
     ];
@@ -240,6 +242,13 @@ function step2_validate_input(array $data): array
     if (strlen((string)($data['purpose'] ?? '')) > 2000) {
         $errors[] = 'Project Description must not exceed 2,000 characters.';
     }
+    $type=trim((string)($data['project_type'] ?? ''));
+    $other=trim((string)($data['project_type_other'] ?? ''));
+    if (!isset(step2_project_types()[$type])) {
+        $errors[]='Select a Type of Project: Solar, Biomass, or Other.';
+    } elseif ($type==='other' && (mb_strlen($other)<3 || mb_strlen($other)>160)) {
+        $errors[]='Specify the Other Type of Project (3–160 characters).';
+    }
     return array_merge($errors,step2_coordinate_errors($data));
 }
 
@@ -258,6 +267,9 @@ function step2_submit(array $client, array $data, array $files, int $application
     }
     if (!step2_category_schema_ready()) {
         return ['FP document categories require database migration 019. Contact the ICT administrator.'];
+    }
+    if (!step2_project_type_schema_ready()) {
+        return ['Apply database migration 030 before submitting a Type of Project.'];
     }
     $errors = step2_validate_input($data);
     $coordsReady = step2_location_schema_ready();
@@ -302,6 +314,31 @@ function step2_submit(array $client, array $data, array $files, int $application
                 }
             }
         }
+        // Annex 1 #10 is exempt for Solar and Biomass, but required for Other.
+        // Classifications from already-submitted revisions remain available for
+        // returned applications; other attachments cannot satisfy DOE #10.
+        $incoming=array_merge($uploads['items'],$draftRows);
+        $hasNewDoe=false;
+        foreach ($incoming as $doc) {
+            $category=(string)($doc['requirement_type'] ?? '');
+            if ($category==='doe_esc_coa') $hasNewDoe=true;
+        }
+        if (step2_project_doe_exempt((string)$data['project_type']) && $hasNewDoe) {
+            $pdo->rollBack();
+            return ['DOE ESC/COA (#10) is exempt for Solar and Biomass. Remove the newly selected DOE document from this submission.'];
+        }
+        if (step2_project_requires_doe((string)$data['project_type'])) {
+            $hasPriorDoe=$applicationId>0 && query_one(
+                "SELECT id FROM permit_step2_documents
+                 WHERE application_id=? AND requirement_type='doe_esc_coa' LIMIT 1",
+                [$applicationId]
+            )!==null;
+            if (!$hasNewDoe && !$hasPriorDoe) {
+                $pdo->rollBack();
+                return ['Other project types must upload Annex 1 requirement #10: DOE Energy Service Contract (ESC) or Certificate of Authority (COA).'];
+            }
+        }
+
         $revision = 1;
         if ($applicationId !== 0) {
             $locked = query_one(
@@ -320,24 +357,24 @@ function step2_submit(array $client, array $data, array $files, int $application
                 if ($step4Compliance) {
                     $pdo->prepare(
                         "UPDATE permit_step2_applications
-                         SET project_title=?,project_location=?,project_latitude=?,
+                         SET project_title=?,project_type=?,project_type_other=?,project_location=?,project_latitude=?,
                              project_longitude=?,purpose=?,revision=?,
                              status='step4_resubmitted',last_submitted_at=NOW()
                          WHERE id=? AND client_id=?"
                     )->execute([
-                        $data['project_title'],$data['project_location'],$lat,$lon,
+                        $data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],$lat,$lon,
                         $data['purpose'] ?: null,$revision,$applicationId,$clientId
                     ]);
                 } else {
                     $pdo->prepare(
                         "UPDATE permit_step2_applications
-                         SET project_title=?,project_location=?,project_latitude=?,
+                         SET project_title=?,project_type=?,project_type_other=?,project_location=?,project_latitude=?,
                              project_longitude=?,purpose=?,revision=?,
                              status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
                              reviewer_user_id=NULL,forwarded_at=NULL,
                              received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
                     )->execute([
-                        $data['project_title'],$data['project_location'],$lat,$lon,
+                        $data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],$lat,$lon,
                         $data['purpose'] ?: null,$revision,$applicationId,$clientId
                     ]);
                 }
@@ -345,22 +382,22 @@ function step2_submit(array $client, array $data, array $files, int $application
                 if ($step4Compliance) {
                     $pdo->prepare(
                         "UPDATE permit_step2_applications
-                         SET project_title=?,project_location=?,purpose=?,revision=?,
+                         SET project_title=?,project_type=?,project_type_other=?,project_location=?,purpose=?,revision=?,
                              status='step4_resubmitted',last_submitted_at=NOW()
                          WHERE id=? AND client_id=?"
                     )->execute([
-                        $data['project_title'],$data['project_location'],$data['purpose'] ?: null,
+                        $data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],$data['purpose'] ?: null,
                         $revision,$applicationId,$clientId
                     ]);
                 } else {
                     $pdo->prepare(
                         "UPDATE permit_step2_applications
-                         SET project_title=?,project_location=?,purpose=?,revision=?,
+                         SET project_title=?,project_type=?,project_type_other=?,project_location=?,purpose=?,revision=?,
                              status='submitted',last_submitted_at=NOW(),reviewed_at=NULL,
                              reviewer_user_id=NULL,forwarded_at=NULL,
                              received_at=NULL,received_by_user_id=NULL WHERE id=? AND client_id=?"
                     )->execute([
-                        $data['project_title'],$data['project_location'],$data['purpose'] ?: null,
+                        $data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],$data['purpose'] ?: null,
                         $revision,$applicationId,$clientId
                     ]);
                 }
@@ -370,20 +407,20 @@ function step2_submit(array $client, array $data, array $files, int $application
             if ($coordsReady) {
                 $pdo->prepare(
                     "INSERT INTO permit_step2_applications
-                        (client_id,project_title,project_location,project_latitude,
+                        (client_id,project_title,project_type,project_type_other,project_location,project_latitude,
                          project_longitude,purpose,status)
-                     VALUES (?,?,?,?,?,?,'submitted')"
+                     VALUES (?,?,?,?,?,?,?,?,'submitted')"
                 )->execute([
-                    $clientId,$data['project_title'],$data['project_location'],
+                    $clientId,$data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],
                     $lat,$lon,$data['purpose'] ?: null
                 ]);
             } else {
                 $pdo->prepare(
                     "INSERT INTO permit_step2_applications
-                        (client_id,project_title,project_location,purpose,status)
-                     VALUES (?,?,?,?,'submitted')"
+                        (client_id,project_title,project_type,project_type_other,project_location,purpose,status)
+                     VALUES (?,?,?,?,?,?,'submitted')"
                 )->execute([
-                    $clientId,$data['project_title'],$data['project_location'],
+                    $clientId,$data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],
                     $data['purpose'] ?: null
                 ]);
             }
