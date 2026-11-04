@@ -68,7 +68,7 @@ function view_step4_queue(): void
     $html='<div class="panel"><div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">'
         .'<div><h2 class="h5 mb-1">Step 4 – Documentary Evaluation</h2>'
         .'<p class="small text-secondary mb-0">LPDD-FUS determines documentary completeness and sufficiency. '
-        .'Incomplete/insufficient applications return to the applicant; complete/sufficient applications proceed toward Step 5 field validation preparation.</p></div>'
+        .'Lacking/Inappropriate applications return to the applicant; complete/sufficient applications proceed toward Step 5 field validation preparation.</p></div>'
         .'<span class="badge text-bg-success p-2">Annex A · Within 1 1/2 days</span></div>'
         .'<nav class="nav nav-pills d-flex flex-wrap gap-2 mb-3" aria-label="Step 4 status tabs">';
     foreach ($tabs as $key=>$data) {
@@ -260,25 +260,35 @@ function step4_requirement_sections(): array
 }
 
 function step4_requirement_review_card_html(
-    string $type,string $label,array $documents,string $current,string $remark
+    string $type,string $label,array $documents,string $current,string $remark,
+    string $projectType=''
 ): string {
+    $exempt=$type==='doe_esc_coa' && step2_project_doe_exempt($projectType);
+    if ($exempt) {
+        $current='not_applicable';
+        $remark='Exempt from Annex 1 #10 for Solar/Biomass.';
+    }
     $uploaded=count($documents);
     $html='<section class="border rounded-3 p-3 bg-body" data-step4-requirement="'.e($type).'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">'
         .'<div><strong>'.e($label).'</strong>'
-        .'<div class="small text-secondary">Uploaded file(s), all revisions: '.$uploaded.'</div></div>'
+        .'<div class="small text-secondary">Uploaded file(s), all revisions: '.$uploaded.'</div>'
+        .(($note=step2_requirement_note($type,$projectType))!==''
+            ? '<div class="small text-info mt-1">'.e($note).'</div>' : '')
+        .'</div>'
         .'<span class="badge '.($uploaded>0?'text-bg-success':'text-bg-secondary').'">'
         .($uploaded>0?'Files available':'No categorized file').'</span></div>'
         .step4_requirement_uploaded_files_html($type,$documents)
         .'<div class="row g-2 mt-1"><div class="col-md-5">'
         .'<label class="form-label" for="step4-assessment-'.e($type).'">Assessment</label>'
         .'<select class="form-select" id="step4-assessment-'.e($type).'" '
-        .'name="assessment['.e($type).']" data-step4-assessment required>'
+        .'name="assessment['.e($type).']" data-step4-assessment required'
+        .($exempt?' disabled aria-disabled="true"':'').'>'
         .'<option value="">Select assessment</option>';
     foreach ([
         'complete'=>'Complete',
-        'incomplete'=>'Incomplete / Missing',
-        'insufficient'=>'Insufficient',
+        'incomplete'=>'Lacking',
+        'insufficient'=>'Inappropriate',
         'not_applicable'=>'Not Applicable'
     ] as $value=>$text) {
         $html.='<option value="'.e($value).'"'.($current===$value?' selected':'').'>'
@@ -288,7 +298,8 @@ function step4_requirement_review_card_html(
         .'<label class="form-label" for="step4-remarks-'.e($type).'">Requirement Remarks</label>'
         .'<textarea class="form-control" id="step4-remarks-'.e($type).'" '
         .'name="requirement_remarks['.e($type).']" maxlength="1500" rows="2" '
-        .'placeholder="Required when incomplete or insufficient">'.e($remark).'</textarea>'
+        .($exempt?'readonly ':'')
+        .'placeholder="Required when Lacking or Inappropriate">'.e($remark).'</textarea>'
         .'</div></div></section>';
 }
 
@@ -306,10 +317,13 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
     $postAssess=is_array($_POST['assessment'] ?? null) ? $_POST['assessment'] : [];
     $postRemarks=is_array($_POST['requirement_remarks'] ?? null) ? $_POST['requirement_remarks'] : [];
     $requirements=step2_requirement_types();
+    $projectType=(string)($app['project_type'] ?? 'unspecified');
     $totalRequirements=count($requirements);
     $assessedCount=0;
     foreach ($requirements as $type=>$label) {
-        $value=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
+        $value=$type==='doe_esc_coa' && step2_project_doe_exempt($projectType)
+            ? 'not_applicable'
+            : (string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
         if (in_array($value,step4_allowed_assessments(),true)) $assessedCount++;
     }
     $progressPercent=$totalRequirements>0
@@ -337,6 +351,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<p class="small text-secondary mb-0">'
         .e((string)($app['applicant_name'] ?? 'Applicant')).' · '
         .e((string)($app['project_title'] ?? 'FP Application'))
+        .' · '.e(step2_project_label($projectType,(string)($app['project_type_other'] ?? '')))
         .' · Revision '.(int)$app['revision'].'</p></div>'
         .'<button type="button" class="btn-close" data-bs-dismiss="modal" '
         .'aria-label="Close Documentary Evaluation"></button></div>'
@@ -352,7 +367,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<i class="bi bi-folder2-open me-1" aria-hidden="true"></i>View All Uploaded Files</button></div>'
         .(!empty($groupedDocuments['other'])
             ? '<div class="alert alert-warning small py-2"><strong>Unclassified files detected:</strong> '
-                .count($groupedDocuments['other']).' earlier uploaded file(s) are not assigned to a named '
+                .count($groupedDocuments['other']).' optional Other Attached Document file(s) are not assigned to a named '
                 .'Step 4 requirement. Use <strong>View All Uploaded Files</strong> to inspect them before deciding.</div>'
             : '')
         .errors_html($errors)
@@ -392,7 +407,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         $current=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
         $remark=(string)($postRemarks[$type] ?? $saved[$type]['remarks'] ?? '');
         $docs=is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : [];
-        $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark);
+        $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark,$projectType);
     }
     $html.='</div></div></section>';
 
@@ -402,14 +417,16 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div class="d-flex align-items-start gap-2 mb-3">'
         .'<span class="badge text-bg-success">02</span>'
         .'<div><h4 class="h6 mb-1">Environmental / Regulatory Clearances</h4>'
-        .'<p class="small text-secondary mb-0">Review applicable clearances and supporting regulatory documents.</p></div></div>'
+        .'<p class="small text-secondary mb-0">ECC/CNC: six months after FP issuance. '
+        .'NCIP Clearance: one year after FP issuance. '
+        .'DOE #10 is exempt for Solar/Biomass and required for Other project types.</p></div></div>'
         .'<div class="vstack gap-3">';
     foreach ($regulatory['requirements'] as $type) {
         $label=$requirements[$type] ?? step2_requirement_label($type);
         $current=(string)($postAssess[$type] ?? $saved[$type]['assessment'] ?? '');
         $remark=(string)($postRemarks[$type] ?? $saved[$type]['remarks'] ?? '');
         $docs=is_array($groupedDocuments[$type] ?? null) ? $groupedDocuments[$type] : [];
-        $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark);
+        $html.=step4_requirement_review_card_html($type,$label,$docs,$current,$remark,$projectType);
     }
     $html.='</div></div></section>';
 
