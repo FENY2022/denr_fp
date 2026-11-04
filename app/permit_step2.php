@@ -94,8 +94,11 @@ function step2_application_for_view(array $viewer, int $applicationId): array
     $cenro = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'cenro_twg')
         && (string)$app['status']==='step4_complete';
+    $fuu = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'fuu')
+        && (string)$app['status']==='step4_complete';
     $historical = permit_tracking_historical_staff_access($viewer,$applicationId);
-    if (!$mine && !$reviewer && !$receiving && !$cenro && !$historical) {
+    if (!$mine && !$reviewer && !$receiving && !$cenro && !$fuu && !$historical) {
         show_error('You do not have permission to access this application.', 404);
     }
     return $app;
@@ -745,8 +748,11 @@ function step2_send_document(array $viewer, int $documentId): never
     $cenro = ($viewer['user_kind'] ?? '') === 'internal'
         && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'cenro_twg')
         && (string)$doc['application_status']==='step4_complete';
+    $fuu = ($viewer['user_kind'] ?? '') === 'internal'
+        && ($viewer['status'] ?? '') === 'active' && has_role($viewer,'fuu')
+        && (string)$doc['application_status']==='step4_complete';
     $historical = permit_tracking_historical_staff_access($viewer,(int)$doc['application_id']);
-    if (!$mine && !$lpdd && !$ro && !$cenro && !$historical) {
+    if (!$mine && !$lpdd && !$ro && !$cenro && !$fuu && !$historical) {
         show_error('Document not found or access denied.',404);
     }
 
