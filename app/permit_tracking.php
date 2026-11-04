@@ -9,6 +9,26 @@ declare(strict_types=1);
  * Registration history continues to come from registration_reviews.
  */
 
+/** The Step 4 payment action changes only after an actual FUU verification. */
+function permit_tracking_step4_payment_state(array $app): array
+{
+    $payment=permit_payment_record((int)($app['id']??0));
+    if ($payment && (string)$payment['status']==='verified') {
+        return [
+            'office'=>'LPDD-FUS / CENRO Step 5 Preparation',
+            'next_role'=>'CENRO Technical Working Group',
+            'next_action'=>'Cashier payment verified by FUU. Follow the field validation / assessment instructions and await Step 5 processing.',
+            'assignment'=>'Step 5 formal processing is not yet implemented'
+        ];
+    }
+    return [
+        'office'=>'DENR CARAGA Regional Office – Cashier / FUU',
+        'next_role'=>'Applicant → Cashier → FUU',
+        'next_action'=>'Pay the official application fee at the Regional Office Cashier, then proceed directly to FUU and present the Official Receipt for verification. Submit required hard copies.',
+        'assignment'=>'Awaiting Cashier payment and authorized FUU verification'
+    ];
+}
+
 /** @return array{office:string,next_role:string,next_action:string,assignment:string} */
 function permit_tracking_state(array $app): array
 {
@@ -70,12 +90,7 @@ function permit_tracking_state(array $app): array
             'next_action'=>'Re-evaluate the applicant compliance submission under Step 4',
             'assignment'=>'No individual assignee is recorded until review starts'
         ],
-        'step4_complete' => [
-            'office'=>'LPDD-FUS / CENRO Step 5 Preparation',
-            'next_role'=>'CENRO Technical Working Group',
-            'next_action'=>'Submit required hard copies, complete application-fee payment, and proceed with scheduled field validation / assessment',
-            'assignment'=>'Step 5 formal processing is not yet implemented'
-        ],
+        'step4_complete' => permit_tracking_step4_payment_state($app),
         default => [
             'office'=>'Unknown / workflow not implemented',
             'next_role'=>'Not determined',
@@ -99,6 +114,7 @@ function permit_tracking_event_label(string $action): string
         'step4_returned_for_compliance'=>'Step 4 Returned for Compliance',
         'step4_resubmitted'=>'Step 4 Compliance Resubmitted',
         'step4_complete'=>'Step 4 Complete & Sufficient',
+        'payment_verified_fuu'=>'Cashier Payment Verified by FUU',
         'ro_archived'=>'Records Action Archived',
         'reverted'=>'Reverted by Applicant',
         default=>ucwords(str_replace('_',' ', $action))
@@ -114,7 +130,8 @@ function permit_tracking_event_destination(string $action): string
         'ro_documents_received'=>'RO Receiving/Releasing',
         'forwarded_to_lpdd','step4_review_started','step4_resubmitted'=>'LPDD-FUS (Regional Office)',
         'step4_returned_for_compliance'=>'Applicant / Client',
-        'step4_complete'=>'CENRO TWG / Step 5 Preparation',
+        'step4_complete'=>'LPDD-FUS / Cashier / FUU',
+        'payment_verified_fuu'=>'FUU (Regional Office)',
         'ro_archived'=>'Records Archiving',
         default=>'Not recorded'
     };
