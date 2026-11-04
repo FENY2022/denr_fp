@@ -47,10 +47,11 @@ function permit_payment_instructions(int $applicationId): string
 {
     return 'Your Feasibility Permit application #'.$applicationId
         .' is complete and sufficient in documentary requirements. '
-        .'Please submit the required hard copies and proceed to the DENR CARAGA Regional Office Cashier '
+        .'Please proceed to the DENR CARAGA Regional Office Cashier '
         .'to pay the required application fee according to official payment instructions. '
         .'After paying at the Cashier, please proceed directly to the LPDD-FUS '
         .'and present your Official Receipt (OR) for payment verification. '
+        .'CENRO will notify you separately to submit hard copies for field validation. '
         .'The authorized LPDD-FUS personnel will verify the payment details and upload the OR in FP-OMS. '
         .'Payment remains Awaiting LPDD-FUS Verification until the authorized LPDD-FUS account confirms it.';
 }
