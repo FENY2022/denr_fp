@@ -100,6 +100,12 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
             (application_id,actor_user_id,action,revision,remarks) VALUES (?,?,?,?,?)')
             ->execute([$applicationId,(int)$staff['id'],$event,(int)$app['revision'],
                 $remarks !== '' ? $remarks : null]);
+        if ($action==='forward' && permit_flow_is_new($app)) {
+            if (!permit_flow_ready()) throw new RuntimeException('Migration 031 required');
+            $pdo->prepare('INSERT INTO permit_flow_cases (application_id,current_step)
+                VALUES (?,4) ON DUPLICATE KEY UPDATE application_id=application_id')
+                ->execute([$applicationId]);
+        }
         audit((int)$staff['id'],'permit.step3.'.$event,'permit_step2_application',
             $applicationId,['revision'=>(int)$app['revision'],'remarks'=>$remarks]);
         $pdo->commit();
@@ -109,12 +115,15 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
             create_client_notification((int)$app['client_id'],
                 $action==='receive' ? 'FP Application Received by RO' : 'FP Application Forwarded to LPDD-FUS',
                 $action==='receive' ? 'RO Receiving received FP application #'.$applicationId.'.'
-                    : 'RO Receiving forwarded FP application #'.$applicationId.' to LPDD-FUS for Step 4 evaluation.',
+                    : 'RO Receiving forwarded FP application #'.$applicationId.' to LPDD-FUS for Step 4 payment notice, field validation schedule and CENRO instruction.',
                 $action==='receive' ? 'inbox':'send','info','permit_application',['id'=>$applicationId]);
             if ($action==='forward') notify_role('lpdd_fus',
-                'FP Application for Documentary Evaluation',
-                'FP application #'.$applicationId.' is now in your Step 4 incoming queue.',
-                'file-earmark-check','info','permit_step4_queue');
+                permit_flow_is_new($app)
+                    ? 'FP Application – Step 4 Notice & CENRO Instructions'
+                    : 'FP Application for Documentary Evaluation',
+                'FP application #'.$applicationId.' forwarded by RO Receiving; open the appropriate Step 4 queue.',
+                'file-earmark-check','info',
+                permit_flow_is_new($app)?'permit_flow_queue':'permit_step4_queue');
         } catch (Throwable $e) {
             error_log('FP-OMS Step 3 notification failed: '.$e->getMessage());
         }
@@ -130,7 +139,9 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
 function step3_send_email_alerts(array $app,int $id,string $action): void
 {
     $forward=$action==='forward';
-    $message=$forward ? 'Forwarded to LPDD-FUS for Step 4 Documentary Evaluation'
+    $message=$forward ? (permit_flow_is_new($app)
+        ? 'Forwarded to LPDD-FUS for Step 4 Payment Notice / CENRO Instruction'
+        : 'Forwarded to LPDD-FUS for Step 4 Documentary Evaluation')
         : 'Received by RO Receiving';
     $email=(string)($app['applicant_email'] ?? '');
     if (filter_var($email,FILTER_VALIDATE_EMAIL)) {
@@ -148,9 +159,12 @@ function step3_send_email_alerts(array $app,int $id,string $action): void
     }
     if (!$forward) return;
     $base=step2_email_base_url();
-    $link=$base !== null ? $base.'?next=permit-step4-queue' : null;
+    $link=$base !== null ? $base.'?next='
+        .(permit_flow_is_new($app)?'permit-flow-queue':'permit-step4-queue') : null;
     $body='<p>FP application <strong>#'.$id.'</strong> has been forwarded by RO Receiving '
-        .'for Annex A Step 4 documentary evaluation.</p>'
+        .'for Annex A Step 4 '.(permit_flow_is_new($app)
+            ? 'payment notice, field schedule and CENRO memo instructions.'
+            : 'documentary evaluation.').'</p>'
         .($link!==null ? '<p><a href="'.e($link).'">Open incoming queue</a></p>':'');
     foreach (step2_staff_recipients('lpdd_fus') as $address) {
         try {
