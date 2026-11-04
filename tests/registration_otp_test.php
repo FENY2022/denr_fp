@@ -20,7 +20,7 @@ for ($i = 0; $i < 30; $i++) {
 }
 must_otp(count($codes) > 1, 'OTP generator produces random values');
 must_otp(status_label('pending_email_verification') === 'Pending Email Verification',
-    'Email verification is a separate status from FUU review');
+    'Email verification is a separate status from LPDD-FUS review');
 
 // Stub SMTP so the exact message and send ordering can be checked safely.
 function smtp_send_html(string $to, string $subject, string $html, string $plain): bool
@@ -43,10 +43,10 @@ $ack = $GLOBALS['sent_message'];
 must_otp($ack['subject'] === 'Acknowledgment of Registration – DENR CARAGA FP-OMS',
     'Acknowledgment email has the requested exact subject');
 must_otp(str_contains($ack['plain'], 'PENDING VALIDATION')
-    && str_contains($ack['plain'], 'Forest Utilization Section (FUU)')
-    && str_contains($ack['html'], 'Forest Utilization Section (FUU)')
-    && !str_contains($ack['plain'], 'Forest Utilization Unit (FUU)'),
-    'Acknowledgment uses Forest Utilization Section (FUU) in HTML and plain text');
+    && str_contains($ack['plain'], 'LPDD-FUS')
+    && str_contains($ack['html'], 'LPDD-FUS')
+    && !str_contains($ack['plain'], 'LPDD-FUS'),
+    'Acknowledgment uses LPDD-FUS in HTML and plain text');
 
 $reg = file_get_contents(__DIR__ . '/../app/registration.php');
 $otp = file_get_contents(__DIR__ . '/../app/registration_otp.php');
@@ -71,13 +71,13 @@ must_otp(!str_contains($registerBody, 'send_registration_acknowledgment_email(')
 $verify = strpos($otp, 'function registration_otp_verify(');
 $commit = strpos($otp, '$pdo->commit();', strpos($otp, "SET status='pending_review',email_verified_at=NOW()"));
 $sendAck = strpos($otp, '$acknowledgmentSent = send_registration_acknowledgment_email(');
-$notifyFuu = strpos($otp, "notify_role(", $verify);
+$notifyLpdd = strpos($otp, "notify_role(", $verify);
 must_otp($verify !== false && $commit !== false && $sendAck !== false
-    && $notifyFuu !== false && $verify < $commit
-    && $commit < $sendAck && $sendAck < $notifyFuu,
-    'Acknowledgment is attempted immediately after successful OTP DB commit and BEFORE FUU staff notification');
+    && $notifyLpdd !== false && $verify < $commit
+    && $commit < $sendAck && $sendAck < $notifyLpdd,
+    'Acknowledgment is attempted immediately after successful OTP DB commit and BEFORE LPDD-FUS staff notification');
 must_otp(str_contains($otp, "status='pending_review',email_verified_at=NOW()"),
-    'Verified clients are queued for FUU review');
+    'Verified clients are queued for LPDD-FUS review');
 must_otp(str_contains($otp, 'registration_ack_delivery_failed')
     && str_contains($otp, "['delivery'=>") && str_contains($otp, "'not_sent'"),
     'SMTP delivery result is reported honestly and audited');
@@ -93,10 +93,10 @@ must_otp(str_contains($migration, 'CREATE TABLE registration_email_otps')
 
 must_otp(str_contains($router, "case 'verify_registration_otp':")
     && str_contains($views, 'value="resend"')
-    && str_contains($views, 'Forest Utilization Section (FUU)'),
-    'OTP verification UI names Forest Utilization Section (FUU) and supports resend');
+    && str_contains($views, 'LPDD-FUS'),
+    'OTP verification UI names LPDD-FUS and supports resend');
 must_otp(str_contains($router, "registration_verified_modal")
-    && !str_contains($router, "flash('success', 'Email verified; registration submitted for FUU validation.')"),
+    && !str_contains($router, "flash('success', 'Email verified; registration submitted for LPDD-FUS validation.')"),
     'OTP verification success opens a modal instead of a success flash');
 must_otp(str_contains($signInViews, 'unset($_SESSION[' . "'registration_verified_modal'" . '])')
     && str_contains($signInViews, 'registration_verified_modal_html('),
@@ -105,9 +105,9 @@ $successModal = registration_verified_modal_html(false);
 $warningModal = registration_verified_modal_html(true);
 must_otp(str_contains($successModal, 'id="otp-verification-success-modal"')
     && str_contains($successModal, 'Email Successfully Verified!')
-    && str_contains($successModal, 'Forest Utilization Section (FUU)')
+    && str_contains($successModal, 'LPDD-FUS')
     && str_contains($successModal, 'Continue to Login'),
-    'Verified registration success modal names Forest Utilization Section (FUU)');
+    'Verified registration success modal names LPDD-FUS');
 must_otp(!str_contains($successModal, 'could not be confirmed')
     && str_contains($warningModal, 'could not be confirmed'),
     'Only failed SMTP acknowledgment causes a warning in the modal');
@@ -118,4 +118,4 @@ must_otp(!str_contains($successModal, '<script')
     && !str_contains($successModal, 'style='),
     'Success modal markup contains no inline executable scripts or styles');
 
-echo "PASS: OTP -> immediate acknowledgment -> FUU notification, modal, SMTP warning and migration checks.\n";
+echo "PASS: OTP -> immediate acknowledgment -> LPDD-FUS notification, modal, SMTP warning and migration checks.\n";
