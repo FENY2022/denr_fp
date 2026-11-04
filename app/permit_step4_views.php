@@ -52,6 +52,18 @@ function view_step4_queue(): void
          LIMIT 300",[$selected]
     );
 
+    $paymentMap=[];
+    if ($selected==='step4_complete' && $apps && permit_payment_schema_ready()) {
+        $ids=array_map(static fn(array $row): int => (int)$row['id'],$apps);
+        $marks=implode(',',array_fill(0,count($ids),'?'));
+        foreach (query_all(
+            'SELECT application_id,status FROM permit_payment_verifications '
+                .'WHERE application_id IN ('.$marks.')',$ids
+        ) as $paymentRow) {
+            $paymentMap[(int)$paymentRow['application_id']]=(string)$paymentRow['status'];
+        }
+    }
+
     $html='<div class="panel"><div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">'
         .'<div><h2 class="h5 mb-1">Step 4 – Documentary Evaluation</h2>'
         .'<p class="small text-secondary mb-0">LPDD-FUS determines documentary completeness and sufficiency. '
@@ -74,7 +86,9 @@ function view_step4_queue(): void
     } else {
         $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
             .'<thead><tr><th>FP No.</th><th>Applicant</th><th>Project</th><th>Revision</th>'
-            .'<th>Date / Time</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+            .'<th>Date / Time</th><th>Status</th>'
+            .($selected==='step4_complete' ? '<th>Payment Status</th>' : '')
+            .'<th>Action</th></tr></thead><tbody>';
         foreach ($apps as $app) {
             $date=(string)($app['started_at'] ?? $app['forwarded_at'] ?? $app['last_submitted_at'] ?? '');
             $label=match ((string)$app['status']) {
@@ -91,9 +105,25 @@ function view_step4_queue(): void
                 .'<td>'.(int)$app['revision'].'</td>'
                 .'<td>'.e(fpoms_display_datetime($date)).'</td>'
                 .'<td>'.step2_status_badge((string)$app['status']).'</td>'
-                .'<td><a class="btn btn-sm btn-outline-primary" href="'
+                .($selected==='step4_complete'
+                    ? '<td>'.(
+                        permit_payment_schema_ready()
+                            ? permit_payment_status_badge([
+                                'status'=>$paymentMap[(int)$app['id']] ?? 'awaiting_payment'
+                            ])
+                            : '<span class="badge text-bg-secondary">Payment Tracking Not Enabled</span>'
+                    ).'</td>'
+                    : '')
+                .'<td><div class="d-flex flex-wrap gap-2">'
+                .'<a class="btn btn-sm btn-outline-primary" href="'
                 .e(url('permit_application',['id'=>(int)$app['id']])).'">'
-                .e($label).'</a></td></tr>';
+                .e($label).'</a>'
+                .($selected==='step4_complete'
+                    ? '<a class="btn btn-sm btn-outline-success" href="'
+                        .e(url('permit_application',['id'=>(int)$app['id']]).'#fp-payment-verification')
+                        .'"><i class="bi bi-receipt me-1"></i>View Payment Status</a>'
+                    : '')
+                .'</div></td></tr>';
         }
         $html.='</tbody></table></div>';
     }
