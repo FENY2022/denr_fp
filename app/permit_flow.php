@@ -257,6 +257,13 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
     if ($step===5 && !permit_flow_event_exists($id,5,'hardcopy_notice_sent')) {
         return ['CENRO must notify the applicant to submit hard copies before completing Step 5.'];
     }
+    if ($step===5 && !permit_flow_event_exists($id,5,'twg_instructed')) {
+        return ['CENRO must instruct the TWG to conduct field validation/assessment before completing Step 5.'];
+    }
+    if ($step===6 && (!permit_flow_event_exists($id,6,'rrdc_scheduled')
+        || !permit_flow_event_exists($id,6,'rrdc_deliberated'))) {
+        return ['Record RRDC meeting schedule (CDD) and actual deliberation (RRDC) before forwarding signed documents.'];
+    }
     $missing=permit_flow_missing_artifacts($id,$step);
     if ($missing) return ['Upload required documents first: '.implode('; ',$missing).'.'];
     $pdo=db();
@@ -276,8 +283,13 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
         // Recheck required documents inside the transaction after locking the case.
         $missing=permit_flow_missing_artifacts($id,$step);
         if ($missing) { $pdo->rollBack(); return ['Required signed documents are still missing.']; }
-        if ($step===5 && !permit_flow_event_exists($id,5,'hardcopy_notice_sent')) {
-            $pdo->rollBack(); return ['Notify applicant to submit hard copies first.'];
+        if ($step===5 && (!permit_flow_event_exists($id,5,'hardcopy_notice_sent')
+            || !permit_flow_event_exists($id,5,'twg_instructed'))) {
+            $pdo->rollBack(); return ['Record CENRO hardcopy notice and TWG instructions first.'];
+        }
+        if ($step===6 && (!permit_flow_event_exists($id,6,'rrdc_scheduled')
+            || !permit_flow_event_exists($id,6,'rrdc_deliberated'))) {
+            $pdo->rollBack(); return ['RRDC schedule and deliberation records are required.'];
         }
         if ($step===4) {
             $pdo->prepare('UPDATE permit_flow_cases
@@ -348,6 +360,78 @@ function permit_flow_event_exists(int $id,int $step,string $action): bool
          WHERE application_id=? AND step_number=? AND action=? LIMIT 1',[$id,$step,$action]
     )!==null;
 }
+/**
+ * Audited non-documentary milestones prevent premature Step 5 and Step 6
+ * approvals. An RRDC event records an action, never fabricates a signature.
+ */
+function permit_flow_milestone(array $staff,int $id,string $action,array $input): array
+{
+    $config=match ($action) {
+        'twg_instructed'=>['step'=>5,'roles'=>['cenro_twg']],
+        'rrdc_scheduled'=>['step'=>6,'roles'=>['cdd']],
+        'rrdc_deliberated'=>['step'=>6,'roles'=>['rrdc_member','rrdc_secretariat']],
+        default=>null
+    };
+    if (!$config) return ['Invalid Annex A milestone.'];
+    $step=(int)$config['step'];
+    if (!permit_flow_staff_can_view($staff)) return ['Only authorized DENR personnel may record milestones.'];
+    $authorized=false;
+    foreach ($config['roles'] as $role) if (has_role($staff,$role)) $authorized=true;
+    if (!$authorized) return ['This milestone belongs to another DENR office/role.'];
+    if (($input['confirmation']??'')!=='1') return ['Confirm the milestone first.'];
+    $notes=trim((string)($input['remarks']??''));
+    if (strlen($notes)<10 || strlen($notes)>3000) {
+        return ['Provide a meaningful 10–3,000 character description of the action.'];
+    }
+    $schedule=null;
+    if ($action==='rrdc_scheduled') {
+        $schedule=step4_parse_schedule(trim((string)($input['rrdc_schedule']??'')));
+        if (!$schedule) return ['Provide a valid RRDC deliberation date/time.'];
+    }
+    $pdo=db();
+    try {
+        $pdo->beginTransaction();
+        $app=query_one('SELECT a.id,a.flow_version FROM permit_step2_applications a WHERE a.id=? FOR UPDATE',[$id]);
+        $case=query_one('SELECT * FROM permit_flow_cases WHERE application_id=? FOR UPDATE',[$id]);
+        if (!$app || !permit_flow_is_new($app) || !$case
+            || (int)$case['current_step']!==$step || $case['completed_at']!==null) {
+            $pdo->rollBack(); return ['The application has moved to another step. Refresh.'];
+        }
+        if (permit_flow_event_exists($id,$step,$action)) {
+            $pdo->rollBack(); return ['This stage milestone was already recorded.'];
+        }
+        if ($action==='rrdc_deliberated'
+            && !permit_flow_event_exists($id,6,'rrdc_scheduled')) {
+            $pdo->rollBack(); return ['CDD must first record the RRDC schedule.'];
+        }
+        if ($schedule!==null) {
+            $pdo->prepare('UPDATE permit_flow_cases SET rrdc_schedule=? WHERE application_id=?')
+                ->execute([$schedule,$id]);
+        }
+        permit_flow_record_event($pdo,$id,$step,$staff,$action,
+            ($schedule!==null?'RRDC schedule: '.$schedule.'. ':'').$notes);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('FP-OMS Annex A milestone error: '.$e->getMessage());
+        return ['Milestone could not be recorded.'];
+    }
+    try {
+        if ($action==='rrdc_scheduled') {
+            foreach (['rrdc_member','rrdc_secretariat','smd'] as $role) {
+                notify_role($role,'RRDC Deliberation Scheduled – FP #'.$id,
+                    'CDD scheduled RRDC deliberation on '
+                    .fpoms_display_datetime((string)$schedule)
+                    .'. Open the Annex A case to review the schedule.',
+                    'calendar','info','permit_flow',['id'=>$id]);
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('RRDC milestone notifications failed: '.$e->getMessage());
+    }
+    return [];
+}
+
 function permit_flow_notify_hardcopies(array $staff,int $id): array
 {
     if (!permit_flow_staff_can_act($staff,5)) return ['Only CENRO TWG can send this notice.'];
