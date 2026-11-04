@@ -271,6 +271,7 @@ function step2_submit(array $client, array $data, array $files, int $application
     if (!step2_project_type_schema_ready()) {
         return ['Apply database migration 030 before submitting a Type of Project.'];
     }
+    if (!permit_flow_ready()) return ['Apply migration 031 for the updated Annex A routing before submitting.'];
     $errors = step2_validate_input($data);
     $coordsReady = step2_location_schema_ready();
     $lat = trim((string)($data['project_latitude'] ?? ''));
@@ -408,8 +409,8 @@ function step2_submit(array $client, array $data, array $files, int $application
                 $pdo->prepare(
                     "INSERT INTO permit_step2_applications
                         (client_id,project_title,project_type,project_type_other,project_location,project_latitude,
-                         project_longitude,purpose,status)
-                     VALUES (?,?,?,?,?,?,?,?,'submitted')"
+                         project_longitude,purpose,status,flow_version)
+                     VALUES (?,?,?,?,?,?,?,?,'submitted',2)"
                 )->execute([
                     $clientId,$data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],
                     $lat,$lon,$data['purpose'] ?: null
@@ -417,8 +418,8 @@ function step2_submit(array $client, array $data, array $files, int $application
             } else {
                 $pdo->prepare(
                     "INSERT INTO permit_step2_applications
-                        (client_id,project_title,project_type,project_type_other,project_location,purpose,status)
-                     VALUES (?,?,?,?,?,?,'submitted')"
+                        (client_id,project_title,project_type,project_type_other,project_location,purpose,status,flow_version)
+                     VALUES (?,?,?,?,?,?,'submitted',2)"
                 )->execute([
                     $clientId,$data['project_title'],$data['project_type'],$data['project_type_other'] ?: null,$data['project_location'],
                     $data['purpose'] ?: null
@@ -554,6 +555,10 @@ function step2_review(array $reviewer, int $applicationId, string $decision, str
         || !has_role($reviewer,'lpdd_fus')) return ['LPDD-FUS reviewer authorization is required.'];
     if (!step2_schema_ready()) return ['Step 2 tables are missing or inaccessible. Verify migration 014 and SELECT permissions.'];
     if (!in_array($decision, ['return','forward'],true)) return ['Invalid Step 2 decision.'];
+    $workflow=step2_application($applicationId);
+    if ($workflow && permit_flow_is_new($workflow)) {
+        return ['Updated Annex A requires the Step 2 Completeness & Sufficiency evaluation wizard. Open the application from the Step 2 queue.'];
+    }
     $remarks = trim($remarks);
     if (strlen($remarks) > 3000) return ['Remarks must be 3,000 characters or fewer.'];
     if ($decision === 'return' && strlen($remarks) < 10) {
