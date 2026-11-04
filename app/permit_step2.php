@@ -520,12 +520,16 @@ function step2_submit(array $client, array $data, array $files, int $application
 
         try {
             if ($action==='step4_resubmitted') {
+                $case=step2_application($applicationId);
+                $modern=$case && permit_flow_is_new($case);
                 notify_role(
                     'lpdd_fus',
-                    'FP Application Resubmitted for Step 4',
+                    $modern?'FP Application Resubmitted for Step 2':'FP Application Resubmitted for Legacy Step 4',
                     'FP application #' . $applicationId . ' from ' . (string)$client['name']
                         . ' was resubmitted for documentary re-evaluation.',
-                    'arrow-repeat','info','permit_step4_queue',['tab'=>'resubmitted']
+                    'arrow-repeat','info',
+                    $modern?'permit_initial_queue':'permit_step4_queue',
+                    $modern?[]:['tab'=>'resubmitted']
                 );
             } else {
                 notify_role(
