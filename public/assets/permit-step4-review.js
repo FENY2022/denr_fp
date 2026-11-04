@@ -8,6 +8,7 @@
 
   const form = modal?.querySelector('#step4-decision-form');
   const wizard = modal?.querySelector('[data-step4-wizard]');
+  const modern = wizard?.dataset.step4FlowVersion === '2';
   if (!modal || !form || !wizard || !window.bootstrap?.Modal) return;
 
   const hidden = form.querySelector('[data-step4-decision-value]');
@@ -413,6 +414,10 @@
       }
 
       if (decision === 'return') {
+        if (modern && wizard.dataset.step4SignedNotice !== '1') {
+          showValidation('Upload the actual RED-signed deficiency notice on the application page before returning to the applicant.');
+          return;
+        }
         if (!hasDeficiency()) {
           showValidation('Mark at least one requirement Lacking or Inappropriate before returning the application.');
           return;
@@ -425,8 +430,9 @@
         }
         hidden.value = 'return';
         if (confirmTitle) confirmTitle.textContent = 'Return Application for Compliance?';
-        if (confirmMessage) confirmMessage.textContent =
-          'The applicant will be notified about deficiencies and may resubmit directly for Step 4 re-evaluation.';
+        if (confirmMessage) confirmMessage.textContent = modern
+          ? 'The applicant will receive the actual uploaded RED-signed notice and may resubmit to LPDD-FUS Step 2.'
+          : 'The applicant will be notified about deficiencies and may resubmit directly for Step 4 re-evaluation.';
         if (confirmButton) {
           confirmButton.className = 'btn btn-danger';
           confirmButton.textContent = 'Confirm Return';
@@ -441,16 +447,17 @@
           showValidation('Every requirement must be Complete or Not Applicable.');
           return;
         }
-        if (!schedule?.value) {
+        if (!modern && !schedule?.value) {
           renderStep(3);
-          showStepError(steps[2], 'Set the field validation / assessment schedule before completing Step 4.');
+          showStepError(steps[2], 'Set the field validation / assessment schedule before completing legacy Step 4.');
           schedule?.focus();
           return;
         }
         hidden.value = 'complete';
         if (confirmTitle) confirmTitle.textContent = 'Confirm Complete & Sufficient?';
-        if (confirmMessage) confirmMessage.textContent =
-          'The applicant will be instructed to submit hard copies and pay the fee; CENRO TWG will be notified for Step 5 preparation.';
+        if (confirmMessage) confirmMessage.textContent = modern
+          ? 'The application passes LPDD-FUS Step 2 and is forwarded to RO Receiving Step 3. Payment and scheduling will happen after RO.'
+          : 'The applicant will be instructed to submit hard copies and pay the fee; CENRO TWG will be notified for Step 5 preparation.';
         if (confirmButton) {
           confirmButton.className = 'btn btn-success';
           confirmButton.textContent = 'Confirm Complete & Sufficient';
