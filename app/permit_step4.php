@@ -139,9 +139,12 @@ function step4_start(array $reviewer,int $applicationId): array
              JOIN user_client c ON c.id=a.client_id
              WHERE a.id=? FOR UPDATE",[$applicationId]
         );
-        if (!$app || !in_array((string)$app['status'],['forwarded_to_lpdd','step4_resubmitted'],true)) {
+        $modern=$app && permit_flow_is_new($app);
+        $allowed=$modern ? ['submitted','step4_resubmitted']
+            : ['forwarded_to_lpdd','step4_resubmitted'];
+        if (!$app || !in_array((string)$app['status'],$allowed,true)) {
             $pdo->rollBack();
-            return ['This application is not awaiting Step 4 evaluation. Refresh the queue.'];
+            return ['This application is not awaiting documentary evaluation. Refresh the correct queue.'];
         }
         $revision=(int)$app['revision'];
         $existing=query_one(
@@ -178,7 +181,8 @@ function step4_start(array $reviewer,int $applicationId): array
              VALUES (?,?,?,?,?)'
         )->execute([
             $applicationId,(int)$reviewer['id'],'step4_review_started',$revision,
-            'Formal Step 4 documentary evaluation started.'
+            $modern ? 'Annex A Step 2 completeness/sufficiency review started.'
+                : 'Legacy Step 4 documentary evaluation started.'
         ]);
         audit((int)$reviewer['id'],'permit.step4.review_started',
             'permit_step2_application',$applicationId,
@@ -188,8 +192,8 @@ function step4_start(array $reviewer,int $applicationId): array
         try {
             create_client_notification(
                 (int)$app['client_id'],
-                'Step 4 Documentary Evaluation Started',
-                'LPDD-FUS started the formal documentary evaluation of FP application #'.$applicationId.'.',
+                $modern ? 'Step 2 Completeness Evaluation Started':'Step 4 Documentary Evaluation Started',
+                'LPDD-FUS started documentary completeness and sufficiency evaluation of FP application #'.$applicationId.'.',
                 'clipboard-check','info','permit_application',['id'=>$applicationId]
             );
         } catch (Throwable $e) {
@@ -254,15 +258,25 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             && ($parsed['items']['doe_esc_coa']['assessment'] ?? '')!=='complete') {
             $errors[]='For Other project types, Annex 1 #10 (DOE ESC/COA) must be assessed Complete.';
         }
-        $rawSchedule=trim((string)($input['field_validation_schedule'] ?? ''));
-        $schedule=step4_parse_schedule($rawSchedule);
-        if ($rawSchedule==='' || $schedule===null) {
-            $errors[]='Set the field validation / assessment schedule before completing Step 4.';
+        if (!permit_flow_is_new($project)) {
+            $rawSchedule=trim((string)($input['field_validation_schedule'] ?? ''));
+            $schedule=step4_parse_schedule($rawSchedule);
+            if ($rawSchedule==='' || $schedule===null) {
+                $errors[]='Set the field validation / assessment schedule before completing legacy Step 4.';
+            }
         }
     }
     if ($errors) return $errors;
-    if ($decision==='complete' && !permit_payment_schema_ready()) {
-        return ['Apply database migration 028 to enable payment tracking and LPDD-FUS notification before completing Step 4.'];
+    $modern=permit_flow_is_new($project);
+    if ($modern && !permit_flow_ready()) {
+        return ['Apply migration 031 before completing the updated Step 2 evaluation.'];
+    }
+    if ($modern && $decision==='return'
+        && !permit_flow_artifacts($applicationId,2)) {
+        return ['Upload the actual RED-signed deficiency notification/template before returning the application to the applicant.'];
+    }
+    if (!$modern && $decision==='complete' && !permit_payment_schema_ready()) {
+        return ['Apply database migration 028 to enable payment tracking and LPDD-FUS notification before completing legacy Step 4.'];
     }
 
     $pdo=db();
@@ -302,8 +316,12 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         }
 
         $complete=$decision==='complete';
-        $newStatus=$complete ? 'step4_complete' : 'step4_corrections_required';
-        $event=$complete ? 'step4_complete' : 'step4_returned_for_compliance';
+        // Updated Annex A: Step 2 complete -> RO Receiving Step 3.
+        // Legacy workflow continues using Step 4 complete -> payment.
+        $newStatus=$complete ? ($modern?'forwarded_to_ro':'step4_complete')
+            : 'step4_corrections_required';
+        $event=$complete ? ($modern?'forwarded_to_ro':'step4_complete')
+            : 'step4_returned_for_compliance';
         $reviewStatus=$complete ? 'complete' : 'returned';
         $pdo->prepare(
             'UPDATE permit_step4_reviews
@@ -315,9 +333,15 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             $instructions!=='' ? $instructions : null,$complete ? $schedule : null,
             (int)$review['id']
         ]);
-        $pdo->prepare(
-            'UPDATE permit_step2_applications SET status=? WHERE id=?'
-        )->execute([$newStatus,$applicationId]);
+        if ($modern && $complete) {
+            $pdo->prepare('UPDATE permit_step2_applications
+                SET status=?,reviewer_user_id=?,reviewed_at=NOW(),forwarded_at=NOW()
+                WHERE id=?')->execute([$newStatus,(int)$reviewer['id'],$applicationId]);
+        } else {
+            $pdo->prepare(
+                'UPDATE permit_step2_applications SET status=? WHERE id=?'
+            )->execute([$newStatus,$applicationId]);
+        }
         $pdo->prepare(
             'INSERT INTO permit_step2_events
              (application_id,actor_user_id,action,revision,remarks)
@@ -326,8 +350,8 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             $applicationId,(int)$reviewer['id'],$event,(int)$app['revision'],
             $overall!=='' ? $overall : null
         ]);
-        if ($complete) {
-            // Payment is a separate LPDD-FUS workflow. Never set paid/verified here.
+        if ($complete && !$modern) {
+            // Legacy Step 4 payment, modern flow defers notice to Step 4 after RO.
             $pdo->prepare(
                 "INSERT INTO permit_payment_verifications
                  (application_id,status,notified_at)
@@ -346,7 +370,22 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         fpoms_pusher_flush_pending();
 
         try {
-            if ($complete) {
+            if ($modern && $complete) {
+                $message='FP application #'.$applicationId
+                    .' passed LPDD-FUS Step 2 documentary completeness and sufficiency evaluation. '
+                    .'It has been forwarded to RO Receiving/Releasing for Step 3. '
+                    .'Payment notice, schedule and CENRO memo will follow at Step 4.';
+                create_client_notification((int)$app['client_id'],
+                    'Step 2 Complete & Sufficient – Forwarded to RO',
+                    $message,'check-circle','success','permit_application',['id'=>$applicationId]);
+                notify_role('ro_receiving','FP Application Ready for RO Receiving',
+                    'FP application #'.$applicationId.' passed Step 2 completeness and sufficiency. '
+                    .'Receive and forward it to LPDD-FUS for Step 4 actions.',
+                    'inbox','info','permit_ro_inbox');
+                try { step2_email_ro_alert($applicationId); } catch (Throwable $e) {
+                    error_log('Annex A RO email notification error: '.$e->getMessage());
+                }
+            } elseif ($complete) {
                 $message=permit_payment_instructions($applicationId)
                     .' Field validation/assessment schedule: '
                     .fpoms_display_datetime((string)$schedule).'.';
@@ -369,8 +408,10 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             } else {
                 create_client_notification(
                     (int)$app['client_id'],
-                    'Step 4 Compliance Required',
-                    'LPDD-FUS found lacking or inappropriate documentary requirements for FP application #'.$applicationId.'. Correct the deficiencies and resubmit the required documents.',
+                    $modern?'Step 2 – Documentary Compliance Required':'Step 4 Compliance Required',
+                    'LPDD-FUS found lacking or inappropriate documentary requirements for FP application #'.$applicationId.'. '
+                    .($modern?'An actual RED-signed notice is attached to the application. ':'')
+                    .'Correct the deficiencies and resubmit the required documents.',
                     'exclamation-triangle','warning','permit_application',['id'=>$applicationId]
                 );
             }
@@ -378,7 +419,13 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             error_log('FP-OMS Step 4 notification failed: '.$e->getMessage());
         }
 
-        step4_send_applicant_email($app,$applicationId,$complete,$overall,$instructions,$schedule);
+        if ($modern && $complete) {
+            permit_flow_email($app,'Step 2 Complete – FP Application #'.$applicationId,
+                'Your documentary requirements were determined complete and sufficient. '
+                .'The application is forwarded to RO Receiving/Releasing (Step 3).');
+        } else {
+            step4_send_applicant_email($app,$applicationId,$complete,$overall,$instructions,$schedule);
+        }
         return [];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
