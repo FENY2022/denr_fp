@@ -389,7 +389,7 @@ function step4_send_applicant_email(
         $body.='<p>LPDD-FUS completed the documentary evaluation and found the submitted documentary requirements complete and sufficient.</p>'
             .'<ul><li>Submit the required hard copies.</li>'
             .'<li>Proceed to the DENR CARAGA Regional Office Cashier to pay the required application fee in accordance with official payment instructions.</li>'
-            .'<li><strong>After paying at the Cashier, proceed directly to the Forest Utilization Unit (LPDD-FUS) and present your Official Receipt (OR) for payment verification.</strong></li>'
+            .'<li><strong>After paying at the Cashier, proceed directly to the LPDD-FUS and present your Official Receipt (OR) for payment verification.</strong></li>'
             .'<li>Authorized LPDD-FUS personnel will check the OR, record the payment details, and upload the receipt into FP-OMS. Payment is not verified until LPDD-FUS confirms it.</li>'
             .'<li>Field validation / assessment schedule: <strong>'
             .e(fpoms_display_datetime((string)$schedule)).'</strong></li></ul>';
