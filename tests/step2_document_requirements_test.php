@@ -22,7 +22,9 @@ $checks = [
 fp_category_check($requirements===$checks,'exact supplied names and original order');
 foreach (array_keys($checks) as $key) fp_category_check(step2_requirement_valid($key),
     'valid requirement '.$key);
-fp_category_check(!step2_requirement_valid('other'),'other is not a category for new uploads');
+fp_category_check(step2_requirement_valid('other'),'other is an optional supporting document upload category');
+fp_category_check(!isset(step2_requirement_types()['other']),
+    'other attachments do not become a seventh mandatory Step 4 review');
 fp_category_check(!step2_requirement_valid(''),'empty category rejected');
 $sample=[
     ['requirement_type'=>'annex_1a'],
@@ -33,8 +35,8 @@ $sample=[
 $render=step2_requirement_checklist_html($sample);
 fp_category_check(str_contains($render,'Uploaded: 2')&&str_contains($render,'Uploaded: 1'),
     'multiple saved uploads counted by actual category');
-fp_category_check(str_contains($render,'earlier/unclassified document(s)'),
-    'historical files not automatically classified');
+fp_category_check(str_contains($render,'Other Attached Document(s)'),
+    'supplemental uploads cannot replace named documentary requirements');
 fp_category_check(substr_count($render,'Not uploaded')===4,
     'missing categories displayed, not falsely marked submitted');
 fp_category_check(str_contains($render,'step2-requirement-review-item')
@@ -65,8 +67,8 @@ fp_category_check(str_contains($view,'data-document-previous disabled')
     && str_contains($view,'data-document-next disabled')
     && str_contains($view,'data-document-counter'),
     'permit document preview renders previous, next and position controls');
-fp_category_check(str_contains($view,'permit-step2-drafts.js?v=10'),
-    'new browser uploader script loaded');
+fp_category_check(str_contains($view,'permit-step2-drafts.js?v=11'),
+    'updated browser uploader script loaded');
 fp_category_check(str_contains($script,'placeFileCard')
     && str_contains($script,'step2RequirementType'),
     'saved and newly selected files appear under their matching requirement');
@@ -86,4 +88,4 @@ fp_category_check(str_contains($submit,'step2_category_schema_ready()')
     'category migration is checked before final submission and staging');
 fp_category_check(substr_count($migration,'ADD COLUMN requirement_type')===2,
     'additive two-column database migration');
-echo "PASS: Six FP document types, 019 schema, secure category upload and review display.\n";
+echo "PASS: Six named FP document types plus optional Other attachments, 019 schema and secure uploads.\n";
