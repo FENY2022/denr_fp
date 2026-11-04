@@ -38,8 +38,11 @@ function view_step4_queue(): void
     }
 
     $selected=$tabs[$tab]['status'];
+    $projectReady=step2_project_type_schema_ready();
+    $projectColumns=$projectReady ? 'a.project_type,a.project_type_other'
+        : "'unspecified' AS project_type,'' AS project_type_other";
     $apps=query_all(
-        "SELECT a.id,a.project_title,a.project_type,a.project_type_other,a.revision,a.status,a.last_submitted_at,
+        "SELECT a.id,a.project_title,{$projectColumns},a.revision,a.status,a.last_submitted_at,
                 c.name AS applicant_name,m.forwarded_at,
                 r.started_at,r.decided_at,r.field_validation_schedule
          FROM permit_step2_applications a
@@ -80,6 +83,10 @@ function view_step4_queue(): void
             .$counts[$data['status']].'</span></a>';
     }
     $html.='</nav>';
+    if (!$projectReady) {
+        $html.='<div class="alert alert-warning small">Project Type assessment requires '
+            .'database migration 030. Existing applications remain visible until the upgrade is installed.</div>';
+    }
 
     if (!$apps) {
         $html.='<div class="alert alert-light border mb-0">No applications under '
