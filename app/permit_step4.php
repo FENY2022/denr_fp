@@ -382,7 +382,7 @@ function step4_send_applicant_email(
     if (!filter_var($email,FILTER_VALIDATE_EMAIL)) return;
 
     $subject=$complete
-        ? 'FP Application #'.$applicationId.' – Documentary Requirements Complete & Sufficient'
+        ? 'Notice to Pay Application Fee – FP Application #'.$applicationId.' | DENR CARAGA FP-OMS'
         : 'FP Application #'.$applicationId.' – Step 4 Compliance Required';
     $body='<p><strong>Reference:</strong> FP Application #'.$applicationId.'</p>';
     if ($complete) {
@@ -402,7 +402,7 @@ function step4_send_applicant_email(
     try {
         smtp_send_html(
             $email,$subject,
-            registration_email_layout('Step 4 Documentary Evaluation',
+            registration_email_layout($complete ? 'Notice to Pay Application Fee' : 'Step 4 Documentary Evaluation',
                 (string)($app['applicant_name'] ?? 'Applicant'),$body),
             strip_tags(str_replace(['<br>','<br/>','<br />'],"\n",$body))
         );
