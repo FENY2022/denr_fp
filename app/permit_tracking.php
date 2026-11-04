@@ -30,9 +30,88 @@ function permit_tracking_step4_payment_state(array $app): array
 }
 
 /** @return array{office:string,next_role:string,next_action:string,assignment:string} */
+/** Updated Annex A stage tracking uses the authoritative workflow case record. */
+function permit_flow_current_tracking(array $app): array
+{
+    $case=permit_flow_case((int)($app['id']??0));
+    if (!$case) return permit_tracking_step4_payment_state($app);
+    $step=(int)$case['current_step'];
+    if ($step>=12) {
+        return [
+            'office'=>'RO Receiving/Releasing (Completed)',
+            'next_role'=>'Applicant',
+            'next_action'=>'Feasibility Permit issued; view the approved documents and recorded release.',
+            'assignment'=>'Application completed'
+        ];
+    }
+    $role=match ($step) {
+        5=>'CENRO / TWG',6=>'SMD / CDD / RRDC Secretariat',
+        7=>'LPDD-FUS',8=>'LPDD Chief',9=>'ARD-TS',
+        10=>'RED',11=>'RO Receiving/Releasing',default=>'LPDD-FUS'
+    };
+    return [
+        'office'=>$role.' – Step '.$step,
+        'next_role'=>$role,
+        'next_action'=>permit_flow_step_label($step).'. '
+            .'Open the updated Annex A case to view required documents and recorded handoffs.',
+        'assignment'=>'Step '.$step.' – Updated Annex A'
+    ];
+}
+
 function permit_tracking_state(array $app): array
 {
     $status = (string)($app['status'] ?? '');
+    if (permit_flow_is_new($app)) {
+        return match ($status) {
+            'submitted','step4_under_evaluation','step4_resubmitted'=>[
+                'office'=>'LPDD-FUS – Step 2',
+                'next_role'=>'LPDD-FUS Reviewer',
+                'next_action'=>'Determine completeness and sufficiency of submitted documents. '
+                    .'Return Lacking/Inappropriate files with an actual RED-signed notice, '
+                    .'or forward Complete & Sufficient to RO Receiving.',
+                'assignment'=>'Step 2 documentary completeness/sufficiency decision'
+            ],
+            'step4_corrections_required','corrections_required'=>[
+                'office'=>'Applicant / Client – Step 2',
+                'next_role'=>'Applicant',
+                'next_action'=>'Read the RED-signed deficiency notice, correct missing/inappropriate '
+                    .'documents, and resubmit directly for LPDD-FUS Step 2 re-evaluation.',
+                'assignment'=>'Applicant compliance'
+            ],
+            'forwarded_to_ro'=>[
+                'office'=>'RO Receiving/Releasing – Step 3',
+                'next_role'=>'RO Receiving/Releasing',
+                'next_action'=>'Receive the electronic application documents formally.',
+                'assignment'=>'Step 2 evaluation is already complete and sufficient'
+            ],
+            'ro_received'=>[
+                'office'=>'RO Receiving/Releasing – Step 3',
+                'next_role'=>'RO Receiving/Releasing',
+                'next_action'=>'Forward the recorded electronic documents to LPDD-FUS Step 4 actions.',
+                'assignment'=>'RO formal forwarding'
+            ],
+            'forwarded_to_lpdd'=>[
+                'office'=>'LPDD-FUS – Step 4',
+                'next_role'=>'LPDD-FUS',
+                'next_action'=>'Send Cashier payment notice, communicate field assessment schedule, '
+                    .'generate electronic notification and prepare memo instruction to CENRO.',
+                'assignment'=>'After RO Receiving Step 3'
+            ],
+            'step4_complete'=>permit_flow_current_tracking($app),
+            'reverted'=>[
+                'office'=>'Applicant / Client',
+                'next_role'=>'Applicant',
+                'next_action'=>'Edit and resubmit the reverted application within the applicable rules.',
+                'assignment'=>'Applicant'
+            ],
+            default=>[
+                'office'=>'LPDD-FUS / Workflow Review',
+                'next_role'=>'LPDD-FUS',
+                'next_action'=>'Open the updated Annex A workflow and review the recorded case actions.',
+                'assignment'=>'Updated Annex A case'
+            ]
+        };
+    }
     return match ($status) {
         'submitted' => [
             'office'=>'LPDD-FUS (Regional Office)',
