@@ -52,8 +52,9 @@ function view_step4_queue(): void
          LIMIT 300",[$selected]
     );
 
+    $paymentReady=$selected==='step4_complete' && permit_payment_schema_ready();
     $paymentMap=[];
-    if ($selected==='step4_complete' && $apps && permit_payment_schema_ready()) {
+    if ($paymentReady && $apps) {
         $ids=array_map(static fn(array $row): int => (int)$row['id'],$apps);
         $marks=implode(',',array_fill(0,count($ids),'?'));
         foreach (query_all(
@@ -107,7 +108,7 @@ function view_step4_queue(): void
                 .'<td>'.step2_status_badge((string)$app['status']).'</td>'
                 .($selected==='step4_complete'
                     ? '<td>'.(
-                        permit_payment_schema_ready()
+                        $paymentReady
                             ? permit_payment_status_badge([
                                 'status'=>$paymentMap[(int)$app['id']] ?? 'awaiting_payment'
                             ])
