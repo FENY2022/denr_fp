@@ -428,6 +428,13 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             permit_flow_email($app,'Step 2 Complete – FP Application #'.$applicationId,
                 'Your documentary requirements were determined complete and sufficient. '
                 .'The application is forwarded to RO Receiving/Releasing (Step 3).');
+        } elseif ($modern) {
+            permit_flow_email($app,'Step 2 RED-Signed Deficiency Notice – FP Application #'.$applicationId,
+                'LPDD-FUS determined that your application has lacking or inappropriate '
+                .'documentary requirements. Open FP-OMS → My FP Applications → '
+                .'Application #'.$applicationId.' to view the actual RED-signed notice, '
+                .'correct deficiencies, and resubmit to LPDD-FUS Step 2. '
+                .'Review remarks: '.$overall);
         } else {
             step4_send_applicant_email($app,$applicationId,$complete,$overall,$instructions,$schedule);
         }
