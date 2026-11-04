@@ -189,12 +189,16 @@ function permit_flow_public_documents_html(array $app,array $viewer): string
     if (!$mine) return '';
     $all=permit_flow_artifacts($id);
     $noticeIssued=permit_flow_event_exists($id,2,'deficiency_notice_issued');
+    $case=permit_flow_case($id);
+    $issued=$case && (int)$case['current_step']===12
+        && !empty($case['completed_at']);
     $permitted=array_values(array_filter($all,static fn(array $d): bool=>
         ($noticeIssued && (int)$d['step_number']===2
             && $d['category']==='red_signed_deficiency_notice')
-        || ((int)$d['step_number']>=10 && in_array($d['category'],[
-            'approved_fp','approved_tor','approved_map','approved_sheet',
-            'memo_to_penro_cenro','transmittal'],true))));
+        || ($issued && (int)$d['step_number']>=10
+            && in_array($d['category'],[
+                'approved_fp','approved_tor','approved_map','approved_sheet',
+                'memo_to_penro_cenro','transmittal'],true))));
     if (!$permitted) return '';
     $html='<div class="panel mt-3"><h3 class="h6">Official Notices / Approved Documents</h3><ul>';
     foreach ($permitted as $d) {
