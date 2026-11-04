@@ -10,21 +10,45 @@ declare(strict_types=1);
  */
 function permit_flow_ready(): bool
 {
+    static $ready=null;
+    if ($ready!==null) return $ready;
     try {
         db()->query('SELECT flow_version FROM permit_step2_applications LIMIT 0');
         db()->query('SELECT application_id,current_step FROM permit_flow_cases LIMIT 0');
         db()->query('SELECT id FROM permit_flow_artifacts LIMIT 0');
         db()->query('SELECT id FROM permit_flow_events LIMIT 0');
-        return true;
+        return $ready=true;
     } catch (Throwable $e) {
         error_log('FP-OMS migration 031 required: '.$e->getMessage());
-        return false;
+        return $ready=false;
     }
 }
 function permit_flow_is_new(array $app): bool
 {
     return (int)($app['flow_version']??1)===2;
 }
+/** Version-aware display without mutating legacy status codes or audit history. */
+function permit_flow_status_badge(array $app): string
+{
+    if (!permit_flow_is_new($app)) return step2_status_badge((string)($app['status']??''));
+    $status=(string)($app['status']??'');
+    $label=match ($status) {
+        'submitted'=>'Step 2 – Awaiting LPDD-FUS Evaluation',
+        'step4_under_evaluation'=>'Step 2 – Documentary Evaluation',
+        'step4_corrections_required'=>'Step 2 – Compliance Required',
+        'step4_resubmitted'=>'Step 2 – Resubmitted',
+        'forwarded_to_ro'=>'Step 2 Complete / RO Step 3',
+        'ro_received'=>'Step 3 – Received by RO',
+        'forwarded_to_lpdd'=>'Step 4 – Incoming to LPDD-FUS',
+        'step4_complete'=>permit_flow_step_label((int)(permit_flow_case((int)$app['id'])['current_step']??5)),
+        'reverted'=>'Reverted – Editable',
+        default=>'Updated Annex A – '.ucwords(str_replace('_',' ',$status))
+    };
+    $tone=in_array($status,['step4_corrections_required'],true)?'danger'
+        :(in_array($status,['step4_complete'],true)?'success':'info');
+    return '<span class="badge text-bg-'.$tone.'">'.e($label).'</span>';
+}
+
 function permit_flow_require(): void
 {
     if (!permit_flow_ready()) show_error('Apply database migration 031 before using the revised Annex A workflow.',503);
