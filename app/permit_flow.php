@@ -501,13 +501,18 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
     $case=permit_flow_case($id);
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
+    $latestNotice=query_one("SELECT MAX(created_at) AS sent_at
+        FROM permit_flow_events WHERE application_id=? AND step_number=2
+        AND action='deficiency_notice_issued'",[$id]);
+    $noticeReleased=!empty($latestNotice['sent_at'])
+        && (string)$doc['uploaded_at']<=(string)$latestNotice['sent_at'];
     $allowedClient=((int)$doc['step_number']===2
             && $doc['category']==='red_signed_deficiency_notice'
-            && permit_flow_event_exists($id,2,'deficiency_notice_issued'))
+            && $noticeReleased)
         || ($issued && (int)$doc['step_number']>=10
             && in_array($doc['category'],[
                 'approved_fp','approved_tor','approved_map','approved_sheet',
-                'memo_to_penro_cenro','transmittal'],true));
+                'transmittal'],true));
     if (!permit_flow_staff_can_view($user) && !($mine && $allowedClient)) {
         show_error('Document access denied.',404);
     }
