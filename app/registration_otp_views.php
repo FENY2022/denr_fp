@@ -19,7 +19,7 @@ function view_verify_registration_otp(array $errors = [], array $notices = []): 
         $html .= '<div class="alert alert-warning">Email delivery could not be confirmed. Check the configured APP_URL and SMTP settings, then resend after 60 seconds.</div>';
     $html .= '<p>We sent a secure email verification link to <strong>' . e($mask)
         . '</strong>. Open the email and click <strong>Verify My Email Address</strong>. No OTP is required.</p>'
-        . '<p class="text-secondary small">The link expires after 30 minutes and works once. FUU review begins after confirmation.</p>'
+        . '<p class="text-secondary small">The link expires after 30 minutes and works once. LPDD-FUS review begins after confirmation.</p>'
         . '<form method="post" action="' . url('verify_registration_otp') . '">' . csrf_field()
         . '<input type="hidden" name="otp_action" value="resend">'
         . '<button class="btn btn-outline-success w-100" type="submit">Resend Verification Email</button></form>'
