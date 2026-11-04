@@ -62,7 +62,7 @@ updated_flow_assert(str_contains($submit,'status,flow_version')
     && str_contains($submit,'permit_flow_is_new($workflow)'),
     'new applications use updated version, legacy initial decisions cannot bypass full evaluation');
 updated_flow_assert(str_contains($step2,'Step 2 Completeness & Sufficiency')
-    && str_contains($evaluation,"$modern?'forwarded_to_ro':'step4_complete'")
+    && str_contains($evaluation,'$modern'."?'forwarded_to_ro':'step4_complete'")
     && str_contains($evaluation,'deficiency_notice_issued'),
     'Step 2 completeness decision forwards to RO and requires actual issued signed notices');
 updated_flow_assert(str_contains($clientJs,"dataset.step4FlowVersion === '2'")
@@ -86,7 +86,7 @@ updated_flow_assert(str_contains($flow,'fpoms_file_store_upload')
     && str_contains($flow,'permit_flow_staff_can_act'),
     'all stage documents use encrypted storage with role-checked access');
 updated_flow_assert(str_contains($flow,'deficiency_notice_issued')
-    && str_contains($flow,"(int)$case['current_step']===12")
+    && str_contains($flow,'(int)$case'."['current_step']===12")
     && str_contains($views,'$issued'),
     'client only sees issued notices and final permits after RO release');
 updated_flow_assert(str_contains($router,"case 'permit_flow_advance':")
