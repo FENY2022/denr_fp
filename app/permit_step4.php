@@ -272,7 +272,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         return ['Apply migration 031 before completing the updated Step 2 evaluation.'];
     }
     if ($modern && $decision==='return'
-        && !permit_flow_artifacts($applicationId,2)) {
+        && !permit_flow_signed_notice_for_revision($applicationId,(int)$project['revision'])) {
         return ['Upload the actual RED-signed deficiency notification/template before returning the application to the applicant.'];
     }
     if (!$modern && $decision==='complete' && !permit_payment_schema_ready()) {
