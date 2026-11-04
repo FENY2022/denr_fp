@@ -16,6 +16,7 @@ function step4_queue_tabs(): array
 function view_step4_queue(): void
 {
     step4_require_reviewer();
+    permit_flow_require();
     $tabs=step4_queue_tabs();
     $tab=(string)($_GET['tab'] ?? 'incoming');
     if (!isset($tabs[$tab])) show_error('Invalid Step 4 queue tab.',400);
