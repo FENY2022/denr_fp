@@ -350,6 +350,11 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             $applicationId,(int)$reviewer['id'],$event,(int)$app['revision'],
             $overall!=='' ? $overall : null
         ]);
+        if ($modern && !$complete) {
+            permit_flow_record_event($pdo,$applicationId,2,$reviewer,
+                'deficiency_notice_issued',
+                'Actual RED-signed deficiency template uploaded; applicant notified after commit.');
+        }
         if ($complete && !$modern) {
             // Legacy Step 4 payment, modern flow defers notice to Step 4 after RO.
             $pdo->prepare(
