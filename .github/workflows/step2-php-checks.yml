@@ -91,8 +91,8 @@ jobs:
         run: |
           php tests/step4_documentary_evaluation_test.php
           node --check public/assets/permit-step4-review.js
-      - name: FUU payment verification and official receipt security
-        run: php tests/fuu_payment_verification_test.php
+      - name: LPDD-FUS payment verification and official receipt security
+        run: php tests/lpdd_fus_payment_verification_test.php
       - name: Step 2 DB-free unit checks
         run: php tests/step2_domain_test.php
       - name: Step 2 named documentary requirement checks
