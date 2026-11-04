@@ -318,8 +318,12 @@ mysql -u root -p denr_fp_oms < database/009_merge_designations_into_users.sql
 mysql -u root -p denr_fp_oms < database/011_separate_client_accounts.sql
 # Registration draft attachments (refresh-safe staging):
 mysql -u root -p denr_fp_oms < database/012_registration_draft_uploads.sql
-# Required for OTP-first registration and verified-email FUU review:
+# Required for OTP-first registration and verified-email LPDD-FUS review:
 mysql -u root -p denr_fp_oms < database/013_registration_email_otp.sql
+# Required for Step 4 application-fee tracking and LPDD-FUS OR verification:
+mysql -u root -p denr_fp_oms < database/028_lpdd_fus_payment_verification.sql
+# Existing deployments that previously used a separate payment-verification role:
+mysql -u root -p denr_fp_oms < database/029_consolidate_legacy_payment_role_into_lpdd_fus.sql
 ```
 
 If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'127.0.0.1'` rather than `'localhost'`. Set up the matching MySQL host permissions or change the host configuration accordingly. The supplied SQL user has DML privileges only; keep DDL privileges for database migrations/admins.
@@ -329,7 +333,7 @@ If using `DB_HOST=127.0.0.1`, MySQL may treat the connection as `'fp_oms_user'@'
 
 ## Client account separation and refresh-safe registration drafts
 
-**DENR personnel:** `users` + internal `user_roles`. **External clients/applicants:** `user_client`, with distinct PHP session key `client_id`. Staff and client numeric IDs can overlap without granting each other's permissions. Migration 011 migrates existing applicants, including their password hashes, registration links, history, notifications and password-reset links. FUU reviewers remain staff in `users`.
+**DENR personnel:** `users` + internal `user_roles`. **External clients/applicants:** `user_client`, with distinct PHP session key `client_id`. Staff and client numeric IDs can overlap without granting each other's permissions. Migration 011 migrates existing applicants, including their password hashes, registration links, history, notifications and password-reset links. LPDD-FUS reviewers remain staff in `users`.
 
 **On /register:** choosing a file saves it immediately in `storage/registration_drafts/` using a CSRF-protected HTTP request. The Saved Attachments section shows the uploaded ID/type or supporting file even when the page refreshes. Saved files can be removed without resetting the entire form. Invalid registration fields do not erase saved uploads; only after successful registration are they copied into permanent registration documents and the temporary originals removed. **Maximum 5 Valid IDs and 5 supporting documents**, each restricted to PDF/JPG/PNG and the server's configured maximum size. Drafts **expire after 24 hours** and are only recoverable while using the same browser's PHP session. Clearing cookies or changing browsers may prevent recovery. This feature does not persist passwords or other form entries.
 
@@ -458,9 +462,9 @@ WHERE TABLE_SCHEMA=DATABASE() AND
 
 Apply the **one-time SQL 011 and 013 migrations** only if needed, in their required order and after backing up `denr_fp_oms` plus private storage. **Do not rerun** a migration that has already completed or partially applied; restore/reconcile first. The CSP correction itself does not require new SQL. Refresh assets with `git pull origin main` and **Ctrl + Shift + R**, then test registration in XAMPP and verify the email-confirmation link arrives before the acknowledgment.
 
-## Forest Utilization Section (FUU) terminology
+## LPDD-FUS single-role terminology
 
-Applicant-facing OTP instructions, the successful verification modal, and the HTML/plain-text acknowledgment email use the full office name **Forest Utilization Section (FUU)**. The internal `lpdd_fus` role, reviewer permissions, review queue and existing database values remain unchanged.
+FP-OMS uses **LPDD-FUS** as the single internal role for applicant registration review, documentary evaluation, Cashier payment verification, and Official Receipt upload. Applicant-facing verification instructions, notifications, emails, payment screens, and audit labels use LPDD-FUS consistently. Existing deployments that previously created a separate payment-verification role must apply migration 029 to transfer those assignments into LPDD-FUS and preserve historical payment audit records.
 
 ## Email-link verification, applicant acknowledgment, and mobile QR access
 
