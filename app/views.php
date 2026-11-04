@@ -28,17 +28,25 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
             . shell_nav_item('my_actions', 'My Recent Actions', 'clock-history', $active);
         if (in_array('lpdd_fus', $roles, true)) {
             $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active)
-                . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active)
-                . shell_nav_item('permit_step4_queue', 'Step 4 Documentary Evaluation', 'clipboard-data', $active)
+                . shell_nav_item('permit_initial_queue', 'Step 2 – Documentary Completeness', 'file-earmark-check', $active)
+                . shell_nav_item('permit_step4_queue', 'Legacy Step 4 Reviews', 'clipboard-data', $active)
+                . shell_nav_item('permit_flow_queue', 'Updated Annex A · Steps 4–11', 'diagram-3', $active)
                 . shell_nav_item('lpdd_fus_payment_queue', 'Payment Verification', 'receipt', $active);
         }
         if (in_array('ro_receiving', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Records Management</div>'
                 . shell_nav_item('permit_ro_inbox', 'RO Receiving – Step 3', 'inboxes', $active)
+                . shell_nav_item('permit_flow_queue', 'Release & Annex A Steps', 'send-check', $active)
                 . shell_nav_item('records_archive', 'Records Archiving', 'archive-fill', $active);
         }
-        foreach ([['geo-alt','Field Validation'],['people','RRDC Deliberation'],['file-earmark-check','Permit Approval'],['send','Permit Release']] as [$icon, $label]) {
-            $html .= '<span class="sidebar-link" aria-disabled="true" title="Available in a later phase"><i class="bi bi-' . e($icon) . '"></i><span>' . e($label) . ' · Soon</span></span>';
+        // Actual step actions are restricted again server-side by permit_flow_staff_can_act.
+        // The menu is navigational only and grants no authorization.
+        if (array_intersect($roles,[
+            'cenro_twg','gis_focal','smd','cdd','rrdc_member','rrdc_secretariat',
+            'lpdd_chief','ard_ts','red'
+        ])) {
+            $html .= shell_nav_item('permit_flow_queue',
+                'Annex A – Assigned Processing', 'diagram-3',$active);
         }
         if (in_array('super_admin', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Administration</div>'
