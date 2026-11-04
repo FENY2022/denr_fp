@@ -9,7 +9,7 @@ declare(strict_types=1);
  * Registration history continues to come from registration_reviews.
  */
 
-/** The Step 4 payment action changes only after an actual FUU verification. */
+/** The Step 4 payment action changes only after an actual LPDD-FUS verification. */
 function permit_tracking_step4_payment_state(array $app): array
 {
     $payment=permit_payment_record((int)($app['id']??0));
@@ -17,15 +17,15 @@ function permit_tracking_step4_payment_state(array $app): array
         return [
             'office'=>'LPDD-FUS / CENRO Step 5 Preparation',
             'next_role'=>'CENRO Technical Working Group',
-            'next_action'=>'Cashier payment verified by FUU. Follow the field validation / assessment instructions and await Step 5 processing.',
+            'next_action'=>'Cashier payment verified by LPDD-FUS. Follow the field validation / assessment instructions and await Step 5 processing.',
             'assignment'=>'Step 5 formal processing is not yet implemented'
         ];
     }
     return [
-        'office'=>'DENR CARAGA Regional Office – Cashier / FUU',
-        'next_role'=>'Applicant → Cashier → FUU',
-        'next_action'=>'Pay the official application fee at the Regional Office Cashier, then proceed directly to FUU and present the Official Receipt for verification. Submit required hard copies.',
-        'assignment'=>'Awaiting Cashier payment and authorized FUU verification'
+        'office'=>'DENR CARAGA Regional Office – Cashier / LPDD-FUS',
+        'next_role'=>'Applicant → Cashier → LPDD-FUS',
+        'next_action'=>'Pay the official application fee at the Regional Office Cashier, then proceed directly to LPDD-FUS and present the Official Receipt for verification. Submit required hard copies.',
+        'assignment'=>'Awaiting Cashier payment and authorized LPDD-FUS verification'
     ];
 }
 
@@ -114,7 +114,7 @@ function permit_tracking_event_label(string $action): string
         'step4_returned_for_compliance'=>'Step 4 Returned for Compliance',
         'step4_resubmitted'=>'Step 4 Compliance Resubmitted',
         'step4_complete'=>'Step 4 Complete & Sufficient',
-        'payment_verified_fuu'=>'Cashier Payment Verified by FUU',
+        'payment_verified_lpdd_fus'=>'Cashier Payment Verified by LPDD-FUS',
         'ro_archived'=>'Records Action Archived',
         'reverted'=>'Reverted by Applicant',
         default=>ucwords(str_replace('_',' ', $action))
@@ -130,8 +130,8 @@ function permit_tracking_event_destination(string $action): string
         'ro_documents_received'=>'RO Receiving/Releasing',
         'forwarded_to_lpdd','step4_review_started','step4_resubmitted'=>'LPDD-FUS (Regional Office)',
         'step4_returned_for_compliance'=>'Applicant / Client',
-        'step4_complete'=>'LPDD-FUS / Cashier / FUU',
-        'payment_verified_fuu'=>'FUU (Regional Office)',
+        'step4_complete'=>'LPDD-FUS / Cashier / LPDD-FUS',
+        'payment_verified_lpdd_fus'=>'LPDD-FUS (Regional Office)',
         'ro_archived'=>'Records Archiving',
         default=>'Not recorded'
     };
