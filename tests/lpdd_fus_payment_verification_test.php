@@ -93,8 +93,9 @@ payment_assert(!str_contains($step2,"has_role(\$viewer,'".$legacyRoleCode."')")
     && str_contains($appViews,'View Payment Receipt'),
     'separate legacy payment viewer path removed');
 payment_assert(str_contains($step4Views,'Payment Status')
-    && str_contains($step4Views,'View Payment Status'),
-    'Step 4 complete queue retains read-only payment tracking');
+    && str_contains($step4Views,'Verify Payment &amp; Upload OR')
+    && str_contains($step4Views,'View Payment Receipt'),
+    'Step 4 complete queue exposes the LPDD-FUS payment action and verified receipt link');
 payment_assert(str_contains($tracking,'payment_verified_lpdd_fus')
     && str_contains($events,'payment_verified_lpdd_fus'),
     'tracking and audit trail use LPDD-FUS payment event');
