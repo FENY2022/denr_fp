@@ -96,6 +96,18 @@ fuu_assert(str_contains($nav,'FUU – Payment Verification')
     && str_contains($appViews,'permit_payment_panel_html')
     && str_contains($step2,"has_role(\$viewer,'fuu')"),
     'FUU menu, application panel and viewer authorization wired');
+fuu_assert(str_contains($appViews,'View Payment Instructions')
+    && str_contains($appViews,'View Payment Receipt')
+    && str_contains($appViews,'#fp-payment-verification')
+    && str_contains($appViews,'Next Action – Application Fee'),
+    'client can locate payment status and next action from My FP Applications');
+fuu_assert(str_contains($paymentViews,'id="fp-payment-verification"')
+    && str_contains($paymentViews,'Your Next Steps')
+    && str_contains($paymentViews,'Proceed directly to FUU')
+    && str_contains($paymentViews,'Verify Payment')
+    && str_contains($paymentViews,"'#fp-payment-verification'"),
+    'FUU queue directly opens the payment action and applicant sees cashier-to-FUU guidance');
+
 fuu_assert(str_contains($tracking,'permit_tracking_step4_payment_state')
     && str_contains($tracking,'payment_verified_fuu')
     && str_contains($events,'payment_verified_fuu'),
