@@ -498,12 +498,16 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
     if (!$app || !$doc || !permit_flow_is_new($app)) show_error('Document not found.',404);
     $mine=($user['user_kind']??'')==='applicant'
         && (int)$user['id']===(int)$app['client_id'];
+    $case=permit_flow_case($id);
+    $issued=$case && (int)$case['current_step']===12
+        && !empty($case['completed_at']);
     $allowedClient=((int)$doc['step_number']===2
             && $doc['category']==='red_signed_deficiency_notice'
             && permit_flow_event_exists($id,2,'deficiency_notice_issued'))
-        || ((int)$doc['step_number']>=10 && in_array($doc['category'],[
-            'approved_fp','approved_tor','approved_map','approved_sheet','memo_to_penro_cenro',
-            'transmittal'],true));
+        || ($issued && (int)$doc['step_number']>=10
+            && in_array($doc['category'],[
+                'approved_fp','approved_tor','approved_map','approved_sheet',
+                'memo_to_penro_cenro','transmittal'],true));
     if (!permit_flow_staff_can_view($user) && !($mine && $allowedClient)) {
         show_error('Document access denied.',404);
     }
