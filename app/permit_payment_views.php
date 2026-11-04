@@ -9,7 +9,7 @@ function permit_payment_status_badge(?array $payment): string
         : '<span class="badge text-bg-warning">Awaiting LPDD-FUS Verification</span>';
 }
 
-/** Applicant, LPDD-FUS, and LPDD-FUS see the same authoritative payment state. */
+/** Applicant and LPDD-FUS see the same authoritative payment state. */
 function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): string
 {
     if ((string)$app['status']!=='step4_complete') return '';
@@ -121,7 +121,7 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
     return $html.'</section>';
 }
 
-/** LPDD-FUS-only queue; no ability to pay or verify on behalf of the applicant. */
+/** LPDD-FUS payment-verification queue; applicants cannot self-verify payment. */
 function view_lpdd_fus_payment_queue(): void
 {
     permit_payment_require_lpdd_fus();
