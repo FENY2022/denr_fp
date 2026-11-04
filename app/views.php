@@ -29,10 +29,8 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         if (in_array('lpdd_fus', $roles, true)) {
             $html .= shell_nav_item('review_queue', 'Registration Review', 'clipboard-check', $active)
                 . shell_nav_item('permit_initial_queue', 'FP Initial Review – Step 2', 'file-earmark-check', $active)
-                . shell_nav_item('permit_step4_queue', 'Step 4 Documentary Evaluation', 'clipboard-data', $active);
-        }
-        if (in_array('fuu', $roles, true)) {
-            $html .= shell_nav_item('fuu_payment_queue', 'FUU – Payment Verification', 'receipt', $active);
+                . shell_nav_item('permit_step4_queue', 'Step 4 Documentary Evaluation', 'clipboard-data', $active)
+                . shell_nav_item('lpdd_fus_payment_queue', 'Payment Verification', 'receipt', $active);
         }
         if (in_array('ro_receiving', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Records Management</div>'
@@ -466,7 +464,7 @@ function registration_verified_modal_html(bool $ackDeliveryFailed, string $appli
         . '<p>This is to acknowledge that we have successfully received your applicant account registration submitted through the '
         . '<strong>DENR CARAGA Feasibility Permit Online Management System (FP-OMS)</strong>.</p>'
         . '<p>Please be informed that your registration is currently <strong>PENDING VALIDATION</strong> by the concerned '
-        . '<strong>Forest Utilization Section (FUU)</strong>, through the assigned LPDD-FUS reviewing personnel. '
+        . '<strong>LPDD-FUS</strong>, through the assigned LPDD-FUS reviewing personnel. '
         . 'Your submitted information and supporting documents will be checked for completeness, accuracy, and compliance '
         . 'with applicable registration requirements.</p>'
         . '<p>Once validation is completed, you will receive another email regarding your account status. '
