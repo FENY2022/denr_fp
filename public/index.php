@@ -691,7 +691,7 @@ try {
             else {
                 flash('success',$action==='receive'
                     ? 'RO document receipt recorded successfully.'
-                    : 'Application forwarded to LPDD-FUS Step 4 incoming queue.');
+                    : 'Application forwarded to LPDD-FUS Step 4 action queue.');
                 go('permit_ro_inbox');
             }
             break;
@@ -709,7 +709,10 @@ try {
             $errors=step4_start($reviewer,(int)$id);
             if ($errors) view_step2_application((int)$id,$errors);
             else {
-                flash('success','Step 4 documentary evaluation started.');
+                $current=step2_application((int)$id);
+                flash('success',$current && permit_flow_is_new($current)
+                    ? 'Step 2 documentary completeness/sufficiency evaluation started.'
+                    : 'Legacy Step 4 documentary evaluation started.');
                 go('permit_application',['id'=>(int)$id]);
             }
             break;
@@ -724,11 +727,87 @@ try {
             if ($errors) view_step2_application((int)$id,$errors);
             else {
                 $decision=(string)($_POST['decision'] ?? '');
+                $current=step2_application((int)$id);
+                $modern=$current && permit_flow_is_new($current);
                 flash('success',$decision==='complete'
-                    ? 'Step 4 completed: documentary requirements are complete and sufficient.'
+                    ? ($modern
+                        ? 'Step 2 Complete & Sufficient – application forwarded to RO Step 3.'
+                        : 'Legacy Step 4 completed: documentary requirements are complete and sufficient.')
                     : 'Application returned to the applicant for documentary compliance.');
+                if ($modern) go('permit_initial_queue');
                 go('permit_step4_queue',['tab'=>$decision==='complete'?'complete':'returned']);
             }
+            break;
+        case 'permit_flow':
+            if ($post) show_error('Workflow view requires GET.',405);
+            $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            view_permit_flow((int)$id);
+            break;
+        case 'permit_flow_queue':
+            if ($post) show_error('Workflow queue requires GET.',405);
+            view_permit_flow_queue();
+            break;
+        case 'permit_flow_upload':
+            if (!$post) show_error('Document uploads require POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            $step=filter_var($_GET['step']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>2,'max_range'=>11]]);
+            if (!$id || !$step) show_error('Invalid workflow upload reference.',400);
+            $category=safe_post('category',60);
+            $errors=permit_flow_upload($staff,(int)$id,(int)$step,$category,
+                $_FILES['document']??null);
+            if ($errors) {
+                flash('error',implode(' ',array_map('strval',$errors)));
+            } else {
+                flash('success','Workflow document securely uploaded and recorded in the audit trail.');
+            }
+            go((int)$step===2?'permit_application':'permit_flow',['id'=>(int)$id]);
+            break;
+        case 'permit_flow_advance':
+            if (!$post) show_error('Workflow transitions require confirmed POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            $step=filter_var($_GET['step']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>4,'max_range'=>11]]);
+            if (!$id || !$step) show_error('Invalid workflow stage.',400);
+            $errors=permit_flow_advance($staff,(int)$id,(int)$step,$_POST);
+            if ($errors) view_permit_flow((int)$id,$errors);
+            else {
+                flash('success',$step===11?'Feasibility Permit release completed.'
+                    :'Step '.$step.' recorded and forwarded to the next office.');
+                go('permit_flow',['id'=>(int)$id]);
+            }
+            break;
+        case 'permit_flow_notice':
+            if (!$post) show_error('CENRO notice requires POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id || ($_POST['confirmation']??'')!=='1') show_error('Invalid notice confirmation.',400);
+            $errors=permit_flow_notify_hardcopies($staff,(int)$id);
+            if ($errors) view_permit_flow((int)$id,$errors);
+            else {
+                flash('success','CENRO hard-copy notice recorded and applicant notified.');
+                go('permit_flow',['id'=>(int)$id]);
+            }
+            break;
+        case 'permit_flow_file':
+            if ($post) show_error('Workflow document download requires GET.',405);
+            $user=require_user();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            $file=filter_var($_GET['file']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id || !$file) show_error('Invalid document reference.',400);
+            permit_flow_send_artifact($user,(int)$id,(int)$file);
             break;
         case 'lpdd_fus_payment_queue':
             if ($post) show_error('Payment queue is read-only.',405);
