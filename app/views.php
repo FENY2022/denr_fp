@@ -430,7 +430,7 @@ function view_register(array $errors = []): void
         . '</div></div></div>'
         . '<script src="assets/register-password.js?v=2" defer></script>'
         . '<script src="assets/registration-attachments.js?v=11" defer></script>'
-            . '<script src="assets/registration-requirements.js?v=2" defer></script>'
+            . '<script src="assets/registration-requirements.js?v=3" defer></script>'
         . '<script src="assets/registration-form-draft.js?v=3" defer></script>'
         . '<script src="assets/registration-steps.js?v=3" defer></script>'
         . '<script src="assets/registration-review-confirm.js?v=4" defer></script>';
@@ -655,7 +655,7 @@ function view_applicant_registration(array $user, array $errors = [], bool $show
             . registration_section_heading_html(5,'Review and Resubmit Registration')
             . '<div class="mt-4"><button class="btn btn-primary" type="submit">Resubmit for LPDD-FUS Review</button></div></form></div>'
             . '<script src="assets/registration-attachments.js?v=11" defer></script>'
-            . '<script src="assets/registration-requirements.js?v=2" defer></script>';
+            . '<script src="assets/registration-requirements.js?v=3" defer></script>';
     }
     if ($showDashboardChecklist) {
         $html = applicant_dashboard_content_html((string)($user['status'] ?? ''), $html);
