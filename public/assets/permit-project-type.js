@@ -1,0 +1,80 @@
+(() => {
+  'use strict';
+  const form = document.getElementById('permit-step2-form');
+  const type = form?.querySelector('[data-fp-project-type]');
+  const other = form?.querySelector('[data-fp-other-project]');
+  const otherWrap = form?.querySelector('[data-fp-other-project-wrap]');
+  const doeCard = form?.querySelector('[data-step2-doe-upload]');
+  const category = form?.querySelector('[data-step2-category-select]');
+  const hint = form?.querySelector('[data-fp-doe-hint]');
+  if (!form || !type || !other || !otherWrap) return;
+
+  const exemption = value => value === 'solar' || value === 'biomass';
+  const update = () => {
+    const kind = type.value;
+    const isOther = kind === 'other';
+    const exempt = exemption(kind);
+    otherWrap.classList.toggle('d-none', !isOther);
+    other.required = isOther;
+    other.disabled = !isOther;
+    if (doeCard) doeCard.closest('.col-md-6')?.classList.toggle('d-none', exempt);
+    const doeOption = category?.querySelector('option[value="doe_esc_coa"]');
+    if (doeOption) doeOption.disabled = exempt;
+    if (exempt && category?.value === 'doe_esc_coa') {
+      category.value = '';
+      category.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    if (hint) {
+      hint.textContent = exempt
+        ? 'Annex 1 #10 (DOE ESC/COA) is Not Applicable to Solar/Biomass.'
+        : isOther
+          ? 'Annex 1 #10 (DOE ESC/COA) is required for Other projects.'
+          : 'Select your Type of Project to determine whether DOE #10 applies.';
+    }
+  };
+  type.addEventListener('change', update);
+  type.addEventListener('input', update);
+  window.addEventListener('pageshow', update);
+  update();
+
+  // Submission validation precedes the persistent-draft submit handler.
+  // Server-side validation is authoritative, especially for stored revisions.
+  form.addEventListener('submit', event => {
+    other.setCustomValidity('');
+    if (!type.value) {
+      type.reportValidity();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (type.value === 'other' && other.value.trim().length < 3) {
+      other.setCustomValidity('Specify the Other Type of Project (at least 3 characters).');
+      other.reportValidity();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    const staged = [...form.querySelectorAll(
+      '[data-step2-draft-id][data-step2-requirement-type="doe_esc_coa"]'
+    )].length;
+    const direct = [...form.querySelectorAll(
+      'input[name="application_file_categories[]"]'
+    )].filter(input => input.value === 'doe_esc_coa').length;
+    const addedDoe = staged + direct > 0;
+    const isNew = (form.querySelector('[data-step2-mode]')?.dataset.applicationId || '0') === '0';
+    const invalidNew = type.value === 'other' && isNew && !addedDoe;
+    const invalidExempt = exemption(type.value) && addedDoe;
+    if (invalidNew || invalidExempt) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const uploader = form.querySelector('[data-step2-feedback]');
+      if (uploader) {
+        uploader.classList.add('text-danger');
+        uploader.textContent = invalidNew
+          ? 'Other projects require upload of Annex 1 #10 DOE ESC/COA before submission.'
+          : 'Solar/Biomass are exempt from DOE #10. Remove new DOE documents from the upload queue.';
+        uploader.scrollIntoView({block:'center',behavior:'smooth'});
+      }
+    }
+  }, {capture: true});
+})();
