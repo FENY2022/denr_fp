@@ -749,9 +749,30 @@ try {
                 ['options'=>['min_range'=>1]]);
             if (!$id) show_error('Invalid notice reference.',400);
             $errors=fpoms_notice_red_approve($red,(int)$id);
-            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
-            else flash('success','RED approved the generated PDF. Applicant notice was released and email delivery attempted.');
+            if ($errors) {
+                flash('error',implode(' ',array_map('strval',$errors)));
+            } else {
+                $notice=fpoms_notice_record((int)$id,
+                    (int)(step2_application((int)$id)['revision']??0));
+                if ($notice && (string)($notice['email_status']??'')==='failed') {
+                    flash('info','RED approval and Return were completed. Applicant system notification was recorded, but SMTP email failed. Use Retry Applicant Email after correcting mail settings.');
+                } else {
+                    flash('success','RED approval and Return completed. Applicant PDF is available; email delivery attempted.');
+                }
+            }
             go('deficiency_notice_queue');
+            break;
+        case 'deficiency_notice_retry_email':
+            if (!$post) show_error('Retrying notice email requires POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application reference.',400);
+            $errors=fpoms_notice_retry_official_email($staff,(int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Official deficiency notice was sent to the applicant email.');
+            go('permit_application',['id'=>(int)$id]);
             break;
         case 'permit_step4_decision':
             $reviewer=step4_require_reviewer();
