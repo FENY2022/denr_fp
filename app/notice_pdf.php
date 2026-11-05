@@ -27,7 +27,9 @@ final class FpomsNoticePdf
 
     private static function ascii(string $text): string
     {
-        return preg_replace('/\s+/', ' ', trim(self::pdfText($text))) ?? '';
+        $encoded = iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text);
+        if ($encoded === false) $encoded = $text;
+        return preg_replace('/\s+/', ' ', trim($encoded)) ?? '';
     }
 
     private function line(float $x, float $top, string $text, int $size=10, bool $bold=false): void
@@ -59,7 +61,7 @@ final class FpomsNoticePdf
 
     private function ensure(float $needed): void
     {
-        if ($this->y + $needed > 755) $this->startPage(true);
+        if ($this->y + $needed > 785) $this->startPage(true);
     }
 
     private function wrapped(string $text,int $columns): array
