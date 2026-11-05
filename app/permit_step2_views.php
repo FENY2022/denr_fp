@@ -560,7 +560,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
              . 'No file uploaded for this requirement yet.</li></ul></div></div>';
     }
     $html .= '</div></div>'
-        . '<div id="step2-draft-uploader" data-step2-mode="'
+        . '<div id="step2-draft-uploader" tabindex="-1" data-step2-mode="'
         . ($draftMode ? 'saved' : 'direct') . '" data-persistent="'
         . ($persistent ? '1' : '0') . '" data-application-id="'
         . $applicationId . '" data-max-bytes="'
@@ -653,7 +653,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
             : '')
-        . '<script src="assets/permit-step2-sections.js?v=1" defer></script>';
+        . '<script src="assets/permit-step2-sections.js?v=3" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 

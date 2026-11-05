@@ -156,7 +156,7 @@ tracking_assert(str_contains($stylesheet,'.fp-audit-icon')
     && str_contains($stylesheet,'border-left:5px solid var(--fp-audit-accent)'),
     'color indicator has border, icon and visible label');
 tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
-        'assets/style.css?v=36'), 'new stylesheet cache version');
+        'assets/style.css?v=37'), 'new stylesheet cache version');
 tracking_assert(str_contains($timeline,'fp-audit-event--submitted')
     && str_contains($timeline,'fp-audit-event--received')
     && str_contains($timeline,'fp-audit-icon')
