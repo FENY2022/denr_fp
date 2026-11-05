@@ -177,9 +177,16 @@ final class FpomsNoticePdf
             $pdf->paragraph($addressLine,80,15,0);
         }
         $pdf->y+=24;
-        $pdf->heading('Subject: Application for Feasibility Permit of '.
-            (string)($app['company_name']??'the applicant'));
-        $pdf->paragraph('for its '.(string)($app['project_title']??''),80,13,11);
+        $pdf->line(108,$pdf->y,'Subject:',11,true);
+        $subject='Application for Feasibility Permit of '
+            .(string)($app['company_name']??'the applicant')
+            .' for its '.(string)($app['project_title']??'the proposed project');
+        foreach ($pdf->wrapped($subject,54) as $subjectLine) {
+            $pdf->ensure(14);
+            $pdf->line(184,$pdf->y,$subjectLine,11,true);
+            $pdf->y+=14;
+        }
+        $pdf->y+=13;
         $pdf->paragraph('Dear '.(string)($app['applicant_name']??'Proponent').':',80,14,12);
 
         $area=trim((string)($input['area_hectares']??''));
