@@ -346,6 +346,7 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
 
     // Existing return path records the decision, releases the artifact, and emails applicant.
     // A signed notice can be retried if the legacy downstream save/email failed.
+    $payload['_red_finalize']='1';
     return step4_decide($originalReviewer,$applicationId,$payload);
 }
 
@@ -445,9 +446,10 @@ function fpoms_notice_queue_view(array $red): void
             .'<div class="d-flex flex-wrap gap-2 mt-2">'
             .'<a target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" href="'
             .e(url('deficiency_notice_pdf',['id'=>$id])).'">Preview Draft PDF</a>'
-            .'<form method="post" action="'.e(url('deficiency_notice_approve',['id'=>$id]))
-            .'" onsubmit="return confirm(\'Approve/sign and release this notice to the applicant?\');">'
-            .csrf_field().'<input type="hidden" name="confirmation" value="1">'
+            .'<form method="post" action="'.e(url('deficiency_notice_approve',['id'=>$id])).'">'
+            .csrf_field()
+            .'<label class="d-block small my-2"><input type="checkbox" name="confirmation" '
+            .'value="1" required> I reviewed the PDF and explicitly approve applying the RED signature.</label>'
             .'<button type="submit" class="btn btn-success btn-sm">RED Approve &amp; Sign</button>'
             .'</form></div></div>';
     }
