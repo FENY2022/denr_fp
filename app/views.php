@@ -33,6 +33,10 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
                 . shell_nav_item('permit_flow_queue', 'Updated Annex A · Steps 4–11', 'diagram-3', $active)
                 . shell_nav_item('lpdd_fus_payment_queue', 'Payment Verification', 'receipt', $active);
         }
+        if (in_array('red', $roles, true)) {
+            $html .= shell_nav_item('deficiency_notice_queue',
+                'RED – Deficiency Approvals', 'file-earmark-check', $active);
+        }
         if (in_array('ro_receiving', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Records Management</div>'
                 . shell_nav_item('permit_ro_inbox', 'RO Receiving – Step 3', 'inboxes', $active)
@@ -50,12 +54,13 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         }
         if (in_array('super_admin', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Administration</div>'
-                . '<details class="sidebar-config-menu"' . (in_array($active, ['user_management','user_create','user_edit','user_login_logs','realtime_settings','otp_delivery_diagnostics'], true) ? ' open' : '') . '>'
+                . '<details class="sidebar-config-menu"' . (in_array($active, ['user_management','user_create','user_edit','user_login_logs','realtime_settings','otp_delivery_diagnostics','deficiency_notice_settings'], true) ? ' open' : '') . '>'
                 . '<summary class="sidebar-link"><i class="bi bi-gear-fill"></i><span>Configuration</span><i class="bi bi-chevron-down ms-auto"></i></summary>'
                 . '<div class="ps-3">'
                 . shell_nav_item('user_management','User Management','people-fill',
                     in_array($active, ['user_management','user_create','user_edit','user_login_logs'], true) ? 'user_management' : $active)
                 . shell_nav_item('realtime_settings','Realtime Notifications','broadcast',$active)
+                . shell_nav_item('deficiency_notice_settings','Deficiency Notice Template','file-earmark-pdf',$active)
                 . shell_nav_item('otp_delivery_diagnostics','OTP Delivery Diagnostics','envelope-exclamation',$active)
                 . '</div></details>';
         }
