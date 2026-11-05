@@ -172,13 +172,18 @@ function permit_flow_artifacts(int $id,?int $step=null): array
 /** Bind the actual RED-signed deficiency notice to the review revision. */
 function permit_flow_signed_notice_for_revision(int $id,int $revision): bool
 {
-    if (!permit_flow_ready() || $revision<1) return false;
+    return permit_flow_signed_notice_artifact_for_revision($id,$revision)!==null;
+}
+function permit_flow_signed_notice_artifact_for_revision(int $id,int $revision): ?array
+{
+    if (!permit_flow_ready() || $revision<1) return null;
     return query_one(
-        "SELECT id FROM permit_flow_artifacts
+        "SELECT * FROM permit_flow_artifacts
          WHERE application_id=? AND step_number=2 AND application_revision=?
-           AND category='red_signed_deficiency_notice' LIMIT 1",
+           AND category='red_signed_deficiency_notice'
+         ORDER BY id DESC LIMIT 1",
         [$id,$revision]
-    )!==null;
+    );
 }
 
 function permit_flow_events(int $id): array
@@ -380,14 +385,68 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
     }
     return [];
 }
-function permit_flow_email(array $app,string $subject,string $message): void
+/** Build email links only from the configured system URL, never the Host header. */
+function permit_flow_application_email_url(int $id): ?string
+{
+    if ($id<1) return null;
+    $base=rtrim(trim(env_value('APP_URL')),'/');
+    $parts=parse_url($base);
+    if ($parts===false || filter_var($base,FILTER_VALIDATE_URL)===false
+        || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+        || isset($parts['query']) || isset($parts['fragment'])) return null;
+    $scheme=strtolower((string)($parts['scheme']??''));
+    $host=strtolower(trim((string)$parts['host'],'[]'));
+    $loopback=in_array($host,['localhost','127.0.0.1','::1'],true);
+    if ($scheme!=='https' && !($scheme==='http' && $loopback)) return null;
+    return $base.'/permit-application?id='.$id;
+}
+
+/** Read the authorized notice from encrypted storage for email attachment. */
+function permit_flow_notice_email_attachments(int $id,int $revision): array
+{
+    $doc=permit_flow_signed_notice_artifact_for_revision($id,$revision);
+    if (!$doc) return [];
+    $base=realpath(PROJECT_ROOT.'/storage/fp_workflow');
+    $absolute=realpath(PROJECT_ROOT.'/storage/'.(string)$doc['stored_path']);
+    if (!$base || !$absolute || !str_starts_with($absolute,$base.DIRECTORY_SEPARATOR)
+        || !is_file($absolute)) {
+        error_log('FP-OMS deficiency notice email attachment is unavailable.');
+        return [];
+    }
+    try {
+        $data=fpoms_file_read($absolute);
+    } catch (Throwable $e) {
+        error_log('FP-OMS deficiency notice email read failed: '.$e->getMessage());
+        return [];
+    }
+    if (!hash_equals((string)$doc['sha256'],hash('sha256',$data))) {
+        error_log('FP-OMS deficiency notice email attachment failed integrity verification.');
+        return [];
+    }
+    return [[
+        'data'=>$data,
+        'name'=>(string)$doc['original_name'],
+        'mime'=>(string)$doc['mime_type'],
+    ]];
+}
+
+function permit_flow_email(
+    array $app,string $subject,string $message,?string $applicationUrl=null,
+    array $attachments=[]
+): void
 {
     $email=(string)($app['applicant_email']??'');
     if (!filter_var($email,FILTER_VALIDATE_EMAIL)) return;
     try {
+        $linkHtml=$applicationUrl!==null
+            ? '<p><a href="'.e($applicationUrl).'" style="display:inline-block;padding:10px 16px;'
+                .'background:#198754;color:#fff;text-decoration:none;border-radius:6px">'
+                .'Open FP Application</a></p><p style="font-size:13px">'.e($applicationUrl).'</p>'
+            : '';
+        $plain=$message.($applicationUrl!==null ? "\n\nOpen FP Application: ".$applicationUrl : '');
         smtp_send_html($email,$subject,
             registration_email_layout($subject,(string)($app['applicant_name']??'Applicant'),
-                '<p>'.nl2br(e($message)).'</p>'),$message);
+                '<p>'.nl2br(e($message)).'</p>'.$linkHtml),$plain,[],$attachments);
     } catch (Throwable $e) { error_log('FP-OMS Annex A mail error: '.$e->getMessage()); }
 }
 function permit_flow_event_exists(int $id,int $step,string $action): bool

@@ -485,7 +485,9 @@ mysql -u root -p denr_fp_oms < database/031_annex_a_updated_workflow.sql
   LPDD-FUS Step 4 payment notice, assessment schedule and CENRO memo.
   Applications returned at Step 2 require an **actual RED-signed** electronic
   notice uploaded by LPDD-FUS before finalizing return. The system never
-  generates or forges a RED signature.
+  generates or forges a RED signature. After the committed return, the applicant
+  email includes the integrity-verified uploaded notice and a direct application
+  link built only from the configured `APP_URL`.
 - **Step 4:** The LPDD-FUS account uploads CENRO memo instructions, records
   the assessment schedule, and notifies the applicant to pay at the Regional
   Office Cashier. Payment is separately verified and its actual Official

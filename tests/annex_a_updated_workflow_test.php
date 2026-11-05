@@ -89,6 +89,13 @@ updated_flow_assert(str_contains($flow,'deficiency_notice_issued')
     && str_contains($flow,'(int)$case'."['current_step']===12")
     && str_contains($views,'$issued'),
     'client only sees issued notices and final permits after RO release');
+updated_flow_assert(str_contains($evaluation,'permit_flow_application_email_url')
+    && str_contains($evaluation,'permit_flow_notice_email_attachments')
+    && str_contains($flow,'/permit-application?id=')
+    && str_contains($flow,'deficiency notice email attachment failed integrity verification')
+    && str_contains($flow,'Open FP Application')
+    && str_contains((string)file_get_contents(__DIR__.'/../app/smtp.php'),'addStringAttachment'),
+    'returned application email attaches verified RED-signed notice and includes configured system link');
 updated_flow_assert(str_contains($router,"case 'permit_flow_advance':")
     && str_contains($router,"case 'permit_flow_upload':")
     && str_contains($router,"case 'permit_flow_milestone':")

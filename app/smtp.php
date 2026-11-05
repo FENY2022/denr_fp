@@ -14,7 +14,14 @@ use PHPMailer\PHPMailer\PHPMailer;
  *
  * SMTP credentials are read only from .env/environment variables.
  */
-function smtp_send_html(string $to, string $subject, string $html, string $plain = '', array $embeddedPngs = []): bool
+function smtp_send_html(
+    string $to,
+    string $subject,
+    string $html,
+    string $plain = '',
+    array $embeddedPngs = [],
+    array $attachments = []
+): bool
 {
     if (strtolower(env_value('MAIL_ENABLED', 'false')) !== 'true') {
         error_log('FP-OMS mail delivery skipped: MAIL_ENABLED is not true.');
@@ -107,6 +114,25 @@ function smtp_send_html(string $to, string $subject, string $html, string $plain
             $mail->addStringEmbeddedImage(
                 $png, $cid, $cid . '.png',
                 PHPMailer::ENCODING_BASE64, 'image/png'
+            );
+        }
+
+        // Attach only caller-supplied, already-authorized document bytes. Using
+        // string attachments keeps private/encrypted storage paths out of the
+        // message and avoids exposing a public filesystem URL.
+        foreach ($attachments as $attachment) {
+            $data=$attachment['data'] ?? null;
+            $name=basename((string)($attachment['name'] ?? ''));
+            $mime=(string)($attachment['mime'] ?? '');
+            $max=max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880'));
+            if (!is_string($data) || $data==='' || strlen($data)>$max
+                || $name==='' || strlen($name)>220
+                || preg_match('/[\x00-\x1F\x7F]/',$name)
+                || !in_array($mime,['application/pdf','image/jpeg','image/png'],true)) {
+                throw new InvalidArgumentException('Invalid email attachment.');
+            }
+            $mail->addStringAttachment(
+                $data,$name,PHPMailer::ENCODING_BASE64,$mime,'attachment'
             );
         }
 

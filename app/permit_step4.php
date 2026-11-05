@@ -275,6 +275,15 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         && !permit_flow_signed_notice_for_revision($applicationId,(int)$project['revision'])) {
         return ['Upload the actual RED-signed deficiency notification/template before returning the application to the applicant.'];
     }
+    $noticeEmailAttachments=[];
+    if ($modern && $decision==='return') {
+        $noticeEmailAttachments=permit_flow_notice_email_attachments(
+            $applicationId,(int)$project['revision']
+        );
+        if (!$noticeEmailAttachments) {
+            return ['The uploaded RED-signed deficiency notice is unavailable or failed integrity verification. Upload the actual notice again before returning the application.'];
+        }
+    }
     if (!$modern && $decision==='complete' && !permit_payment_schema_ready()) {
         return ['Apply database migration 028 to enable payment tracking and LPDD-FUS notification before completing legacy Step 4.'];
     }
@@ -429,12 +438,18 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
                 'Your documentary requirements were determined complete and sufficient. '
                 .'The application is forwarded to RO Receiving/Releasing (Step 3).');
         } elseif ($modern) {
+            $applicationUrl=permit_flow_application_email_url($applicationId);
+            if ($applicationUrl===null) {
+                error_log('FP-OMS deficiency notice link unavailable: configure APP_URL to the accessible HTTPS system address (or HTTP localhost for local tests).');
+            }
             permit_flow_email($app,'Step 2 RED-Signed Deficiency Notice – FP Application #'.$applicationId,
                 'LPDD-FUS determined that your application has lacking or inappropriate '
-                .'documentary requirements. Open FP-OMS → My FP Applications → '
-                .'Application #'.$applicationId.' to view the actual RED-signed notice, '
+                .'documentary requirements. The actual RED-signed notice is attached. '
+                .'Use the secure FP-OMS application link to view the notice, '
                 .'correct deficiencies, and resubmit to LPDD-FUS Step 2. '
-                .'Review remarks: '.$overall);
+                .'Review remarks: '.$overall,
+                $applicationUrl,
+                $noticeEmailAttachments);
         } else {
             step4_send_applicant_email($app,$applicationId,$complete,$overall,$instructions,$schedule);
         }
