@@ -79,6 +79,7 @@ require_once __DIR__ . '/permit_step4.php';
 require_once __DIR__ . '/permit_payment.php';
 require_once __DIR__ . '/permit_flow.php';
 require_once __DIR__ . '/notice_pdf.php';
+require_once __DIR__ . '/notice_template.php';
 require_once __DIR__ . '/deficiency_notice.php';
 require_once __DIR__ . '/records_archive.php';
 require_once __DIR__ . '/permit_tracking.php';
