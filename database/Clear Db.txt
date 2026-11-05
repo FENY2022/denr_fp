@@ -1,0 +1,81 @@
+USE denr_fp_oms;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- ============================================
+-- FP-OMS TEST DATA RESET
+-- PRESERVE USERS / ROLES / OFFICES / APPLICANTS
+-- ============================================
+
+-- STEP 4
+DELETE FROM permit_step4_requirement_reviews;
+DELETE FROM permit_step4_reviews;
+
+-- STEP 3
+DELETE FROM permit_step3_movements;
+
+-- PAYMENT / RECORDS
+DELETE FROM permit_records_archives;
+DELETE FROM permit_payment_verifications;
+
+-- CURRENT PERMIT FLOW
+DELETE FROM permit_flow_artifacts;
+DELETE FROM permit_flow_events;
+DELETE FROM permit_flow_cases;
+
+-- STEP 2
+DELETE FROM permit_step2_events;
+DELETE FROM permit_step2_documents;
+DELETE FROM permit_step2_draft_documents;
+DELETE FROM permit_step2_form_drafts;
+DELETE FROM permit_step2_applications;
+
+-- LEGACY / OLD PERMIT TABLES
+DELETE FROM permit_records;
+DELETE FROM application_documents;
+DELETE FROM workflow_actions;
+DELETE FROM permit_applications;
+
+-- NOTIFICATIONS / LOGS
+DELETE FROM notifications;
+DELETE FROM audit_logs;
+DELETE FROM account_login_logs;
+DELETE FROM login_attempts;
+
+-- TEMP PASSWORD / OTP DATA
+DELETE FROM password_reset_tokens;
+DELETE FROM shared_office_recovery_otps;
+DELETE FROM staff_password_reset_otps;
+
+-- ============================================
+-- RESET AUTO_INCREMENT COUNTERS
+-- ============================================
+
+ALTER TABLE permit_step4_requirement_reviews AUTO_INCREMENT = 1;
+ALTER TABLE permit_step4_reviews AUTO_INCREMENT = 1;
+
+ALTER TABLE permit_payment_verifications AUTO_INCREMENT = 1;
+
+ALTER TABLE permit_flow_artifacts AUTO_INCREMENT = 1;
+ALTER TABLE permit_flow_events AUTO_INCREMENT = 1;
+
+ALTER TABLE permit_step2_events AUTO_INCREMENT = 1;
+ALTER TABLE permit_step2_documents AUTO_INCREMENT = 1;
+ALTER TABLE permit_step2_draft_documents AUTO_INCREMENT = 1;
+ALTER TABLE permit_step2_applications AUTO_INCREMENT = 1;
+
+ALTER TABLE permit_records AUTO_INCREMENT = 1;
+ALTER TABLE application_documents AUTO_INCREMENT = 1;
+ALTER TABLE workflow_actions AUTO_INCREMENT = 1;
+ALTER TABLE permit_applications AUTO_INCREMENT = 1;
+
+ALTER TABLE notifications AUTO_INCREMENT = 1;
+ALTER TABLE audit_logs AUTO_INCREMENT = 1;
+ALTER TABLE account_login_logs AUTO_INCREMENT = 1;
+ALTER TABLE login_attempts AUTO_INCREMENT = 1;
+
+ALTER TABLE password_reset_tokens AUTO_INCREMENT = 1;
+ALTER TABLE shared_office_recovery_otps AUTO_INCREMENT = 1;
+ALTER TABLE staff_password_reset_otps AUTO_INCREMENT = 1;
+
+SET FOREIGN_KEY_CHECKS = 1;
