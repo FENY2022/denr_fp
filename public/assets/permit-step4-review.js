@@ -431,7 +431,7 @@
           : 'The applicant will be notified about deficiencies and may resubmit directly for Step 4 re-evaluation.';
         if (confirmButton) {
           confirmButton.className = 'btn btn-danger';
-          confirmButton.textContent = 'modern ? 'Generate Draft for RED Approval' : 'Confirm Return';
+          confirmButton.textContent = modern ? 'Generate Draft for RED Approval' : 'Confirm Return';
         }
       } else if (decision === 'complete') {
         if (wizard.dataset.step4ProjectType === 'other'
