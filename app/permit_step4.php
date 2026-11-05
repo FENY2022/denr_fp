@@ -271,9 +271,15 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
     if ($modern && !permit_flow_ready()) {
         return ['Apply migration 031 before completing the updated Step 2 evaluation.'];
     }
+    if ($modern && $decision==='return' && ($input['_red_finalize']??'')!=='1') {
+        return fpoms_notice_prepare($reviewer,$applicationId,$input,$parsed['items']);
+    }
+    $notice=fpoms_notice_record($applicationId,(int)$project['revision']);
     if ($modern && $decision==='return'
-        && !permit_flow_signed_notice_for_revision($applicationId,(int)$project['revision'])) {
-        return ['Upload the actual RED-signed deficiency notification/template before returning the application to the applicant.'];
+        && (!$notice || (string)$notice['status']!=='signed'
+            || empty($notice['artifact_id'])
+            || !permit_flow_signed_notice_for_revision($applicationId,(int)$project['revision']))) {
+        return ['RED must approve this generated notice before applicant release.'];
     }
     $noticeEmailAttachments=[];
     if ($modern && $decision==='return') {
