@@ -24,7 +24,7 @@ step2_section_assert(str_contains($style,'.step2-section-nav ol{')
     'desktop section navigator uses a four-column overview');
 step2_section_assert(str_contains($style,'.step2-section-nav ol{grid-template-columns:1fr 1fr}'),
     'section navigator adapts on mobile');
-step2_section_assert(str_contains($view,'assets/permit-step2-sections.js?v=3'),
+step2_section_assert(str_contains($view,'assets/permit-step2-sections.js?v=4'),
     'section wizard script is loaded by the permit form');
 step2_section_assert(str_contains($script,"previous.innerHTML")
     && str_contains($script,"next.innerHTML")
@@ -33,10 +33,9 @@ step2_section_assert(str_contains($script,"previous.innerHTML")
 step2_section_assert(str_contains($script,"field.validity.valid")
     && str_contains($script,"form.addEventListener('invalid'"),
     'forward navigation validates fields and reveals hidden invalid sections');
-step2_section_assert(str_contains($script,'data-step2-error-summary')
-    && str_contains($script,"message:'Upload at least one supporting document.'")
-    && str_contains($style,'.step2-error-summary{'),
-    'forward navigation identifies every missing field and required document upload');
+step2_section_assert(str_contains($script,"message:'Upload at least one supporting document.'")
+    && str_contains($script,"classList.add(error.target.id === 'step2-draft-uploader'"),
+    'forward navigation highlights every missing field and required document upload');
 step2_section_assert(str_contains($script,'showValidationToast(errors)')
     && str_contains($script,"scrollIntoView({behavior:'smooth', block:'center'})")
     && str_contains($style,'.step2-toast-container{'),

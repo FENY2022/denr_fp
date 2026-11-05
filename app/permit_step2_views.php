@@ -653,7 +653,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
             : '')
-        . '<script src="assets/permit-step2-sections.js?v=3" defer></script>';
+        . '<script src="assets/permit-step2-sections.js?v=4" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 

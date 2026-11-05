@@ -541,11 +541,6 @@ body.page-loading{overflow:hidden}
   margin-top:1.5rem;padding-top:1.1rem;border-top:1px solid #d8e8dd;
 }
 .step2-section-actions .btn{margin-bottom:0!important}
-.step2-error-summary{border-left:4px solid #b94a48}
-.step2-error-link{
-  padding:0;border:0;background:transparent;color:inherit;text-align:left;text-decoration:underline;
-}
-.step2-error-link:hover,.step2-error-link:focus-visible{color:#7f1d1d}
 #permit-step2-form .is-invalid{border-color:#c75d5d;background-color:#fff7f7}
 #permit-step2-form .is-invalid:focus{box-shadow:0 0 0 .2rem rgba(190,72,72,.15)}
 #step2-draft-uploader.has-validation-error{

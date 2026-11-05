@@ -121,39 +121,13 @@
 
   function showErrors(index, errors) {
     const section = sections[index];
-    section.querySelector('[data-step2-error-summary]')?.remove();
     section.querySelectorAll('.is-invalid').forEach(field => field.classList.remove('is-invalid'));
     section.querySelector('#step2-draft-uploader')?.classList.remove('has-validation-error');
     links[index].classList.toggle('has-errors', errors.length > 0);
-    if (!errors.length) return;
-
-    const summary = document.createElement('div');
-    summary.className = 'alert alert-danger step2-error-summary';
-    summary.dataset.step2ErrorSummary = '';
-    summary.setAttribute('role', 'alert');
-    const heading = document.createElement('strong');
-    heading.textContent = errors.length === 1
-      ? 'Please correct this item before continuing:'
-      : `Please correct these ${errors.length} items before continuing:`;
-    const list = document.createElement('ul');
-    list.className = 'mb-0 mt-2';
     errors.forEach(error => {
       error.target.classList.add(error.target.id === 'step2-draft-uploader'
         ? 'has-validation-error' : 'is-invalid');
-      const item = document.createElement('li');
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'step2-error-link';
-      button.textContent = error.message;
-      button.addEventListener('click', () => {
-        error.target.focus({preventScroll:true});
-        error.target.scrollIntoView({behavior:'smooth', block:'center'});
-      });
-      item.append(button);
-      list.append(item);
     });
-    summary.append(heading, list);
-    section.querySelector('.step2-form-section-heading')?.after(summary);
   }
 
   function goNext(index) {
