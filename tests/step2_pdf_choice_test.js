@@ -48,16 +48,15 @@ async function check() {
   assert.equal(label.textContent,pdf.name);
   assert.equal(no.textContent,'No, Upload Original PDF');
   assert.equal(edits,0,'PDF editor must not start before user confirms');
-  no.click();
-  assert.equal(await pending,pdf,'No returns unchanged File');
-  assert.equal(edits,0,'No must not run editor');
-
-  pending=window.FPOMSChoosePdfUpload(pdf,5242880,'saved');
   yes.click();
   assert.equal(await pending,edited,'Yes routes to editor');
   assert.equal(edits,1);
 
   pending=window.FPOMSChoosePdfUpload(pdf,5242880,'saved');
+  await assert.rejects(
+    window.FPOMSChoosePdfUpload(pdf,5242880,'saved'),
+    /Finish the current PDF choice/
+  );
   close.click();
   assert.equal(await pending,null,'X / Cancel skips upload');
 
@@ -67,13 +66,12 @@ async function check() {
   no.click();
   assert.equal(await pending,pdf,'fallback No preserves original for later submission');
 
-  pending=window.FPOMSChoosePdfUpload(pdf,5242880,'saved');
-  await assert.rejects(
-    window.FPOMSChoosePdfUpload(pdf,5242880,'saved'),
-    /Finish the current PDF choice/
-  );
-  cancel.click();
-  assert.equal(await pending,null,'Cancel skips upload');
+  modal.visible=false;
+  const secondPdf={name:'second.pdf',type:'application/pdf'};
+  pending=window.FPOMSChoosePdfUpload(secondPdf,5242880,'saved');
+  assert.equal(await pending,secondPdf,'after one No, later PDFs use the original automatically');
+  assert.equal(modal.visible,false,'after one No, the choice modal does not open again');
+  assert.equal(edits,1,'automatic original choice must not run the editor');
 
   await assert.rejects(
     window.FPOMSChoosePdfUpload({name:'not-pdf.png',type:'image/png'},5242880),

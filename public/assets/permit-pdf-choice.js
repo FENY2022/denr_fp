@@ -10,10 +10,15 @@
   const cancelButtons = element.querySelectorAll('[data-pdf-choice-cancel]');
   const modeNote = element.querySelector('[data-pdf-choice-mode-note]');
   let active = null;
+  // A single "No" applies to the remaining PDFs selected during this page
+  // session. This prevents the same advisory from interrupting every file in
+  // a multi-PDF batch; Cancel remains a one-file decision.
+  let useOriginalWithoutPrompt = false;
 
   function choose(action) {
     if (!active || active.action) return;
     active.action = action;
+    if (action === 'original') useOriginalWithoutPrompt = true;
     active.modal.hide();
   }
 
@@ -56,6 +61,7 @@
     if (!file || !/\.pdf$/i.test(file.name || '')) {
       return Promise.reject(new Error('Only PDF files can use the PDF upload confirmation.'));
     }
+    if (useOriginalWithoutPrompt) return Promise.resolve(file);
     const modal = window.bootstrap.Modal.getOrCreateInstance(element,{
       backdrop:'static',keyboard:false,focus:true
     });

@@ -646,7 +646,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     if ($persistent) $html .= step2_clear_form_modal_html();
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
-        . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
+        . '<script src="assets/permit-pdf-choice.js?v=2" defer></script>'
         . '<script src="assets/permit-project-type.js?v=2" defer></script>'
         . '<script src="assets/permit-step2-drafts.js?v=12" defer></script>'
         . ($hasCoordinates

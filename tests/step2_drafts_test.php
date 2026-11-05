@@ -36,12 +36,16 @@ check_step2_draft(str_contains($viewSource,'data-step2-js-warning'),'JavaScript 
 check_step2_draft(str_contains($viewSource,'data-draft-key="fpoms.permit.'),'form draft is scoped to applicant and application');
 $modalSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 $editorSource = (string)file_get_contents(__DIR__.'/../public/assets/permit-pdf-organizer.js');
+$choiceSource = (string)file_get_contents(__DIR__.'/../public/assets/permit-pdf-choice.js');
 $uploadSource = (string)file_get_contents(__DIR__.'/../public/assets/permit-step2-drafts.js');
 $bootstrapSource = (string)file_get_contents(__DIR__.'/../app/bootstrap.php');
 check_step2_draft(str_contains($modalSource,'function step2_pdf_organizer_modal_html()'),'PDF organizer modal helper');
 check_step2_draft(str_contains($modalSource,'step2_pdf_organizer_modal_html()'),'organizer modal included on FP apply');
 check_step2_draft(str_contains($modalSource,'pdf-lib@1.17.1'),'pinned PDF editor library');
 check_step2_draft(str_contains($modalSource,'permit-pdf-organizer.js?v=1'),'organizer loaded before uploader');
+check_step2_draft(str_contains($modalSource,'permit-pdf-choice.js?v=2'),'PDF choice cache version updated');
+check_step2_draft(str_contains($choiceSource,'useOriginalWithoutPrompt'),
+    'one No choice suppresses repeated PDF prompts for the page session');
 check_step2_draft(str_contains($editorSource,'copyPages(state.document,state.order)'),'saved PDF follows arranged page order');
 check_step2_draft(str_contains($editorSource,"makeButton('duplicate'"),'duplicate page action');
 check_step2_draft(str_contains($editorSource,"makeButton('remove'"),'remove page action');
@@ -52,7 +56,6 @@ check_step2_draft(str_contains($uploadSource,"FPOMSChoosePdfUpload(original,maxB
     'saved upload mode prompts before staging the PDF');
 check_step2_draft(str_contains($uploadSource,"window.FPOMSOrganizePdf(file,maxBytes,'saved')"),
     'already-saved PDF rearrange button still opens organizer directly');
-$choiceSource = (string)file_get_contents(__DIR__.'/../public/assets/permit-pdf-choice.js');
 check_step2_draft(str_contains($modalSource,'step2_pdf_choice_modal_html()'),
     'explanatory choice modal is rendered');
 check_step2_draft(str_contains($modalSource,'data-pdf-choice-no'),
