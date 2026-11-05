@@ -38,6 +38,7 @@ jobs:
           php tests/permit_tracking_test.php
           php tests/step3_domain_test.php
           php tests/step4_documentary_evaluation_test.php
+          php tests/generated_deficiency_notice_pdf_test.php
           php tests/annex1_project_types_test.php
           php tests/annex_a_updated_workflow_test.php
           php tests/lpdd_fus_payment_verification_test.php
