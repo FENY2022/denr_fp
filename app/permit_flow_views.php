@@ -206,7 +206,8 @@ function permit_flow_public_documents_html(array $app,array $viewer): string
     if (!$permitted) return '';
     $html='<div class="panel mt-3"><h3 class="h6">Official Notices / Approved Documents</h3><ul>';
     foreach ($permitted as $d) {
-        $html.='<li><a href="'.e(url('permit_flow_file',['id'=>$id,'file'=>(int)$d['id']]))
+        $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
+                ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))
             .'">'.e((string)$d['original_name']).'</a></li>';
     }
     return $html.'</ul></div>';
