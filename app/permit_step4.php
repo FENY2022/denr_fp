@@ -284,7 +284,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
     // The signed PDF represents a frozen, RED-approved assessment snapshot.
     // Reject any attempt to finalize a different set of findings/remarks.
     if ($modern && $decision==='return') {
-        $approved=json_decode((string)$signedNotice['payload_json'],true);
+        $approved=json_decode((string)$notice['payload_json'],true);
         if (!is_array($approved)
             || $parsed['items']!==array_reduce(
                 array_keys($parsed['items']),
@@ -306,7 +306,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             $applicationId,(int)$project['revision']
         );
         if (!$noticeEmailAttachments) {
-            return ['The uploaded RED-signed deficiency notice is unavailable or failed integrity verification. Upload the actual notice again before returning the application.'];
+            return ['The generated RED-approved deficiency PDF is unavailable or failed integrity verification. Please contact RICTU.'];
         }
     }
     if (!$modern && $decision==='complete' && !permit_payment_schema_ready()) {
@@ -468,10 +468,10 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
                 error_log('FP-OMS deficiency notice link unavailable: configure APP_URL to the accessible HTTPS system address (or HTTP localhost for local tests).');
             }
             $officialNoticeUrl=$applicationUrl;
-            if ($applicationUrl!==null && $signedNotice && (int)$signedNotice['artifact_id']>0) {
+            if ($applicationUrl!==null && $notice && (int)$notice['artifact_id']>0) {
                 $officialNoticeUrl=preg_replace(
                     '~permit-application\\?id=[0-9]+$~',
-                    'permit-flow-file?id='.$applicationId.'&file='.(int)$signedNotice['artifact_id'].'&preview=1',
+                    'permit-flow-file?id='.$applicationId.'&file='.(int)$notice['artifact_id'].'&preview=1',
                     $applicationUrl
                 ) ?: $applicationUrl;
             }
