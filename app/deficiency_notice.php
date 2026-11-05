@@ -215,8 +215,14 @@ function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,ar
         $payload['requirement_remarks'][$type]=(string)$item['remarks'];
     }
     $config=fpoms_notice_config();
+    $payload['notice_config_snapshot']=[
+        'signatory_name'=>(string)($config['signatory_name']??''),
+        'signatory_title'=>(string)($config['signatory_title']??''),
+        'contact_emails'=>(string)($config['contact_emails']??''),
+        'footer_text'=>(string)($config['footer_text']??'')
+    ];
     try {
-        $pdf=FpomsNoticePdf::render($app,$payload,$config);
+        $pdf=FpomsNoticePdf::render($app,$payload,$payload['notice_config_snapshot']);
         [$relative,$absolute]=fpoms_notice_private_path('pdf',$applicationId);
         fpoms_file_write_encrypted_bytes($pdf,$absolute);
         $pdo=db();
@@ -302,7 +308,9 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
             $signature=fpoms_notice_safe_read((string)$config['signature_path'],
                 (string)$config['signature_sha256']);
             // Use the saved immutable findings, never browser-provided assessments.
-            $pdf=FpomsNoticePdf::render($app,$payload,$config,$signature,date('F d, Y'));
+            $layout=is_array($payload['notice_config_snapshot']??null)
+                ? $payload['notice_config_snapshot'] : $config;
+            $pdf=FpomsNoticePdf::render($app,$payload,$layout,$signature,date('F d, Y'));
             [$relative,$absolute]=fpoms_notice_private_path('pdf',$applicationId);
             fpoms_file_write_encrypted_bytes($pdf,$absolute);
             $pdo=db();
@@ -431,12 +439,13 @@ function fpoms_notice_queue_view(array $red): void
          FROM fpoms_deficiency_notices n
          JOIN permit_step2_applications a ON a.id=n.application_id AND a.revision=n.revision
          JOIN user_client c ON c.id=a.client_id
-         WHERE n.status='pending_red'
+         WHERE n.status='pending_red' OR
+             (n.status='signed' AND a.status='step4_under_evaluation')
          ORDER BY n.created_at ASC LIMIT 100"
     );
     $html='<div class="panel"><h2 class="h5">RED – Pending Generated Deficiency Notices</h2>'
-        .'<p class="text-secondary">Inspect the exact draft PDF and explicitly approve '
-        .'before any notice is released to the applicant.</p>';
+        .'<p class="text-secondary">Preview drafts before approving. RED-approved notices awaiting '
+        .'final application return also appear here for safe retry.</p>';
     if (!$rows) $html.='<div class="alert alert-success">No notices awaiting RED approval.</div>';
     foreach ($rows as $row) {
         $id=(int)$row['application_id'];
@@ -450,7 +459,9 @@ function fpoms_notice_queue_view(array $red): void
             .csrf_field()
             .'<label class="d-block small my-2"><input type="checkbox" name="confirmation" '
             .'value="1" required> I reviewed the PDF and explicitly approve applying the RED signature.</label>'
-            .'<button type="submit" class="btn btn-success btn-sm">RED Approve &amp; Sign</button>'
+            .'<button type="submit" class="btn btn-success btn-sm">'
+            .((string)$row['status']==='signed'?'Finalize Approved Return':'RED Approve &amp; Sign')
+            .'</button>'
             .'</form></div></div>';
     }
     render_page('RED Deficiency Approvals',$html.'</div>');
