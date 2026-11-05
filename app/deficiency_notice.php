@@ -547,12 +547,19 @@ function fpoms_notice_queue_view(array $red): void
     if (!$rows) $html.='<div class="alert alert-success">No notices awaiting RED approval.</div>';
     foreach ($rows as $row) {
         $id=(int)$row['application_id'];
+        $approved=(string)$row['status']==='signed' && (int)$row['artifact_id']>0;
+        $preview=$approved
+            ? url('permit_flow_file',['id'=>$id,'file'=>(int)$row['artifact_id'],'preview'=>1])
+            : url('deficiency_notice_pdf',['id'=>$id]);
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '
             .e((string)$row['project_title']).'</strong><div class="small text-secondary">'
             .e((string)$row['applicant_name']).' · Revision '.(int)$row['revision'].'</div>'
+            .($approved
+                ? '<p class="small text-warning mb-0 mt-1">RED has signed this notice but Return finalization is pending. Recheck and finalize.</p>'
+                : '<p class="small text-secondary mb-0 mt-1">Unsigned draft – applicant notification is withheld until RED approval.</p>')
             .'<div class="d-flex flex-wrap gap-2 mt-2">'
             .'<a target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" href="'
-            .e(url('deficiency_notice_pdf',['id'=>$id])).'">Preview Draft PDF</a>'
+            .e($preview).'">'.($approved?'View RED-Approved PDF':'Preview Draft PDF').'</a>'
             .'<form method="post" action="'.e(url('deficiency_notice_approve',['id'=>$id])).'">'
             .csrf_field()
             .'<label class="d-block small my-2"><input type="checkbox" name="confirmation" '
