@@ -750,7 +750,7 @@ try {
             if (!$id) show_error('Invalid notice reference.',400);
             $errors=fpoms_notice_red_approve($red,(int)$id);
             if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
-            else flash('success','RED approved the generated PDF. Return recorded and applicant notified.');
+            else flash('success','RED approved the generated PDF. Applicant notice was released and email delivery attempted.');
             go('deficiency_notice_queue');
             break;
         case 'permit_step4_decision':
