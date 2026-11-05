@@ -482,10 +482,9 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
     if (!has_role($admin,'super_admin')) show_error('Access denied.',403);
     $config=fpoms_notice_config();
     $html='<div class="panel"><h2 class="h5">Deficiency Notice Template / RED e-Signature</h2>'
-        .'<p class="text-secondary">Upload the official Template No. 1 DOCX. '
-        .'FP-OMS reads its DENR seal, Bagong Pilipinas and SOCOTEC images for the PDF letterhead, '
-        .'then fills the applicant, project and deficiency table automatically. '
-        .'The generated PDF follows the approved letter structure; exact Word pagination may vary.</p>'
+        .'<p class="text-secondary">FP-OMS includes a built-in Template No. 1 letter structure, so DOCX upload is optional. '
+        .'If you upload the official DOCX, FP-OMS will prefer its DENR seal, Bagong Pilipinas and SOCOTEC artwork. '
+        .'Applicant, project and deficiency details are filled automatically.</p>'
         .errors_html($errors);
     if (!$config) {
         $html.='<div class="alert alert-danger">Apply database migration 032 first.</div>';
@@ -510,7 +509,7 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
         .'<input class="form-control" type="file" name="template" accept=".docx">'
         .'<div class="small text-secondary mt-1">Current: '
         .e((string)($config['template_name']??'No official template uploaded')).'</div>'
-        .'<div class="small text-secondary">Required: official DOCX with DENR, Bagong Pilipinas and SOCOTEC artwork.</div></div>'
+        .'<div class="small text-secondary">Optional: upload the official DOCX to use its original DENR, Bagong Pilipinas and SOCOTEC artwork. Without it, the built-in letter format is used.</div></div>'
         .'<div class="col-md-6"><label class="form-label">RED Signature Image (JPG/JPEG)</label>'
         .'<input class="form-control" type="file" name="signature" accept=".jpg,.jpeg,image/jpeg">'
         .'<div class="small text-secondary mt-1">'
