@@ -647,13 +647,13 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=1" defer></script>'
-        . '<script src="assets/permit-project-type.js?v=1" defer></script>'
+        . '<script src="assets/permit-project-type.js?v=2" defer></script>'
         . '<script src="assets/permit-step2-drafts.js?v=12" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
             : '')
-        . '<script src="assets/permit-step2-sections.js?v=4" defer></script>';
+        . '<script src="assets/permit-step2-sections.js?v=5" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
 
