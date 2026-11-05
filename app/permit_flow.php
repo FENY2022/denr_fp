@@ -434,10 +434,13 @@ function permit_flow_notice_email_attachments(int $id,int $revision): array
 function permit_flow_email(
     array $app,string $subject,string $message,?string $applicationUrl=null,
     array $attachments=[],string $linkLabel='Open FP Application'
-): void
+): bool
 {
     $email=(string)($app['applicant_email']??'');
-    if (!filter_var($email,FILTER_VALIDATE_EMAIL)) return;
+    if (!filter_var($email,FILTER_VALIDATE_EMAIL)) {
+        error_log('FP-OMS Annex A email skipped: applicant email is invalid.');
+        return false;
+    }
     try {
         $linkHtml=$applicationUrl!==null
             ? '<p><a href="'.e($applicationUrl).'" style="display:inline-block;padding:10px 16px;'
@@ -445,10 +448,13 @@ function permit_flow_email(
                 .e($linkLabel).'</a></p><p style="font-size:13px">'.e($applicationUrl).'</p>'
             : '';
         $plain=$message.($applicationUrl!==null ? "\n\nOpen FP Application: ".$applicationUrl : '');
-        smtp_send_html($email,$subject,
+        return smtp_send_html($email,$subject,
             registration_email_layout($subject,(string)($app['applicant_name']??'Applicant'),
                 '<p>'.nl2br(e($message)).'</p>'.$linkHtml),$plain,[],$attachments);
-    } catch (Throwable $e) { error_log('FP-OMS Annex A mail error: '.$e->getMessage()); }
+    } catch (Throwable $e) {
+        error_log('FP-OMS Annex A mail error: '.$e->getMessage());
+        return false;
+    }
 }
 function permit_flow_event_exists(int $id,int $step,string $action): bool
 {
