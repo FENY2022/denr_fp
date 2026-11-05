@@ -552,7 +552,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<i class="bi bi-check-circle me-1"></i>Complete & Sufficient</button>'
         .'<button type="button" class="btn btn-outline-danger" data-step4-decision="return">'
         .'<i class="bi bi-arrow-return-left me-1"></i>'
-        .($modern?'Generate Draft for RED Approval':'Return to Applicant')
+        .($modern?'Return':'Return to Applicant')
         .'</button></div>'
         .'</div>'
         .'<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>'

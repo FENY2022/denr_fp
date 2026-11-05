@@ -127,6 +127,9 @@ step4_assert(!str_contains($views,'style="width:'),
 step4_assert(str_contains($views,'name="assessment[')
     && str_contains($views,'field_validation_schedule'),
     'requirement-level assessments and field schedule are rendered');
+step4_assert(str_contains($views,"(\$modern?'Return':'Return to Applicant')")
+    && str_contains($reviewJs,"confirmButton.textContent = modern ? 'Generate Draft for RED Approval'"),
+    'modern return action uses a short Return label and explains RED draft generation after selection');
 step4_assert(str_contains($tracking,'permit_tracking_step4_payment_state')
     && str_contains($tracking,'permit_flow_current_tracking'),
     'tracking preserves the legacy payment stage and routes updated cases through Steps 5–11');
