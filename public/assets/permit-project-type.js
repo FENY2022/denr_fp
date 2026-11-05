@@ -82,14 +82,18 @@
     if (invalidNew || invalidExempt) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      const uploader = form.querySelector('[data-step2-feedback]');
-      if (uploader) {
-        uploader.classList.add('text-danger');
-        uploader.textContent = invalidNew
+      const feedback = form.querySelector('[data-step2-feedback]');
+      if (feedback) {
+        feedback.classList.add('text-danger');
+        feedback.textContent = invalidNew
           ? 'Other projects require upload of Annex 1 #10 DOE ESC/COA before submission.'
           : 'Solar/Biomass are exempt from DOE #10. Remove new DOE documents from the upload queue.';
-        uploader.scrollIntoView({block:'center',behavior:'smooth'});
       }
+      const target = form.querySelector('[data-step2-requirement-card="doe_esc_coa"]')
+        || form.querySelector('#step2-draft-uploader');
+      form.dispatchEvent(new CustomEvent('step2:submission-invalid',{
+        detail:{target}
+      }));
     }
   }, {capture: true});
 })();
