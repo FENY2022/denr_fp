@@ -597,7 +597,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<button type="button" class="btn btn-secondary" data-step4-child-close>Close</button>'
         .'</div></div></div>'
         .'</div></div></div>'
-        .'<script src="assets/permit-step4-review.js?v=9" defer></script>';
+        .'<script src="assets/permit-step4-review.js?v=10" defer></script>';
 
     return $html;
 }

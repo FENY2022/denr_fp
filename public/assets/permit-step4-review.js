@@ -115,6 +115,34 @@
     validation.classList.toggle('d-none', !text);
   }
 
+  function clearAssessmentError(select) {
+    select.classList.remove('is-invalid');
+    select.removeAttribute('aria-invalid');
+    const requirement = select.closest('[data-step4-requirement]');
+    requirement?.classList.remove('border-danger','border-2');
+    requirement?.querySelector('[data-step4-assessment-error]')?.remove();
+  }
+
+  function markAssessmentError(select, reveal = false) {
+    select.classList.add('is-invalid');
+    select.setAttribute('aria-invalid','true');
+    const requirement = select.closest('[data-step4-requirement]');
+    requirement?.classList.add('border-danger','border-2');
+    if (requirement && !requirement.querySelector('[data-step4-assessment-error]')) {
+      const feedback = document.createElement('div');
+      feedback.className = 'invalid-feedback d-block fw-semibold';
+      feedback.dataset.step4AssessmentError = '';
+      feedback.textContent = 'Required: select an assessment for this documentary requirement.';
+      select.insertAdjacentElement('afterend',feedback);
+    }
+    if (reveal) {
+      requestAnimationFrame(() => {
+        (requirement || select).scrollIntoView({behavior:'smooth',block:'center'});
+        try { select.focus({preventScroll:true}); } catch (_) { select.focus(); }
+      });
+    }
+  }
+
   function clearPreview() {
     previewArea?.replaceChildren();
     currentFileIndex = -1;
@@ -225,11 +253,13 @@
   const stepSelects = step => [...step.querySelectorAll('[data-step4-assessment]')];
 
   function validationForStep(step) {
-    for (const select of stepSelects(step)) {
-      if (!select.value) {
-        select.focus();
-        return 'Select an assessment for every documentary requirement in this section.';
-      }
+    const selects = stepSelects(step);
+    const missing = selects.filter(select => !select.value);
+    if (missing.length) {
+      missing.forEach((select,index) => markAssessmentError(select,index===0));
+      return 'Select an assessment for every documentary requirement in this section.';
+    }
+    for (const select of selects) {
       if (['incomplete', 'insufficient'].includes(select.value)) {
         const type = select.name.match(/^assessment\[(.+)\]$/)?.[1] || '';
         const note = remarksFor(type);
@@ -368,6 +398,7 @@
 
   for (const select of assessments) {
     select.addEventListener('change', () => {
+      if (select.value) clearAssessmentError(select);
       updateProgress();
       select.closest('[data-step4-wizard-step]')
         ?.querySelector('[data-step4-inline-validation]')?.remove();
@@ -389,12 +420,12 @@
       cancelConfirm();
 
       if (!assessed()) {
-        const missing = assessments.find(select => !select.value);
-        if (missing) {
-          renderStep(stepFor(missing));
-          showStepError(missing.closest('[data-step4-wizard-step]'),
+        const missing = assessments.filter(select => !select.value);
+        if (missing.length) {
+          renderStep(stepFor(missing[0]));
+          missing.forEach((select,index) => markAssessmentError(select,index===0));
+          showStepError(missing[0].closest('[data-step4-wizard-step]'),
             'Assess every documentary requirement before finalizing.');
-          missing.focus();
         }
         return;
       }

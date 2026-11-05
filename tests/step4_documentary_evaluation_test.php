@@ -145,6 +145,14 @@ step4_assert(str_contains($reviewJs,'updateProgress')
     && str_contains($reviewJs,'form.requestSubmit()')
     && str_contains($reviewJs,"completeButton.disabled = completed < total"),
     'Step 4 wizard preserves inputs while a separate child document modal opens and closes');
+step4_assert(str_contains($reviewJs,'markAssessmentError')
+    && str_contains($reviewJs,"classList.add('is-invalid')")
+    && str_contains($reviewJs,"classList.add('border-danger','border-2')")
+    && str_contains($reviewJs,'scrollIntoView')
+    && str_contains($reviewJs,"focus({preventScroll:true})")
+    && str_contains($reviewJs,'step4AssessmentError')
+    && str_contains($views,'permit-step4-review.js?v=10'),
+    'missing assessments are highlighted red and the first invalid requirement is revealed and focused');
 
 step4_assert(str_contains($modalCss,'#step4-evaluation-modal')
     && str_contains($modalCss,'.step4-child-modal')
