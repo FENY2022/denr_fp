@@ -7,14 +7,14 @@
 3. Run database/032_generated_deficiency_notices.sql if not applied.
 4. Run database/033_deficiency_notice_email_delivery.sql once after 032. This adds SMTP delivery status and retry.
 5. In XAMPP enable PHP ZIP and GD extensions and restart Apache. These are needed to read letterhead artwork from DOCX.
-6. As Super Administrator open Configuration → Deficiency Notice Template. Upload the official Template No. 1 DOCX, configure the RED name and designation, contact details, footer, and approved RED signature JPEG.
+6. As Super Administrator open Configuration → Deficiency Notice Template. Configure the RED name/designation, contact details, footer, and approved RED signature JPEG. The official Template No. 1 DOCX is optional; when present, its original letterhead artwork is preferred.
 7. Ensure RED and LPDD-FUS staff accounts are active.
 8. Configure APP_URL to the real HTTPS public base URL for applicant links (localhost works only locally). Enable and test SMTP.
 
 ## Return Workflow
 
 1. LPDD-FUS completes assessment/remarks for all requirements.
-2. Return generates an unsigned encrypted A4 PDF using the configured DOCX's DENR seal, Bagong Pilipinas logo, and SOCOTEC mark. The Particulars/Remarks table is automatically filled. No per-application upload is required.
+2. Return always generates an unsigned encrypted A4 PDF from the built-in Template No. 1 letter structure. If an official DOCX is configured, its DENR seal, Bagong Pilipinas logo and SOCOTEC mark are added. The Particulars/Remarks table is automatically filled. No per-application upload is required.
 3. Notice is pending_red, LPDD-FUS sees Awaiting RED Approval, and it is excluded from the LPDD-FUS active queue. No official applicant notification is sent before RED approval.
 4. RED opens RED – Deficiency Approvals, previews the draft and explicitly selects RED Approve & Sign.
 5. An encrypted official PDF with approved JPEG signature is stored; Return is finalized automatically, setting the application to step4_corrections_required. Applicant bell notification and official PDF become available immediately. Email with protected viewing link and PDF attachment is attempted.
@@ -23,7 +23,7 @@
 
 ## Official Letterhead / E-Sign Boundaries
 
-- The exact three images from the supplied Template No. 1 DOCX are used, including its DENR seal, Bagong Pilipinas and SOCOTEC images. The A4 letter is recreated in Times-style text with proponent/address, subject, deficiency table, closing, RED signatory and footer.
+- DOCX upload is optional. The built-in A4 letter uses Times-style text with proponent/address, subject, deficiency table, closing, RED signatory and footer. When the official Template No. 1 DOCX is configured, its DENR seal, Bagong Pilipinas and SOCOTEC images are preferred.
 - DOCX provides original artwork and structure but arbitrary DOCX fonts and pagination are not converted pixel-for-pixel. Long text/rows can span multiple pages.
 - The six sample table rows a) through f) are preserved as a minimum; additional deficiencies generate extra rows.
 - A JPEG e-sign graphic is a visible electronic signature mark, NOT a cryptographically verifiable PNPKI signature. It is used only after authenticated RED approval of each notice.

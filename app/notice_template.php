@@ -9,19 +9,28 @@ declare(strict_types=1);
 function fpoms_notice_template_branding(array $config): array
 {
     $path=(string)($config['template_path']??'');
-    if ($path==='') {
-        throw new RuntimeException('Upload the official Template No. 1 DOCX in Configuration before generating a deficiency notice.');
-    }
+    // DOCX is optional. FP-OMS always has a built-in DENR letter structure.
+    // If an official DOCX is configured, its original artwork is preferred.
+    // Missing optional artwork must never block draft generation.
+    if ($path==='') return [];
     if (!class_exists(ZipArchive::class)) {
-        throw new RuntimeException('PHP ZIP extension is required to read the uploaded official DOCX template.');
+        error_log('FP-OMS notice branding: PHP ZIP unavailable; using built-in text letterhead.');
+        return [];
     }
     if (!function_exists('imagecreatefromstring') || !function_exists('imagejpeg')) {
-        throw new RuntimeException('PHP GD extension is required to render the official letterhead logos.');
+        error_log('FP-OMS notice branding: PHP GD unavailable; using built-in text letterhead.');
+        return [];
     }
 
-    $bytes=fpoms_notice_safe_read($path);
+    try {
+        $bytes=fpoms_notice_safe_read($path);
+    } catch (Throwable $e) {
+        error_log('FP-OMS notice branding: configured DOCX unavailable; using built-in letterhead. '.$e->getMessage());
+        return [];
+    }
     if (strlen($bytes)>5242880 || !str_starts_with($bytes,'PK')) {
-        throw new RuntimeException('Configured DOCX reference is invalid or too large.');
+        error_log('FP-OMS notice branding: configured DOCX invalid; using built-in letterhead.');
+        return [];
     }
     $temp=tempnam(sys_get_temp_dir(),'fpoms_tpl_');
     if ($temp===false || file_put_contents($temp,$bytes)===false) {
@@ -31,7 +40,8 @@ function fpoms_notice_template_branding(array $config): array
     $opened=false;
     try {
         if ($zip->open($temp)!==true) {
-            throw new RuntimeException('The official DOCX template is damaged.');
+            error_log('FP-OMS notice branding: official DOCX damaged; using built-in letterhead.');
+            return [];
         }
         $opened=true;
         // Original DENR Region XIII Template No. 1 embedded assets.
@@ -44,11 +54,13 @@ function fpoms_notice_template_branding(array $config): array
         foreach ($sources as $key=>$mediaPath) {
             $raw=$zip->getFromName($mediaPath);
             if (!is_string($raw) || strlen($raw)<50 || strlen($raw)>2097152) {
-                throw new RuntimeException('Official DOCX template is missing required '.$key.' logo image.');
+                error_log('FP-OMS notice branding: optional '.$key.' artwork missing from DOCX.');
+                continue;
             }
             $source=@imagecreatefromstring($raw);
             if ($source===false) {
-                throw new RuntimeException('Official DOCX '.$key.' logo cannot be decoded.');
+                error_log('FP-OMS notice branding: optional '.$key.' artwork cannot be decoded.');
+                continue;
             }
             try {
                 $width=imagesx($source);
