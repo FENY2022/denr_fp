@@ -120,7 +120,7 @@
       return;
     }
 
-    const decimal = /^[+-]?\\d{1,3}(?:\\.\\d{1,7})?$/;
+    const decimal = /^[+-]?\d{1,3}(?:\.\d{1,7})?$/;
     const latNumber = Number(lat);
     const lonNumber = Number(lon);
     if (!decimal.test(lat) || !Number.isFinite(latNumber) || latNumber < -90 || latNumber > 90) {
