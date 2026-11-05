@@ -433,7 +433,7 @@ function permit_flow_notice_email_attachments(int $id,int $revision): array
 
 function permit_flow_email(
     array $app,string $subject,string $message,?string $applicationUrl=null,
-    array $attachments=[]
+    array $attachments=[],string $linkLabel='Open FP Application'
 ): void
 {
     $email=(string)($app['applicant_email']??'');
@@ -442,7 +442,7 @@ function permit_flow_email(
         $linkHtml=$applicationUrl!==null
             ? '<p><a href="'.e($applicationUrl).'" style="display:inline-block;padding:10px 16px;'
                 .'background:#198754;color:#fff;text-decoration:none;border-radius:6px">'
-                .'Open FP Application</a></p><p style="font-size:13px">'.e($applicationUrl).'</p>'
+                .e($linkLabel).'</a></p><p style="font-size:13px">'.e($applicationUrl).'</p>'
             : '';
         $plain=$message.($applicationUrl!==null ? "\n\nOpen FP Application: ".$applicationUrl : '');
         smtp_send_html($email,$subject,
