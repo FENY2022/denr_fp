@@ -346,20 +346,22 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         ? (int)round(($assessedCount/$totalRequirements)*100) : 0;
     $initialStep=$errors ? 4 : 1;
 
+    $notice=$modern ? fpoms_notice_record($id,(int)$app['revision']) : null;
     $html=($modern
-        ? '<div class="panel soft mb-3"><h3 class="h6">RED-Signed Deficiency Notice</h3>'
-          .'<p class="small text-secondary">If returning the application, attach the actual RED-signed '
-          .'electronic notice/template first. Do not generate or claim a RED signature automatically.</p>'
-          .(permit_flow_signed_notice_for_revision($id,(int)$app['revision'])
-              ? '<span class="badge text-bg-success">Signed Notice Uploaded</span>'
-              : '<span class="badge text-bg-warning">Signed Notice Required Before Return</span>')
-          .'<form method="post" enctype="multipart/form-data" class="mt-2" action="'
-          .e(url('permit_flow_upload',['id'=>$id,'step'=>2])).'">'.csrf_field()
-          .'<input type="hidden" name="category" value="red_signed_deficiency_notice">'
-          .'<input type="file" class="form-control mb-2" name="document" '
-          .'accept=".pdf,.jpg,.jpeg,.png" required>'
-          .'<button class="btn btn-sm btn-outline-success" type="submit">'
-          .'Upload Actual RED-Signed Notice</button></form></div>'
+        ? '<div class="panel soft mb-3"><h3 class="h6">System-Generated Deficiency Notice</h3>'
+          .'<p class="small text-secondary">On Return, FP-OMS generates a PDF with the incomplete/insufficient '
+          .'requirements and remarks. RED must explicitly approve and sign before applicant release. '
+          .'No per-application PDF upload is required.</p>'
+          .($notice
+              ? '<div class="alert alert-'.((string)$notice['status']==='signed'?'success':'warning').'">'
+                  .((string)$notice['status']==='signed'
+                    ? 'RED approved the generated notice.'
+                    : 'Draft generated; awaiting RED review/signature.')
+                  .'</div><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="'
+                  .e(url('deficiency_notice_pdf',['id'=>$id])).'">Preview Generated Draft PDF</a>'
+              : '<div class="text-secondary small">No draft generated yet. Complete the evaluation '
+                  .'and select Return to create one.</div>')
+          .'</div>'
         : '')
         .'<div class="panel soft">'
         .'<h3 class="h6 mb-2"><i class="bi bi-clipboard-check me-2" aria-hidden="true"></i>'
@@ -390,7 +392,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<div data-step4-main-view data-step4-wizard '
         .'data-step4-project-type="'.e($projectType).'" '
         .'data-step4-flow-version="'.($modern?'2':'1').'" '
-        .'data-step4-signed-notice="'.(permit_flow_signed_notice_for_revision($id,(int)$app['revision'])?'1':'0').'" '
+        .'data-step4-signed-notice="1" '
         .'data-step4-initial-step="'.$initialStep.'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-clipboard-check me-2"></i>'
@@ -477,6 +479,11 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<textarea class="form-control mb-3" id="step4-overall-remarks" name="overall_remarks" '
         .'rows="4" maxlength="4000" placeholder="Summarize findings / deficiencies">'
         .e((string)($_POST['overall_remarks'] ?? $review['overall_remarks'] ?? '')).'</textarea>'
+        .($modern ? '<label class="form-label" for="step4-area-hectares">Project Area (hectares, if known)</label>'
+          .'<input class="form-control mb-3" id="step4-area-hectares" name="area_hectares" '
+          .'inputmode="decimal" placeholder="e.g. 15.25" maxlength="15" '
+          .'value="'.e((string)($_POST['area_hectares'] ?? '')).'">'
+          : '')
         .'<label class="form-label" for="step4-applicant-instructions">Applicant Instructions</label>'
         .'<textarea class="form-control mb-3" id="step4-applicant-instructions" '
         .'name="applicant_instructions" rows="3" maxlength="3000" '
