@@ -414,10 +414,6 @@
       }
 
       if (decision === 'return') {
-        if (modern && wizard.dataset.step4SignedNotice !== '1') {
-          showValidation('Upload the actual RED-signed deficiency notice on the application page before returning to the applicant.');
-          return;
-        }
         if (!hasDeficiency()) {
           showValidation('Mark at least one requirement Lacking or Inappropriate before returning the application.');
           return;
@@ -431,11 +427,11 @@
         hidden.value = 'return';
         if (confirmTitle) confirmTitle.textContent = 'Return Application for Compliance?';
         if (confirmMessage) confirmMessage.textContent = modern
-          ? 'The applicant will receive the actual uploaded RED-signed notice and may resubmit to LPDD-FUS Step 2.'
+          ? 'The system will generate an unsigned deficiency PDF for RED review. The applicant will NOT be notified until RED signs and approves it.'
           : 'The applicant will be notified about deficiencies and may resubmit directly for Step 4 re-evaluation.';
         if (confirmButton) {
           confirmButton.className = 'btn btn-danger';
-          confirmButton.textContent = 'Confirm Return';
+          confirmButton.textContent = 'modern ? 'Generate Draft for RED Approval' : 'Confirm Return';
         }
       } else if (decision === 'complete') {
         if (wizard.dataset.step4ProjectType === 'other'
