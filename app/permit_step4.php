@@ -463,27 +463,13 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
                 'Your documentary requirements were determined complete and sufficient. '
                 .'The application is forwarded to RO Receiving/Releasing (Step 3).');
         } elseif ($modern) {
-            $applicationUrl=permit_flow_application_email_url($applicationId);
-            if ($applicationUrl===null) {
-                error_log('FP-OMS deficiency notice link unavailable: configure APP_URL to the accessible HTTPS system address (or HTTP localhost for local tests).');
+            // Return was committed and in-system notification created. Email the
+            // signed PDF separately; a delivery error must never roll back Return.
+            $sent=fpoms_notice_dispatch_official_email($applicationId,(int)$reviewer['id']);
+            if (!$sent) {
+                error_log('FP-OMS official RED deficiency notice email failed for FP #'.$applicationId.
+                    '. Authorized staff may retry after SMTP is corrected.');
             }
-            $officialNoticeUrl=$applicationUrl;
-            if ($applicationUrl!==null && $notice && (int)$notice['artifact_id']>0) {
-                $officialNoticeUrl=preg_replace(
-                    '~permit-application\\?id=[0-9]+$~',
-                    'permit-flow-file?id='.$applicationId.'&file='.(int)$notice['artifact_id'].'&preview=1',
-                    $applicationUrl
-                ) ?: $applicationUrl;
-            }
-            permit_flow_email($app,'Step 2 RED-Signed Deficiency Notice – FP Application #'.$applicationId,
-                'LPDD-FUS determined that your application has lacking or inappropriate '
-                .'documentary requirements. The RED-approved generated notice is attached. '
-                .'Use the secure FP-OMS application link to view the notice, '
-                .'correct deficiencies, and resubmit to LPDD-FUS Step 2. '
-                .'Review remarks: '.$overall,
-                $officialNoticeUrl,
-                $noticeEmailAttachments,
-                'View Official Deficiency Notice PDF');
         } else {
             step4_send_applicant_email($app,$applicationId,$complete,$overall,$instructions,$schedule);
         }
