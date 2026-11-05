@@ -97,6 +97,81 @@
     return field.validationMessage || `${label} is invalid.`;
   }
 
+  function addError(errors, target, message) {
+    if (!target || errors.some(error => error.target === target && error.message === message)) return;
+    errors.push({target, message});
+  }
+
+  function coordinateErrors(section, errors) {
+    const latitude = section.querySelector('#project_latitude');
+    const longitude = section.querySelector('#project_longitude');
+    if (!latitude || !longitude || latitude.disabled || longitude.disabled) return;
+
+    const lat = latitude.value.trim();
+    const lon = longitude.value.trim();
+    if (!lat && !lon) return;
+
+    if (!lat) {
+      addError(errors, latitude, 'Latitude is required when Longitude is provided.');
+      return;
+    }
+    if (!lon) {
+      addError(errors, longitude, 'Longitude is required when Latitude is provided.');
+      return;
+    }
+
+    const decimal = /^[+-]?\\d{1,3}(?:\\.\\d{1,7})?$/;
+    const latNumber = Number(lat);
+    const lonNumber = Number(lon);
+    if (!decimal.test(lat) || !Number.isFinite(latNumber) || latNumber < -90 || latNumber > 90) {
+      addError(errors, latitude,
+        'Enter a valid Latitude from -90 to 90, with up to 7 decimal places.');
+    }
+    if (!decimal.test(lon) || !Number.isFinite(lonNumber) || lonNumber < -180 || lonNumber > 180) {
+      addError(errors, longitude,
+        'Enter a valid Longitude from -180 to 180, with up to 7 decimal places.');
+    }
+  }
+
+  function requirementTarget(section, type) {
+    return section.querySelector(`[data-step2-requirement-card="${CSS.escape(type)}"]`)
+      || section.querySelector('#step2-draft-uploader');
+  }
+
+  function supportingDocumentErrors(section, errors) {
+    const uploader = section.querySelector('#step2-draft-uploader');
+    if (!uploader || !uploader.classList.contains('is-enhanced')) return;
+
+    const uploading = section.querySelector('.selected-file-card.is-uploading');
+    if (uploading) {
+      addError(errors, uploader, 'Wait for supporting documents to finish uploading.');
+    }
+
+    const files = section.querySelectorAll(
+      '[data-step2-draft-id], .selected-file-card.is-pending'
+    );
+    const isNew = uploader.dataset.applicationId === '0';
+    if (isNew && !uploading && files.length === 0) {
+      addError(errors, uploader, 'Upload at least one supporting document.');
+    }
+
+    const projectType = form.querySelector('[data-fp-project-type]')?.value || '';
+    const doeFiles = section.querySelectorAll(
+      '[data-step2-draft-id][data-step2-requirement-type="doe_esc_coa"], '
+      + '.selected-file-card.is-pending[data-step2-requirement-type="doe_esc_coa"]'
+    );
+    const doeTarget = requirementTarget(section, 'doe_esc_coa');
+
+    if (projectType === 'other' && isNew && doeFiles.length === 0) {
+      addError(errors, doeTarget,
+        'Other projects require Annex 1 #10 DOE Energy Service Contract (ESC) or Certificate of Authority (COA).');
+    }
+    if ((projectType === 'solar' || projectType === 'biomass') && doeFiles.length > 0) {
+      addError(errors, doeTarget,
+        'DOE ESC/COA (#10) is not applicable to Solar/Biomass. Remove the newly selected DOE document.');
+    }
+  }
+
   function sectionErrors(section) {
     const uploader = section.querySelector('#step2-draft-uploader');
     const errors = [...section.querySelectorAll('input,select,textarea')]
@@ -104,30 +179,77 @@
         || !field.closest('#step2-draft-uploader'))
       .filter(field => !field.disabled && !field.validity.valid)
       .map(field => ({target:field, message:fieldMessage(field)}));
-    if (!uploader || !uploader.classList.contains('is-enhanced')
-        || uploader.dataset.applicationId !== '0') return errors;
 
-    const files = section.querySelectorAll(
-      '[data-step2-draft-id], .selected-file-card.is-pending'
-    );
-    const uploading = section.querySelector('.selected-file-card.is-uploading');
-    if (uploading) {
-      errors.push({target:uploader, message:'Wait for supporting documents to finish uploading.'});
-    } else if (files.length === 0) {
-      errors.push({target:uploader, message:'Upload at least one supporting document.'});
-    }
+    coordinateErrors(section, errors);
+    supportingDocumentErrors(section, errors);
     return errors;
+  }
+
+  function clearErrorStyles(section) {
+    section.querySelectorAll('.is-invalid').forEach(field => field.classList.remove('is-invalid'));
+    section.querySelector('#step2-draft-uploader')?.classList.remove('has-validation-error');
+    section.querySelectorAll('[data-step2-validation-error]').forEach(target => {
+      target.classList.remove('border-danger', 'border-2', 'bg-danger-subtle');
+      delete target.dataset.step2ValidationError;
+      if (target.dataset.step2ValidationTabindex === '1') {
+        target.removeAttribute('tabindex');
+        delete target.dataset.step2ValidationTabindex;
+      }
+    });
+  }
+
+  function focusErrorTarget(target) {
+    if (!target) return;
+    if (!target.matches('input,select,textarea,button,a,[tabindex]')) {
+      target.setAttribute('tabindex', '-1');
+      target.dataset.step2ValidationTabindex = '1';
+    }
+    target.focus({preventScroll:true});
+    target.scrollIntoView({behavior:'smooth', block:'center'});
   }
 
   function showErrors(index, errors) {
     const section = sections[index];
-    section.querySelectorAll('.is-invalid').forEach(field => field.classList.remove('is-invalid'));
-    section.querySelector('#step2-draft-uploader')?.classList.remove('has-validation-error');
+    section.querySelector('[data-step2-error-summary]')?.remove();
+    clearErrorStyles(section);
     links[index].classList.toggle('has-errors', errors.length > 0);
+    if (!errors.length) return;
+
+    const summary = document.createElement('div');
+    summary.className = 'alert alert-danger step2-error-summary';
+    summary.dataset.step2ErrorSummary = '';
+    summary.setAttribute('role', 'alert');
+
+    const heading = document.createElement('strong');
+    heading.textContent = errors.length === 1
+      ? 'Please correct this item before continuing:'
+      : `Please correct these ${errors.length} items before continuing:`;
+
+    const list = document.createElement('ul');
+    list.className = 'mb-0 mt-2';
+
     errors.forEach(error => {
-      error.target.classList.add(error.target.id === 'step2-draft-uploader'
-        ? 'has-validation-error' : 'is-invalid');
+      if (error.target.id === 'step2-draft-uploader') {
+        error.target.classList.add('has-validation-error');
+      } else if (error.target.matches('input,select,textarea')) {
+        error.target.classList.add('is-invalid');
+      } else {
+        error.target.classList.add('border-danger', 'border-2', 'bg-danger-subtle');
+        error.target.dataset.step2ValidationError = '1';
+      }
+
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'step2-error-link';
+      button.textContent = error.message;
+      button.addEventListener('click', () => focusErrorTarget(error.target));
+      item.append(button);
+      list.append(item);
     });
+
+    summary.append(heading, list);
+    section.querySelector('.step2-form-section-heading')?.after(summary);
   }
 
   function goNext(index) {
@@ -137,8 +259,7 @@
       const invalid = errors[0].target;
       form.classList.add('was-validated');
       showValidationToast(errors);
-      invalid.focus({preventScroll:true});
-      invalid.scrollIntoView({behavior:'smooth', block:'center'});
+      focusErrorTarget(invalid);
       return;
     }
     showSection(index + 1);
@@ -195,8 +316,7 @@
       showSection(index, false);
       showErrors(index, errors);
       showValidationToast(errors);
-      errors[0].target.focus({preventScroll:true});
-      errors[0].target.scrollIntoView({behavior:'smooth', block:'center'});
+      focusErrorTarget(errors[0].target);
     }, 0);
   }, true);
 
@@ -215,10 +335,25 @@
         message:'Complete the supporting document upload before submitting.'
       }];
       showValidationToast(displayedErrors);
-      displayedErrors[0].target.focus({preventScroll:true});
-      displayedErrors[0].target.scrollIntoView({behavior:'smooth', block:'center'});
+      focusErrorTarget(displayedErrors[0].target);
     }
   });
+
+  // Final submission also checks custom rules so the applicant is returned
+  // to the exact section/field instead of seeing a generic page-level error.
+  form.addEventListener('submit', event => {
+    const index = sections.findIndex(section => sectionErrors(section).length > 0);
+    if (index < 0) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const errors = sectionErrors(sections[index]);
+    showSection(index, false);
+    showErrors(index, errors);
+    form.classList.add('was-validated');
+    showValidationToast(errors);
+    focusErrorTarget(errors[0]?.target);
+  }, {capture:true});
 
   form.addEventListener('input', event => {
     event.target.classList?.remove('is-invalid');
