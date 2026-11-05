@@ -281,6 +281,25 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             || !permit_flow_signed_notice_for_revision($applicationId,(int)$project['revision']))) {
         return ['RED must approve this generated notice before applicant release.'];
     }
+    // The signed PDF represents a frozen, RED-approved assessment snapshot.
+    // Reject any attempt to finalize a different set of findings/remarks.
+    if ($modern && $decision==='return') {
+        $approved=json_decode((string)$signedNotice['payload_json'],true);
+        if (!is_array($approved)
+            || $parsed['items']!==array_reduce(
+                array_keys($parsed['items']),
+                static function (array $carry,string $key) use ($approved): array {
+                    $carry[$key]=[
+                        'assessment'=>(string)($approved['assessment'][$key]??''),
+                        'remarks'=>(string)($approved['requirement_remarks'][$key]??'')
+                    ];
+                    return $carry;
+                },[])
+            || $overall!==(string)($approved['overall_remarks']??'')
+            || $instructions!==(string)($approved['applicant_instructions']??'')) {
+            return ['The RED-approved notice snapshot cannot be changed. Prepare a fresh evaluation if needed.'];
+        }
+    }
     $noticeEmailAttachments=[];
     if ($modern && $decision==='return') {
         $noticeEmailAttachments=permit_flow_notice_email_attachments(
