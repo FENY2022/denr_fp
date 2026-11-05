@@ -368,7 +368,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         if ($modern && !$complete) {
             permit_flow_record_event($pdo,$applicationId,2,$reviewer,
                 'deficiency_notice_issued',
-                'Actual RED-signed deficiency template uploaded; applicant notified after commit.');
+                'Generated notice approved by RED and issued to applicant.');
         }
         if ($complete && !$modern) {
             // Legacy Step 4 payment, modern flow defers notice to Step 4 after RO.
@@ -430,7 +430,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
                     (int)$app['client_id'],
                     $modern?'Step 2 – Documentary Compliance Required':'Step 4 Compliance Required',
                     'LPDD-FUS found lacking or inappropriate documentary requirements for FP application #'.$applicationId.'. '
-                    .($modern?'An actual RED-signed notice is attached to the application. ':'')
+                    .($modern?'The RED-approved generated notice is available in the application. ':'')
                     .'Correct the deficiencies and resubmit the required documents.',
                     'exclamation-triangle','warning','permit_application',['id'=>$applicationId]
                 );
@@ -448,14 +448,23 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             if ($applicationUrl===null) {
                 error_log('FP-OMS deficiency notice link unavailable: configure APP_URL to the accessible HTTPS system address (or HTTP localhost for local tests).');
             }
+            $officialNoticeUrl=$applicationUrl;
+            if ($applicationUrl!==null && $signedNotice && (int)$signedNotice['artifact_id']>0) {
+                $officialNoticeUrl=preg_replace(
+                    '~permit-application\\?id=[0-9]+$~',
+                    'permit-flow-file?id='.$applicationId.'&file='.(int)$signedNotice['artifact_id'].'&preview=1',
+                    $applicationUrl
+                ) ?: $applicationUrl;
+            }
             permit_flow_email($app,'Step 2 RED-Signed Deficiency Notice – FP Application #'.$applicationId,
                 'LPDD-FUS determined that your application has lacking or inappropriate '
-                .'documentary requirements. The actual RED-signed notice is attached. '
+                .'documentary requirements. The RED-approved generated notice is attached. '
                 .'Use the secure FP-OMS application link to view the notice, '
                 .'correct deficiencies, and resubmit to LPDD-FUS Step 2. '
                 .'Review remarks: '.$overall,
-                $applicationUrl,
-                $noticeEmailAttachments);
+                $officialNoticeUrl,
+                $noticeEmailAttachments,
+                'View Official Deficiency Notice PDF');
         } else {
             step4_send_applicant_email($app,$applicationId,$complete,$overall,$instructions,$schedule);
         }
