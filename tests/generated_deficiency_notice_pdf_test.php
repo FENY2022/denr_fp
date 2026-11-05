@@ -25,13 +25,18 @@ $payload=[
     ]
 ];
 $draft=FpomsNoticePdf::render($app,$payload,$config);
-assert(str_starts_with($draft,'%PDF-1.4'));
-assert(str_contains($draft,'Sample FP Project'));
-assert(str_contains($draft,'Letter of Intent'));
-assert(str_contains($draft,'Incomplete location description'));
-assert(str_contains($draft,'DRAFT - NOT SIGNED / NOT FOR RELEASE'));
-assert(str_contains($draft,'xref'));
-assert(str_contains($draft,'%%EOF'));
-assert(preg_match('/\/Type \/Page\b/',$draft)===1);
+$checks=[
+    'PDF 1.4 header'=>str_starts_with($draft,'%PDF-1.4'),
+    'Project text'=>str_contains($draft,'Sample FP Project'),
+    'Requirement row'=>str_contains($draft,'Letter of Intent'),
+    'Reviewer remarks'=>str_contains($draft,'Incomplete location description'),
+    'Unsigned watermark'=>str_contains($draft,'DRAFT - NOT SIGNED / NOT FOR RELEASE'),
+    'PDF object xref'=>str_contains($draft,'xref'),
+    'PDF trailer'=>str_contains($draft,'%%EOF'),
+    'A4 page object'=>preg_match('/\\/Type \\/Page\\b/',$draft)===1,
+];
+foreach ($checks as $label=>$passed) {
+    if (!$passed) throw new RuntimeException('Notice PDF smoke test failed: '.$label);
+}
 
 echo "Generated A4 deficiency notice PDF checks passed.\n";
