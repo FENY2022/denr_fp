@@ -737,6 +737,16 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . 'in separate windows. Previous submitted revisions and recorded actions are preserved.</p>'
         . '</div></div><div class="col-lg-4">';
     if ($mine) {
+        if ($modern && (string)$app['status']==='step4_under_evaluation') {
+            $notice=fpoms_notice_record($applicationId,(int)$app['revision']);
+            if ($notice && (string)$notice['status']==='pending_red') {
+                $html.='<div class="alert alert-info" role="status">'
+                    .'<strong>Awaiting RED Approval.</strong> DENR has completed a documentary review, '
+                    .'but the official notice has not been approved or released. '
+                    .'You will receive an in-system notification and email after official release.'
+                    .'</div>';
+            }
+        }
         $html .= '<div class="panel soft"><h3 class="h6">Next Action</h3>'
             . (in_array((string)$app['status'],['corrections_required','step4_corrections_required'],true)
                 ? '<p>'.($app['status']==='step4_corrections_required'
