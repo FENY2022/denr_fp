@@ -648,6 +648,34 @@ function step4_result_panel_html(array $app): string
             .(permit_flow_is_new($app)
                 ? 'The next submission returns directly to LPDD-FUS Step 2 re-evaluation.'
                 : 'The next submission returns to legacy Step 4 re-evaluation.').'</div>';
+        if (permit_flow_is_new($app)) {
+            $notice=fpoms_notice_record((int)$app['id'],(int)$app['revision']);
+            $viewer=current_user();
+            $canRetry=$viewer && ($viewer['user_kind']??'')==='internal'
+                && ($viewer['status']??'')==='active'
+                && (has_role($viewer,'lpdd_fus') || has_role($viewer,'red'));
+            if ($notice && (string)$notice['status']==='signed' && (int)$notice['artifact_id']>0) {
+                $html.='<div class="border rounded p-3 mt-3">'
+                    .'<strong>Official RED-Approved Deficiency Notice</strong>'
+                    .'<div class="small text-secondary mt-1">Email delivery: '
+                    .e(match ((string)($notice['email_status']??'not_tracked')) {
+                        'sent'=>'Sent to applicant','failed'=>'Failed – retry needed',
+                        'not_sent'=>'Not sent yet',default=>'Not tracked (apply migration 033)'
+                    }).'</div>'
+                    .'<a class="btn btn-sm btn-outline-primary mt-2" target="_blank" rel="noopener" href="'
+                    .e(url('permit_flow_file',['id'=>(int)$app['id'],
+                        'file'=>(int)$notice['artifact_id'],'preview'=>1]))
+                    .'">View Official PDF</a>';
+                if ($canRetry) {
+                    $html.='<form class="mt-2" method="post" action="'
+                        .e(url('deficiency_notice_retry_email',['id'=>(int)$app['id']])).'">'
+                        .csrf_field()
+                        .'<button class="btn btn-sm btn-outline-success" type="submit">'
+                        .'Retry Applicant Email</button></form>';
+                }
+                $html.='</div>';
+            }
+        }
     }
     return $html.'</div>';
 }
