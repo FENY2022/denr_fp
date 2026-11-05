@@ -716,6 +716,43 @@ try {
                 go('permit_application',['id'=>(int)$id]);
             }
             break;
+        case 'deficiency_notice_settings':
+            $admin=require_role('super_admin');
+            if ($post) {
+                check_csrf();
+                $errors=fpoms_notice_save_config($admin,$_POST,$_FILES);
+                if ($errors) fpoms_notice_config_view($admin,$errors);
+                else {
+                    flash('success','Deficiency notice settings saved. RED approval is still required per notice.');
+                    go('deficiency_notice_settings');
+                }
+            } else fpoms_notice_config_view($admin);
+            break;
+        case 'deficiency_notice_queue':
+            if ($post) show_error('RED approval queue is read-only.',405);
+            fpoms_notice_queue_view(require_role('red'));
+            break;
+        case 'deficiency_notice_pdf':
+            if ($post) show_error('PDF preview requires GET.',405);
+            $viewer=require_user();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid notice reference.',400);
+            fpoms_notice_send_pdf($viewer,(int)$id);
+            break;
+        case 'deficiency_notice_approve':
+            if (!$post) show_error('RED notice approval requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='1') show_error('RED approval confirmation required.',400);
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid notice reference.',400);
+            $errors=fpoms_notice_red_approve($red,(int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','RED approved the generated PDF. Return recorded and applicant notified.');
+            go('deficiency_notice_queue');
+            break;
         case 'permit_step4_decision':
             $reviewer=step4_require_reviewer();
             if (!$post) show_error('Step 4 decisions require a confirmed POST.',405);
@@ -729,6 +766,13 @@ try {
                 $decision=(string)($_POST['decision'] ?? '');
                 $current=step2_application((int)$id);
                 $modern=$current && permit_flow_is_new($current);
+                if ($modern && $decision==='return') {
+                    $notice=fpoms_notice_record((int)$id,(int)($current['revision']??0));
+                    if ($notice && (string)$notice['status']==='pending_red') {
+                        flash('success','Draft deficiency notice PDF generated for RED approval. No applicant notification was sent.');
+                        go('permit_application',['id'=>(int)$id]);
+                    }
+                }
                 flash('success',$decision==='complete'
                     ? ($modern
                         ? 'Step 2 Complete & Sufficient – application forwarded to RO Step 3.'
