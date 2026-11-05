@@ -365,6 +365,95 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
     return step4_decide($originalReviewer,$applicationId,$payload);
 }
 
+
+/** Migration 033 is additive; older installs can still release and email notices. */
+function fpoms_notice_delivery_schema_ready(): bool
+{
+    try {
+        db()->query('SELECT email_status FROM fpoms_deficiency_notices LIMIT 0');
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/** Send only the signed/released official PDF; never email unsigned draft findings. */
+function fpoms_notice_dispatch_official_email(int $applicationId,int $actorUserId=0): bool
+{
+    $app=fpoms_notice_application($applicationId);
+    if (!$app || (string)$app['status']!=='step4_corrections_required') return false;
+    $notice=fpoms_notice_record($applicationId,(int)$app['revision']);
+    if (!$notice || (string)$notice['status']!=='signed' || (int)$notice['artifact_id']<1) return false;
+
+    $attachments=permit_flow_notice_email_attachments($applicationId,(int)$app['revision']);
+    $sent=false;
+    if ($attachments) {
+        $url=permit_flow_application_email_url($applicationId);
+        $direct=$url;
+        if ($url!==null) {
+            $direct=preg_replace(
+                '~permit-application\?id=[0-9]+$~',
+                'permit-flow-file?id='.$applicationId.'&file='.(int)$notice['artifact_id'].'&preview=1',
+                $url
+            ) ?: $url;
+        } else {
+            error_log('FP-OMS official notice email: APP_URL is not a valid reachable HTTPS base URL.');
+        }
+        $payload=json_decode((string)$notice['payload_json'],true);
+        $overall=is_array($payload)?trim((string)($payload['overall_remarks']??'')):'';
+        $sent=permit_flow_email($app,
+            'Official RED-Approved Deficiency Notice – FP Application #'.$applicationId,
+            'LPDD-FUS determined that your FP application requires documentary compliance. '
+            .'Please open the official RED-approved notice, correct the listed requirements and '
+            .'resubmit through your FP-OMS account. '
+            .($overall!==''?'Evaluation remarks: '.$overall:''),
+            $direct,$attachments,'View Official Deficiency Notice PDF');
+    } else {
+        error_log('FP-OMS official notice email: signed PDF attachment is missing or failed integrity verification.');
+    }
+
+    if (fpoms_notice_delivery_schema_ready()) {
+        try {
+            db()->prepare("UPDATE fpoms_deficiency_notices
+                SET email_status=?,email_last_attempt_at=NOW(),
+                    email_sent_at=CASE WHEN ?='sent' THEN NOW() ELSE email_sent_at END
+                WHERE id=?")
+                ->execute([$sent?'sent':'failed',$sent?'sent':'failed',(int)$notice['id']]);
+        } catch (Throwable $e) {
+            error_log('FP-OMS notice email status update failed: '.$e->getMessage());
+        }
+    }
+    if ($actorUserId>0) {
+        try {
+            audit($actorUserId,$sent?'fp.deficiency_notice.email_sent':'fp.deficiency_notice.email_failed',
+                'permit_step2_application',$applicationId,[
+                    'revision'=>(int)$app['revision'],
+                    'artifact_id'=>(int)$notice['artifact_id']
+                ]);
+        } catch (Throwable $e) {
+            error_log('FP-OMS notice email audit failed: '.$e->getMessage());
+        }
+    }
+    return $sent;
+}
+
+function fpoms_notice_retry_official_email(array $staff,int $applicationId): array
+{
+    if (($staff['user_kind']??'')!=='internal'
+        || ($staff['status']??'')!=='active'
+        || !(has_role($staff,'red') || has_role($staff,'lpdd_fus'))) {
+        return ['Only authorized RED or LPDD-FUS staff can retry official notices.'];
+    }
+    $app=fpoms_notice_application($applicationId);
+    if (!$app || (string)$app['status']!=='step4_corrections_required') {
+        return ['Only an officially returned application may have its notice resent.'];
+    }
+    if (!fpoms_notice_dispatch_official_email($applicationId,(int)$staff['id'])) {
+        return ['Email delivery failed. Check MAIL_ENABLED, SMTP credentials, recipient email and server logs. The in-system PDF remains available.'];
+    }
+    return [];
+}
+
 function fpoms_notice_send_pdf(array $viewer,int $applicationId): never
 {
     $app=step2_application($applicationId);
