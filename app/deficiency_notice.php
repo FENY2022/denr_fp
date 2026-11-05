@@ -215,6 +215,8 @@ function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,ar
         $payload['requirement_remarks'][$type]=(string)$item['remarks'];
     }
     $config=fpoms_notice_config();
+    // Keep the exact uploaded template revision for RED approval.
+    $payload['notice_template_path']=(string)($config['template_path']??'');
     $payload['notice_config_snapshot']=[
         'signatory_name'=>(string)($config['signatory_name']??''),
         'signatory_title'=>(string)($config['signatory_title']??''),
@@ -222,7 +224,9 @@ function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,ar
         'footer_text'=>(string)($config['footer_text']??'')
     ];
     try {
-        $pdf=FpomsNoticePdf::render($app,$payload,$payload['notice_config_snapshot']);
+        $layout=$payload['notice_config_snapshot'];
+        $layout['letterhead_images']=fpoms_notice_template_branding($config);
+        $pdf=FpomsNoticePdf::render($app,$payload,$layout);
         [$relative,$absolute]=fpoms_notice_private_path('pdf',$applicationId);
         fpoms_file_write_encrypted_bytes($pdf,$absolute);
         $pdo=db();
@@ -310,6 +314,9 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
             // Use the saved immutable findings, never browser-provided assessments.
             $layout=is_array($payload['notice_config_snapshot']??null)
                 ? $payload['notice_config_snapshot'] : $config;
+            $layout['letterhead_images']=fpoms_notice_template_branding([
+                'template_path'=>(string)($payload['notice_template_path']??$config['template_path']??'')
+            ]);
             $pdf=FpomsNoticePdf::render($app,$payload,$layout,$signature,date('F d, Y'));
             [$relative,$absolute]=fpoms_notice_private_path('pdf',$applicationId);
             fpoms_file_write_encrypted_bytes($pdf,$absolute);
@@ -386,9 +393,10 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
     if (!has_role($admin,'super_admin')) show_error('Access denied.',403);
     $config=fpoms_notice_config();
     $html='<div class="panel"><h2 class="h5">Deficiency Notice Template / RED e-Signature</h2>'
-        .'<p class="text-secondary">Upload the official DOCX as a controlled reference. '
-        .'The system renders the supplied letter structure (proponent, project, deficiency table, contact and signatory) '
-        .'into a generated PDF. DOCX formatting is not converted pixel-for-pixel.</p>'
+        .'<p class="text-secondary">Upload the official Template No. 1 DOCX. '
+        .'FP-OMS reads its DENR seal, Bagong Pilipinas and SOCOTEC images for the PDF letterhead, '
+        .'then fills the applicant, project and deficiency table automatically. '
+        .'The generated PDF follows the approved letter structure; exact Word pagination may vary.</p>'
         .errors_html($errors);
     if (!$config) {
         $html.='<div class="alert alert-danger">Apply database migration 032 first.</div>';
@@ -412,7 +420,8 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
         .'<div class="col-md-6"><label class="form-label">Official DOCX Template (reference)</label>'
         .'<input class="form-control" type="file" name="template" accept=".docx">'
         .'<div class="small text-secondary mt-1">Current: '
-        .e((string)($config['template_name']??'Default Template No. 1 layout')).'</div></div>'
+        .e((string)($config['template_name']??'No official template uploaded')).'</div>'
+        .'<div class="small text-secondary">Required: official DOCX with DENR, Bagong Pilipinas and SOCOTEC artwork.</div></div>'
         .'<div class="col-md-6"><label class="form-label">RED Signature Image (JPG/JPEG)</label>'
         .'<input class="form-control" type="file" name="signature" accept=".jpg,.jpeg,image/jpeg">'
         .'<div class="small text-secondary mt-1">'
