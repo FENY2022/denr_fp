@@ -765,6 +765,18 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . step2_revert_client_html($app)
             . ($modern ? permit_flow_public_documents_html($app,$viewer) : '');
     } elseif ($reviewer && $modern
+        && (string)$app['status']==='step4_under_evaluation'
+        && ($redNotice=fpoms_notice_record($applicationId,(int)$app['revision']))
+        && in_array((string)$redNotice['status'],['pending_red','signed'],true)) {
+        $signed=(string)$redNotice['status']==='signed';
+        $html.='<div class="panel soft"><h3 class="h6">'
+            .($signed?'RED Approved – Return Finalization Pending':'Awaiting RED Approval').'</h3>'
+            .'<p class="mb-2">'.($signed
+                ? 'RED has approved the official deficiency PDF. Release could not be completed yet; an authorized RED user can retry Finalize Approved Return from the RED queue.'
+                : 'LPDD-FUS submitted the draft deficiency notice for RED review. It is no longer in the LPDD-FUS active queue. The applicant is notified only after RED approval and successful Return finalization.')
+            .'</p><a target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" href="'
+            .e(url('deficiency_notice_pdf',['id'=>$applicationId])).'">Preview Draft PDF</a></div>';
+    } elseif ($reviewer && $modern
         && in_array((string)$app['status'],[
             'submitted','step4_under_evaluation','step4_resubmitted',
             'step4_corrections_required'],true)) {
@@ -843,18 +855,39 @@ function view_step2_application(int $applicationId, array $errors = []): void
 function view_step2_review_queue(): void
 {
     step2_require_reviewer();
-    $apps = query_all(
+    // A drafted notice is an action for RED, not an active LPDD-FUS review.
+    $noticeReady=fpoms_notice_schema_ready();
+    $pendingCount=0;
+    $pendingCondition=$noticeReady ? " AND NOT EXISTS (
+        SELECT 1 FROM fpoms_deficiency_notices n
+        WHERE n.application_id=a.id AND n.revision=a.revision
+          AND n.status IN ('pending_red','signed')
+    )" : '';
+    if ($noticeReady) {
+        $pending=query_one("SELECT COUNT(*) AS total FROM fpoms_deficiency_notices n
+            JOIN permit_step2_applications a ON a.id=n.application_id
+                AND a.revision=n.revision
+            WHERE n.status='pending_red' AND a.status='step4_under_evaluation'");
+        $pendingCount=(int)($pending['total']??0);
+    }
+    $apps=query_all(
         "SELECT a.id,a.project_title,a.flow_version,a.status,a.revision,
                 a.last_submitted_at,c.name AS applicant_name
          FROM permit_step2_applications a JOIN user_client c ON c.id=a.client_id
-         WHERE (a.flow_version=1 AND a.status='submitted')
+         WHERE ((a.flow_version=1 AND a.status='submitted')
             OR (a.flow_version=2 AND a.status IN (
                 'submitted','step4_under_evaluation',
-                'step4_resubmitted','step4_corrections_required'))
+                'step4_resubmitted','step4_corrections_required')))
+         ".$pendingCondition."
          ORDER BY a.last_submitted_at ASC,a.id ASC LIMIT 200"
     );
     $html = '<div class="panel"><h2 class="h5">LPDD-FUS – Step 2 Completeness & Sufficiency '
         . '<span class="badge text-bg-primary">' . count($apps) . '</span></h2>'
+        .($pendingCount>0
+            ? '<div class="alert alert-warning py-2 small mt-2 mb-2">'
+                .$pendingCount.' deficiency notice(s) are Awaiting RED Approval. '
+                .'These are excluded from the LPDD-FUS active action list and appear in the RED queue.</div>'
+            : '')
         . '<p class="text-secondary small">Updated Annex A: applicant submits directly '
         . 'to LPDD-FUS, which decides documentary completeness and sufficiency BEFORE Step 3 RO Receiving. '
         . 'Legacy applications continue the original review route.</p>';
