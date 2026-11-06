@@ -61,11 +61,18 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
             return ['Application status changed or this action was already recorded. Refresh the RO inbox.'];
         }
         if ($action==='receive') {
-            $count=query_one('SELECT COUNT(*) AS n FROM permit_step2_documents
-                WHERE application_id=? AND revision=?',[$applicationId,(int)$app['revision']]);
-            if (empty($app['forwarded_at']) || (int)($count['n'] ?? 0)===0) {
+            if (empty($app['forwarded_at'])) {
                 $pdo->rollBack();
-                return ['Step 2 forwarding and submitted documents must exist first.'];
+                return ['LPDD-FUS must record Step 2 forwarding before RO may receive this application.'];
+            }
+            // An unchanged document is still part of a corrected submission,
+            // even when its original upload row belongs to an earlier revision.
+            // Verify every effective file (including carried-forward files)
+            // rather than requiring a duplicate row for the current revision.
+            $documentError=step2_effective_documents_error($applicationId,(int)$app['revision']);
+            if ($documentError!==null) {
+                $pdo->rollBack();
+                return [$documentError];
             }
             $pdo->prepare('INSERT INTO permit_step3_movements
                 (application_id,revision,received_at,received_by_user_id,receipt_remarks)
