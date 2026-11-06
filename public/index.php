@@ -732,6 +732,14 @@ try {
             if ($post) show_error('RED approval queue is read-only.',405);
             fpoms_notice_queue_view(require_role('red'));
             break;
+        case 'deficiency_notice_print':
+            if ($post) show_error('Print preview requires GET.',405);
+            $viewer=require_user();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid notice reference.',400);
+            fpoms_notice_print_preview($viewer,(int)$id);
+            break;
         case 'deficiency_notice_pdf':
             if ($post) show_error('PDF preview requires GET.',405);
             $viewer=require_user();
