@@ -106,6 +106,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
         . '<link href="assets/style.css?v=37" rel="stylesheet">'
         . '<link href="assets/action-feedback.css?v=1" rel="stylesheet">'
+        . ($user ? '<link href="assets/messenger.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="applicant-fp-requirements"')
             ? '<link href="assets/applicant-requirements.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="fp-pdf-organizer-modal"')
@@ -125,6 +126,7 @@ function render_page(string $title, string $content): void
         . ($user && fpoms_pusher_enabled()
             ? '<script src="https://js.pusher.com/8.4.0/pusher.min.js" defer></script>'
                 . '<script src="assets/fpoms-pusher.js?v=3" defer></script>' : '')
+        . ($user ? '<script src="assets/messenger.js?v=1" defer></script>' : '')
         . '</head><body>';
 
     if ($user) {
@@ -176,6 +178,7 @@ function render_page(string $title, string $content): void
     echo '</main><footer class="footer"><div class="d-flex flex-wrap gap-2 justify-content-between">'
         . '<span>DENR Regional Office XIII — Feasibility Permit Online Management System</span>'
         . '<span>Phase 1 · Registration &amp; Account Activation</span></div></footer></div></div>'
+        . ($user ? messenger_widget_html($user) : '')
         . '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>'
         . (str_contains($content, 'id="registration-document-modal"')
             ? '<script src="assets/registration-document-preview.js?v=6" defer></script>' : '')

@@ -60,6 +60,7 @@ require_once __DIR__ . '/user_session_security.php';
 require_once __DIR__ . '/realtime_settings.php';
 require_once __DIR__ . '/pusher_realtime.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/messenger.php';
 require_once __DIR__ . '/smtp.php';
 require_once __DIR__ . '/registration_qr.php';
 require_once __DIR__ . '/registration_mail.php';

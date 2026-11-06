@@ -149,6 +149,18 @@
     });
   });
 
+  channel.bind('chat-message', function (payload) {
+    document.dispatchEvent(new CustomEvent('fpoms:chat-message', {
+      detail: payload && typeof payload === 'object' ? payload : {}
+    }));
+  });
+
+  channel.bind('chat-typing', function (payload) {
+    document.dispatchEvent(new CustomEvent('fpoms:chat-typing', {
+      detail: payload && typeof payload === 'object' ? payload : {}
+    }));
+  });
+
   window.addEventListener('pagehide', function () {
     pusher.disconnect();
   }, { once: true });

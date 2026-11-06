@@ -491,6 +491,42 @@ try {
                 echo json_encode(['error'=>'Forbidden']);
             } else echo json_encode($auth);
             exit;
+        case 'messenger_conversations':
+            if ($post) show_error('GET required.',405);
+            messenger_api_conversations(require_user());
+            break;
+        case 'messenger_users':
+            if ($post) show_error('GET required.',405);
+            messenger_api_users(require_user());
+            break;
+        case 'messenger_direct':
+            if (!$post) show_error('POST required.',405);
+            messenger_api_direct(require_user());
+            break;
+        case 'messenger_messages':
+            if ($post) show_error('GET required.',405);
+            messenger_api_messages(require_user());
+            break;
+        case 'messenger_send':
+            if (!$post) show_error('POST required.',405);
+            messenger_api_send(require_user());
+            break;
+        case 'messenger_group_create':
+            if (!$post) show_error('POST required.',405);
+            messenger_api_group_create(require_user());
+            break;
+        case 'messenger_thread_action':
+            if (!$post) show_error('POST required.',405);
+            messenger_api_thread_action(require_user());
+            break;
+        case 'messenger_typing':
+            if (!$post) show_error('POST required.',405);
+            messenger_api_typing(require_user());
+            break;
+        case 'messenger_file':
+            if ($post) show_error('GET required.',405);
+            messenger_send_file(require_user());
+            break;
         case 'notifications':
             view_notifications();
             break;
