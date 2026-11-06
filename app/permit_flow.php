@@ -624,7 +624,7 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
 <meta name="robots" content="noindex,nofollow">
 <title><?= e($name) ?> — FP-OMS Document Preview</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<link href="assets/permit-flow-file-preview.css?v=1" rel="stylesheet">
+<link href="assets/permit-flow-file-preview.css?v=2" rel="stylesheet">
 </head>
 <body>
 <nav class="flow-file-toolbar" aria-label="Document preview actions">
@@ -644,7 +644,41 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
 </nav>
 <iframe class="flow-file-frame" id="flowFileFrame" src="<?= e($rawUrl) ?>"
     title="<?= e($name) ?>"></iframe>
-<script src="assets/permit-flow-file-preview.js?v=1" defer></script>
+
+<div class="flow-file-print-panel" id="flowFilePrintPanel" aria-hidden="true">
+    <div class="flow-file-print-card" role="dialog" aria-modal="true" aria-labelledby="flowFilePrintTitle">
+        <div class="flow-file-print-head">
+            <i class="bi bi-printer-fill" aria-hidden="true"></i>
+            <strong id="flowFilePrintTitle">Print Actions</strong>
+        </div>
+        <div class="flow-file-print-body">
+            <div class="flow-file-print-tabs">
+                <button type="button" class="flow-file-print-tab primary" id="flowFilePrintNow">
+                    <i class="bi bi-printer-fill" aria-hidden="true"></i>
+                    <span>Print Document</span>
+                </button>
+                <a class="flow-file-print-tab" href="<?= e($rawUrl) ?>" target="_blank" rel="noopener">
+                    <i class="bi bi-file-earmark-pdf-fill" aria-hidden="true"></i>
+                    <span>Open PDF</span>
+                </a>
+                <a class="flow-file-print-tab" href="<?= e($downloadUrl) ?>">
+                    <i class="bi bi-cloud-arrow-down-fill" aria-hidden="true"></i>
+                    <span>Download</span>
+                </a>
+            </div>
+            <p class="flow-file-print-note">
+                Choose an action above. The final browser/system print dialog is controlled by your browser,
+                while FP-OMS keeps the document printout clean without this toolbar.
+            </p>
+        </div>
+        <div class="flow-file-print-foot">
+            <button type="button" class="flow-file-print-cancel" id="flowFilePrintCancel">
+                <i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancel</span>
+            </button>
+        </div>
+    </div>
+</div>
+<script src="assets/permit-flow-file-preview.js?v=2" defer></script>
 </body>
 </html><?php
         exit;
