@@ -366,14 +366,18 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             'Updated Annex A application #'.$id.' is ready for '.permit_flow_step_label($step+1).'.',
             'file-earmark-check','info','permit_flow',['id'=>$id]);
         if ($step===4) {
-            $message=permit_payment_instructions($id)
-                .' Field validation schedule: '.fpoms_display_datetime((string)$schedule).'.';
-            create_client_notification((int)$app['client_id'],'Notice to Pay Application Fee',
-                $message,'receipt','info','permit_application',['id'=>$id]);
+            // Cashier payment notice was already issued on the official RO
+            // receipt (Step 3). Step 4 sends only the new field schedule,
+            // preventing a second Notice to Pay email or bell alert.
+            $message='FP application #'.$id.' field validation/assessment schedule: '
+                .fpoms_display_datetime((string)$schedule)
+                .'. LPDD-FUS has prepared the CENRO field validation instructions.';
+            create_client_notification((int)$app['client_id'],'Field Validation Schedule – FP #'.$id,
+                $message,'calendar-event','info','permit_application',['id'=>$id]);
             notify_role('lpdd_fus','FP Cashier Payment Awaiting Verification',
                 'FP application #'.$id.' requires Cashier payment and LPDD-FUS receipt verification.',
                 'receipt','info','lpdd_fus_payment_queue',['tab'=>'awaiting']);
-            permit_flow_email($app,'Notice to Pay – FP Application #'.$id,$message);
+            permit_flow_email($app,'Field Validation Schedule – FP Application #'.$id,$message);
         } elseif ($step===11) {
             $message='Your FP application #'.$id.' has been approved and released. '
                 .'See the authorized FP/TOR documents and records release instructions in FP-OMS.';
