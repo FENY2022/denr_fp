@@ -194,10 +194,10 @@ function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,ar
         || (string)$app['status']!=='step4_under_evaluation') {
         return ['This application is no longer in Step 2 evaluation.'];
     }
-    $area=trim((string)($input['area_hectares']??''));
-    if ($area!=='' && (!preg_match('/^\d{1,10}(?:\.\d{1,4})?$/D',$area)
-        || (float)$area<=0)) {
-        return ['Area in hectares must be a positive number with up to 4 decimals.'];
+    $area=trim((string)($app['project_area_hectares']??''));
+    if ($area==='' || !preg_match('/^\d{1,10}(?:\.\d{1,4})?$/D',$area)
+        || (float)$area<=0) {
+        return ['Applicant Project Area (hectares) is missing or invalid. Return to the applicant application data and save a valid project area before preparing the deficiency notice.'];
     }
     $rows=fpoms_notice_rows($items);
     if (!$rows) return ['At least one deficient requirement is needed before preparing a notice.'];
