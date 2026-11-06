@@ -784,8 +784,23 @@ function view_step2_application(int $applicationId, array $errors = []): void
             .'<p class="mb-2">'.($signed
                 ? 'RED has approved the official deficiency PDF. Release could not be completed yet; an authorized RED user can retry Finalize Approved Return from the RED queue.'
                 : 'LPDD-FUS submitted the draft deficiency notice for RED review. It is no longer in the LPDD-FUS active queue. The applicant is notified only after RED approval and successful Return finalization.')
-            .'</p><a target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" href="'
-            .e(url('deficiency_notice_pdf',['id'=>$applicationId])).'">Preview Draft PDF</a></div>';
+            .'</p><div class="d-flex flex-wrap gap-2">'
+            .'<a target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" href="'
+            .e(url('deficiency_notice_pdf',['id'=>$applicationId])).'">Preview Draft PDF</a>'
+            .(!$signed
+                ? '<form method="post" class="d-inline" action="'
+                    .e(url('deficiency_notice_regenerate',['id'=>$applicationId])).'">'
+                    .csrf_field()
+                    .'<button type="submit" class="btn btn-outline-success btn-sm">'
+                    .'<i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>'
+                    .'Regenerate PDF</button></form>'
+                : '')
+            .'</div>'
+            .(!$signed
+                ? '<p class="small text-secondary mt-2 mb-0">Rebuilds the protected one-page draft '
+                    .'from the same frozen findings. This does not notify the applicant.</p>'
+                : '')
+            .'</div>';
     } elseif ($reviewer && $modern
         && in_array((string)$app['status'],[
             'submitted','step4_under_evaluation','step4_resubmitted',

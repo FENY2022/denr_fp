@@ -281,6 +281,93 @@ function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,ar
     }
 }
 
+/** Rebuild an unsigned draft from its frozen findings and replace its protected PDF. */
+function fpoms_notice_regenerate_draft(array $staff,int $applicationId): array
+{
+    if (($staff['user_kind']??'')!=='internal'
+        || ($staff['status']??'')!=='active' || !has_role($staff,'lpdd_fus')) {
+        return ['Only active LPDD-FUS staff can regenerate a deficiency notice draft.'];
+    }
+    if (!fpoms_notice_schema_ready()) return ['Apply database migration 032 first.'];
+
+    $app=fpoms_notice_application($applicationId);
+    if (!$app || !permit_flow_is_new($app)
+        || (string)$app['status']!=='step4_under_evaluation') {
+        return ['The application is not awaiting RED review of a deficiency notice.'];
+    }
+    $notice=fpoms_notice_record($applicationId,(int)$app['revision']);
+    if (!$notice || (string)$notice['status']!=='pending_red') {
+        return ['Only an unsigned notice awaiting RED approval can be regenerated.'];
+    }
+
+    try {
+        $payload=json_decode((string)$notice['payload_json'],true,512,JSON_THROW_ON_ERROR);
+        if (!is_array($payload)) throw new RuntimeException('Stored notice data is invalid.');
+        $layout=is_array($payload['notice_config_snapshot']??null)
+            ?$payload['notice_config_snapshot'] : fpoms_notice_config();
+        $layout['letterhead_images']=fpoms_notice_template_branding([
+            'template_path'=>(string)($payload['notice_template_path']??'')
+        ]);
+        $created=(string)($notice['created_at']??'');
+        $timestamp=$created!==''?strtotime($created):false;
+        $noticeDate=$timestamp!==false?date('F d, Y',$timestamp):date('F d, Y');
+        $pdf=FpomsNoticePdf::render($app,$payload,$layout,null,$noticeDate);
+        if (!str_starts_with($pdf,'%PDF-1.4')
+            || !str_contains($pdf,'/Type /Pages /Count 1')
+            || !str_ends_with($pdf,"%%EOF\n")) {
+            throw new RuntimeException('Regenerated output failed the one-page PDF integrity check.');
+        }
+
+        [$relative,$absolute]=fpoms_notice_private_path('pdf',$applicationId);
+        fpoms_file_write_encrypted_bytes($pdf,$absolute);
+        $pdo=db();
+        $pdo->beginTransaction();
+        $lockedApp=query_one(
+            'SELECT status,revision FROM permit_step2_applications WHERE id=? FOR UPDATE',
+            [$applicationId]
+        );
+        $lockedNotice=query_one(
+            'SELECT id,status,draft_path FROM fpoms_deficiency_notices
+             WHERE application_id=? AND revision=? FOR UPDATE',
+            [$applicationId,(int)$app['revision']]
+        );
+        if (!$lockedApp || (string)$lockedApp['status']!=='step4_under_evaluation'
+            || (int)$lockedApp['revision']!==(int)$app['revision']
+            || !$lockedNotice || (string)$lockedNotice['status']!=='pending_red') {
+            throw new RuntimeException('Notice changed; reload the application before regenerating.');
+        }
+        $oldRelative=(string)$lockedNotice['draft_path'];
+        $pdo->prepare(
+            'UPDATE fpoms_deficiency_notices SET draft_path=?,draft_sha256=?
+             WHERE id=? AND status="pending_red"'
+        )->execute([$relative,hash('sha256',$pdf),(int)$lockedNotice['id']]);
+        permit_flow_record_event($pdo,$applicationId,2,$staff,
+            'deficiency_notice_regenerated',
+            'Unsigned deficiency notice PDF regenerated; frozen findings were unchanged.');
+        audit((int)$staff['id'],'fp.deficiency_notice.regenerated',
+            'permit_step2_application',$applicationId,[
+                'revision'=>(int)$app['revision'],
+                'notice_id'=>(int)$lockedNotice['id']
+            ]);
+        $pdo->commit();
+
+        // Remove only the superseded file inside this application's protected scope.
+        $scope=realpath(PROJECT_ROOT.'/storage/fp_workflow/'.$applicationId.'/2');
+        $oldAbsolute=realpath(PROJECT_ROOT.'/storage/'.$oldRelative);
+        if ($scope && $oldAbsolute && $oldAbsolute!==realpath($absolute)
+            && str_starts_with($oldAbsolute,$scope.DIRECTORY_SEPARATOR)
+            && is_file($oldAbsolute)) {
+            @unlink($oldAbsolute);
+        }
+        return [];
+    } catch (Throwable $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        if (isset($absolute) && is_file($absolute)) @unlink($absolute);
+        error_log('FP-OMS deficiency notice regeneration failed: '.$e->getMessage());
+        return ['Unable to regenerate the deficiency notice PDF: '.$e->getMessage()];
+    }
+}
+
 function fpoms_notice_red_approve(array $red,int $applicationId): array
 {
     if (($red['status']??'')!=='active' || !has_role($red,'red')) {

@@ -748,6 +748,18 @@ try {
             if (!$id) show_error('Invalid notice reference.',400);
             fpoms_notice_send_pdf($viewer,(int)$id);
             break;
+        case 'deficiency_notice_regenerate':
+            if (!$post) show_error('Deficiency notice regeneration requires POST.',405);
+            $reviewer=require_role('lpdd_fus');
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid notice reference.',400);
+            $errors=fpoms_notice_regenerate_draft($reviewer,(int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Deficiency notice PDF regenerated successfully. Findings were unchanged.');
+            go('permit_application',['id'=>(int)$id]);
+            break;
         case 'deficiency_notice_approve':
             if (!$post) show_error('RED notice approval requires POST.',405);
             $red=require_role('red');

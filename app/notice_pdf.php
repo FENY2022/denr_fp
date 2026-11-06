@@ -47,6 +47,60 @@ final class FpomsNoticePdf
         );
     }
 
+    /** Approximate Adobe Times-Roman metrics closely enough for PDF word spacing. */
+    private static function timesWidth(string $text,float $size): float
+    {
+        $value=self::ascii($text);
+        $units=0;
+        foreach (str_split($value) as $character) {
+            $units+=match (true) {
+                $character===' '=>250,
+                str_contains('.,', $character)=>250,
+                str_contains(':;!', $character)=>333,
+                str_contains("'`", $character)=>180,
+                str_contains('()[]-', $character)=>333,
+                str_contains('/\\', $character)=>278,
+                $character==='@'=>921,
+                $character==='&'=>778,
+                ctype_digit($character)=>500,
+                str_contains('ijl', $character)=>278,
+                str_contains('fr', $character)=>333,
+                $character==='t'=>278,
+                $character==='s'=>389,
+                str_contains('acez', $character)=>444,
+                str_contains('bdghknopquvxy', $character)=>500,
+                $character==='m'=>778,
+                $character==='w'=>722,
+                $character==='I'=>333,
+                $character==='J'=>389,
+                str_contains('FPS', $character)=>556,
+                str_contains('ELTZ', $character)=>611,
+                str_contains('BCR', $character)=>667,
+                str_contains('ADGHKNOQUVXY', $character)=>722,
+                $character==='M'=>889,
+                $character==='W'=>944,
+                default=>500,
+            };
+        }
+        return $units*$size/1000;
+    }
+
+    private function justifiedLine(float $x,float $top,string $text,float $size,
+        float $width): void
+    {
+        $spaces=substr_count(self::ascii($text),' ');
+        $remaining=$width-self::timesWidth($text,$size);
+        if ($spaces<1 || $remaining<=0) {
+            $this->line($x,$top,$text,$size);
+            return;
+        }
+        $wordSpacing=$remaining/$spaces;
+        $this->stream.=sprintf(
+            "BT /F1 %.2F Tf %.3F Tw 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
+            $size,$wordSpacing,$x,self::HEIGHT-$top,self::pdfText($text)
+        );
+    }
+
     private function centeredLine(float $top,string $text,float $size=10,
         bool $bold=false,float $center=self::WIDTH/2): void
     {
@@ -139,6 +193,20 @@ final class FpomsNoticePdf
         }
     }
 
+    private function drawJustifiedLines(float $x,float &$y,array $lines,float $size,
+        float $leading,float $width): void
+    {
+        $last=count($lines)-1;
+        foreach ($lines as $index=>$value) {
+            if ($index<$last) {
+                $this->justifiedLine($x,$y,(string)$value,$size,$width);
+            } else {
+                $this->line($x,$y,(string)$value,$size);
+            }
+            $y+=$leading;
+        }
+    }
+
     private static function labeledRows(array $input): array
     {
         $rows=is_array($input['notice_rows']??null)?array_values($input['notice_rows']):[];
@@ -223,7 +291,7 @@ final class FpomsNoticePdf
         $y+=27*$scale;
         $y+=count($paragraph1)*$bodyLeading+8*$scale;
         $y+=count($paragraph2)*$bodyLeading+10*$scale;
-        $y+=$tableHeight+12*$scale;
+        $y+=$tableHeight+24*$scale;
         $y+=count($paragraph3)*$bodyLeading+7*$scale;
         $y+=count($paragraph4)*$bodyLeading+6*$scale;
         $y+=count($paragraph5)*$bodyLeading+14*$scale;
@@ -276,9 +344,12 @@ final class FpomsNoticePdf
         $pdf->line(72,$y,'Dear '.$layout['applicant'].':',11*$s,true);
         $y+=27*$s;
 
-        $pdf->drawLines(72,$y,$layout['paragraph1'],11*$s,$layout['bodyLeading']);
+        $bodyWidth=448.0;
+        $pdf->drawJustifiedLines(72,$y,$layout['paragraph1'],11*$s,
+            $layout['bodyLeading'],$bodyWidth);
         $y+=8*$s;
-        $pdf->drawLines(72,$y,$layout['paragraph2'],11*$s,$layout['bodyLeading']);
+        $pdf->drawJustifiedLines(72,$y,$layout['paragraph2'],11*$s,
+            $layout['bodyLeading'],$bodyWidth);
         $y+=10*$s;
 
         $tableX=100.0;
@@ -302,12 +373,15 @@ final class FpomsNoticePdf
             $y+=$height;
         }
 
-        $y+=12*$s;
-        $pdf->drawLines(72,$y,$layout['paragraph3'],11*$s,$layout['bodyLeading']);
+        $y+=24*$s;
+        $pdf->drawJustifiedLines(72,$y,$layout['paragraph3'],11*$s,
+            $layout['bodyLeading'],$bodyWidth);
         $y+=7*$s;
-        $pdf->drawLines(72,$y,$layout['paragraph4'],11*$s,$layout['bodyLeading']);
+        $pdf->drawJustifiedLines(72,$y,$layout['paragraph4'],11*$s,
+            $layout['bodyLeading'],$bodyWidth);
         $y+=6*$s;
-        $pdf->drawLines(72,$y,$layout['paragraph5'],11*$s,$layout['bodyLeading']);
+        $pdf->drawJustifiedLines(72,$y,$layout['paragraph5'],11*$s,
+            $layout['bodyLeading'],$bodyWidth);
         $y+=14*$s;
 
         $pdf->line(72,$y,'Very truly yours,',11*$s);
