@@ -774,10 +774,13 @@ try {
             } else {
                 $notice=fpoms_notice_record((int)$id,
                     (int)(step2_application((int)$id)['revision']??0));
-                if ($notice && (string)($notice['email_status']??'')==='failed') {
-                    flash('info','RED approval and Return were completed. Applicant system notification was recorded, but SMTP email failed. Use Retry Applicant Email after correcting mail settings.');
+                $delivery=(string)($notice['email_status']??'');
+                if ($delivery==='sent') {
+                    flash('success','Finalize and Return completed. The official RED-approved PDF was released and SMTP accepted the applicant email.');
+                } elseif ($delivery==='failed') {
+                    flash('info','Finalize and Return completed and the official PDF is available to the applicant, but email delivery failed. Use Retry Applicant Email after correcting SMTP settings.');
                 } else {
-                    flash('success','RED approval and Return completed. Applicant PDF is available; email delivery attempted.');
+                    flash('info','Finalize and Return completed and the official PDF is available to the applicant. Email delivery could not be verified; review notice delivery status before claiming the email was sent.');
                 }
             }
             go('deficiency_notice_queue');
