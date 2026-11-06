@@ -12,15 +12,15 @@ function cashier_notice_assert(bool $ok,string $message): void {
     if (!$ok) throw new RuntimeException('RO receipt Cashier notice: '.$message);
 }
 cashier_notice_assert(
-    str_contains($step3,"$newFlowReceipt=$action==='receive' && permit_flow_is_new($app);"),
+    str_contains($step3,'$newFlowReceipt=$action===\'receive\' && permit_flow_is_new($app);'),
     'notice trigger must be restricted to the new Annex A RO receive action');
 cashier_notice_assert(
     str_contains($step3,"'Notice to Pay Application Fee'") &&
-    str_contains($step3,"permit_payment_instructions($applicationId)"),
+    str_contains($step3,'permit_payment_instructions($applicationId)'),
     'client receives payment instructions in bell notification');
 cashier_notice_assert(
-    str_contains($step3,"'Notice to Pay – FP Application #'.$applicationId") &&
-    str_contains($step3,"if ($newFlowReceipt)"),
+    str_contains($step3,'\'Notice to Pay – FP Application #\'.$applicationId') &&
+    str_contains($step3,'if ($newFlowReceipt)'),
     'client receives a Cashier email on official receipt');
 cashier_notice_assert(
     str_contains($step3,"'awaiting_payment',NOW()") &&
