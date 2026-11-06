@@ -128,14 +128,6 @@ function step4_start(array $reviewer,int $applicationId): array
         || !has_role($reviewer,'lpdd_fus')) {
         return ['LPDD-FUS reviewer authorization is required.'];
     }
-    // RED is the actual actor when finalizing an officially approved deficiency notice.
-    if ($finalizingRed!==null && (
-        ($finalizingRed['user_kind']??'')!=='internal'
-        || ($finalizingRed['status']??'')!=='active'
-        || !has_role($finalizingRed,'red')
-        || ($input['decision']??'')!=='return'
-        || ($input['_red_finalize']??'')!=='1'
-    )) return ['Authorized RED finalization is required.'];
     if (!step4_schema_ready()) return ['Migration 027 is required.'];
 
     $pdo=db();
@@ -227,6 +219,14 @@ function step4_decide(array $reviewer,int $applicationId,array $input,?array $fi
         || !has_role($reviewer,'lpdd_fus')) {
         return ['LPDD-FUS reviewer authorization is required.'];
     }
+    // RED is the actual actor when finalizing an officially approved deficiency notice.
+    if ($finalizingRed!==null && (
+        ($finalizingRed['user_kind']??'')!=='internal'
+        || ($finalizingRed['status']??'')!=='active'
+        || !has_role($finalizingRed,'red')
+        || ($input['decision']??'')!=='return'
+        || ($input['_red_finalize']??'')!=='1'
+    )) return ['Authorized RED finalization is required.'];
     if (!step4_schema_ready()) return ['Migration 027 is required.'];
     if (!step2_project_type_schema_ready()) return ['Migration 030 is required.'];
     $project=step2_application($applicationId);
