@@ -39,7 +39,46 @@ body{background:#e9edf0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
   .flow-file-action{flex:1 1 auto;justify-content:center;padding:8px 10px}
   .flow-file-action span{display:none}
 }
-@media print{
-  .flow-file-toolbar{display:none!important}
+/* System print output remains document-only because printing is delegated to the embedded raw document. */
+.flow-file-print-panel{
+  position:fixed;inset:0;z-index:50;display:none;
+  align-items:center;justify-content:center;padding:18px;
+  background:rgba(8,24,18,.66);backdrop-filter:blur(2px)
+}
+.flow-file-print-panel.is-open{display:flex}
+.flow-file-print-card{
+  width:min(560px,100%);background:#fff;border-radius:14px;
+  box-shadow:0 18px 48px rgba(0,0,0,.28);overflow:hidden
+}
+.flow-file-print-head{
+  display:flex;align-items:center;gap:10px;padding:16px 18px;
+  background:#18392b;color:#fff
+}
+.flow-file-print-head i{font-size:20px}
+.flow-file-print-head strong{font-size:16px}
+.flow-file-print-body{padding:18px}
+.flow-file-print-tabs{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px
+}
+.flow-file-print-tab{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;min-height:92px;padding:12px;border:1px solid #d5ddd8;
+  border-radius:10px;background:#fff;color:#18392b;text-decoration:none;
+  font:700 13px/1.2 Arial,Helvetica,sans-serif;cursor:pointer
+}
+.flow-file-print-tab:hover{background:#f2f7f4;border-color:#198754;color:#145c37}
+.flow-file-print-tab.primary{background:#198754;border-color:#198754;color:#fff}
+.flow-file-print-tab i{font-size:25px}
+.flow-file-print-note{margin:14px 0 0;color:#66736c;font-size:12px;line-height:1.45}
+.flow-file-print-foot{display:flex;justify-content:flex-end;padding:0 18px 18px}
+.flow-file-print-cancel{
+  display:inline-flex;align-items:center;gap:7px;border:1px solid #c9d1cc;
+  background:#fff;color:#33433a;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer
+}
+@media(max-width:520px){
+  .flow-file-print-tabs{grid-template-columns:1fr}
+  .flow-file-print-tab{min-height:72px;flex-direction:row}
+}
+
   .flow-file-frame{height:100vh!important}
 }
