@@ -433,6 +433,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $projectType=(string)($_POST['project_type'] ?? $fieldDraft['project_type'] ?? $app['project_type'] ?? '');
     $projectOther=(string)($_POST['project_type_other'] ?? $fieldDraft['project_type_other'] ?? $app['project_type_other'] ?? '');
     $location = (string)($_POST['project_location'] ?? $fieldDraft['project_location'] ?? $app['project_location'] ?? '');
+    $area = (string)($_POST['project_area_hectares'] ?? $fieldDraft['project_area_hectares'] ?? $app['project_area_hectares'] ?? '');
+    $hasArea = step2_area_schema_ready();
     $hasCoordinates = step2_location_schema_ready();
     $latitude = $hasCoordinates
         ? (string)($_POST['project_latitude'] ?? $fieldDraft['project_latitude'] ?? $app['project_latitude'] ?? '')
@@ -456,6 +458,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             : ($editing ? 'Edit and Resubmit FP Application #' . $applicationId
                 : 'Submit FP Application')) . '</h2>'
         . errors_html($errors)
+        . (!$hasArea
+            ? '<div class="alert alert-warning small">Project Area requires database migration 034 before final submission and secure draft autosave.</div>'
+            : '')
         . '<p class="small text-secondary">Provide basic project identification and upload supporting documents. '
         . 'Documentary completeness will be evaluated by LPDD-FUS Technical Staff, '
         . 'using the official checklist approved by DENR.</p></header>'
@@ -511,6 +516,13 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         .'<input class="form-control" id="project_type_other" name="project_type_other" '
         .'data-fp-other-project maxlength="160" minlength="3" '
         .($projectType==='other'?'required ':'').'value="'.e($projectOther).'"></div>'
+        . '<div class="mb-3"><label class="form-label" for="project_area_hectares">Project Area (hectares) '
+        . '<span class="text-danger">*</span></label>'
+        . '<div class="input-group"><input class="form-control" id="project_area_hectares" '
+        . 'name="project_area_hectares" inputmode="decimal" autocomplete="off" required '
+        . 'pattern="\d{1,10}(?:\.\d{1,4})?" maxlength="15" placeholder="e.g. 15.25" '
+        . 'value="' . e($area) . '"><span class="input-group-text">hectares</span></div>'
+        . '<div class="form-text">Enter the total proposed project area. This value will appear in official FP notices.</div></div>'
         . '<div class="mb-3"><label class="form-label" for="purpose">Project Description (optional)</label>'
         . '<textarea class="form-control" id="purpose" name="purpose" rows="4" '
         . 'maxlength="2000">' . e($purpose) . '</textarea></div></section>'
@@ -648,7 +660,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=2" defer></script>'
         . '<script src="assets/permit-project-type.js?v=2" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=12" defer></script>'
+        . '<script src="assets/permit-step2-drafts.js?v=13" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
@@ -696,6 +708,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
             (string)($app['project_type_other'] ?? ''))) . '</dd>'
         . '<dt class="col-sm-4">Location</dt><dd class="col-sm-8">'
         . e((string)$app['project_location']) . '</dd>'
+        . '<dt class="col-sm-4">Project Area</dt><dd class="col-sm-8">'
+        . e(step2_area_display($app['project_area_hectares'] ?? null)) . ' hectares</dd>'
         . '<dt class="col-sm-4">Description</dt><dd class="col-sm-8">'
         . nl2br(e((string)($app['purpose'] ?? ''))) . '</dd>'
         . '<dt class="col-sm-4">Revision</dt><dd class="col-sm-8">'
