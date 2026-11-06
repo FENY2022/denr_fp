@@ -5,32 +5,52 @@ declare(strict_types=1);
  * Read the three official header/footer images embedded in Template No. 1.
  * The uploaded DOCX is not executed, converted by a shell, or served publicly.
  * Each image is converted in memory to a bounded white-backed JPEG for the PDF.
+ * A bundled copy of the approved Template No. 1 artwork is the fallback so a
+ * notice never loses its official letterhead merely because no DOCX is set.
  */
+function fpoms_notice_builtin_branding(): array
+{
+    $directory=__DIR__.'/assets/deficiency-notice';
+    $branding=[];
+    foreach (['denr','bagong','socotec'] as $key) {
+        $path=$directory.'/'.$key.'.jpg';
+        $bytes=is_file($path) ? file_get_contents($path) : false;
+        $info=is_string($bytes) ? @getimagesizefromstring($bytes) : false;
+        if (!is_string($bytes) || strlen($bytes)<50 || !$info
+            || (int)($info[2]??0)!==IMAGETYPE_JPEG) {
+            error_log('FP-OMS notice branding: bundled '.$key.' artwork is unavailable.');
+            continue;
+        }
+        $branding[$key]=$bytes;
+    }
+    return $branding;
+}
+
 function fpoms_notice_template_branding(array $config): array
 {
     $path=(string)($config['template_path']??'');
-    // DOCX is optional. FP-OMS always has a built-in DENR letter structure.
+    $branding=fpoms_notice_builtin_branding();
     // If an official DOCX is configured, its original artwork is preferred.
     // Missing optional artwork must never block draft generation.
-    if ($path==='') return [];
+    if ($path==='') return $branding;
     if (!class_exists(ZipArchive::class)) {
         error_log('FP-OMS notice branding: PHP ZIP unavailable; using built-in text letterhead.');
-        return [];
+        return $branding;
     }
     if (!function_exists('imagecreatefromstring') || !function_exists('imagejpeg')) {
         error_log('FP-OMS notice branding: PHP GD unavailable; using built-in text letterhead.');
-        return [];
+        return $branding;
     }
 
     try {
         $bytes=fpoms_notice_safe_read($path);
     } catch (Throwable $e) {
         error_log('FP-OMS notice branding: configured DOCX unavailable; using built-in letterhead. '.$e->getMessage());
-        return [];
+        return $branding;
     }
     if (strlen($bytes)>5242880 || !str_starts_with($bytes,'PK')) {
         error_log('FP-OMS notice branding: configured DOCX invalid; using built-in letterhead.');
-        return [];
+        return $branding;
     }
     $temp=tempnam(sys_get_temp_dir(),'fpoms_tpl_');
     if ($temp===false || file_put_contents($temp,$bytes)===false) {
@@ -41,7 +61,7 @@ function fpoms_notice_template_branding(array $config): array
     try {
         if ($zip->open($temp)!==true) {
             error_log('FP-OMS notice branding: official DOCX damaged; using built-in letterhead.');
-            return [];
+            return $branding;
         }
         $opened=true;
         // Original DENR Region XIII Template No. 1 embedded assets.
@@ -50,7 +70,6 @@ function fpoms_notice_template_branding(array $config): array
             'bagong'=>'word/media/image3.png',
             'socotec'=>'word/media/image2.jpg'
         ];
-        $branding=[];
         foreach ($sources as $key=>$mediaPath) {
             $raw=$zip->getFromName($mediaPath);
             if (!is_string($raw) || strlen($raw)<50 || strlen($raw)>2097152) {

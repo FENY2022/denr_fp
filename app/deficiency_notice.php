@@ -466,7 +466,26 @@ function fpoms_notice_send_pdf(array $viewer,int $applicationId): never
             || has_role($viewer,'super_admin'));
     if (!$isStaff) show_error('You cannot view an unsigned notice.',403);
     try {
-        $pdf=fpoms_notice_safe_read((string)$notice['draft_path'],(string)$notice['draft_sha256']);
+        // Pending drafts are rendered from their immutable assessment snapshot
+        // so layout improvements apply immediately to the preview URL. Signed
+        // records continue to use their protected, approval-time artifact.
+        if ((string)$notice['status']==='pending_red') {
+            $payload=json_decode((string)$notice['payload_json'],true,512,JSON_THROW_ON_ERROR);
+            if (!is_array($payload)) throw new RuntimeException('Stored notice data is invalid.');
+            $layout=is_array($payload['notice_config_snapshot']??null)
+                ?$payload['notice_config_snapshot'] : fpoms_notice_config();
+            $layout['letterhead_images']=fpoms_notice_template_branding([
+                'template_path'=>(string)($payload['notice_template_path']??'')
+            ]);
+            $renderApp=fpoms_notice_application($applicationId)??$app;
+            $created=(string)($notice['created_at']??'');
+            $timestamp=$created!==''?strtotime($created):false;
+            $noticeDate=$timestamp!==false?date('F d, Y',$timestamp):date('F d, Y');
+            $pdf=FpomsNoticePdf::render($renderApp,$payload,$layout,null,$noticeDate);
+        } else {
+            $pdf=fpoms_notice_safe_read((string)$notice['draft_path'],
+                (string)$notice['draft_sha256']);
+        }
     } catch (Throwable $e) { show_error('Protected notice unavailable.',404); }
     header('Content-Type: application/pdf');
     header('Cache-Control: private,no-store');
@@ -520,7 +539,7 @@ function fpoms_notice_print_preview(array $viewer,int $applicationId): never
     $applicant=trim((string)($app['applicant_name']??'')) ?: 'NAME OF PROPONENT';
     $position=trim((string)($app['representative_position']??'')) ?: 'Authorized Representative';
     $address=trim((string)($app['company_address']??'')) ?: 'COMPANY ADDRESS';
-    $location=trim((string)($app['project_location']??'')) ?: 'LOCATION OF THE PROJECT';
+    $location=rtrim(trim((string)($app['project_location']??'')),'. ') ?: 'LOCATION OF THE PROJECT';
     $area=trim((string)($payload['area_hectares']??''));
     $areaText=$area!=='' ? $area : '__________';
     $contacts=trim((string)($config['contact_emails']??'r13@denr.gov.ph; lasangutilizationlpdd@gmail.com'));

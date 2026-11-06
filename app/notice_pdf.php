@@ -2,16 +2,20 @@
 declare(strict_types=1);
 
 /**
- * Small dependency-free A4 PDF writer for the official deficiency letter.
- * Generates text/vector tables server-side without shell execution or public files.
- * A JPEG signature is embedded only after an authenticated RED approval action.
+ * Dependency-free, single-page A4 writer for DENR Template No. 1.
+ *
+ * The geometry follows the approved letter reference: three-part letterhead,
+ * addressee block, indented Subject line, six-row particulars table, signatory
+ * block, and the fixed Region XIII/SOCOTEC footer. Long dynamic content is
+ * compacted proportionally, but it is never allowed to create a second page.
  */
 final class FpomsNoticePdf
 {
+    private const WIDTH = 595.28;
     private const HEIGHT = 841.89;
+
     private array $pages = [];
     private string $stream = '';
-    private float $y = 0.0;
     private ?string $signature = null;
     private array $branding = [];
     private int $signatureWidth = 0;
@@ -20,48 +24,48 @@ final class FpomsNoticePdf
 
     private static function pdfText(string $text): string
     {
-        $encoded = iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text);
-        if ($encoded === false) $encoded = preg_replace('/[^\x20-\x7e]/', '?', $text) ?? '?';
-        $encoded = preg_replace('/[\x00-\x1f]/', ' ', $encoded) ?? '';
-        return str_replace(['\\','(',')'], ['\\\\','\\(','\\)'], $encoded);
+        $encoded=iconv('UTF-8','Windows-1252//TRANSLIT//IGNORE',$text);
+        if ($encoded===false) $encoded=preg_replace('/[^\x20-\x7e]/','?',$text)??'?';
+        $encoded=preg_replace('/[\x00-\x1f]/',' ',$encoded)??'';
+        return str_replace(['\\','(',')'],['\\\\','\\(','\\)'],$encoded);
     }
 
     private static function ascii(string $text): string
     {
-        $encoded = iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', $text);
-        if ($encoded === false) $encoded = $text;
-        return preg_replace('/\s+/', ' ', trim($encoded)) ?? '';
+        $encoded=iconv('UTF-8','Windows-1252//TRANSLIT//IGNORE',$text);
+        if ($encoded===false) $encoded=$text;
+        return preg_replace('/\s+/',' ',trim($encoded))??'';
     }
 
-    private function line(float $x, float $top, string $text, int $size=10, bool $bold=false): void
+    private function line(float $x,float $top,string $text,float $size=10,
+        bool $bold=false): void
     {
-        $font = $bold ? 'F2' : 'F1';
-        $this->stream .= sprintf("BT /%s %d Tf 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
-            $font, $size, $x, self::HEIGHT - $top, self::pdfText($text));
+        $font=$bold?'F2':'F1';
+        $this->stream.=sprintf(
+            "BT /%s %.2F Tf 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
+            $font,$size,$x,self::HEIGHT-$top,self::pdfText($text)
+        );
+    }
+
+    private function centeredLine(float $top,string $text,float $size=10,
+        bool $bold=false,float $center=self::WIDTH/2): void
+    {
+        // Times' average Latin glyph width is close to 0.46 em. The explicit
+        // center keeps the official heading/footer stable without a font engine.
+        $width=max(0,strlen(self::ascii($text))*$size*0.46);
+        $this->line($center-$width/2,$top,$text,$size,$bold);
     }
 
     private function rule(float $x,float $top,float $width,float $height=0): void
     {
-        $this->stream .= sprintf("%.2F %.2F %.2F %.2F re S\n",
-            $x, self::HEIGHT-$top-$height, $width, $height);
+        $this->stream.=sprintf("%.2F %.2F %.2F %.2F re S\n",
+            $x,self::HEIGHT-$top-$height,$width,$height);
     }
 
-    private function startPage(bool $continuation=false): void
+    private function strokeLine(float $x1,float $top1,float $x2,float $top2): void
     {
-        if ($this->stream !== '') $this->pages[]=$this->stream;
-        $this->stream="0 G 0 g 0.5 w\n";
-        // Original Template No. 1 three-logo letterhead (loaded from configured DOCX).
-        $this->drawImage('denr',60,37,75,75);
-        $this->drawImage('bagong',459,37,80,83);
-        $this->line(153,68,'Department of Environment and Natural Resources',12,true);
-        $this->line(182,85,'Kagawaran ng Kapaligiran at Likas Yaman',10);
-        $this->line(263,102,'Caraga Region',11);
-        if ($continuation) $this->line(475,129,'(continued)',8);
-        $parts=explode('|',self::ascii($this->footer),2);
-        $this->line(198,800,trim($parts[0]??''),8);
-        if (isset($parts[1])) $this->line(176,811,trim($parts[1]),7);
-        $this->drawImage('socotec',461,758,79,42);
-        $this->y=137;
+        $this->stream.=sprintf("%.2F %.2F m %.2F %.2F l S\n",
+            $x1,self::HEIGHT-$top1,$x2,self::HEIGHT-$top2);
     }
 
     private function loadBranding(array $branding): void
@@ -87,51 +91,24 @@ final class FpomsNoticePdf
             $width,$height,$x,self::HEIGHT-$top-$height,$name);
     }
 
-    private function ensure(float $needed): void
+    private function startPage(): void
     {
-        if ($this->y + $needed > 786) $this->startPage(true);
-    }
+        $this->stream="0 G 0 g 0.5 w\n";
 
-    private function wrapped(string $text,int $columns): array
-    {
-        $s = self::ascii($text);
-        if ($s === '') return [''];
-        return explode("\n", wordwrap($s, $columns, "\n", true));
-    }
+        // Template No. 1 letterhead artwork and measurements.
+        $this->drawImage('denr',65,38,75,75);
+        $this->drawImage('bagong',455,38,82,85);
+        $this->line(153,72,'Department of Environment and Natural Resources',12,true);
+        $this->line(182,88,'Kagawaran ng Kapaligiran at Likas Yaman',10.5);
+        $this->line(263,104,'Caraga Region',11);
 
-    private function paragraph(string $text,int $columns=94,float $leading=14,float $after=9): void
-    {
-        foreach ($this->wrapped($text,$columns) as $line) {
-            $this->ensure($leading);
-            $this->line(72, $this->y, $line, 11);
-            $this->y += $leading;
+        $parts=array_values(array_filter(array_map('trim',explode('|',self::ascii($this->footer))),
+            static fn(string $part): bool=>$part!==''));
+        $this->centeredLine(801,(string)($parts[0]??''),8.2);
+        if (count($parts)>1) {
+            $this->centeredLine(812,implode(' ',array_slice($parts,1)),7.6);
         }
-        $this->y += $after;
-    }
-
-    private function heading(string $label): void
-    {
-        $this->ensure(25);
-        $this->line(72, $this->y, $label, 11, true);
-        $this->y += 17;
-    }
-
-    private function tableRow(string $left,string $right,bool $header=false): void
-    {
-        $leftLines=$this->wrapped($left,36);
-        $rightLines=$this->wrapped($right,34);
-        $count=max(count($leftLines),count($rightLines));
-        $height=max(19,13*$count+6);
-        $this->ensure($height+2);
-        $this->rule(100,$this->y,420,$height);
-        $this->rule(302,$this->y,0,$height);
-        foreach ($leftLines as $i=>$value) {
-            $this->line($header?176:107,$this->y+14+13*$i,$value,10,$header);
-        }
-        foreach ($rightLines as $i=>$value) {
-            $this->line($header?392:309,$this->y+14+13*$i,$value,10,$header);
-        }
-        $this->y+=$height;
+        $this->drawImage('socotec',458,766,64,40);
     }
 
     private function setSignature(?string $jpeg): void
@@ -146,88 +123,201 @@ final class FpomsNoticePdf
         $this->signatureHeight=(int)$info[1];
     }
 
-    private function signatureImage(float $x,float $top,float $width,float $height): void
+    private function wrapped(string $text,int $columns): array
     {
-        if ($this->signature===null) return;
-        $this->drawImage('signature',$x,$top,$width,$height);
+        $value=self::ascii($text);
+        if ($value==='') return [''];
+        return explode("\n",wordwrap($value,max(12,$columns),"\n",true));
+    }
+
+    private function drawLines(float $x,float &$y,array $lines,float $size,float $leading,
+        bool $bold=false): void
+    {
+        foreach ($lines as $value) {
+            $this->line($x,$y,(string)$value,$size,$bold);
+            $y+=$leading;
+        }
+    }
+
+    private static function labeledRows(array $input): array
+    {
+        $rows=is_array($input['notice_rows']??null)?array_values($input['notice_rows']):[];
+        $rows=array_slice($rows,0,6);
+        while (count($rows)<6) $rows[]=['label'=>'','remarks'=>''];
+        $result=[];
+        foreach ($rows as $index=>$row) {
+            $label=trim((string)($row['label']??''));
+            $result[]=[
+                'left'=>chr(97+$index).') '.($label!==''?$label:''),
+                'right'=>trim((string)($row['remarks']??''))
+            ];
+        }
+        return $result;
+    }
+
+    private function layout(array $app,array $input,array $config,float $scale): array
+    {
+        $bodyColumns=(int)round(89/$scale);
+        $subjectColumns=(int)round(58/$scale);
+        $tableLeftColumns=(int)round(43/$scale);
+        $tableRightColumns=(int)round(42/$scale);
+        $recipientColumns=(int)round(80/$scale);
+
+        $address=[];
+        foreach ([
+            (string)($app['applicant_name']??'NAME OF PROPONENT'),
+            (string)($app['representative_position']??'Authorized Representative'),
+            (string)($app['company_name']??'COMPANY NAME'),
+            (string)($app['company_address']??'COMPANY ADDRESS')
+        ] as $value) {
+            array_push($address,...$this->wrapped($value,$recipientColumns));
+        }
+
+        $company=(string)($app['company_name']??'COMPANY NAME');
+        $project=(string)($app['project_title']??'PROJECT NAME');
+        $location=rtrim((string)($app['project_location']??'LOCATION OF THE PROJECT')," .\t\n\r\0\x0B");
+        $applicant=(string)($app['applicant_name']??'NAME OF PROPONENT');
+        $area=trim((string)($input['area_hectares']??''));
+        $areaText=$area!==''?$area:'__________';
+        $contacts=trim((string)($config['contact_emails']??
+            'r13@denr.gov.ph; lasangutilizationlpdd@gmail.com'));
+        $contacts=preg_replace('/\s*;\s*/',' and ',$contacts)??$contacts;
+
+        $subject=$this->wrapped('Application for Feasibility Permit of '.$company.
+            ' for its '.$project,$subjectColumns);
+        $paragraph1=$this->wrapped('This pertains to the application for a Feasibility Permit of '.
+            $company.' covering the proposed '.$project.' with an area of '.$areaText.
+            ' hectares located in '.$location.'.',$bodyColumns);
+        $paragraph2=$this->wrapped('Please be informed that upon review and evaluation of the '.
+            'application documents, the application lacks the following documentary requirements, '.
+            'to wit:',$bodyColumns);
+        $paragraph3=$this->wrapped('In this regard, kindly submit the above-mentioned documentary '.
+            'requirements, as the basis of this Office in taking further appropriate action on the '.
+            'subject application.',$bodyColumns);
+        $paragraph4=$this->wrapped('Should you have any questions or require further assistance, '.
+            'please feel free to visit our Office, contact us via email at '.$contacts.
+            ', or through teleconferencing at your convenience.',$bodyColumns);
+        $paragraph5=$this->wrapped('Please be guided accordingly. Thank you.',$bodyColumns);
+
+        $rows=[];
+        foreach (self::labeledRows($input) as $row) {
+            $left=$this->wrapped($row['left'],$tableLeftColumns);
+            $right=$this->wrapped($row['right'],$tableRightColumns);
+            $rows[]=['left'=>$left,'right'=>$right,'lines'=>max(count($left),count($right))];
+        }
+
+        $recipientLeading=13*$scale;
+        $subjectLeading=13*$scale;
+        $bodyLeading=13*$scale;
+        $tableLeading=10.5*$scale;
+        $rowMinimum=17*$scale;
+        $tableHeight=19*$scale;
+        foreach ($rows as $row) {
+            $tableHeight+=max($rowMinimum,$row['lines']*$tableLeading+6*$scale);
+        }
+
+        // Predict the signatory title baseline. The caller reduces scale until
+        // the footer-safe limit is satisfied.
+        $y=177+count($address)*$recipientLeading+28*$scale;
+        $y+=count($subject)*$subjectLeading+17*$scale;
+        $y+=27*$scale;
+        $y+=count($paragraph1)*$bodyLeading+8*$scale;
+        $y+=count($paragraph2)*$bodyLeading+10*$scale;
+        $y+=$tableHeight+12*$scale;
+        $y+=count($paragraph3)*$bodyLeading+7*$scale;
+        $y+=count($paragraph4)*$bodyLeading+6*$scale;
+        $y+=count($paragraph5)*$bodyLeading+14*$scale;
+        $predictedTitleY=$y+71*$scale;
+
+        return compact('scale','address','subject','applicant','paragraph1','paragraph2',
+            'paragraph3','paragraph4','paragraph5','rows','recipientLeading','subjectLeading',
+            'bodyLeading','tableLeading','rowMinimum','tableHeight','predictedTitleY');
     }
 
     public static function render(array $app,array $input,array $config,?string $jpegSignature=null,
         ?string $approvalDate=null): string
     {
         $pdf=new self();
-        $pdf->footer=(string)($config['footer_text']??'DENR-XIII, Ambago, Butuan City, Philippines');
-        $pdf->loadBranding(is_array($config['letterhead_images']??null)?$config['letterhead_images']:[]);
+        $pdf->footer=(string)($config['footer_text']??
+            'DENR-XIII, Ambago, Butuan City, Philippines | Hotline No. 0981-017-3551 E-Mail: r13@denr.gov.ph');
+        $pdf->loadBranding(is_array($config['letterhead_images']??null)
+            ?$config['letterhead_images']:[]);
         $pdf->setSignature($jpegSignature);
+
+        $scale=1.0;
+        do {
+            $layout=$pdf->layout($app,$input,$config,$scale);
+            if ($layout['predictedTitleY']<=760 || $scale<=0.72) break;
+            $scale=round($scale-0.04,2);
+        } while (true);
+
         $pdf->startPage();
         if ($jpegSignature===null) {
-            $pdf->stream.="0.75 0.05 0.05 rg\n";
-            $pdf->line(346,127,'DRAFT - FOR RED APPROVAL',8,true);
+            $pdf->stream.="0.72 0.02 0.02 rg\n";
+            $pdf->line(335,128,'DRAFT - NOT SIGNED / NOT FOR RELEASE',7.2,true);
             $pdf->stream.="0 g\n";
         }
-        $today=$approvalDate ?: date('F d, Y');
-        $pdf->line(72,136,$today,11);
-        $pdf->y=171;
-        foreach ([
-            (string)($app['applicant_name']??'APPLICANT'),
-            (string)($app['representative_position']??'Authorized Representative'),
-            (string)($app['company_name']??'COMPANY'),
-            (string)($app['company_address']??'Address not supplied')
-        ] as $addressLine) {
-            $pdf->paragraph($addressLine,80,15,0);
-        }
-        $pdf->y+=24;
-        $pdf->line(108,$pdf->y,'Subject:',11,true);
-        $subject='Application for Feasibility Permit of '
-            .(string)($app['company_name']??'the applicant')
-            .' for its '.(string)($app['project_title']??'the proposed project');
-        foreach ($pdf->wrapped($subject,54) as $subjectLine) {
-            $pdf->ensure(14);
-            $pdf->line(184,$pdf->y,$subjectLine,11,true);
-            $pdf->y+=14;
-        }
-        $pdf->y+=13;
-        $pdf->paragraph('Dear '.(string)($app['applicant_name']??'Proponent').':',80,14,12);
 
-        $area=trim((string)($input['area_hectares']??''));
-        $areaText=$area!=='' ? $area.' hectares' : 'the proposed area';
-        $pdf->paragraph('This pertains to the application for a Feasibility Permit of '.
-            (string)($app['company_name']??'the applicant').' covering the proposed '.
-            (string)($app['project_title']??'project').' with an area of '.$areaText.
-            ' located in '.(string)($app['project_location']??'the project location').'.',80,14,10);
-        $pdf->paragraph('Please be informed that upon review and evaluation of the application documents, '.
-            'the application lacks the following documentary requirements, to wit:',80,14,11);
+        $today=$approvalDate?:date('F d, Y');
+        $pdf->line(72,137,$today,11);
+        $dateWidth=max(34,strlen(self::ascii($today))*5.1);
+        $pdf->strokeLine(72,139,72+$dateWidth,139);
 
-        $pdf->tableRow('Particulars','Remarks',true);
-        $rows=$input['notice_rows']??[];
-        foreach ($rows as $index=>$row) {
-            $label=chr(97+((int)$index%26)).') '.(string)($row['label']??'Requirement');
-            $remark=(string)($row['remarks']??'Incomplete requirement');
-            $pdf->tableRow($label,$remark);
-        }
-        for ($i=count($rows);$i<6;$i++) $pdf->tableRow(chr(97+$i).') ','');
-        $pdf->y+=14;
-        $pdf->paragraph('In this regard, kindly submit the above-mentioned documentary requirements, '.
-            'as the basis of this Office in taking further appropriate action on the subject application.',80,14,10);
-        $pdf->paragraph('Should you have any questions or require further assistance, please feel free '.
-            'to visit our Office, contact us via email at '.
-            (string)($config['contact_emails']??'r13@denr.gov.ph').
-            ', or through teleconferencing at your convenience.',80,14,8);
-        $pdf->paragraph('Please be guided accordingly. Thank you.',80,14,14);
-        $pdf->paragraph('Very truly yours,',94,14,7);
+        $s=(float)$layout['scale'];
+        $y=177.0;
+        $pdf->drawLines(72,$y,$layout['address'],11*$s,$layout['recipientLeading']);
+        $y+=28*$s;
 
-        $pdf->ensure(80);
-        if ($jpegSignature!==null) $pdf->signatureImage(72,$pdf->y,150,37);
-        $pdf->y+=44;
-        $pdf->line(72,$pdf->y,(string)($config['signatory_name']??'Regional Executive Director'),11,true);
-        $pdf->y+=14;
-        $pdf->line(72,$pdf->y,(string)($config['signatory_title']??'Regional Executive Director'),10);
-        $pdf->y+=14;
-        if ($jpegSignature!==null) {
-            $pdf->line(72,$pdf->y,'Electronically approved by RED on '.$today,8);
-        } else {
-            $pdf->line(72,$pdf->y,'DRAFT - NOT SIGNED / NOT FOR RELEASE',8,true);
+        $pdf->line(108,$y,'Subject:',11*$s,true);
+        $subjectY=$y;
+        $pdf->drawLines(185,$subjectY,$layout['subject'],11*$s,$layout['subjectLeading'],true);
+        $y=$subjectY+17*$s;
+
+        $pdf->line(72,$y,'Dear '.$layout['applicant'].':',11*$s,true);
+        $y+=27*$s;
+
+        $pdf->drawLines(72,$y,$layout['paragraph1'],11*$s,$layout['bodyLeading']);
+        $y+=8*$s;
+        $pdf->drawLines(72,$y,$layout['paragraph2'],11*$s,$layout['bodyLeading']);
+        $y+=10*$s;
+
+        $tableX=100.0;
+        $tableWidth=420.0;
+        $tableSplit=200.0;
+        $headerHeight=19*$s;
+        $pdf->rule($tableX,$y,$tableWidth,$headerHeight);
+        $pdf->rule($tableX+$tableSplit,$y,0,$headerHeight);
+        $pdf->line(176,$y+13*$s,'Particulars',10.2*$s,true);
+        $pdf->line(397,$y+13*$s,'Remarks',10.2*$s,true);
+        $y+=$headerHeight;
+        foreach ($layout['rows'] as $row) {
+            $height=max($layout['rowMinimum'],$row['lines']*$layout['tableLeading']+6*$s);
+            $pdf->rule($tableX,$y,$tableWidth,$height);
+            $pdf->rule($tableX+$tableSplit,$y,0,$height);
+            $leftY=$y+11*$s;
+            $rightY=$leftY;
+            $pdf->drawLines($tableX+10,$leftY,$row['left'],9.4*$s,$layout['tableLeading']);
+            $pdf->drawLines($tableX+$tableSplit+10,$rightY,$row['right'],9.4*$s,
+                $layout['tableLeading']);
+            $y+=$height;
         }
+
+        $y+=12*$s;
+        $pdf->drawLines(72,$y,$layout['paragraph3'],11*$s,$layout['bodyLeading']);
+        $y+=7*$s;
+        $pdf->drawLines(72,$y,$layout['paragraph4'],11*$s,$layout['bodyLeading']);
+        $y+=6*$s;
+        $pdf->drawLines(72,$y,$layout['paragraph5'],11*$s,$layout['bodyLeading']);
+        $y+=14*$s;
+
+        $pdf->line(72,$y,'Very truly yours,',11*$s);
+        if ($jpegSignature!==null) $pdf->drawImage('signature',72,$y+9*$s,132,34*$s);
+        $nameY=$y+58*$s;
+        $pdf->line(72,$nameY,(string)($config['signatory_name']??'MA. THERESA J. ALLEN'),
+            11*$s,true);
+        $pdf->line(72,$nameY+13*$s,
+            (string)($config['signatory_title']??'OIC, Regional Executive Director'),10.5*$s);
+
         $pdf->pages[]=$pdf->stream;
         return $pdf->finish();
     }
@@ -242,8 +332,8 @@ final class FpomsNoticePdf
         $images=$this->branding;
         if ($this->signature!==null) {
             $images['signature']=[
-                'bytes'=>$this->signature,
-                'width'=>$this->signatureWidth,'height'=>$this->signatureHeight
+                'bytes'=>$this->signature,'width'=>$this->signatureWidth,
+                'height'=>$this->signatureHeight
             ];
         }
         $imageIds=[];
@@ -258,11 +348,9 @@ final class FpomsNoticePdf
                 " >>\nstream\n".$jpeg."\nendstream";
             $imageIds[$name]=$id;
         }
+
         $kids=[];
-        foreach ($this->pages as $index=>$stream) {
-            if (count($this->pages)>1) {
-                $stream.=sprintf("BT /F1 8 Tf 1 0 0 1 515 25 Tm (Page %d) Tj ET\n",$index+1);
-            }
+        foreach ($this->pages as $stream) {
             $contentId=count($objects)+1;
             $objects[$contentId]='<< /Length '.strlen($stream)." >>\nstream\n".$stream."endstream";
             $pageId=count($objects)+1;
@@ -289,7 +377,9 @@ final class FpomsNoticePdf
         }
         $start=strlen($output);
         $output.="xref\n0 ".(count($objects)+1)."\n0000000000 65535 f \n";
-        for ($id=1;$id<=count($objects);$id++) $output.=sprintf("%010d 00000 n \n",$offsets[$id]);
+        for ($id=1;$id<=count($objects);$id++) {
+            $output.=sprintf("%010d 00000 n \n",$offsets[$id]);
+        }
         $output.="trailer\n<< /Size ".(count($objects)+1)." /Root 1 0 R >>\n";
         $output.="startxref\n".$start."\n%%EOF\n";
         return $output;
