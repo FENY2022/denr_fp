@@ -210,9 +210,9 @@ function step2_area_display(mixed $value): string
 {
     $raw=trim((string)$value);
     if ($raw==='') return 'Not provided';
-    if (!preg_match('/^\d+(?:\.\d+)?$/D',$raw)) return $raw;
+    if (!preg_match('/^\d+(?:\.\d+)?$/D',$raw)) return $raw.' hectares';
     $normalized=rtrim(rtrim(number_format((float)$raw,4,'.',''), '0'), '.');
-    return $normalized!=='' ? $normalized : '0';
+    return ($normalized!=='' ? $normalized : '0').' hectares';
 }
 
 /** Verify both decimal coordinates were supplied, or neither; WGS84 degrees. */
