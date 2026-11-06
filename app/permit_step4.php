@@ -128,6 +128,14 @@ function step4_start(array $reviewer,int $applicationId): array
         || !has_role($reviewer,'lpdd_fus')) {
         return ['LPDD-FUS reviewer authorization is required.'];
     }
+    // RED is the actual actor when finalizing an officially approved deficiency notice.
+    if ($finalizingRed!==null && (
+        ($finalizingRed['user_kind']??'')!=='internal'
+        || ($finalizingRed['status']??'')!=='active'
+        || !has_role($finalizingRed,'red')
+        || ($input['decision']??'')!=='return'
+        || ($input['_red_finalize']??'')!=='1'
+    )) return ['Authorized RED finalization is required.'];
     if (!step4_schema_ready()) return ['Migration 027 is required.'];
 
     $pdo=db();
@@ -212,7 +220,7 @@ function step4_start(array $reviewer,int $applicationId): array
  * Return requires at least one incomplete/insufficient requirement.
  * Complete requires every requirement complete or not applicable and a field schedule.
  */
-function step4_decide(array $reviewer,int $applicationId,array $input): array
+function step4_decide(array $reviewer,int $applicationId,array $input,?array $finalizingRed=null): array
 {
     if (($reviewer['user_kind'] ?? '')!=='internal'
         || ($reviewer['status'] ?? '')!=='active'
@@ -300,6 +308,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
             return ['The RED-approved notice snapshot cannot be changed. Prepare a fresh evaluation if needed.'];
         }
     }
+    $actionActor=$finalizingRed ?? $reviewer;
     $noticeEmailAttachments=[];
     if ($modern && $decision==='return') {
         $noticeEmailAttachments=permit_flow_notice_email_attachments(
@@ -381,11 +390,11 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
              (application_id,actor_user_id,action,revision,remarks)
              VALUES (?,?,?,?,?)'
         )->execute([
-            $applicationId,(int)$reviewer['id'],$event,(int)$app['revision'],
+            $applicationId,(int)$actionActor['id'],$event,(int)$app['revision'],
             $overall!=='' ? $overall : null
         ]);
         if ($modern && !$complete) {
-            permit_flow_record_event($pdo,$applicationId,2,$reviewer,
+            permit_flow_record_event($pdo,$applicationId,2,$actionActor,
                 'deficiency_notice_issued',
                 'Generated notice approved by RED and issued to applicant.');
         }
@@ -399,10 +408,11 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
                     notified_at=COALESCE(notified_at,VALUES(notified_at))"
             )->execute([$applicationId]);
         }
-        audit((int)$reviewer['id'],'permit.step4.'.$event,
+        audit((int)$actionActor['id'],'permit.step4.'.$event,
             'permit_step2_application',$applicationId,[
                 'revision'=>(int)$app['revision'],
                 'review_id'=>(int)$review['id'],
+                'lpdd_reviewer_user_id'=>(int)$reviewer['id'],
                 'field_validation_schedule'=>$complete ? $schedule : null
             ]);
         $pdo->commit();
@@ -465,7 +475,7 @@ function step4_decide(array $reviewer,int $applicationId,array $input): array
         } elseif ($modern) {
             // Return was committed and in-system notification created. Email the
             // signed PDF separately; a delivery error must never roll back Return.
-            $sent=fpoms_notice_dispatch_official_email($applicationId,(int)$reviewer['id']);
+            $sent=fpoms_notice_dispatch_official_email($applicationId,(int)$actionActor['id']);
             if (!$sent) {
                 error_log('FP-OMS official RED deficiency notice email failed for FP #'.$applicationId.
                     '. Authorized staff may retry after SMTP is corrected.');
