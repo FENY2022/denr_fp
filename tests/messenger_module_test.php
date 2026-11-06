@@ -34,4 +34,9 @@ foreach ($checks as [$haystack,$needle,$label]) {
         exit(1);
     }
 }
+$messengerJs = file_get_contents($root.'/public/assets/messenger.js');
+if (str_contains($messengerJs,'.style.')) {
+    fwrite(STDERR,"Messenger regression failed: inline style assignment violates FP-OMS CSP.".PHP_EOL);
+    exit(1);
+}
 echo "Messenger module static checks passed.".PHP_EOL;

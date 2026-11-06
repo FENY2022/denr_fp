@@ -490,7 +490,7 @@ function messenger_thread_action(array $user, int $threadId, string $action): vo
         $max = query_one('SELECT COALESCE(MAX(id),0) AS n FROM fp_chat_messages WHERE thread_id=?',[$threadId]);
         db()->prepare(
             'UPDATE fp_chat_thread_members
-             SET hidden_before_message_id=?,last_read_message_id=GREATEST(last_read_message_id,?),archived_at=NULL
+             SET hidden_before_message_id=?,last_read_message_id=GREATEST(last_read_message_id,?),archived_at=NOW()
              WHERE thread_id=? AND principal_kind=? AND principal_id=?'
         )->execute([(int)($max['n'] ?? 0),(int)($max['n'] ?? 0),$threadId,$kind,$id]);
     } else {

@@ -40,7 +40,8 @@
   let conversations = [];
   let currentThread = null;
   let searchTimer = null;
-  let typingTimer = null;
+  let localTypingTimer = null;
+  let remoteTypingTimer = null;
   let typingSent = false;
   let selected = new Map();
   let panelOpen = false;
@@ -441,11 +442,9 @@
   });
 
   messageBox.addEventListener('input',function () {
-    messageBox.style.height = 'auto';
-    messageBox.style.height = Math.min(messageBox.scrollHeight,110) + 'px';
     sendTyping(true);
-    window.clearTimeout(typingTimer);
-    typingTimer = window.setTimeout(function () { sendTyping(false); },1400);
+    window.clearTimeout(localTypingTimer);
+    localTypingTimer = window.setTimeout(function () { sendTyping(false); },1400);
   });
 
   form.addEventListener('submit',function (event) {
@@ -463,7 +462,6 @@
     sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
     postForm(cfg.send,fd).then(function () {
       messageBox.value = '';
-      messageBox.style.height = 'auto';
       fileInput.value = '';
       filePreview.classList.add('d-none');
       fileName.textContent = '';
@@ -505,8 +503,8 @@
     if (!currentThread || Number(detail.thread_id) !== Number(currentThread.id)) return;
     typing.classList.toggle('d-none',!detail.is_typing);
     if (detail.is_typing) {
-      window.clearTimeout(typingTimer);
-      typingTimer = window.setTimeout(function () { typing.classList.add('d-none'); },2500);
+      window.clearTimeout(remoteTypingTimer);
+      remoteTypingTimer = window.setTimeout(function () { typing.classList.add('d-none'); },2500);
     }
   });
 
