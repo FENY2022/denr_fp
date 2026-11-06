@@ -17,9 +17,14 @@ function step2_persistent_ready(): bool
 function step2_persistent_form(int $clientId, int $scope): ?array
 {
     if (!step2_persistent_ready() || !step2_project_type_schema_ready()) return null;
-    $select = step2_location_schema_ready()
-        ? 'project_title,project_type,project_type_other,project_location,project_latitude,project_longitude,purpose'
-        : 'project_title,project_type,project_type_other,project_location,purpose';
+    $fields=['project_title','project_type','project_type_other','project_location'];
+    if (step2_area_schema_ready()) $fields[]='project_area_hectares';
+    if (step2_location_schema_ready()) {
+        $fields[]='project_latitude';
+        $fields[]='project_longitude';
+    }
+    $fields[]='purpose';
+    $select=implode(',',$fields);
     return query_one(
         'SELECT '.$select.' FROM permit_step2_form_drafts
          WHERE client_id=? AND application_id=?',
@@ -31,6 +36,7 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
 {
     if (!step2_persistent_ready()) return ['error'=>'Apply database migration 016 to save your draft.'];
     if (!step2_project_type_schema_ready()) return ['error'=>'Apply database migration 030 for project type fields.'];
+    if (!step2_area_schema_ready()) return ['error'=>'Apply database migration 034 for Project Area (hectares).'];
     if (!step2_draft_scope_allowed($client,$scope)) return ['error'=>'Draft is no longer editable.'];
     $title = (string)($fields['project_title'] ?? '');
     $projectType=(string)($fields['project_type'] ?? '');
@@ -40,14 +46,19 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
         return ['error'=>'Select a valid project type and enter at most 160 characters for Other.'];
     }
     $location = (string)($fields['project_location'] ?? '');
+    $area = trim((string)($fields['project_area_hectares'] ?? ''));
     $purpose = (string)($fields['purpose'] ?? '');
     $lat = (string)($fields['project_latitude'] ?? '');
     $lon = (string)($fields['project_longitude'] ?? '');
     if (strlen($lat)>32 || strlen($lon)>32) {
         return ['error'=>'Coordinate inputs must be at most 32 characters each.'];
     }
-    if (strlen($title)>180 || strlen($location)>300 || strlen($purpose)>2000) {
+    if (strlen($title)>180 || strlen($location)>300 || strlen($purpose)>2000 || strlen($area)>24) {
         return ['error'=>'One or more fields exceed the allowed length.'];
+    }
+    // Draft autosave accepts an unfinished trailing decimal point; final submit is strict.
+    if ($area!=='' && !preg_match('/^\d{0,10}(?:\.\d{0,4})?$/D',$area)) {
+        return ['error'=>'Project Area must be a number of hectares with up to 4 decimal places.'];
     }
     try {
         if (step2_location_schema_ready()) {
@@ -56,23 +67,25 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
             db()->prepare(
                 'INSERT INTO permit_step2_form_drafts
                  (client_id,application_id,project_title,project_type,project_type_other,project_location,
-                  project_latitude,project_longitude,purpose)
-                 VALUES (?,?,?,?,?,?,?,?,?)
+                  project_area_hectares,project_latitude,project_longitude,purpose)
+                 VALUES (?,?,?,?,?,?,?,?,?,?)
                  ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
                  project_type=VALUES(project_type),project_type_other=VALUES(project_type_other),
                  project_location=VALUES(project_location),
+                 project_area_hectares=VALUES(project_area_hectares),
                  project_latitude=VALUES(project_latitude),
                  project_longitude=VALUES(project_longitude),purpose=VALUES(purpose)'
-            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$lat,$lon,$purpose]);
+            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$area,$lat,$lon,$purpose]);
         } else {
             db()->prepare(
                 'INSERT INTO permit_step2_form_drafts
-                 (client_id,application_id,project_title,project_type,project_type_other,project_location,purpose)
-                 VALUES (?,?,?,?,?,?,?)
+                 (client_id,application_id,project_title,project_type,project_type_other,project_location,project_area_hectares,purpose)
+                 VALUES (?,?,?,?,?,?,?,?)
                  ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
                  project_type=VALUES(project_type),project_type_other=VALUES(project_type_other),
-                 project_location=VALUES(project_location),purpose=VALUES(purpose)'
-            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$purpose]);
+                 project_location=VALUES(project_location),
+                 project_area_hectares=VALUES(project_area_hectares),purpose=VALUES(purpose)'
+            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$area,$purpose]);
         }
         return ['saved'=>true];
     } catch (Throwable $error) {
@@ -110,11 +123,19 @@ function step2_persistent_clear(array $client, int $scope): array
         // For correction screens, an empty draft overrides the pre-populated
         // last-submitted application values after an explicit Clear Form.
         if ($scope > 0) {
-            $pdo->prepare(
-                'INSERT INTO permit_step2_form_drafts
-                 (client_id,application_id,project_title,project_type,project_type_other,project_location,purpose)
-                 VALUES (?,?,?,?,?,?,?)'
-            )->execute([$clientId,$scope,'','','','','']);
+            if (step2_area_schema_ready()) {
+                $pdo->prepare(
+                    'INSERT INTO permit_step2_form_drafts
+                     (client_id,application_id,project_title,project_type,project_type_other,project_location,project_area_hectares,purpose)
+                     VALUES (?,?,?,?,?,?,?,?)'
+                )->execute([$clientId,$scope,'','','','','','']);
+            } else {
+                $pdo->prepare(
+                    'INSERT INTO permit_step2_form_drafts
+                     (client_id,application_id,project_title,project_type,project_type_other,project_location,purpose)
+                     VALUES (?,?,?,?,?,?,?)'
+                )->execute([$clientId,$scope,'','','','','']);
+            }
         }
         $pdo->commit();
         foreach ($paths as $relative) {
