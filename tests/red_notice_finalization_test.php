@@ -15,9 +15,9 @@ finalization_check(str_contains($notice,'step4_decide($originalReviewer,$applica
 finalization_check(str_contains($step4,'$finalizingRed===null')
     && str_contains($step4,'return fpoms_notice_prepare('),
     'normal LPDD-FUS submissions cannot bypass notice preparation using _red_finalize');
-finalization_check(str_contains($step4,"has_role($finalizingRed,'red')"),
+finalization_check(str_contains($step4,'has_role($finalizingRed,\'red\')'),
     'RED actor authorization is checked');
-finalization_check(str_contains($step4,"($approved['decision']??'')!=='return'"),
+finalization_check(str_contains($step4,'($approved[\'decision\']??\'\')!==\'return\''),
     'server-stored frozen return decision must be valid');
 finalization_check(!str_contains($step4,"The RED-approved notice snapshot cannot be changed."),
     'parser-array strict comparison does not block approved notice finalization');
