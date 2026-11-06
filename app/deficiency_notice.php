@@ -477,6 +477,175 @@ function fpoms_notice_send_pdf(array $viewer,int $applicationId): never
     exit;
 }
 
+
+function fpoms_notice_print_preview(array $viewer,int $applicationId): never
+{
+    $isStaff=($viewer['user_kind']??'')==='internal'
+        && ($viewer['status']??'')==='active'
+        && (has_role($viewer,'lpdd_fus') || has_role($viewer,'red')
+            || has_role($viewer,'super_admin'));
+    if (!$isStaff) show_error('DENR staff access required for draft print preview.',403);
+
+    $app=fpoms_notice_application($applicationId);
+    if (!$app) show_error('Application not found.',404);
+    $notice=fpoms_notice_record($applicationId,(int)$app['revision']);
+    if (!$notice) show_error('Generate the deficiency notice draft first.',404);
+
+    $payload=json_decode((string)$notice['payload_json'],true);
+    if (!is_array($payload)) show_error('Stored deficiency notice data is invalid.',500);
+    $config=is_array($payload['notice_config_snapshot']??null)
+        ? $payload['notice_config_snapshot'] : fpoms_notice_config();
+
+    $branding=[];
+    try {
+        $branding=fpoms_notice_template_branding([
+            'template_path'=>(string)($payload['notice_template_path']??'')
+        ]);
+    } catch (Throwable $e) {
+        error_log('FP-OMS browser notice branding fallback: '.$e->getMessage());
+    }
+    $img=static function(string $key) use ($branding): string {
+        $bytes=$branding[$key]??null;
+        return is_string($bytes) && $bytes!==''
+            ? 'data:image/jpeg;base64,'.base64_encode($bytes) : '';
+    };
+
+    $rows=is_array($payload['notice_rows']??null)?array_values($payload['notice_rows']):[];
+    while (count($rows)<6) $rows[]=['label'=>'','remarks'=>''];
+    $created=(string)($notice['created_at']??'');
+    $timestamp=$created!=='' ? strtotime($created) : false;
+    $noticeDate=$timestamp!==false ? date('F d, Y',$timestamp) : date('F d, Y');
+    $company=trim((string)($app['company_name']??'')) ?: 'COMPANY NAME';
+    $project=trim((string)($app['project_title']??'')) ?: 'PROJECT NAME';
+    $applicant=trim((string)($app['applicant_name']??'')) ?: 'NAME OF PROPONENT';
+    $position=trim((string)($app['representative_position']??'')) ?: 'Authorized Representative';
+    $address=trim((string)($app['company_address']??'')) ?: 'COMPANY ADDRESS';
+    $location=trim((string)($app['project_location']??'')) ?: 'LOCATION OF THE PROJECT';
+    $area=trim((string)($payload['area_hectares']??''));
+    $areaText=$area!=='' ? $area : '__________';
+    $contacts=trim((string)($config['contact_emails']??'r13@denr.gov.ph; lasangutilizationlpdd@gmail.com'));
+    $contactText=preg_replace('/\s*;\s*/',' and ',$contacts) ?? $contacts;
+    $footer=trim((string)($config['footer_text']??'DENR-XIII, Ambago, Butuan City, Philippines | Hotline No. 0981-017-3551 E-Mail: r13@denr.gov.ph'));
+    $footerParts=array_map('trim',explode('|',$footer,2));
+    $signatory=trim((string)($config['signatory_name']??'')) ?: 'MA. THERESA J. ALLEN';
+    $signatoryTitle=trim((string)($config['signatory_title']??'')) ?: 'OIC, Regional Executive Director';
+    $isSigned=(string)$notice['status']==='signed';
+
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: private,no-store');
+    header('X-Robots-Tag: noindex,nofollow');
+    ?><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title><?= e('FP #'.$applicationId.' Deficiency Notice Print Preview') ?></title>
+<link rel="stylesheet" href="assets/deficiency-notice-print.css?v=1">
+</head>
+<body>
+<div class="notice-toolbar">
+    <button class="print" type="button" id="noticePrintButton">Print A4 Notice</button>
+    <button type="button" id="noticeBackButton">Back</button>
+    <a href="<?= e(url('permit_application',['id'=>$applicationId])) ?>">Open Application</a>
+    <?php if (has_role($viewer,'red')): ?>
+        <a href="<?= e(url('deficiency_notice_queue')) ?>">RED Approval Queue</a>
+    <?php endif; ?>
+    <span class="hint"><?= $isSigned
+        ? 'RED-approved data snapshot — official released PDF remains the authoritative signed file.'
+        : 'Draft preview — applicant is not notified until RED approval and Return finalization.' ?></span>
+</div>
+
+<div class="notice-preview-shell" id="noticePreviewShell">
+<main class="notice-a4-page" id="noticeA4Page" aria-label="Printable A4 DENR deficiency notice">
+<div class="notice-page-body" id="noticePageBody">
+<div class="notice-a4-content" id="noticeA4Content">
+    <?php if (!$isSigned): ?><div class="notice-draft-mark">DRAFT — FOR RED APPROVAL</div><?php endif; ?>
+
+    <header class="notice-letterhead">
+        <div class="notice-logo">
+            <?php if ($img('denr')!==''): ?><img src="<?= e($img('denr')) ?>" alt="DENR seal"><?php endif; ?>
+        </div>
+        <div class="notice-agency">
+            <strong>Department of Environment and Natural Resources</strong>
+            <span>Kagawaran ng Kapaligiran at Likas Yaman</span>
+            <span>Caraga Region</span>
+        </div>
+        <div class="notice-logo">
+            <?php if ($img('bagong')!==''): ?><img src="<?= e($img('bagong')) ?>" alt="Bagong Pilipinas logo"><?php endif; ?>
+        </div>
+    </header>
+
+    <div class="notice-date"><?= e($noticeDate) ?></div>
+
+    <section class="notice-recipient">
+        <div><?= e($applicant) ?></div>
+        <div><?= e($position) ?></div>
+        <div><?= e($company) ?></div>
+        <div><?= nl2br(e($address)) ?></div>
+    </section>
+
+    <section class="notice-subject">
+        <div>Subject:</div>
+        <div>Application for Feasibility Permit of <?= e($company) ?> for its <?= e($project) ?></div>
+    </section>
+
+    <div class="notice-dear">Dear <?= e($applicant) ?>:</div>
+
+    <section class="notice-body">
+        <p>This pertains to the application for a Feasibility Permit of <?= e($company) ?>
+        covering the proposed <?= e($project) ?> with an area of <?= e($areaText) ?>
+        hectares located in <?= e($location) ?>.</p>
+
+        <p>Please be informed that upon review and evaluation of the application documents,
+        the application lacks the following documentary requirements, to wit:</p>
+
+        <table class="notice-table">
+            <thead><tr><th>Particulars</th><th>Remarks</th></tr></thead>
+            <tbody>
+            <?php foreach ($rows as $index=>$row): ?>
+                <tr>
+                    <td><?= e(chr(97+($index%26)).') '.trim((string)($row['label']??''))) ?></td>
+                    <td><?= e(trim((string)($row['remarks']??''))) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <p>In this regard, kindly submit the above-mentioned documentary requirements, as the basis of
+        this Office in taking further appropriate action on the subject application.</p>
+
+        <p>Should you have any questions or require further assistance, please feel free to visit our Office,
+        contact us via email at <?= e($contactText) ?>, or through teleconferencing at your convenience.</p>
+
+        <p>Please be guided accordingly. Thank you.</p>
+    </section>
+
+    <section class="notice-signoff">
+        <div>Very truly yours,</div>
+        <div class="notice-signatory">
+            <strong><?= e($signatory) ?></strong>
+            <span><?= e($signatoryTitle) ?></span>
+        </div>
+    </section>
+</div>
+</div>
+
+<footer class="notice-footer">
+    <div class="notice-footer-text">
+        <div><?= e($footerParts[0]??'') ?></div>
+        <?php if (!empty($footerParts[1])): ?><div><?= e($footerParts[1]) ?></div><?php endif; ?>
+    </div>
+    <?php if ($img('socotec')!==''): ?><img src="<?= e($img('socotec')) ?>" alt="SOCOTEC certification mark"><?php endif; ?>
+</footer>
+</main>
+</div>
+<script src="assets/deficiency-notice-print.js?v=1" defer></script>
+</body>
+</html><?php
+    exit;
+}
+
 function fpoms_notice_config_view(array $admin,array $errors=[]): void
 {
     if (!has_role($admin,'super_admin')) show_error('Access denied.',403);
