@@ -482,10 +482,12 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .'<textarea class="form-control mb-3" id="step4-overall-remarks" name="overall_remarks" '
         .'rows="4" maxlength="4000" placeholder="Summarize findings / deficiencies">'
         .e((string)($_POST['overall_remarks'] ?? $review['overall_remarks'] ?? '')).'</textarea>'
-        .($modern ? '<label class="form-label" for="step4-area-hectares">Project Area (hectares, if known)</label>'
-          .'<input class="form-control mb-3" id="step4-area-hectares" name="area_hectares" '
-          .'inputmode="decimal" placeholder="e.g. 15.25" maxlength="15" '
-          .'value="'.e((string)($_POST['area_hectares'] ?? '')).'">'
+        .($modern
+          ? '<div class="border rounded-3 p-3 mb-3 bg-light">'
+              .'<div class="small text-secondary">Project Area from Applicant</div>'
+              .'<strong>'.e(step2_area_display($app['project_area_hectares'] ?? null)).' hectares</strong>'
+              .'<div class="small text-secondary mt-1">This applicant-supplied value is used automatically in the generated deficiency notice.</div>'
+            .'</div>'
           : '')
         .'<label class="form-label" for="step4-applicant-instructions">Applicant Instructions</label>'
         .'<textarea class="form-control mb-3" id="step4-applicant-instructions" '
