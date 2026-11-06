@@ -48,3 +48,18 @@ SMTP acceptance does not prove inbox delivery; check the applicant's inbox/spam 
 ## Test Data Reset
 
 Clear fpoms_deficiency_notices rows before clearing permit_step2_applications or workflow artifacts. Application-only resets must preserve users, roles, template/signature configuration, private master encryption key and system settings.
+
+
+## AMSOS V2-style Browser Print Preview
+
+FP-OMS now includes a standalone DENR A4 preview route for generated deficiency drafts:
+
+- `/deficiency-notice-print?id=<application-id>`
+- Accessible only to active LPDD-FUS, RED, or Super Administrator accounts.
+- Uses a physical 210 mm × 297 mm A4 canvas, centered white paper preview, sticky Print/Back toolbar, and responsive preview scaling patterned after ICT-AMSOS V2 `srf-print.php`.
+- The preview uniformly scales long content to the printable A4 area before printing and refits after printing or browser resize.
+- `@media print` removes the toolbar/background/shadow and prints the exact A4 sheet.
+- Data is read from the frozen deficiency-notice payload already submitted for RED review; the print preview does not edit or resave the evaluation.
+- Pending notices open this A4 browser preview from both the LPDD-FUS application panel and the RED approval queue.
+- Once RED has signed/released a notice, the encrypted generated PDF remains the authoritative official signed document and is used for applicant viewing/email.
+- The applicant cannot access the unsigned A4 preview.
