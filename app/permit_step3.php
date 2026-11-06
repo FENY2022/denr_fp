@@ -61,6 +61,10 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
             return ['Application status changed or this action was already recorded. Refresh the RO inbox.'];
         }
         if ($action==='receive') {
+            if (permit_flow_is_new($app) && !permit_payment_schema_ready()) {
+                $pdo->rollBack();
+                return ['Apply payment migration 028 before receiving and issuing the applicant Cashier notice.'];
+            }
             if (empty($app['forwarded_at'])) {
                 $pdo->rollBack();
                 return ['LPDD-FUS must record Step 2 forwarding before RO may receive this application.'];
@@ -79,6 +83,16 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
                 VALUES (?,?,NOW(),?,?)')->execute([
                     $applicationId,(int)$app['revision'],(int)$staff['id'],$remarks !== '' ? $remarks : null
                 ]);
+            if (permit_flow_is_new($app)) {
+                // Create the payment-tracking record as part of the same RO
+                // receipt transaction; receipt never implies payment verified.
+                $pdo->prepare("INSERT INTO permit_payment_verifications
+                    (application_id,status,notified_at)
+                    VALUES (?,'awaiting_payment',NOW())
+                    ON DUPLICATE KEY UPDATE
+                      notified_at=COALESCE(notified_at,VALUES(notified_at))")
+                    ->execute([$applicationId]);
+            }
             $next='ro_received';
             $event='ro_documents_received';
         } else {
@@ -118,12 +132,16 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
         $pdo->commit();
 
         // Delivery failures never roll back a recorded action.
+        $newFlowReceipt=$action==='receive' && permit_flow_is_new($app);
         try {
             create_client_notification((int)$app['client_id'],
-                $action==='receive' ? 'FP Application Received by RO' : 'FP Application Forwarded to LPDD-FUS',
-                $action==='receive' ? 'RO Receiving received FP application #'.$applicationId.'.'
-                    : 'RO Receiving forwarded FP application #'.$applicationId.' to LPDD-FUS for Step 4 payment notice, field validation schedule and CENRO instruction.',
-                $action==='receive' ? 'inbox':'send','info','permit_application',['id'=>$applicationId]);
+                $newFlowReceipt ? 'Notice to Pay Application Fee'
+                    : ($action==='receive' ? 'FP Application Received by RO' : 'FP Application Forwarded to LPDD-FUS'),
+                $newFlowReceipt ? permit_payment_instructions($applicationId)
+                    : ($action==='receive' ? 'RO Receiving received FP application #'.$applicationId.'.'
+                        : 'RO Receiving forwarded FP application #'.$applicationId.' to LPDD-FUS for Step 4 field validation schedule and CENRO instruction.'),
+                $newFlowReceipt ? 'receipt' : ($action==='receive' ? 'inbox':'send'),
+                'info','permit_application',['id'=>$applicationId]);
             if ($action==='forward') notify_role('lpdd_fus',
                 permit_flow_is_new($app)
                     ? 'FP Application – Step 4 Notice & CENRO Instructions'
@@ -134,7 +152,16 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
         } catch (Throwable $e) {
             error_log('FP-OMS Step 3 notification failed: '.$e->getMessage());
         }
-        step3_send_email_alerts($app,$applicationId,$action);
+        if ($newFlowReceipt) {
+            // Only the successful RO receipt triggers the Cashier email.
+            // Repeated receive actions are rejected by the status transition.
+            if (!permit_flow_email($app,'Notice to Pay – FP Application #'.$applicationId,
+                permit_payment_instructions($applicationId))) {
+                error_log('FP-OMS Step 3 Cashier notice email failed for FP #'.$applicationId);
+            }
+        } else {
+            step3_send_email_alerts($app,$applicationId,$action);
+        }
         return [];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
