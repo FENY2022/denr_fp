@@ -485,7 +485,7 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
         .($modern
           ? '<div class="border rounded-3 p-3 mb-3 bg-light">'
               .'<div class="small text-secondary">Project Area from Applicant</div>'
-              .'<strong>'.e(step2_area_display($app['project_area_hectares'] ?? null)).' hectares</strong>'
+              .'<strong>'.e(step2_area_display($app['project_area_hectares'] ?? null)).'</strong>'
               .'<div class="small text-secondary mt-1">This applicant-supplied value is used automatically in the generated deficiency notice.</div>'
             .'</div>'
           : '')
