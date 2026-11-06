@@ -709,7 +709,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . '<dt class="col-sm-4">Location</dt><dd class="col-sm-8">'
         . e((string)$app['project_location']) . '</dd>'
         . '<dt class="col-sm-4">Project Area</dt><dd class="col-sm-8">'
-        . e(step2_area_display($app['project_area_hectares'] ?? null)) . ' hectares</dd>'
+        . e(step2_area_display($app['project_area_hectares'] ?? null)) . '</dd>'
         . '<dt class="col-sm-4">Description</dt><dd class="col-sm-8">'
         . nl2br(e((string)($app['purpose'] ?? ''))) . '</dd>'
         . '<dt class="col-sm-4">Revision</dt><dd class="col-sm-8">'
