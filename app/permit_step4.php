@@ -279,7 +279,9 @@ function step4_decide(array $reviewer,int $applicationId,array $input,?array $fi
     if ($modern && !permit_flow_ready()) {
         return ['Apply migration 031 before completing the updated Step 2 evaluation.'];
     }
-    if ($modern && $decision==='return' && ($input['_red_finalize']??'')!=='1') {
+    // A browser-supplied _red_finalize flag cannot authorize RED finalization.
+    // Only the internal RED approval handler passes a verified RED actor.
+    if ($modern && $decision==='return' && $finalizingRed===null) {
         return fpoms_notice_prepare($reviewer,$applicationId,$input,$parsed['items']);
     }
     $notice=fpoms_notice_record($applicationId,(int)$project['revision']);
@@ -289,23 +291,17 @@ function step4_decide(array $reviewer,int $applicationId,array $input,?array $fi
             || !permit_flow_signed_notice_for_revision($applicationId,(int)$project['revision']))) {
         return ['RED must approve this generated notice before applicant release.'];
     }
-    // The signed PDF represents a frozen, RED-approved assessment snapshot.
-    // Reject any attempt to finalize a different set of findings/remarks.
-    if ($modern && $decision==='return') {
+    // RED finalizes the frozen server-side notice payload, never submitted browser
+    // assessments. The signed artifact and stored revision were verified above.
+    // Do not compare parser-normalized arrays to their own stored source: historical
+    // field ordering/defaults may differ despite an unchanged approved notice.
+    if ($modern && $decision==='return' && $finalizingRed!==null) {
         $approved=json_decode((string)$notice['payload_json'],true);
         if (!is_array($approved)
-            || $parsed['items']!==array_reduce(
-                array_keys($parsed['items']),
-                static function (array $carry,string $key) use ($approved): array {
-                    $carry[$key]=[
-                        'assessment'=>(string)($approved['assessment'][$key]??''),
-                        'remarks'=>(string)($approved['requirement_remarks'][$key]??'')
-                    ];
-                    return $carry;
-                },[])
-            || $overall!==(string)($approved['overall_remarks']??'')
-            || $instructions!==(string)($approved['applicant_instructions']??'')) {
-            return ['The RED-approved notice snapshot cannot be changed. Prepare a fresh evaluation if needed.'];
+            || ($approved['decision']??'')!=='return'
+            || !is_array($approved['assessment']??null)
+            || !is_array($approved['requirement_remarks']??null)) {
+            return ['The stored RED-approved notice findings are invalid. Contact RICTU before returning the application.'];
         }
     }
     $actionActor=$finalizingRed ?? $reviewer;
