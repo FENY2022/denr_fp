@@ -2,6 +2,11 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:#e9edf0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+.flow-file-icon{
+  display:block;width:1em;height:1em;flex:0 0 auto;
+  fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round
+}
 .flow-file-toolbar{
   height:var(--viewer-toolbar-h);
   display:flex;
@@ -15,7 +20,7 @@ body{background:#e9edf0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
   display:flex;align-items:center;gap:8px;margin-right:auto;
   color:#fff;font-weight:700;font-size:14px;min-width:0
 }
-.flow-file-toolbar .brand i{font-size:18px}
+.flow-file-toolbar .brand .flow-file-icon{font-size:18px}
 .flow-file-toolbar .brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
 .flow-file-action{
   display:inline-flex;align-items:center;gap:7px;
@@ -26,7 +31,7 @@ body{background:#e9edf0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
 }
 .flow-file-action:hover{background:#f5f7f6;color:#0f2c20}
 .flow-file-action.print{background:#198754;border-color:#198754;color:#fff}
-.flow-file-action i{font-size:15px}
+.flow-file-action .flow-file-icon{font-size:15px}
 .flow-file-frame{
   width:100%;height:calc(100vh - var(--viewer-toolbar-h));
   border:0;background:#fff;display:block
@@ -54,7 +59,7 @@ body{background:#e9edf0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
   display:flex;align-items:center;gap:10px;padding:16px 18px;
   background:#18392b;color:#fff
 }
-.flow-file-print-head i{font-size:20px}
+.flow-file-print-head .flow-file-icon{font-size:20px}
 .flow-file-print-head strong{font-size:16px}
 .flow-file-print-body{padding:18px}
 .flow-file-print-tabs{
@@ -68,7 +73,7 @@ body{background:#e9edf0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
 }
 .flow-file-print-tab:hover{background:#f2f7f4;border-color:#198754;color:#145c37}
 .flow-file-print-tab.primary{background:#198754;border-color:#198754;color:#fff}
-.flow-file-print-tab i{font-size:25px}
+.flow-file-print-tab .flow-file-icon{font-size:27px}
 .flow-file-print-note{margin:14px 0 0;color:#66736c;font-size:12px;line-height:1.45}
 .flow-file-print-foot{display:flex;justify-content:flex-end;padding:0 18px 18px}
 .flow-file-print-cancel{
@@ -79,6 +84,7 @@ body{background:#e9edf0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
   .flow-file-print-tabs{grid-template-columns:1fr}
   .flow-file-print-tab{min-height:72px;flex-direction:row}
 }
-
+@media print{
+  .flow-file-toolbar,.flow-file-print-panel{display:none!important}
   .flow-file-frame{height:100vh!important}
 }

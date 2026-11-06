@@ -614,6 +614,26 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
         $rawUrl=url('permit_flow_file',['id'=>$id,'file'=>$documentId,'preview'=>1,'raw'=>1]);
         $downloadUrl=url('permit_flow_file',['id'=>$id,'file'=>$documentId]);
         $name=(string)$doc['original_name'];
+        $icon=static function(string $name): string {
+            $content=match ($name) {
+                'document'=>'<path d="M7 2h7l5 5v15H7z"/><path d="M14 2v6h6"/>'
+                    .'<path d="M10 13h6M10 17h6"/>',
+                'back'=>'<circle cx="12" cy="12" r="9"/>'
+                    .'<path d="m12 8-4 4 4 4M8 12h8"/>',
+                'open'=>'<path d="M14 5h5v5M19 5l-8 8"/>'
+                    .'<path d="M18 13v6H5V6h6"/>',
+                'download'=>'<path d="M12 3v12M7.5 10.5 12 15l4.5-4.5M5 21h14"/>',
+                'printer'=>'<path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>'
+                    .'<path d="M7 14h10v7H7zM17 11h.01"/>',
+                'pdf'=>'<path d="M7 2h7l5 5v15H7zM14 2v6h6"/>'
+                    .'<path d="M9 13h6M9 17h6"/>',
+                'close'=>'<circle cx="12" cy="12" r="9"/>'
+                    .'<path d="m9 9 6 6m0-6-6 6"/>',
+                default=>'',
+            };
+            return '<svg class="flow-file-icon" viewBox="0 0 24 24" aria-hidden="true" '
+                .'focusable="false">'.$content.'</svg>';
+        };
         header('Content-Type: text/html; charset=UTF-8');
         header('Cache-Control: private,no-store');
         ?><!doctype html>
@@ -622,24 +642,27 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#075c32">
 <title><?= e($name) ?> — FP-OMS Document Preview</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<link href="assets/permit-flow-file-preview.css?v=2" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="assets/fpoms-icon.svg?v=24">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/fpoms-icon-192.png?v=24">
+<link rel="apple-touch-icon" sizes="192x192" href="assets/fpoms-icon-192.png?v=24">
+<link href="assets/permit-flow-file-preview.css?v=3" rel="stylesheet">
 </head>
 <body>
 <nav class="flow-file-toolbar" aria-label="Document preview actions">
-    <div class="brand"><i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i><span><?= e($name) ?></span></div>
+    <div class="brand"><?= $icon('document') ?><span><?= e($name) ?></span></div>
     <button class="flow-file-action" type="button" id="flowFileBack">
-        <i class="bi bi-arrow-left-circle-fill" aria-hidden="true"></i><span>Back</span>
+        <?= $icon('back') ?><span>Back</span>
     </button>
     <a class="flow-file-action" href="<?= e($rawUrl) ?>" target="_blank" rel="noopener">
-        <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Open</span>
+        <?= $icon('open') ?><span>Open</span>
     </a>
     <a class="flow-file-action" href="<?= e($downloadUrl) ?>">
-        <i class="bi bi-download" aria-hidden="true"></i><span>Download</span>
+        <?= $icon('download') ?><span>Download</span>
     </a>
     <button class="flow-file-action print" type="button" id="flowFilePrint">
-        <i class="bi bi-printer-fill" aria-hidden="true"></i><span>Print</span>
+        <?= $icon('printer') ?><span>Print</span>
     </button>
 </nav>
 <iframe class="flow-file-frame" id="flowFileFrame" src="<?= e($rawUrl) ?>"
@@ -648,21 +671,21 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
 <div class="flow-file-print-panel" id="flowFilePrintPanel" aria-hidden="true">
     <div class="flow-file-print-card" role="dialog" aria-modal="true" aria-labelledby="flowFilePrintTitle">
         <div class="flow-file-print-head">
-            <i class="bi bi-printer-fill" aria-hidden="true"></i>
+            <?= $icon('printer') ?>
             <strong id="flowFilePrintTitle">Print Actions</strong>
         </div>
         <div class="flow-file-print-body">
             <div class="flow-file-print-tabs">
                 <button type="button" class="flow-file-print-tab primary" id="flowFilePrintNow">
-                    <i class="bi bi-printer-fill" aria-hidden="true"></i>
+                    <?= $icon('printer') ?>
                     <span>Print Document</span>
                 </button>
                 <a class="flow-file-print-tab" href="<?= e($rawUrl) ?>" target="_blank" rel="noopener">
-                    <i class="bi bi-file-earmark-pdf-fill" aria-hidden="true"></i>
+                    <?= $icon('pdf') ?>
                     <span>Open PDF</span>
                 </a>
                 <a class="flow-file-print-tab" href="<?= e($downloadUrl) ?>">
-                    <i class="bi bi-cloud-arrow-down-fill" aria-hidden="true"></i>
+                    <?= $icon('download') ?>
                     <span>Download</span>
                 </a>
             </div>
@@ -673,7 +696,7 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
         </div>
         <div class="flow-file-print-foot">
             <button type="button" class="flow-file-print-cancel" id="flowFilePrintCancel">
-                <i class="bi bi-x-circle" aria-hidden="true"></i><span>Cancel</span>
+                <?= $icon('close') ?><span>Cancel</span>
             </button>
         </div>
     </div>
