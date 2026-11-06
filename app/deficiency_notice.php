@@ -449,7 +449,7 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
     // Existing return path records the decision, releases the artifact, and emails applicant.
     // A signed notice can be retried if the legacy downstream save/email failed.
     $payload['_red_finalize']='1';
-    return step4_decide($originalReviewer,$applicationId,$payload);
+    return step4_decide($originalReviewer,$applicationId,$payload,$red);
 }
 
 
@@ -811,8 +811,8 @@ function fpoms_notice_queue_view(array $red): void
          FROM fpoms_deficiency_notices n
          JOIN permit_step2_applications a ON a.id=n.application_id AND a.revision=n.revision
          JOIN user_client c ON c.id=a.client_id
-         WHERE n.status='pending_red' OR
-             (n.status='signed' AND a.status='step4_under_evaluation')
+         WHERE a.status='step4_under_evaluation'
+           AND n.status IN ('pending_red','signed')
          ORDER BY n.created_at ASC LIMIT 100"
     );
     $html='<div class="panel"><h2 class="h5">RED – Pending Generated Deficiency Notices</h2>'
@@ -836,11 +836,35 @@ function fpoms_notice_queue_view(array $red): void
             .e($preview).'">'.($approved?'View RED-Approved PDF':'Preview Generated PDF').'</a>'
             .'<form method="post" action="'.e(url('deficiency_notice_approve',['id'=>$id])).'">'
             .csrf_field()
-            .'<label class="d-block small my-2"><input type="checkbox" name="confirmation" '
-            .'value="1" required> I reviewed the PDF and explicitly approve applying the RED signature.</label>'
-            .'<button type="submit" class="btn btn-success btn-sm">'
-            .((string)$row['status']==='signed'?'Finalize Approved Return':'RED Approve &amp; Sign')
+            .'<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" '
+            .'data-bs-target="#finalizeNoticeModal'.$id.'">'
+            .($approved?'Finalize and Return':'RED Approve &amp; Sign and Return')
             .'</button>'
+            .'<div class="modal fade" id="finalizeNoticeModal'.$id.'" tabindex="-1" '
+            .'aria-labelledby="finalizeNoticeLabel'.$id.'" aria-hidden="true">'
+            .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+            .'<div class="modal-header"><h5 class="modal-title" id="finalizeNoticeLabel'.$id.'">'
+            .($approved?'Confirm Finalize and Return':'Confirm RED Approval and Return')
+            .'</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+            .'<div class="modal-body"><p>FP #'.$id.' &mdash; '.e((string)$row['project_title']).'</p>'
+            .($approved
+                ? '<p>The existing RED-approved PDF will be released to the applicant. '
+                  .'The application will be marked Returned for Compliance. The existing signature is not applied again.</p>'
+                : '<p>By confirming, RED explicitly approves and signs the generated notice. '
+                  .'The system will then return the application for documentary compliance.</p>')
+            .'<p class="small text-secondary">After a successful database return, the applicant will receive '
+            .'an in-system notice and an email attempt with the official PDF. A failed email can be retried separately.</p>'
+            .'<label class="d-flex align-items-start gap-2"><input type="checkbox" class="form-check-input mt-1" '
+            .'name="confirmation" value="1" required>'
+            .'<span>'.($approved
+                ? 'I have reviewed the signed PDF and confirm final release and return to the applicant.'
+                : 'I reviewed the notice PDF and explicitly approve RED signing and return.')
+            .'</span></label></div>'
+            .'<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" '
+            .'data-bs-dismiss="modal">Cancel</button>'
+            .'<button type="submit" class="btn btn-success">'
+            .($approved?'Finalize and Return':'Approve, Sign and Return')
+            .'</button></div></div></div></div>'
             .'</form></div></div>';
     }
     render_page('RED Deficiency Approvals',$html.'</div>');
