@@ -608,6 +608,54 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
         show_error('Unsupported document.',415);
     }
     $preview=(string)($_GET['preview']??'')==='1' && $mime!=='application/zip';
+    $raw=(string)($_GET['raw']??'')==='1' && $preview;
+
+    if ($preview && !$raw) {
+        $rawUrl=url('permit_flow_file',['id'=>$id,'file'=>$documentId,'preview'=>1,'raw'=>1]);
+        $downloadUrl=url('permit_flow_file',['id'=>$id,'file'=>$documentId]);
+        $name=(string)$doc['original_name'];
+        header('Content-Type: text/html; charset=UTF-8');
+        header('Cache-Control: private,no-store');
+        ?><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title><?= e($name) ?> — FP-OMS Document Preview</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="assets/permit-flow-file-preview.css?v=1" rel="stylesheet">
+</head>
+<body>
+<nav class="flow-file-toolbar" aria-label="Document preview actions">
+    <div class="brand"><i class="bi bi-file-earmark-text-fill" aria-hidden="true"></i><span><?= e($name) ?></span></div>
+    <button class="flow-file-action" type="button" id="flowFileBack">
+        <i class="bi bi-arrow-left-circle-fill" aria-hidden="true"></i><span>Back</span>
+    </button>
+    <a class="flow-file-action" href="<?= e($rawUrl) ?>" target="_blank" rel="noopener">
+        <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Open</span>
+    </a>
+    <a class="flow-file-action" href="<?= e($downloadUrl) ?>">
+        <i class="bi bi-download" aria-hidden="true"></i><span>Download</span>
+    </a>
+    <button class="flow-file-action print" type="button" id="flowFilePrint">
+        <i class="bi bi-printer-fill" aria-hidden="true"></i><span>Print</span>
+    </button>
+</nav>
+<iframe class="flow-file-frame" id="flowFileFrame" src="<?= e($rawUrl) ?>"
+    title="<?= e($name) ?>"></iframe>
+<script src="assets/permit-flow-file-preview.js?v=1" defer></script>
+</body>
+</html><?php
+        exit;
+    }
+
+    if ($raw) {
+        header_remove('X-Frame-Options');
+        header_remove('Content-Security-Policy');
+        header('X-Frame-Options: SAMEORIGIN');
+        header("Content-Security-Policy: default-src 'none'; frame-ancestors 'self'");
+    }
     header('Content-Type: '.$mime);
     header('Content-Length: '.strlen($data));
     header('Cache-Control: private,no-store');
