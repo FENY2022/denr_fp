@@ -109,6 +109,70 @@ function step2_documents(int $applicationId): array
     );
 }
 
+/**
+ * Resolve the documentary set for a submitted application revision without
+ * copying files or rewriting historical upload rows. A newer submission of a
+ * category replaces that category's older set; unchanged categories carry over.
+ * All files from the winning revision within each category remain together.
+ */
+function step2_effective_documents(int $applicationId,int $revision): array
+{
+    if ($applicationId<1 || $revision<1) return [];
+    $all=query_all(
+        'SELECT * FROM permit_step2_documents
+         WHERE application_id=? AND revision<=?
+         ORDER BY revision DESC,id DESC',
+        [$applicationId,$revision]
+    );
+    $latest=[];
+    $effective=[];
+    foreach ($all as $doc) {
+        $category=(string)($doc['requirement_type']??'');
+        $docRevision=(int)($doc['revision']??0);
+        if ($category==='' || $docRevision<1) continue;
+        if (!array_key_exists($category,$latest)) $latest[$category]=$docRevision;
+        if ($latest[$category]===$docRevision) $effective[]=$doc;
+    }
+    return $effective;
+}
+
+/**
+ * Validate that every effective submitted file still exists in private Step 2
+ * storage and matches its original plaintext SHA-256. Refuse RO receipt if a
+ * carried-forward document has been lost, corrupted or tampered with.
+ */
+function step2_effective_documents_error(int $applicationId,int $revision): ?string
+{
+    $documents=step2_effective_documents($applicationId,$revision);
+    if (!$documents) return 'No submitted supporting documents exist for this application revision or its earlier submissions.';
+    $root=realpath(PROJECT_ROOT.'/storage/fp_step2');
+    if (!$root) return 'Private Step 2 document storage is unavailable.';
+    foreach ($documents as $doc) {
+        if ((int)$doc['application_id']!==$applicationId) {
+            return 'A submitted document has invalid application ownership.';
+        }
+        $path=realpath(PROJECT_ROOT.'/storage/'.(string)$doc['stored_path']);
+        if (!$path || !str_starts_with($path,$root.DIRECTORY_SEPARATOR)
+            || !is_file($path)) {
+            return 'A submitted supporting document is missing from private storage.';
+        }
+        $expected=(string)($doc['sha256']??'');
+        if (!preg_match('/^[a-f0-9]{64}$/iD',$expected)) {
+            return 'A submitted supporting document has no valid integrity fingerprint.';
+        }
+        try {
+            $actual=fpoms_file_plaintext_sha256($path);
+        } catch (Throwable $e) {
+            error_log('FP-OMS Step 2 document integrity check failed: '.$e->getMessage());
+            return 'A submitted supporting document could not be verified.';
+        }
+        if (!is_string($actual) || !hash_equals(strtolower($expected),strtolower($actual))) {
+            return 'A submitted supporting document failed integrity verification.';
+        }
+    }
+    return null;
+}
+
 function step2_events(int $applicationId): array
 {
     return query_all(
