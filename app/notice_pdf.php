@@ -42,7 +42,7 @@ final class FpomsNoticePdf
     {
         $font=$bold?'F2':'F1';
         $this->stream.=sprintf(
-            "BT /%s %.2F Tf 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
+            "BT /%s %.2F Tf 0 Tw 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
             $font,$size,$x,self::HEIGHT-$top,self::pdfText($text)
         );
     }

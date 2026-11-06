@@ -27,6 +27,10 @@ $payload=[
     ]
 ];
 $draft=FpomsNoticePdf::render($app,$payload,$config);
+$noticeController=file_get_contents(__DIR__.'/../app/deficiency_notice.php');
+if (!is_string($noticeController)) {
+    throw new RuntimeException('Cannot read deficiency notice controller.');
+}
 $checks=[
     'PDF 1.4 header'=>str_starts_with($draft,'%PDF-1.4'),
     'Project text'=>str_contains($draft,'Sample FP Project'),
@@ -35,10 +39,15 @@ $checks=[
     'Unsigned watermark'=>str_contains($draft,'DRAFT - NOT SIGNED / NOT FOR RELEASE'),
     'Official DENR letterhead'=>str_contains($draft,'/Im_denr'),
     'Official SOCOTEC footer'=>str_contains($draft,'/Im_socotec'),
+    'Justified body paragraphs'=>preg_match('/\d+\.\d{3} Tw/',$draft)===1,
+    'Word spacing resets outside body text'=>str_contains($draft,'0 Tw'),
     'PDF object xref'=>str_contains($draft,'xref'),
     'PDF trailer'=>str_contains($draft,'%%EOF'),
     'Exactly one A4 page'=>str_contains($draft,'/Type /Pages /Count 1'),
     'A4 page object'=>preg_match('/\\/Type \\/Page\\b/',$draft)===1,
+    'RED queue previews generated PDF'=>str_contains($noticeController,
+        ": url('deficiency_notice_pdf',['id'=>\$id])")
+        && str_contains($noticeController,'Preview Generated PDF'),
 ];
 foreach ($checks as $label=>$passed) {
     if (!$passed) throw new RuntimeException('Notice PDF smoke test failed: '.$label);
