@@ -31,7 +31,7 @@ check_step2_draft(str_contains($direct,'will be lost if you refresh'),'fallback 
 check_step2_draft(!str_contains($direct,'is-saved'),'fallback does not mark files saved');
 $viewSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
 check_step2_draft(str_contains($viewSource,"step2_direct_selected_files_html()"),'fallback is rendered');
-check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=12'),'current script loads in both modes');
+check_step2_draft(str_contains($viewSource,'permit-step2-drafts.js?v=13'),'current script loads in both modes');
 check_step2_draft(str_contains($viewSource,'data-step2-js-warning'),'JavaScript unavailable notice exists');
 check_step2_draft(str_contains($viewSource,'data-draft-key="fpoms.permit.'),'form draft is scoped to applicant and application');
 $modalSource = (string)file_get_contents(__DIR__.'/../app/permit_step2_views.php');
@@ -71,7 +71,7 @@ check_step2_draft(str_contains($choiceSource,"pending.resolve(null)"),
 check_step2_draft(str_contains($choiceSource,"window.FPOMSOrganizePdf("),
     'Yes invokes editor only after choice');
 check_step2_draft(str_contains($uploadSource,'window.sessionStorage'),'permit fields persist through refresh');
-check_step2_draft(str_contains($uploadSource,"'project_title','project_type','project_type_other','project_location','purpose'"),'permit draft includes all fields');
+check_step2_draft(str_contains($uploadSource,"'project_area_hectares'"),'permit draft includes project area hectares');
 check_step2_draft(str_contains($bootstrapSource,"worker-src \\'self\\' blob:"),'PDF.js worker CSP');
 
 $modern = step2_draft_list_html([
