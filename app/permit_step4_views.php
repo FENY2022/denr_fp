@@ -360,8 +360,8 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
                   .'</div><a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="'
                   .e((string)$notice['status']==='signed' && (int)$notice['artifact_id']>0
                       ? url('permit_flow_file',['id'=>$id,'file'=>(int)$notice['artifact_id'],'preview'=>1])
-                      : url('deficiency_notice_pdf',['id'=>$id])).'">'
-                  .((string)$notice['status']==='signed'?'View RED-Approved PDF':'Preview Draft PDF').'</a>'
+                      : url('deficiency_notice_print',['id'=>$id])).'">'
+                  .((string)$notice['status']==='signed'?'View RED-Approved PDF':'Open A4 Print Preview').'</a>'
               : '<div class="text-secondary small">No draft generated yet. Complete the evaluation '
                   .'and select Return to create one.</div>')
           .'</div>'
