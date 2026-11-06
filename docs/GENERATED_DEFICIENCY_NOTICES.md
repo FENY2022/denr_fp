@@ -6,10 +6,11 @@
 2. Pull the latest main branch.
 3. Run database/032_generated_deficiency_notices.sql if not applied.
 4. Run database/033_deficiency_notice_email_delivery.sql once after 032. This adds SMTP delivery status and retry.
-5. In XAMPP enable PHP ZIP and GD extensions and restart Apache. These are needed to read letterhead artwork from DOCX.
-6. As Super Administrator open Configuration → Deficiency Notice Template. Configure the RED name/designation, contact details, footer, and approved RED signature JPEG. The official Template No. 1 DOCX is optional; when present, its original letterhead artwork is preferred.
-7. Ensure RED and LPDD-FUS staff accounts are active.
-8. Configure APP_URL to the real HTTPS public base URL for applicant links (localhost works only locally). Enable and test SMTP.
+5. Run database/034_project_area_hectares.sql once. This adds the applicant Project Area (hectares) field to submitted applications and persistent drafts.
+6. In XAMPP enable PHP ZIP and GD extensions and restart Apache. These are needed to read letterhead artwork from DOCX.
+7. As Super Administrator open Configuration → Deficiency Notice Template. Configure the RED name/designation, contact details, footer, and approved RED signature JPEG. The official Template No. 1 DOCX is optional; when present, its original letterhead artwork is preferred.
+8. Ensure RED and LPDD-FUS staff accounts are active.
+9. Configure APP_URL to the real HTTPS public base URL for applicant links (localhost works only locally). Enable and test SMTP.
 
 ## Return Workflow
 
@@ -63,3 +64,8 @@ FP-OMS now includes a standalone DENR A4 preview route for generated deficiency 
 - Pending notices open this A4 browser preview from both the LPDD-FUS application panel and the RED approval queue.
 - Once RED has signed/released a notice, the encrypted generated PDF remains the authoritative official signed document and is used for applicant viewing/email.
 - The applicant cannot access the unsigned A4 preview.
+
+
+## Applicant Project Area
+
+The applicant now supplies a required Project Area (hectares) on /permit-apply. It is autosaved with the FP draft, stored in permit_step2_applications.project_area_hectares, displayed read-only to LPDD-FUS, and copied automatically into generated deficiency notices. LPDD-FUS no longer types a separate area value for the notice.
