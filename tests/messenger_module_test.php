@@ -34,6 +34,18 @@ foreach ($checks as [$haystack,$needle,$label]) {
         exit(1);
     }
 }
+$messengerPhp = file_get_contents($root.'/app/messenger.php');
+if (!str_contains($messengerPhp,'function messenger_install_schema(): bool')
+    || !str_contains($messengerPhp,'CREATE TABLE IF NOT EXISTS fp_chat_threads')
+    || !str_contains($messengerPhp,'CREATE TABLE IF NOT EXISTS fp_chat_messages')) {
+    fwrite(STDERR,"Messenger regression failed: automatic schema initialization is missing.".PHP_EOL);
+    exit(1);
+}
+$migration = file_get_contents($root.'/database/035_fpoms_messenger.sql');
+if (substr_count($migration,'CREATE TABLE IF NOT EXISTS') < 4) {
+    fwrite(STDERR,"Messenger regression failed: migration is not idempotent.".PHP_EOL);
+    exit(1);
+}
 $messengerJs = file_get_contents($root.'/public/assets/messenger.js');
 if (str_contains($messengerJs,'.style.')) {
     fwrite(STDERR,"Messenger regression failed: inline style assignment violates FP-OMS CSP.".PHP_EOL);

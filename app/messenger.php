@@ -8,15 +8,99 @@ function messenger_kind(array $user): string
     return ($user['user_kind'] ?? '') === 'applicant' ? 'applicant' : 'staff';
 }
 
+function messenger_install_schema(): bool
+{
+    $statements = [
+        "CREATE TABLE IF NOT EXISTS fp_chat_threads (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            thread_type ENUM('direct','group') NOT NULL,
+            direct_key VARCHAR(100) NULL,
+            name VARCHAR(160) NULL,
+            created_by_kind ENUM('staff','applicant') NOT NULL,
+            created_by_id BIGINT UNSIGNED NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_fp_chat_direct_key (direct_key),
+            KEY idx_fp_chat_threads_updated (updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS fp_chat_thread_members (
+            thread_id BIGINT UNSIGNED NOT NULL,
+            principal_kind ENUM('staff','applicant') NOT NULL,
+            principal_id BIGINT UNSIGNED NOT NULL,
+            member_role ENUM('admin','member') NOT NULL DEFAULT 'member',
+            last_read_message_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            hidden_before_message_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            archived_at DATETIME NULL,
+            joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (thread_id,principal_kind,principal_id),
+            KEY idx_fp_chat_member_principal (principal_kind,principal_id,archived_at),
+            CONSTRAINT fk_fp_chat_member_thread
+                FOREIGN KEY (thread_id) REFERENCES fp_chat_threads(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS fp_chat_files (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            uploaded_by_kind ENUM('staff','applicant') NOT NULL,
+            uploaded_by_id BIGINT UNSIGNED NOT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            stored_path VARCHAR(500) NOT NULL,
+            file_size BIGINT UNSIGNED NOT NULL,
+            mime_type VARCHAR(100) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uq_fp_chat_file_path (stored_path),
+            KEY idx_fp_chat_file_uploader (uploaded_by_kind,uploaded_by_id,created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        "CREATE TABLE IF NOT EXISTS fp_chat_messages (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            thread_id BIGINT UNSIGNED NOT NULL,
+            sender_kind ENUM('staff','applicant') NOT NULL,
+            sender_id BIGINT UNSIGNED NOT NULL,
+            message TEXT NULL,
+            file_id BIGINT UNSIGNED NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_fp_chat_messages_thread (thread_id,id),
+            KEY idx_fp_chat_messages_sender (sender_kind,sender_id,created_at),
+            CONSTRAINT fk_fp_chat_message_thread
+                FOREIGN KEY (thread_id) REFERENCES fp_chat_threads(id) ON DELETE CASCADE,
+            CONSTRAINT fk_fp_chat_message_file
+                FOREIGN KEY (file_id) REFERENCES fp_chat_files(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    ];
+
+    try {
+        foreach ($statements as $statement) db()->exec($statement);
+        return true;
+    } catch (Throwable $error) {
+        error_log('FP-OMS Messenger schema initialization failed: '.get_class($error).' '.$error->getMessage());
+        return false;
+    }
+}
+
 function messenger_schema_available(): bool
 {
     static $available = null;
     if ($available !== null) return $available;
+
     try {
         query_one('SELECT id FROM fp_chat_threads LIMIT 1');
+        query_one('SELECT thread_id FROM fp_chat_thread_members LIMIT 1');
+        query_one('SELECT id FROM fp_chat_files LIMIT 1');
+        query_one('SELECT id FROM fp_chat_messages LIMIT 1');
         $available = true;
+        return true;
     } catch (Throwable $error) {
-        $available = false;
+        // First-run convenience: initialize only the Messenger-owned tables.
+        $available = messenger_install_schema();
+    }
+
+    if ($available) {
+        try {
+            query_one('SELECT id FROM fp_chat_messages LIMIT 1');
+        } catch (Throwable $error) {
+            $available = false;
+        }
     }
     return $available;
 }
@@ -34,7 +118,7 @@ function messenger_require_schema(): void
 {
     if (!messenger_schema_available()) {
         messenger_json([
-            'error'=>'Messenger storage is not initialized. Run database/035_fpoms_messenger.sql first.'
+            'error'=>'Messenger storage could not initialize. Ask the administrator to allow the FP-OMS database account to create the Messenger tables.'
         ],503);
     }
 }

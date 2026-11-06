@@ -1,10 +1,10 @@
 -- DENR CARAGA FP-OMS 035: secure floating Messenger.
--- Apply once after migration 034. Back up the database and private storage first.
+-- The application now auto-initializes these Messenger-owned tables on first authenticated page load.\n-- This migration remains safe to run manually because all CREATE TABLE statements are idempotent.\n-- Back up the database and private storage before manual schema work.
 -- Chat principals are polymorphic because DENR personnel live in users while applicants
 -- live in user_client; principal_kind + principal_id prevents overlapping numeric IDs
 -- from being mistaken for the same account.
 
-CREATE TABLE fp_chat_threads (
+CREATE TABLE IF NOT EXISTS fp_chat_threads (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     thread_type ENUM('direct','group') NOT NULL,
     direct_key VARCHAR(100) NULL,
@@ -18,7 +18,7 @@ CREATE TABLE fp_chat_threads (
     KEY idx_fp_chat_threads_updated (updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE fp_chat_thread_members (
+CREATE TABLE IF NOT EXISTS fp_chat_thread_members (
     thread_id BIGINT UNSIGNED NOT NULL,
     principal_kind ENUM('staff','applicant') NOT NULL,
     principal_id BIGINT UNSIGNED NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE fp_chat_thread_members (
         FOREIGN KEY (thread_id) REFERENCES fp_chat_threads(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE fp_chat_files (
+CREATE TABLE IF NOT EXISTS fp_chat_files (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     uploaded_by_kind ENUM('staff','applicant') NOT NULL,
     uploaded_by_id BIGINT UNSIGNED NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE fp_chat_files (
     KEY idx_fp_chat_file_uploader (uploaded_by_kind,uploaded_by_id,created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE fp_chat_messages (
+CREATE TABLE IF NOT EXISTS fp_chat_messages (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     thread_id BIGINT UNSIGNED NOT NULL,
     sender_kind ENUM('staff','applicant') NOT NULL,
