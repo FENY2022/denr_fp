@@ -678,6 +678,26 @@ function view_step2_application(int $applicationId, array $errors = []): void
     $reviewer = !$mine && has_role($viewer,'lpdd_fus');
     $modern=permit_flow_is_new($app);
     $noticePdfPreviewModal=false;
+    $clientNoticePreview='';
+    $clientReleasedNoticeIds=$mine && $modern
+        ? permit_flow_released_notice_artifact_ids($applicationId) : [];
+    if ($clientReleasedNoticeIds) $noticePdfPreviewModal=true;
+    if ($mine && $modern && (string)$app['status']==='step4_corrections_required') {
+        $releasedNotice=fpoms_notice_record($applicationId,(int)$app['revision']);
+        $releasedArtifact=$releasedNotice
+            ? permit_flow_signed_notice_artifact_for_revision($applicationId,(int)$app['revision'])
+            : null;
+        if ($releasedArtifact
+            && in_array((int)$releasedArtifact['id'],$clientReleasedNoticeIds,true)
+            && (string)($releasedNotice['status']??'')==='signed'
+            && (int)($releasedNotice['artifact_id']??0)===(int)$releasedArtifact['id']) {
+            $clientNoticePreview=url('permit_flow_file',[
+                'id'=>$applicationId,'file'=>(int)$releasedArtifact['id'],
+                'preview'=>1,'raw'=>1
+            ]);
+            $noticePdfPreviewModal=true;
+        }
+    }
     $step4Statuses=[
         'forwarded_to_lpdd','step4_under_evaluation','step4_corrections_required',
         'step4_resubmitted','step4_complete'
@@ -760,6 +780,11 @@ function view_step2_application(int $applicationId, array $errors = []): void
                     .'but the official notice has not been approved or released. '
                     .'You will receive an in-system notification and email after official release.'
                     .'</div>';
+            } elseif ($notice && (string)$notice['status']==='signed') {
+                $html.='<div class="alert alert-info" role="status">'
+                    .'<strong>Signed Notice Under Final Review.</strong> RED has signed the PDF. '
+                    .'It will be available here after final release.'
+                    .'</div>';
             }
         }
         $html .= '<div class="panel soft"><h3 class="h6">Next Action</h3>'
@@ -774,6 +799,15 @@ function view_step2_application(int $applicationId, array $errors = []): void
                     . ($app['status']==='step4_corrections_required'
                         ? ($modern?'Comply / Resubmit to Step 2':'Comply / Resubmit to Step 4')
                         : 'Correct / Resubmit') . '</a>'
+                    .($clientNoticePreview!==''
+                        ? ' <button type="button" class="btn btn-outline-primary ms-2" '
+                            .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+                            .'data-notice-auto-open '
+                            .'data-notice-preview-url="'.e($clientNoticePreview).'" '
+                            .'data-notice-preview-title="'.e('FP #'.$applicationId.' · RED-Signed Deficiency Notice').'">'
+                            .'<i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>'
+                            .'View RED-Signed PDF</button>'
+                        : '')
                 : '<p class="mb-0">'
                     . (in_array((string)$app['status'],[
                         'forwarded_to_ro','ro_received','forwarded_to_lpdd',
@@ -788,7 +822,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . (in_array((string)$app['status'],['step4_corrections_required','step4_complete'],true)
                 && step4_schema_ready() ? step4_result_panel_html($app) : '')
             . step2_revert_client_html($app)
-            . ($modern ? permit_flow_public_documents_html($app,$viewer) : '');
+            . ($modern ? permit_flow_public_documents_html($app,$viewer,true) : '');
     } elseif ($reviewer && $modern
         && (string)$app['status']==='step4_under_evaluation'
         && ($redNotice=fpoms_notice_record($applicationId,(int)$app['revision']))

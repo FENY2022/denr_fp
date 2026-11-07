@@ -181,24 +181,20 @@ function permit_flow_history_html(int $id): string
     }
     return $html.'</tbody></table></div>';
 }
-function permit_flow_public_documents_html(array $app,array $viewer): string
+function permit_flow_public_documents_html(array $app,array $viewer,bool $noticeModal=false): string
 {
     $id=(int)$app['id'];
     $mine=($viewer['user_kind']??'')==='applicant'
         && (int)$viewer['id']===(int)$app['client_id'];
     if (!$mine) return '';
     $all=permit_flow_artifacts($id);
-    $latestNotice=query_one("SELECT MAX(created_at) AS sent_at
-        FROM permit_flow_events WHERE application_id=? AND step_number=2
-        AND action='deficiency_notice_issued'",[$id]);
-    $noticeIssuedAt=(string)($latestNotice['sent_at']??'');
+    $releasedNoticeIds=permit_flow_released_notice_artifact_ids($id);
     $case=permit_flow_case($id);
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
     $permitted=array_values(array_filter($all,static fn(array $d): bool=>
-        ($noticeIssuedAt!=='' && (int)$d['step_number']===2
-            && $d['category']==='red_signed_deficiency_notice'
-            && (string)$d['uploaded_at']<=$noticeIssuedAt)
+        (in_array((int)$d['id'],$releasedNoticeIds,true) && (int)$d['step_number']===2
+            && $d['category']==='red_signed_deficiency_notice')
         || ($issued && (int)$d['step_number']>=10
             && in_array($d['category'],[
                 'approved_fp','approved_tor','approved_map','approved_sheet',
@@ -206,9 +202,21 @@ function permit_flow_public_documents_html(array $app,array $viewer): string
     if (!$permitted) return '';
     $html='<div class="panel mt-3"><h3 class="h6">Official Notices / Approved Documents</h3><ul>';
     foreach ($permitted as $d) {
-        $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
-                ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))
-            .'">'.e((string)$d['original_name']).'</a></li>';
+        $isNotice=(string)$d['category']==='red_signed_deficiency_notice';
+        if ($noticeModal && $isNotice) {
+            $preview=url('permit_flow_file',[
+                'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
+            ]);
+            $html.='<li><button type="button" class="btn btn-link p-0 align-baseline" '
+                .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+                .'data-notice-preview-url="'.e($preview).'" '
+                .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Deficiency Notice').'">'
+                .e((string)$d['original_name']).'</button></li>';
+        } else {
+            $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
+                    ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))
+                .'">'.e((string)$d['original_name']).'</a></li>';
+        }
     }
     return $html.'</ul></div>';
 }

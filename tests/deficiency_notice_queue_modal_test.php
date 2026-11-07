@@ -31,13 +31,14 @@ notice_modal_assert(str_contains($controller,'function fpoms_notice_pdf_preview_
 notice_modal_assert(str_contains($application,'data-bs-target="#notice-pdf-preview-modal"')
     && str_contains($application,"'embed'=>1")
     && str_contains($application,"'raw'=>1")
+    && str_contains($application,'data-notice-auto-open')
     && str_contains($application,'fpoms_notice_pdf_preview_modal_html();'),
-    'permit application uses the same modal for pending and RED-approved PDFs');
+    'permit application auto-opens the released client PDF in the shared modal');
 notice_modal_assert(str_contains($controller,"header('X-Frame-Options: SAMEORIGIN')")
     && str_contains($controller,"frame-ancestors 'self'"),
     'embedded draft PDF remains restricted to the same origin');
 notice_modal_assert(str_contains($views,'assets/deficiency-notice-queue.css?v=1')
-    && str_contains($views,'assets/deficiency-notice-queue.js?v=2'),
+    && str_contains($views,'assets/deficiency-notice-queue.js?v=3'),
     'queue modal assets load only when the modal is present');
 notice_modal_assert(str_contains($script,"show.bs.modal")
     && str_contains($script,'url.origin!==location.origin')
@@ -47,7 +48,8 @@ notice_modal_assert(str_contains($controller,'if ($signOnly) return [];')
     && str_contains($controller,'data-notice-preview-app=')
     && str_contains($controller,'name="action" value="')
     && str_contains($routes,"'preview_signed'=>(int)\$id")
-    && str_contains($script,'Modal.getOrCreateInstance(modal).show(trigger)'),
+    && str_contains($script,'Modal.getOrCreateInstance(modal).show(autoTrigger)')
+    && str_contains($script,"!query.has('view')"),
     'e-sign saves the PDF and automatically opens the saved artifact before final release');
 notice_modal_assert(str_contains($style,'max-width:1500px')
     && str_contains($style,'height:94vh')

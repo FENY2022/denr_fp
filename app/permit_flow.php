@@ -187,6 +187,23 @@ function permit_flow_signed_notice_artifact_for_revision(int $id,int $revision):
     );
 }
 
+/** Artifact IDs whose exact notice revision was returned to the applicant. */
+function permit_flow_released_notice_artifact_ids(int $id): array
+{
+    if ($id<1 || !permit_flow_ready()) return [];
+    try {
+        $rows=query_all("SELECT DISTINCT n.artifact_id
+            FROM fpoms_deficiency_notices n
+            JOIN permit_step2_events e ON e.application_id=n.application_id
+                AND e.revision=n.revision AND e.action='step4_returned_for_compliance'
+            WHERE n.application_id=? AND n.status='signed' AND n.artifact_id IS NOT NULL",
+            [$id]);
+    } catch (Throwable $e) {
+        return [];
+    }
+    return array_map('intval',array_column($rows,'artifact_id'));
+}
+
 function permit_flow_events(int $id): array
 {
     if (!permit_flow_ready()) return [];
@@ -584,11 +601,7 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
     $case=permit_flow_case($id);
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
-    $latestNotice=query_one("SELECT MAX(created_at) AS sent_at
-        FROM permit_flow_events WHERE application_id=? AND step_number=2
-        AND action='deficiency_notice_issued'",[$id]);
-    $noticeReleased=!empty($latestNotice['sent_at'])
-        && (string)$doc['uploaded_at']<=(string)$latestNotice['sent_at'];
+    $noticeReleased=in_array($documentId,permit_flow_released_notice_artifact_ids($id),true);
     $allowedClient=((int)$doc['step_number']===2
             && $doc['category']==='red_signed_deficiency_notice'
             && $noticeReleased)

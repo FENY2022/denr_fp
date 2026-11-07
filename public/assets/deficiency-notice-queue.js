@@ -27,11 +27,17 @@
   frame.addEventListener('load',()=>loading.classList.add('is-hidden'));
   modal.addEventListener('hidden.bs.modal',reset);
 
-  const signedId=new URLSearchParams(location.search).get('preview_signed');
-  if(signedId&&/^\d+$/.test(signedId)&&window.bootstrap?.Modal){
-    const trigger=document.querySelector(`[data-notice-preview-app="${signedId}"]`);
-    if(trigger){
-      window.bootstrap.Modal.getOrCreateInstance(modal).show(trigger);
+  const query=new URLSearchParams(location.search);
+  const signedId=query.get('preview_signed');
+  let autoTrigger=null;
+  if(signedId&&/^\d+$/.test(signedId)){
+    autoTrigger=document.querySelector(`[data-notice-preview-app="${signedId}"]`);
+  }else if(!query.has('view')&&!location.hash){
+    autoTrigger=document.querySelector('[data-notice-auto-open]');
+  }
+  if(autoTrigger&&window.bootstrap?.Modal){
+    window.bootstrap.Modal.getOrCreateInstance(modal).show(autoTrigger);
+    if(signedId){
       const cleanUrl=new URL(location.href);
       cleanUrl.searchParams.delete('preview_signed');
       history.replaceState(history.state,'',cleanUrl.href);

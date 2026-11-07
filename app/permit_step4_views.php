@@ -659,17 +659,31 @@ function step4_result_panel_html(array $app): string
                 && ($viewer['status']??'')==='active'
                 && (has_role($viewer,'lpdd_fus') || has_role($viewer,'red'));
             if ($notice && (string)$notice['status']==='signed' && (int)$notice['artifact_id']>0) {
+                $clientModal=$viewer && ($viewer['user_kind']??'')==='applicant'
+                    && in_array((int)$notice['artifact_id'],
+                        permit_flow_released_notice_artifact_ids((int)$app['id']),true);
                 $html.='<div class="border rounded p-3 mt-3">'
                     .'<strong>Official RED-Approved Deficiency Notice</strong>'
                     .'<div class="small text-secondary mt-1">Email delivery: '
                     .e(match ((string)($notice['email_status']??'not_tracked')) {
                         'sent'=>'Sent to applicant','failed'=>'Failed – retry needed',
                         'not_sent'=>'Not sent yet',default=>'Not tracked (apply migration 033)'
-                    }).'</div>'
-                    .'<a class="btn btn-sm btn-outline-primary mt-2" target="_blank" rel="noopener" href="'
-                    .e(url('permit_flow_file',['id'=>(int)$app['id'],
-                        'file'=>(int)$notice['artifact_id'],'preview'=>1]))
-                    .'">View Official PDF</a>';
+                    }).'</div>';
+                if ($clientModal) {
+                    $preview=url('permit_flow_file',['id'=>(int)$app['id'],
+                        'file'=>(int)$notice['artifact_id'],'preview'=>1,'raw'=>1]);
+                    $html.='<button type="button" class="btn btn-sm btn-outline-primary mt-2" '
+                        .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+                        .'data-notice-preview-url="'.e($preview).'" '
+                        .'data-notice-preview-title="'.e('FP #'.$app['id'].' · RED-Signed Deficiency Notice').'">'
+                        .'View Official PDF</button>';
+                } elseif ($viewer && ($viewer['user_kind']??'')==='internal') {
+                    $html.='<a class="btn btn-sm btn-outline-primary mt-2" target="_blank" '
+                        .'rel="noopener" href="'.e(url('permit_flow_file',[
+                            'id'=>(int)$app['id'],'file'=>(int)$notice['artifact_id'],
+                            'preview'=>1
+                        ])).'">View Official PDF</a>';
+                }
                 if ($canRetry) {
                     $html.='<form class="mt-2" method="post" action="'
                         .e(url('deficiency_notice_retry_email',['id'=>(int)$app['id']])).'">'
