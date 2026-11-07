@@ -764,6 +764,18 @@ try {
                 }
             } else fpoms_notice_config_view($admin);
             break;
+        case 'complete_notice_generate':
+            if (!$post) show_error('Template No. 2 generation requires POST.',405);
+            $staff=require_role('ro_receiving');
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application reference.',400);
+            $errors=fpoms_complete_notice_prepare_existing($staff,(int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Template No. 2 generated and sent to the RED approval queue.');
+            go('permit_application',['id'=>(int)$id]);
+            break;
         case 'complete_notice_queue':
             if ($post) show_error('RED Template No. 2 approval queue is read-only.',405);
             fpoms_complete_notice_queue_view(require_role('red'));
