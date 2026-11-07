@@ -681,7 +681,9 @@ function view_step2_application(int $applicationId, array $errors = []): void
     $clientNoticePreview='';
     $clientReleasedNoticeIds=$mine && $modern
         ? permit_flow_released_notice_artifact_ids($applicationId) : [];
-    if ($clientReleasedNoticeIds) $noticePdfPreviewModal=true;
+    $clientCompleteNoticeIds=$mine && $modern
+        ? fpoms_complete_notice_released_artifact_ids($applicationId) : [];
+    if ($clientReleasedNoticeIds || $clientCompleteNoticeIds) $noticePdfPreviewModal=true;
     if ($mine && $modern && (string)$app['status']==='step4_corrections_required') {
         $releasedNotice=fpoms_notice_record($applicationId,(int)$app['revision']);
         $releasedArtifact=$releasedNotice
