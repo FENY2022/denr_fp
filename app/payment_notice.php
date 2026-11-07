@@ -96,14 +96,19 @@ function fpoms_payment_notice_prepare_on_ro_receipt(array $app,array $staff): ar
         $pdf=FpomsPaymentNoticePdf::render($full,$config,null,date('F d, Y'));
         [$relative,$absolute]=fpoms_payment_notice_path($id);
         fpoms_file_write_encrypted_bytes($pdf,$absolute);
-        db()->prepare("INSERT INTO fpoms_payment_notices
+        @chmod($absolute,0600);
+        $pdo=db();
+        $pdo->beginTransaction();
+        $pdo->prepare("INSERT INTO fpoms_payment_notices
             (application_id,revision,prepared_by,draft_path,draft_sha256,status)
             VALUES (?,?,?,?,?,'pending_red')")
             ->execute([$id,$revision,(int)$staff['id'],$relative,hash('sha256',$pdf)]);
-        permit_flow_record_event(db(),$id,3,$staff,'payment_notice_prepared',
+        permit_flow_record_event($pdo,$id,3,$staff,'payment_notice_prepared',
             'Template No. 2 generated after RO receipt; applicant release withheld pending RED signature.');
+        $pdo->commit();
         return [];
     } catch (Throwable $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
         if (isset($absolute) && is_file($absolute)) @unlink($absolute);
         error_log('FP-OMS Template No. 2 prepare failed: '.$e->getMessage());
         return ['Unable to generate Template No. 2.'];
@@ -271,6 +276,9 @@ function fpoms_payment_notice_finalize(array $red,int $id): array
     $app=fpoms_payment_notice_app($id); if (!$app) return ['Application not found.'];
     $notice=fpoms_payment_notice_record($id,(int)$app['revision']);
     if (!$notice || (string)$notice['status']!=='signed') return ['A RED-signed Template No. 2 is required.'];
+    if (!in_array((string)$app['status'],['ro_received','forwarded_to_lpdd','step4_complete'],true)) {
+        return ['Application is no longer in a stage where Template No. 2 may be released.'];
+    }
     $attachments=fpoms_payment_notice_attachment($notice);
     if (!$attachments) return ['Signed Template No. 2 is unavailable or failed integrity verification.'];
     try {
@@ -293,7 +301,10 @@ function fpoms_payment_notice_finalize(array $red,int $id): array
         create_client_notification((int)$app['client_id'],'Official Notice to Pay Application Fee',
             'DENR CARAGA released the RED-signed Template No. 2 for FP application #'.$id.'. Pay the PHP 10,000.00 application fee at the Regional Office Cashier and submit the required hard copies.',
             'receipt','warning','permit_application',['id'=>$id]);
-    } catch (Throwable $e) { error_log('Template No. 2 client notification failed: '.$e->getMessage()); }
+        notify_role('lpdd_fus','FP Payment Notice Released – FP #'.$id,
+            'RED released the signed Template No. 2. The applicant was advised to pay at the Regional Office Cashier; LPDD-FUS should verify the Official Receipt after payment.',
+            'receipt','info','lpdd_fus_payment_queue',['tab'=>'awaiting']);
+    } catch (Throwable $e) { error_log('Template No. 2 release notification failed: '.$e->getMessage()); }
     $sent=fpoms_payment_notice_send_email($app,$notice,$attachments);
     try {
         db()->prepare("UPDATE fpoms_payment_notices SET email_status=?,email_last_attempt_at=NOW(),
