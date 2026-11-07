@@ -145,6 +145,43 @@ function fpoms_complete_notice_prepare_in_transaction(PDO $pdo,array $staff,arra
     return $absolute;
 }
 
+function fpoms_complete_notice_prepare_existing(array $staff,int $applicationId): array
+{
+    if (($staff['user_kind']??'')!=='internal' || ($staff['status']??'')!=='active'
+        || !has_role($staff,'ro_receiving')) return ['Only RO Receiving/Records can generate this notice.'];
+    if (!fpoms_complete_notice_schema_ready()) return ['Template No. 2 notice storage is unavailable.'];
+    $app=fpoms_complete_notice_application($applicationId);
+    if (!$app || !permit_flow_is_new($app)) return ['Updated Annex A application not found.'];
+    if (!in_array((string)$app['status'],['ro_received','forwarded_to_lpdd','step4_complete'],true)) {
+        return ['Template No. 2 can be generated only after RO receipt of complete documents.'];
+    }
+    $movement=step3_movement($applicationId);
+    if (!$movement || empty($movement['received_at'])) return ['RO document receipt has not been recorded.'];
+    if (fpoms_complete_notice_record($applicationId,(int)$app['revision'])) {
+        return ['Template No. 2 already exists for this application revision.'];
+    }
+
+    $pdo=db();
+    $createdPath=null;
+    try {
+        $pdo->beginTransaction();
+        $locked=query_one('SELECT * FROM permit_step2_applications WHERE id=? FOR UPDATE',[$applicationId]);
+        if (!$locked || (int)$locked['revision']!==(int)$app['revision']
+            || !in_array((string)$locked['status'],['ro_received','forwarded_to_lpdd','step4_complete'],true)) {
+            throw new RuntimeException('Application changed; reload before generating Template No. 2.');
+        }
+        $createdPath=fpoms_complete_notice_prepare_in_transaction($pdo,$staff,$locked);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($createdPath && is_file($createdPath)) @unlink($createdPath);
+        error_log('Template No. 2 recovery generation failed: '.$e->getMessage());
+        return ['Template No. 2 could not be generated: '.$e->getMessage()];
+    }
+    fpoms_complete_notice_after_receipt($app,$applicationId);
+    return [];
+}
+
 function fpoms_complete_notice_after_receipt(array $app,int $applicationId): void
 {
     try {
