@@ -70,7 +70,7 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
         if ($action==='receive') {
             if (permit_flow_is_new($app) && !permit_payment_schema_ready()) {
                 $pdo->rollBack();
-                return ['Apply payment migration 028 before receiving and issuing the applicant Cashier notice.'];
+                return ['Apply payment migration 028 before receiving; RED final release of Template No. 2 activates payment tracking.'];
             }
             if (empty($app['forwarded_at'])) {
                 $pdo->rollBack();
