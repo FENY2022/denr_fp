@@ -19,10 +19,12 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
     $categories=permit_flow_categories($step);
     $available=array_column($all,'category');
     if ($step===4) {
-        $html.='<div class="alert alert-info small">'
-            .'LPDD-FUS must notify the applicant to pay at the Regional Office Cashier, '
-            .'provide the field validation schedule, and prepare the memo instruction to CENRO. '
-            .'The Cashier receives payment; LPDD-FUS separately verifies and uploads the Official Receipt.</div>';
+        $noticeReleased=fpoms_complete_notice_released($id,(int)$app['revision']);
+        $html.='<div class="alert '.($noticeReleased?'alert-info':'alert-warning').' small">'
+            .($noticeReleased
+                ? 'The official RED-signed Template No. 2 advice-to-pay notice has been released. LPDD-FUS now records the field validation schedule and prepares the CENRO instruction. Cashier payment is verified separately from the Official Receipt.'
+                : 'Step 4 cannot be completed yet. RED must sign, review and Finalize & Send Template No. 2 to the applicant first.')
+            .'</div>';
     } elseif ($step===5) {
         $html.='<p class="small">CENRO notifies applicant to submit hard copies, instructs TWG, '
             .'conducts the field assessment and uploads the CENRO/GIS Report, GIS Map, '
@@ -129,6 +131,10 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
     $missing=permit_flow_missing_artifacts($id,$step);
     if ($missing) $html.='<div class="alert alert-warning small">Before completing this step, upload: '
         .e(implode('; ',$missing)).'</div>';
+    $completeNoticeMissing=$step===4
+        && !fpoms_complete_notice_released($id,(int)$app['revision']);
+    if ($completeNoticeMissing) $html.='<div class="alert alert-warning small">'
+        .'Official RED-signed Template No. 2 release is required before this step can be completed.</div>';
     $milestoneMissing=($step===5 && (
         !permit_flow_event_exists($id,5,'hardcopy_notice_sent')
         || !permit_flow_event_exists($id,5,'twg_instructed')))
@@ -157,7 +163,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             .'I confirm the required actions and uploaded documents have been checked. '
             .'This records an authorized hand-off, not an automatic or fabricated signature.</label></div>'
             .'<button class="btn btn-success w-100" name="confirmation" value="1" type="submit"'
-            .($missing || $milestoneMissing?' disabled':'').'>'
+            .($missing || $milestoneMissing || $completeNoticeMissing?' disabled':'').'>'
             .e($step===11?'Confirm Release & Issue Feasibility Permit':'Complete Step '.$step.' & Forward')
             .'</button></form>';
     } else {
@@ -189,12 +195,15 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
     if (!$mine) return '';
     $all=permit_flow_artifacts($id);
     $releasedNoticeIds=permit_flow_released_notice_artifact_ids($id);
+    $releasedCompleteNoticeIds=fpoms_complete_notice_released_artifact_ids($id);
     $case=permit_flow_case($id);
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
     $permitted=array_values(array_filter($all,static fn(array $d): bool=>
         (in_array((int)$d['id'],$releasedNoticeIds,true) && (int)$d['step_number']===2
             && $d['category']==='red_signed_deficiency_notice')
+        || (in_array((int)$d['id'],$releasedCompleteNoticeIds,true) && (int)$d['step_number']===3
+            && $d['category']==='red_signed_complete_docs_notice')
         || ($issued && (int)$d['step_number']>=10
             && in_array($d['category'],[
                 'approved_fp','approved_tor','approved_map','approved_sheet',
@@ -202,7 +211,9 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
     if (!$permitted) return '';
     $html='<div class="panel mt-3"><h3 class="h6">Official Notices / Approved Documents</h3><ul>';
     foreach ($permitted as $d) {
-        $isNotice=(string)$d['category']==='red_signed_deficiency_notice';
+        $isDeficiency=(string)$d['category']==='red_signed_deficiency_notice';
+        $isCompleteNotice=(string)$d['category']==='red_signed_complete_docs_notice';
+        $isNotice=$isDeficiency || $isCompleteNotice;
         if ($noticeModal && $isNotice) {
             $preview=url('permit_flow_file',[
                 'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
@@ -210,7 +221,9 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
             $html.='<li><button type="button" class="btn btn-link p-0 align-baseline" '
                 .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
                 .'data-notice-preview-url="'.e($preview).'" '
-                .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Deficiency Notice').'">'
+                .'data-notice-preview-title="'.e('FP #'.$id.' · '.($isCompleteNotice
+                    ? 'RED-Signed Template No. 2 / Notice to Pay'
+                    : 'RED-Signed Deficiency Notice')).'">'
                 .e((string)$d['original_name']).'</button></li>';
         } else {
             $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
