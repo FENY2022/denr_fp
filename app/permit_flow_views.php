@@ -189,12 +189,16 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
     if (!$mine) return '';
     $all=permit_flow_artifacts($id);
     $releasedNoticeIds=permit_flow_released_notice_artifact_ids($id);
+    $releasedPaymentNoticeIds=function_exists('fpoms_payment_notice_released_artifact_ids')
+        ? fpoms_payment_notice_released_artifact_ids($id) : [];
     $case=permit_flow_case($id);
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
     $permitted=array_values(array_filter($all,static fn(array $d): bool=>
         (in_array((int)$d['id'],$releasedNoticeIds,true) && (int)$d['step_number']===2
             && $d['category']==='red_signed_deficiency_notice')
+        || (in_array((int)$d['id'],$releasedPaymentNoticeIds,true) && (int)$d['step_number']===3
+            && $d['category']==='red_signed_payment_notice')
         || ($issued && (int)$d['step_number']>=10
             && in_array($d['category'],[
                 'approved_fp','approved_tor','approved_map','approved_sheet',
@@ -203,6 +207,7 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
     $html='<div class="panel mt-3"><h3 class="h6">Official Notices / Approved Documents</h3><ul>';
     foreach ($permitted as $d) {
         $isNotice=(string)$d['category']==='red_signed_deficiency_notice';
+        $isPaymentNotice=(string)$d['category']==='red_signed_payment_notice';
         if ($noticeModal && $isNotice) {
             $preview=url('permit_flow_file',[
                 'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
@@ -212,6 +217,11 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
                 .'data-notice-preview-url="'.e($preview).'" '
                 .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Deficiency Notice').'">'
                 .e((string)$d['original_name']).'</button></li>';
+        } elseif ($isPaymentNotice) {
+            $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
+                    ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))
+                .'"><i class="bi bi-cash-coin me-1"></i>'.e((string)$d['original_name']).'</a>'
+                .' <span class="badge text-bg-success">Official Notice to Pay</span></li>';
         } else {
             $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
                     ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))

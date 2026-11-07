@@ -1,10 +1,57 @@
 <?php
 declare(strict_types=1);
 
+function fpoms_payment_notice_install_schema(): bool
+{
+    try {
+        db()->exec("CREATE TABLE IF NOT EXISTS fpoms_payment_notices (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          application_id BIGINT UNSIGNED NOT NULL,
+          revision INT UNSIGNED NOT NULL,
+          prepared_by BIGINT UNSIGNED NOT NULL,
+          draft_path VARCHAR(400) NOT NULL,
+          draft_sha256 CHAR(64) NOT NULL,
+          status ENUM('pending_red','signed','released') NOT NULL DEFAULT 'pending_red',
+          artifact_id BIGINT UNSIGNED NULL,
+          approved_by BIGINT UNSIGNED NULL,
+          approved_at DATETIME NULL,
+          released_by BIGINT UNSIGNED NULL,
+          released_at DATETIME NULL,
+          email_status ENUM('pending','sent','failed') NOT NULL DEFAULT 'pending',
+          email_last_attempt_at DATETIME NULL,
+          email_sent_at DATETIME NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uq_payment_notice_revision (application_id,revision),
+          KEY idx_payment_notice_status (status,created_at),
+          CONSTRAINT fk_payment_notice_app FOREIGN KEY (application_id)
+            REFERENCES permit_step2_applications(id) ON DELETE CASCADE,
+          CONSTRAINT fk_payment_notice_prepared_by FOREIGN KEY (prepared_by)
+            REFERENCES users(id) ON DELETE RESTRICT,
+          CONSTRAINT fk_payment_notice_approved_by FOREIGN KEY (approved_by)
+            REFERENCES users(id) ON DELETE RESTRICT,
+          CONSTRAINT fk_payment_notice_released_by FOREIGN KEY (released_by)
+            REFERENCES users(id) ON DELETE RESTRICT,
+          CONSTRAINT fk_payment_notice_artifact FOREIGN KEY (artifact_id)
+            REFERENCES permit_flow_artifacts(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        return true;
+    } catch (Throwable $e) {
+        error_log('FP-OMS Template No. 2 schema initialization failed: '.$e->getMessage());
+        return false;
+    }
+}
 function fpoms_payment_notice_schema_ready(): bool
 {
-    try { db()->query('SELECT id,status FROM fpoms_payment_notices LIMIT 0'); return true; }
-    catch (Throwable $e) { return false; }
+    static $ready=null;
+    if ($ready!==null) return $ready;
+    try {
+        db()->query('SELECT id,status FROM fpoms_payment_notices LIMIT 0');
+        return $ready=true;
+    } catch (Throwable $e) {
+        return $ready=fpoms_payment_notice_install_schema();
+    }
 }
 function fpoms_payment_notice_record_for_app(int $applicationId): ?array
 {
@@ -140,6 +187,13 @@ function fpoms_payment_notice_red_upload_signed(array $red,int $id,array $upload
         if (isset($absolute) && is_file($absolute)) @unlink($absolute);
         return ['Unable to save signed Template No. 2.'];
     }
+}
+function fpoms_payment_notice_released_artifact_ids(int $id): array
+{
+    if ($id<1 || !fpoms_payment_notice_schema_ready()) return [];
+    $rows=query_all("SELECT artifact_id FROM fpoms_payment_notices
+        WHERE application_id=? AND status='released' AND artifact_id IS NOT NULL",[$id]);
+    return array_map('intval',array_column($rows,'artifact_id'));
 }
 function fpoms_payment_notice_artifact(array $notice): ?array
 {

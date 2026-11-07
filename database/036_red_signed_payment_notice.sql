@@ -1,5 +1,5 @@
 -- FP-OMS 036 | RED-signed Template No. 2: Complete Documents / Advise to Pay
--- Apply after migration 035. This is additive and does not alter existing deficiency notices.
+-- Apply after migration 035. The application also auto-initializes this table on first use.\n-- This is additive and does not alter existing deficiency notices.
 CREATE TABLE IF NOT EXISTS fpoms_payment_notices (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   application_id BIGINT UNSIGNED NOT NULL,

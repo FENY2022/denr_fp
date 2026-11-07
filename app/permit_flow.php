@@ -602,9 +602,14 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
     $noticeReleased=in_array($documentId,permit_flow_released_notice_artifact_ids($id),true);
+    $paymentNoticeReleased=function_exists('fpoms_payment_notice_released_artifact_ids')
+        && in_array($documentId,fpoms_payment_notice_released_artifact_ids($id),true);
     $allowedClient=((int)$doc['step_number']===2
             && $doc['category']==='red_signed_deficiency_notice'
             && $noticeReleased)
+        || ((int)$doc['step_number']===3
+            && $doc['category']==='red_signed_payment_notice'
+            && $paymentNoticeReleased)
         || ($issued && (int)$doc['step_number']>=10
             && in_array($doc['category'],[
                 'approved_fp','approved_tor','approved_map','approved_sheet',
