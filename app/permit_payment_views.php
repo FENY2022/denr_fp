@@ -12,7 +12,7 @@ function permit_payment_status_badge(?array $payment): string
 /** Applicant and LPDD-FUS see the same authoritative payment state. */
 function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): string
 {
-    if ((string)$app['status']!=='step4_complete') return '';
+    if (!permit_payment_available_for_application($app)) return '';
     $payment=permit_payment_record((int)$app['id']);
     $verified=$payment && (string)$payment['status']==='verified';
     $isLpddFus=($viewer['user_kind']??'')==='internal'
@@ -135,7 +135,9 @@ function view_lpdd_fus_payment_queue(): void
          FROM permit_step2_applications a
          JOIN user_client c ON c.id=a.client_id
          LEFT JOIN permit_payment_verifications p ON p.application_id=a.id
-         WHERE a.status='step4_complete'
+         LEFT JOIN fpoms_complete_notices cn
+           ON cn.application_id=a.id AND cn.revision=a.revision AND cn.status='released'
+         WHERE (a.status='step4_complete' OR (a.flow_version=2 AND cn.id IS NOT NULL))
            AND COALESCE(p.status,'awaiting_payment')=?
          ORDER BY COALESCE(p.verified_at,a.last_submitted_at) DESC,a.id DESC LIMIT 300",
         [$tab==='verified'?'verified':'awaiting_payment']
