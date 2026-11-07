@@ -37,6 +37,7 @@ $integration=[
  'RED e-sign path'=>str_contains((string)$complete,'function fpoms_complete_notice_red_approve'),
  'physical upload path'=>str_contains((string)$complete,'function fpoms_complete_notice_red_upload_signed'),
  'final release activates payment'=>str_contains((string)$complete,"status,notified_at) VALUES (?,'awaiting_payment',NOW())"),
+ 'final release verifies signed artifact'=>str_contains((string)$complete,'failed integrity verification. Final release was blocked'),
  'Step 4 waits for release'=>str_contains((string)$flow,'fpoms_complete_notice_released'),
  'RED queue route'=>str_contains((string)$router,"case 'complete_notice_queue':"),
  'RED queue menu'=>str_contains((string)$views,"'RED – Template No. 2 Approvals'"),
