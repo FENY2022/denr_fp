@@ -349,8 +349,8 @@ function step4_evaluation_panel_html(array $app,array $documents,array $errors=[
     $notice=$modern ? fpoms_notice_record($id,(int)$app['revision']) : null;
     $html=($modern
         ? '<div class="panel soft mb-3"><h3 class="h6">System-Generated Deficiency Notice</h3>'
-          .'<p class="small text-secondary">On Return, FP-OMS generates a PDF with the incomplete/insufficient '
-          .'requirements and remarks. RED must explicitly approve and sign before applicant release. '
+          .'<p class="small text-secondary">On Return, FP-OMS generates a PDF showing all six documentary '
+          .'requirements with their assessment status and non-duplicate remarks. RED must explicitly approve and sign before applicant release. '
           .'No per-application PDF upload is required.</p>'
           .($notice
               ? '<div class="alert alert-'.((string)$notice['status']==='signed'?'success':'warning').'">'

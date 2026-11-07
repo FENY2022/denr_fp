@@ -257,11 +257,11 @@ final class FpomsNoticePdf
             $company.' covering the proposed '.$project.' with an area of '.$areaText.
             ' hectares located in '.$location.'.',$bodyColumns);
         $paragraph2=$this->wrapped('Please be informed that upon review and evaluation of the '.
-            'application documents, the application lacks the following documentary requirements, '.
-            'to wit:',$bodyColumns);
-        $paragraph3=$this->wrapped('In this regard, kindly submit the above-mentioned documentary '.
-            'requirements, as the basis of this Office in taking further appropriate action on the '.
-            'subject application.',$bodyColumns);
+            'application documents, the assessment status of each documentary requirement is '.
+            'reflected below:',$bodyColumns);
+        $paragraph3=$this->wrapped('In this regard, kindly comply with and resubmit only the '.
+            'documentary requirements marked Lacking or Inappropriate, as the basis of this Office '.
+            'in taking further appropriate action on the subject application.',$bodyColumns);
         $paragraph4=$this->wrapped('Should you have any questions or require further assistance, '.
             'please feel free to visit our Office, contact us via email at '.$contacts.
             ', or through teleconferencing at your convenience.',$bodyColumns);

@@ -170,19 +170,45 @@ function fpoms_notice_save_config(array $staff,array $input,array $uploads): arr
     }
 }
 
+function fpoms_notice_clean_remark(string $assessment,string $remarks): string
+{
+    $label=step4_assessment_label($assessment);
+    $note=preg_replace('/\\s+/u',' ',trim($remarks))??trim($remarks);
+    if ($note==='') return $label;
+
+    // Keep one official assessment label, then only the useful reviewer note.
+    // Examples: "Lacking Lacking" -> "Lacking"; "Complete Complete" -> "Complete".
+    $pattern='/^(?:'.preg_quote($label,'/').'\\b[\\s:;,.\\-–—]*)+/iu';
+    $detail=trim((string)preg_replace($pattern,'',$note));
+    if ($detail==='') return $label;
+    return $label.' – '.$detail;
+}
+
 function fpoms_notice_rows(array $items): array
 {
     $rows=[];
     foreach (step2_requirement_types() as $type=>$label) {
         $item=$items[$type]??[];
-        if (!in_array((string)($item['assessment']??''),['incomplete','insufficient'],true)) continue;
+        $assessment=(string)($item['assessment']??'');
+        if (!in_array($assessment,step4_allowed_assessments(),true)) continue;
+        $remarks=trim((string)($item['remarks']??''));
         $rows[]=[
             'label'=>$label,
-            'assessment'=>(string)$item['assessment'],
-            'remarks'=>trim((string)($item['remarks']??'')),
+            'assessment'=>$assessment,
+            'remarks'=>fpoms_notice_clean_remark($assessment,$remarks),
         ];
     }
     return $rows;
+}
+
+function fpoms_notice_has_deficiency(array $items): bool
+{
+    foreach ($items as $item) {
+        if (in_array((string)($item['assessment']??''),['incomplete','insufficient'],true)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,array $items): array
@@ -199,8 +225,13 @@ function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,ar
         || (float)$area<=0) {
         return ['Applicant Project Area (hectares) is missing or invalid. Return to the applicant application data and save a valid project area before preparing the deficiency notice.'];
     }
+    if (!fpoms_notice_has_deficiency($items)) {
+        return ['At least one deficient requirement is needed before preparing a notice.'];
+    }
     $rows=fpoms_notice_rows($items);
-    if (!$rows) return ['At least one deficient requirement is needed before preparing a notice.'];
+    if (count($rows)!==count(step2_requirement_types())) {
+        return ['Every documentary requirement must have an assessment before preparing the notice.'];
+    }
     $payload=[
         'decision'=>'return',
         'assessment'=>[],
