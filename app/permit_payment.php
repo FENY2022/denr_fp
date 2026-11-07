@@ -43,6 +43,13 @@ function permit_payment_record(int $applicationId): ?array
     );
 }
 
+function permit_payment_available_for_application(array $app): bool
+{
+    if ((string)($app['status']??'')==='step4_complete') return true;
+    return permit_flow_is_new($app)
+        && fpoms_complete_notice_released((int)$app['id'],(int)$app['revision']);
+}
+
 function permit_payment_instructions(int $applicationId): string
 {
     return 'Your Feasibility Permit application #'.$applicationId
@@ -110,9 +117,9 @@ function permit_payment_verify(array $lpddFus,int $applicationId,array $input,ar
              JOIN user_client c ON c.id=a.client_id
              WHERE a.id=? FOR UPDATE',[$applicationId]
         );
-        if (!$app || (string)$app['status']!=='step4_complete') {
+        if (!$app || !permit_payment_available_for_application($app)) {
             $pdo->rollBack();
-            return ['Only applications completed as documentary sufficient in Step 4 may be verified.'];
+            return ['Payment may be verified only after the application is eligible for payment and the official RED-signed advice-to-pay notice has been released.'];
         }
 
         // Serialize repeated submissions and reject duplicate verification.
