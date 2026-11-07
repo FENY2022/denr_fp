@@ -313,6 +313,10 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             return ['Provide CENRO memo instructions (10–3,000 characters).'];
         }
         if (!permit_payment_schema_ready()) return ['Apply migration 028 for Cashier payment tracking.'];
+        $step4App=step2_application($id);
+        if (!$step4App || !fpoms_complete_notice_released($id,(int)$step4App['revision'])) {
+            return ['RED must sign, review and Finalize & Send Template No. 2 to the applicant before Step 4 can be completed.'];
+        }
     }
     if ($step===5 && !permit_flow_event_exists($id,5,'hardcopy_notice_sent')) {
         return ['CENRO must notify the applicant to submit hard copies before completing Step 5.'];
@@ -339,6 +343,10 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             || ($step===4 && (string)$app['status']!=='forwarded_to_lpdd')) {
             $pdo->rollBack();
             return ['Application is no longer at this step. Refresh the workflow.'];
+        }
+        if ($step===4 && !fpoms_complete_notice_released($id,(int)$app['revision'])) {
+            $pdo->rollBack();
+            return ['Official RED-signed Template No. 2 has not yet been finalized/released.'];
         }
         // Recheck required documents inside the transaction after locking the case.
         $missing=permit_flow_missing_artifacts($id,$step);
@@ -383,9 +391,9 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             'Updated Annex A application #'.$id.' is ready for '.permit_flow_step_label($step+1).'.',
             'file-earmark-check','info','permit_flow',['id'=>$id]);
         if ($step===4) {
-            // Cashier payment notice was already issued on the official RO
-            // receipt (Step 3). Step 4 sends only the new field schedule,
-            // preventing a second Notice to Pay email or bell alert.
+            // The RED-signed Template No. 2 payment notice was released after RO receipt.
+            // Step 4 sends only the field schedule/CENRO instruction update,
+            // preventing a duplicate Notice to Pay email.
             $message='FP application #'.$id.' field validation/assessment schedule: '
                 .fpoms_display_datetime((string)$schedule)
                 .'. LPDD-FUS has prepared the CENRO field validation instructions.';
@@ -602,9 +610,13 @@ function permit_flow_send_artifact(array $user,int $id,int $documentId): never
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
     $noticeReleased=in_array($documentId,permit_flow_released_notice_artifact_ids($id),true);
+    $completeNoticeReleased=in_array($documentId,fpoms_complete_notice_released_artifact_ids($id),true);
     $allowedClient=((int)$doc['step_number']===2
             && $doc['category']==='red_signed_deficiency_notice'
             && $noticeReleased)
+        || ((int)$doc['step_number']===3
+            && $doc['category']==='red_signed_complete_docs_notice'
+            && $completeNoticeReleased)
         || ($issued && (int)$doc['step_number']>=10
             && in_array($doc['category'],[
                 'approved_fp','approved_tor','approved_map','approved_sheet',
