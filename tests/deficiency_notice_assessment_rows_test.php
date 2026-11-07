@@ -62,9 +62,15 @@ if ($remarks!==$expected) {
 if (!fpoms_notice_has_deficiency($items)) {
     throw new RuntimeException('Deficiency detection failed.');
 }
+$legacyAssessments=[];
+$legacyRemarks=[];
+foreach ($items as $type=>$item) {
+    $legacyAssessments[$type]=$item['assessment'];
+    $legacyRemarks[$type]=$item['remarks'];
+}
 $legacyPayload=[
-    'assessment'=>array_column($items,'assessment',array_keys($items)),
-    'requirement_remarks'=>array_column($items,'remarks',array_keys($items)),
+    'assessment'=>$legacyAssessments,
+    'requirement_remarks'=>$legacyRemarks,
     'notice_rows'=>[
         ['label'=>'Feasibility Study Proposal (Annex 1B)','remarks'=>'Lacking Lacking']
     ]
