@@ -211,6 +211,25 @@ function fpoms_notice_has_deficiency(array $items): bool
     return false;
 }
 
+function fpoms_notice_refresh_payload_rows(array $payload): array
+{
+    $assessments=is_array($payload['assessment']??null)?$payload['assessment']:[];
+    $remarks=is_array($payload['requirement_remarks']??null)?$payload['requirement_remarks']:[];
+    $items=[];
+    foreach (step2_requirement_types() as $type=>$unusedLabel) {
+        $assessment=(string)($assessments[$type]??'');
+        if (!in_array($assessment,step4_allowed_assessments(),true)) continue;
+        $items[$type]=[
+            'assessment'=>$assessment,
+            'remarks'=>(string)($remarks[$type]??'')
+        ];
+    }
+    if (count($items)===count(step2_requirement_types())) {
+        $payload['notice_rows']=fpoms_notice_rows($items);
+    }
+    return $payload;
+}
+
 function fpoms_notice_prepare(array $reviewer,int $applicationId,array $input,array $items): array
 {
     if (!fpoms_notice_schema_ready()) return ['Apply database migration 032 first.'];
@@ -334,6 +353,7 @@ function fpoms_notice_regenerate_draft(array $staff,int $applicationId): array
     try {
         $payload=json_decode((string)$notice['payload_json'],true,512,JSON_THROW_ON_ERROR);
         if (!is_array($payload)) throw new RuntimeException('Stored notice data is invalid.');
+        $payload=fpoms_notice_refresh_payload_rows($payload);
         $layout=is_array($payload['notice_config_snapshot']??null)
             ?$payload['notice_config_snapshot'] : fpoms_notice_config();
         $layout['letterhead_images']=fpoms_notice_template_branding([
@@ -369,9 +389,13 @@ function fpoms_notice_regenerate_draft(array $staff,int $applicationId): array
         }
         $oldRelative=(string)$lockedNotice['draft_path'];
         $pdo->prepare(
-            'UPDATE fpoms_deficiency_notices SET draft_path=?,draft_sha256=?
+            'UPDATE fpoms_deficiency_notices SET draft_path=?,draft_sha256=?,payload_json=?
              WHERE id=? AND status="pending_red"'
-        )->execute([$relative,hash('sha256',$pdf),(int)$lockedNotice['id']]);
+        )->execute([
+            $relative,hash('sha256',$pdf),
+            json_encode($payload,JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            (int)$lockedNotice['id']
+        ]);
         permit_flow_record_event($pdo,$applicationId,2,$staff,
             'deficiency_notice_regenerated',
             'Unsigned deficiency notice PDF regenerated; frozen findings were unchanged.');
@@ -414,6 +438,9 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
     if (!$notice) return ['LPDD-FUS must prepare a draft notice before RED approval.'];
     $payload=json_decode((string)$notice['payload_json'],true);
     if (!is_array($payload)) return ['Stored assessment snapshot is invalid.'];
+    if ((string)$notice['status']!=='signed') {
+        $payload=fpoms_notice_refresh_payload_rows($payload);
+    }
     $originalReviewer=query_one('SELECT * FROM users WHERE id=?',
         [(int)$notice['reviewer_user_id']]);
     if (!$originalReviewer || (string)$originalReviewer['status']!=='active'
@@ -460,8 +487,12 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
                 ]);
             $artifactId=(int)$pdo->lastInsertId();
             $pdo->prepare("UPDATE fpoms_deficiency_notices
-                SET status='signed',artifact_id=?,approved_by=?,approved_at=NOW()
-                WHERE id=?")->execute([$artifactId,(int)$red['id'],(int)$notice['id']]);
+                SET status='signed',artifact_id=?,approved_by=?,approved_at=NOW(),payload_json=?
+                WHERE id=?")->execute([
+                    $artifactId,(int)$red['id'],
+                    json_encode($payload,JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                    (int)$notice['id']
+                ]);
             permit_flow_record_event($pdo,$applicationId,2,$red,
                 'deficiency_notice_red_approved','RED explicitly approved generated notice PDF.');
             audit((int)$red['id'],'fp.deficiency_notice.red_approved',

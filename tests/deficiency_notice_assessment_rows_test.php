@@ -62,6 +62,19 @@ if ($remarks!==$expected) {
 if (!fpoms_notice_has_deficiency($items)) {
     throw new RuntimeException('Deficiency detection failed.');
 }
+$legacyPayload=[
+    'assessment'=>array_column($items,'assessment',array_keys($items)),
+    'requirement_remarks'=>array_column($items,'remarks',array_keys($items)),
+    'notice_rows'=>[
+        ['label'=>'Feasibility Study Proposal (Annex 1B)','remarks'=>'Lacking Lacking']
+    ]
+];
+$refreshed=fpoms_notice_refresh_payload_rows($legacyPayload);
+if (count($refreshed['notice_rows']??[])!==6
+    || ($refreshed['notice_rows'][0]['remarks']??'')!=='Complete'
+    || ($refreshed['notice_rows'][2]['remarks']??'')!=='Lacking') {
+    throw new RuntimeException('Legacy pending notice payload was not normalized to six clean rows.');
+}
 if (fpoms_notice_has_deficiency([
     ['assessment'=>'complete'],['assessment'=>'not_applicable']
 ])) {
