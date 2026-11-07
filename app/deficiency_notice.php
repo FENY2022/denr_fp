@@ -939,8 +939,8 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
 {
     if (!has_role($admin,'super_admin')) show_error('Access denied.',403);
     $config=fpoms_notice_config();
-    $html='<div class="panel"><h2 class="h5">Deficiency Notice Template / RED e-Signature</h2>'
-        .'<p class="text-secondary">FP-OMS includes a built-in Template No. 1 letter structure, so DOCX upload is optional. '
+    $html='<div class="panel"><h2 class="h5">RED Notice Templates / E-Signature</h2>'
+        .'<p class="text-secondary">The configured RED signatory and JPEG e-signature are shared by Template No. 1 deficiency notices and Template No. 2 complete-documents / advice-to-pay notices. FP-OMS includes a built-in Template No. 1 letter structure, so DOCX upload is optional. 
         .'If you upload the official DOCX, FP-OMS will prefer its DENR seal, Bagong Pilipinas and SOCOTEC artwork. '
         .'Applicant, project and deficiency details are filled automatically.</p>'
         .errors_html($errors);
@@ -972,7 +972,7 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
         .'<input class="form-control" type="file" name="signature" accept=".jpg,.jpeg,image/jpeg">'
         .'<div class="small text-secondary mt-1">'
         .(!empty($config['signature_path'])?'Configured securely':'Not yet configured')
-        .'. Uploaded signature is NEVER applied until RED explicitly approves each notice.</div></div>'
+        .'. Uploaded signature is NEVER applied until RED explicitly approves each Template No. 1 or Template No. 2 notice.</div></div>'
         .'</div><div class="mt-3"><button class="btn btn-success" type="submit">'
         .'Save Notice Configuration</button></div></form>'
         .'<div class="alert alert-info mt-3 mb-0">A JPEG signature image is an electronic visual mark, '

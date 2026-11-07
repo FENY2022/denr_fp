@@ -52,7 +52,10 @@ final class FpomsPaymentNoticePdf
             $this->images['signature']=['bytes'=>$signature,'width'=>(int)$info[0],'height'=>(int)$info[1]];
         }
     }
-    public static function render(array $app,array $config,?string $signature=null,?string $date=null): string
+    public static function render(
+        array $app,array $config,?string $signature=null,?string $date=null,
+        bool $printForSigning=false
+    ): string
     {
         $pdf=new self();
         $pdf->footer=(string)($config['footer_text']??'DENR-XIII, Ambago, Butuan City, Philippines | Hotline No. 0981-017-3551 E-Mail: r13@denr.gov.ph');
@@ -63,7 +66,7 @@ final class FpomsPaymentNoticePdf
         $pdf->line(153,68,'Department of Environment and Natural Resources',12,true);
         $pdf->line(181,84,'Kagawaran ng Kapaligiran at Likas Yaman',10.5);
         $pdf->line(263,100,'Caraga Region',11);
-        if ($signature===null) {
+        if ($signature===null && !$printForSigning) {
             $pdf->line(350,126,'DRAFT - NOT SIGNED / NOT FOR RELEASE',7.2,true);
         }
         $y=138.0;

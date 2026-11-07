@@ -14,8 +14,15 @@ function step3_action_panel_html(array $app): string
             ? 'forward complete applications to LPDD-FUS for Step 4 payment notice, field schedule and CENRO instruction. '
             : 'forward them to LPDD-FUS for legacy Step 4 documentary evaluation. ')
         .'Annex A processing time: within 1/2 day.</p>';
-    if (permit_flow_is_new($app) && $status==='ro_received') {
-        $paymentNotice=fpoms_payment_notice_record_for_app($id);
+    if (permit_flow_is_new($app) && in_array($status,['ro_received','forwarded_to_lpdd','step4_complete'],true)) {
+        $paymentNotice=fpoms_payment_notice_record($id,(int)$app['revision']);
+        if (!$paymentNotice && $movement) {
+            $html.='<div class="alert alert-warning small"><strong>Template No. 2:</strong> '
+                .'This application was received before the RED-signed Template No. 2 workflow was enabled. '
+                .'<form class="mt-2" method="post" action="'.e(url('payment_notice_generate',['id'=>$id])).'">'
+                .csrf_field().'<button class="btn btn-sm btn-warning" type="submit">'
+                .'<i class="bi bi-file-earmark-plus me-1"></i>Generate Template No. 2 for RED Review</button></form></div>';
+        }
         if ($paymentNotice) {
             $noticeStatus=(string)$paymentNotice['status'];
             $html.='<div class="alert '.($noticeStatus==='released'?'alert-success':'alert-warning').' small">'
@@ -56,7 +63,9 @@ function step3_action_panel_html(array $app): string
             .'data-bs-dismiss="modal" aria-label="Close"></button></div>'
             .'<div class="modal-body"><p><strong>FP Application #'.$id.'</strong> – '
             .e((string)$app['applicant_name']).'</p><p class="mb-0">'
-            .($receive ? 'Confirm actual RO receipt of electronic documents.'
+            .($receive ? (permit_flow_is_new($app)
+                    ? 'Confirm actual RO receipt of electronic documents. FP-OMS will generate Template No. 2 and route it to RED for electronic signature or physically signed PDF upload. Applicant payment email is withheld until RED reviews and finalizes the signed PDF.'
+                    : 'Confirm actual RO receipt of electronic documents.')
                 : (permit_flow_is_new($app)
                     ? 'Confirm forwarding complete documents to LPDD-FUS for Step 4 payment notice and CENRO instructions.'
                     : 'Confirm forwarding to LPDD-FUS for legacy Step 4 evaluation.'))
