@@ -129,13 +129,7 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
                 error_log('FP-OMS Template No. 2 preparation failed for FP #'.$applicationId.': '.implode(' ',$noticeErrors));
                 return ['RO receipt was saved, but Template No. 2 could not be prepared for RED signature: '.implode(' ',$noticeErrors)];
             }
-            try {
-                notify_role('red','Template No. 2 for RED Signature – FP #'.$applicationId,
-                    'RO Receiving recorded the complete electronic documents. Review and sign the Complete Documents / Advise to Pay letter before applicant release.',
-                    'cash-coin','warning','payment_notice_queue');
-            } catch (Throwable $e) {
-                error_log('FP-OMS Template No. 2 RED notification failed: '.$e->getMessage());
-            }
+            fpoms_payment_notice_notify_pending($app,$applicationId);
         } else {
             try {
                 if ($action==='receive') {
