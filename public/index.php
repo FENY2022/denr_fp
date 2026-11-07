@@ -764,6 +764,74 @@ try {
                 }
             } else fpoms_notice_config_view($admin);
             break;
+        case 'complete_notice_queue':
+            if ($post) show_error('RED Template No. 2 approval queue is read-only.',405);
+            fpoms_complete_notice_queue_view(require_role('red'));
+            break;
+        case 'complete_notice_pdf':
+            if ($post) show_error('Template No. 2 PDF preview requires GET.',405);
+            $viewer=require_user();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid Template No. 2 reference.',400);
+            fpoms_complete_notice_send_pdf($viewer,(int)$id);
+            break;
+        case 'complete_notice_approve':
+            if (!$post) show_error('RED Template No. 2 approval requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='1') show_error('RED approval confirmation required.',400);
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid Template No. 2 reference.',400);
+            $approvalAction=(string)($_POST['action']??'');
+            if (!in_array($approvalAction,['sign','finalize'],true)) {
+                show_error('Select a valid Template No. 2 action.',400);
+            }
+            $errors=fpoms_complete_notice_red_approve($red,(int)$id,$approvalAction==='sign');
+            if ($errors) {
+                flash('error',implode(' ',array_map('strval',$errors)));
+            } elseif ($approvalAction==='sign') {
+                flash('success','RED e-signature saved. Review the signed Template No. 2, then Finalize & Send.');
+            } else {
+                $current=step2_application((int)$id);
+                $notice=$current?fpoms_complete_notice_record((int)$id,(int)$current['revision']):null;
+                $delivery=(string)($notice['email_status']??'');
+                if ($delivery==='sent') {
+                    flash('success','Template No. 2 finalized and released. SMTP accepted the applicant email with the RED-signed PDF.');
+                } elseif ($delivery==='failed') {
+                    flash('info','Template No. 2 was officially released in FP-OMS, but applicant email delivery failed. Retry after correcting SMTP.');
+                } else {
+                    flash('info','Template No. 2 was officially released. Review delivery status before claiming the email was sent.');
+                }
+            }
+            go('complete_notice_queue');
+            break;
+        case 'complete_notice_upload_signed':
+            if (!$post) show_error('Signed Template No. 2 upload requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='1') show_error('Signed PDF upload confirmation required.',400);
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid Template No. 2 reference.',400);
+            $errors=fpoms_complete_notice_red_upload_signed($red,(int)$id,$_FILES['signed_pdf']??[]);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Signed Template No. 2 uploaded. Review the PDF, then Finalize & Send.');
+            go('complete_notice_queue');
+            break;
+        case 'complete_notice_retry_email':
+            if (!$post) show_error('Retrying Template No. 2 email requires POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application reference.',400);
+            $errors=fpoms_complete_notice_retry_email($staff,(int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Official RED-signed Template No. 2 was sent to the applicant email.');
+            go('permit_application',['id'=>(int)$id]);
+            break;
         case 'deficiency_notice_queue':
             if ($post) show_error('RED approval queue is read-only.',405);
             fpoms_notice_queue_view(require_role('red'));
