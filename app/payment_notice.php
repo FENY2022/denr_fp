@@ -100,7 +100,8 @@ function fpoms_payment_notice_prepare_on_ro_receipt(array $app,array $staff): ar
             (application_id,revision,prepared_by,draft_path,draft_sha256,status)
             VALUES (?,?,?,?,?,'pending_red')")
             ->execute([$id,$revision,(int)$staff['id'],$relative,hash('sha256',$pdf)]);
-        audit((int)$staff['id'],'fp.payment_notice.prepared','permit_step2_application',$id,['revision'=>$revision]);
+        permit_flow_record_event(db(),$id,3,$staff,'payment_notice_prepared',
+            'Template No. 2 generated after RO receipt; applicant release withheld pending RED signature.');
         return [];
     } catch (Throwable $e) {
         if (isset($absolute) && is_file($absolute)) @unlink($absolute);
