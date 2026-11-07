@@ -108,6 +108,52 @@ function fpoms_payment_notice_prepare_on_ro_receipt(array $app,array $staff): ar
         return ['Unable to generate Template No. 2.'];
     }
 }
+function fpoms_payment_notice_is_released(int $applicationId,int $revision): bool
+{
+    $notice=fpoms_payment_notice_record($applicationId,$revision);
+    return $notice && (string)$notice['status']==='released' && (int)($notice['artifact_id']??0)>0;
+}
+
+function fpoms_payment_notice_notify_pending(array $app,int $id): void
+{
+    try {
+        notify_role('red','Template No. 2 for RED Signature – FP #'.$id,
+            'RO Receiving recorded the complete electronic documents. Review and sign the Complete Documents / Advise to Pay letter before applicant release.',
+            'cash-coin','warning','payment_notice_queue');
+    } catch (Throwable $e) {
+        error_log('FP-OMS Template No. 2 RED notification failed: '.$e->getMessage());
+    }
+    try {
+        create_client_notification((int)$app['client_id'],
+            'RO Documents Received – Awaiting RED-Signed Notice',
+            'RO Receiving recorded your complete FP documents. The official Template No. 2 advice-to-pay letter is awaiting RED signature and final release. Payment instructions will be released with the signed notice.',
+            'file-earmark-lock','info','permit_application',['id'=>$id]);
+    } catch (Throwable $e) {
+        error_log('FP-OMS Template No. 2 applicant status notification failed: '.$e->getMessage());
+    }
+}
+
+function fpoms_payment_notice_prepare_existing(array $staff,int $id): array
+{
+    if (($staff['user_kind']??'')!=='internal' || ($staff['status']??'')!=='active'
+        || !has_role($staff,'ro_receiving')) {
+        return ['Only RO Receiving/Records can generate this notice.'];
+    }
+    $app=fpoms_payment_notice_app($id);
+    if (!$app || !permit_flow_is_new($app)) return ['Updated Annex A application not found.'];
+    if (!in_array((string)$app['status'],['ro_received','forwarded_to_lpdd','step4_complete'],true)) {
+        return ['Template No. 2 can be generated only after RO receipt of complete documents.'];
+    }
+    $movement=step3_movement($id);
+    if (!$movement || empty($movement['received_at'])) return ['RO document receipt has not been recorded.'];
+    if (fpoms_payment_notice_record($id,(int)$app['revision'])) {
+        return ['Template No. 2 already exists for this application revision.'];
+    }
+    $errors=fpoms_payment_notice_prepare_on_ro_receipt($app,$staff);
+    if (!$errors) fpoms_payment_notice_notify_pending($app,$id);
+    return $errors;
+}
+
 function fpoms_payment_notice_render_signed(array $app,string $signature): string
 {
     return FpomsPaymentNoticePdf::render($app,fpoms_payment_notice_config(),$signature,date('F d, Y'));
@@ -162,7 +208,11 @@ function fpoms_payment_notice_red_upload_signed(array $red,int $id,array $upload
     $size=(int)($upload['size']??0);
     if ($size<100 || $size>10485760 || strtolower(pathinfo((string)($upload['name']??''),PATHINFO_EXTENSION))!=='pdf') return ['Upload a valid PDF up to 10 MB.'];
     $pdf=file_get_contents((string)$upload['tmp_name']);
-    if (!is_string($pdf) || !preg_match('/^%PDF-1\.[0-7]/',$pdf) || !preg_match('/%%EOF\s*$/',$pdf)) return ['The uploaded file is not a valid PDF.'];
+    $mime=is_string($pdf) ? (new finfo(FILEINFO_MIME_TYPE))->buffer($pdf) : '';
+    if (!is_string($pdf) || strlen($pdf)!==$size
+        || !preg_match('/^%PDF-1\.[0-7]/',$pdf)
+        || !preg_match('/%%EOF\s*$/',$pdf)
+        || $mime!=='application/pdf') return ['The uploaded file is not a valid PDF.'];
     $app=fpoms_payment_notice_app($id); if (!$app) return ['Application not found.'];
     $notice=fpoms_payment_notice_record($id,(int)$app['revision']);
     if (!$notice || (string)$notice['status']!=='pending_red') return ['Only a pending Template No. 2 can receive a signed upload.'];
@@ -203,9 +253,15 @@ function fpoms_payment_notice_artifact(array $notice): ?array
 function fpoms_payment_notice_attachment(array $notice): array
 {
     $artifact=fpoms_payment_notice_artifact($notice); if (!$artifact) return [];
-    $path=PROJECT_ROOT.'/storage/'.(string)$artifact['stored_path'];
-    if (!is_file($path)) return [];
-    $data=fpoms_file_read($path);
+    $base=realpath(PROJECT_ROOT.'/storage/fp_workflow');
+    $path=realpath(PROJECT_ROOT.'/storage/'.(string)$artifact['stored_path']);
+    if (!$base || !$path || !str_starts_with($path,$base.DIRECTORY_SEPARATOR) || !is_file($path)) return [];
+    try {
+        $data=fpoms_file_read($path);
+    } catch (Throwable $e) {
+        error_log('FP-OMS Template No. 2 protected PDF read failed: '.$e->getMessage());
+        return [];
+    }
     if (!hash_equals((string)$artifact['sha256'],hash('sha256',$data))) return [];
     return [['data'=>$data,'name'=>(string)$artifact['original_name'],'mime'=>'application/pdf']];
 }
@@ -222,7 +278,7 @@ function fpoms_payment_notice_finalize(array $red,int $id): array
         if (!$locked || (string)$locked['status']!=='signed') throw new RuntimeException('Notice changed; reload.');
         $pdo->prepare("INSERT INTO permit_payment_verifications
             (application_id,status,notified_at) VALUES (?,'awaiting_payment',NOW())
-            ON DUPLICATE KEY UPDATE status='awaiting_payment',notified_at=COALESCE(notified_at,VALUES(notified_at))")
+            ON DUPLICATE KEY UPDATE notified_at=COALESCE(notified_at,VALUES(notified_at))")
             ->execute([$id]);
         $pdo->prepare("UPDATE fpoms_payment_notices SET status='released',released_by=?,released_at=NOW() WHERE id=?")
             ->execute([(int)$red['id'],(int)$notice['id']]);
@@ -254,7 +310,11 @@ function fpoms_payment_notice_send_email(array $app,array $notice,array $attachm
 }
 function fpoms_payment_notice_retry_email(array $staff,int $id): array
 {
-    if (($staff['user_kind']??'')!=='internal' || ($staff['status']??'')!=='active') return ['Authorized DENR staff required.'];
+    if (($staff['user_kind']??'')!=='internal' || ($staff['status']??'')!=='active'
+        || !(has_role($staff,'red') || has_role($staff,'ro_receiving')
+            || has_role($staff,'lpdd_fus') || has_role($staff,'super_admin'))) {
+        return ['Authorized DENR staff required.'];
+    }
     $app=fpoms_payment_notice_app($id); if (!$app) return ['Application not found.'];
     $notice=fpoms_payment_notice_record($id,(int)$app['revision']);
     if (!$notice || (string)$notice['status']!=='released') return ['Only a released notice can be emailed.'];
@@ -271,24 +331,33 @@ function fpoms_payment_notice_send_pdf(array $viewer,int $id): never
     $isRed=($viewer['user_kind']??'')==='internal' && has_role($viewer,'red');
     $mine=($viewer['user_kind']??'')==='applicant' && (int)$viewer['id']===(int)$app['client_id'];
     $signed=(string)$notice['status']!=='pending_red';
+    $printForSigning=(string)($_GET['print_for_signing']??'')==='1';
     if (!$isRed && !($mine && (string)$notice['status']==='released')) show_error('Notice not available.',403);
+    if ($printForSigning && (!$isRed || $signed)) show_error('Print-for-signing copy is unavailable.',403);
     $raw=null;
     if ($signed) {
         $attachment=fpoms_payment_notice_attachment($notice);
         $raw=$attachment[0]['data']??null;
     } else {
-        $raw=fpoms_notice_safe_read((string)$notice['draft_path'],(string)$notice['draft_sha256']);
-        if ($isRed && (string)($_GET['signed_preview']??'')==='1') {
-            $config=fpoms_notice_config();
-            if (!empty($config['signature_path']) && !empty($config['signature_sha256'])) {
-                $signature=fpoms_notice_safe_read((string)$config['signature_path'],(string)$config['signature_sha256']);
-                $raw=fpoms_payment_notice_render_signed($app,$signature);
+        if ($printForSigning) {
+            $raw=FpomsPaymentNoticePdf::render(
+                $app,fpoms_payment_notice_config(),null,date('F d, Y'),true
+            );
+        } else {
+            $raw=fpoms_notice_safe_read((string)$notice['draft_path'],(string)$notice['draft_sha256']);
+            if ($isRed && (string)($_GET['signed_preview']??'')==='1') {
+                $config=fpoms_notice_config();
+                if (!empty($config['signature_path']) && !empty($config['signature_sha256'])) {
+                    $signature=fpoms_notice_safe_read((string)$config['signature_path'],(string)$config['signature_sha256']);
+                    $raw=fpoms_payment_notice_render_signed($app,$signature);
+                }
             }
         }
     }
     if (!is_string($raw)) show_error('Notice PDF unavailable.',404);
     header('Content-Type: application/pdf'); header('Cache-Control: private, no-store');
-    header('Content-Disposition: inline; filename="Template_No_2_FP'.$id.'.pdf"');
+    header('Content-Disposition: inline; filename="'
+        .($printForSigning?'Template_No_2_Print_For_Signing_FP'.$id.'.pdf':'Template_No_2_FP'.$id.'.pdf').'"');
     echo $raw; exit;
 }
 function fpoms_payment_notice_queue_view(array $red): void
@@ -315,7 +384,7 @@ function fpoms_payment_notice_queue_view(array $red): void
         $preview=$signed
             ? url('payment_notice_pdf',['id'=>$id])
             : url('payment_notice_pdf',['id'=>$id]+($canEsign?['signed_preview'=>1]:[]));
-        $draft=url('payment_notice_pdf',['id'=>$id]);
+        $draft=url('payment_notice_pdf',['id'=>$id,'print_for_signing'=>1]);
         $modalId='paymentNoticeConfirm'.$id;
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '.e((string)$row['project_title']).'</strong>'
             .'<div class="small text-secondary">'.e((string)$row['applicant_name']).' · Revision '.(int)$row['revision'].'</div>'
