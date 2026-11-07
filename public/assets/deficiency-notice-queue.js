@@ -26,4 +26,15 @@
   });
   frame.addEventListener('load',()=>loading.classList.add('is-hidden'));
   modal.addEventListener('hidden.bs.modal',reset);
+
+  const signedId=new URLSearchParams(location.search).get('preview_signed');
+  if(signedId&&/^\d+$/.test(signedId)&&window.bootstrap?.Modal){
+    const trigger=document.querySelector(`[data-notice-preview-app="${signedId}"]`);
+    if(trigger){
+      window.bootstrap.Modal.getOrCreateInstance(modal).show(trigger);
+      const cleanUrl=new URL(location.href);
+      cleanUrl.searchParams.delete('preview_signed');
+      history.replaceState(history.state,'',cleanUrl.href);
+    }
+  }
 })();

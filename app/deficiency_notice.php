@@ -423,7 +423,7 @@ function fpoms_notice_regenerate_draft(array $staff,int $applicationId): array
     }
 }
 
-function fpoms_notice_red_approve(array $red,int $applicationId): array
+function fpoms_notice_red_approve(array $red,int $applicationId,bool $signOnly=false): array
 {
     if (($red['status']??'')!=='active' || !has_role($red,'red')) {
         return ['Only an active RED account may approve this notice.'];
@@ -448,6 +448,10 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
         return ['Original LPDD-FUS reviewer is no longer authorized. Reassign/re-evaluate first.'];
     }
     $signed=(string)$notice['status']==='signed';
+    if ($signOnly && $signed) return ['This notice is already signed. Preview it before finalizing.'];
+    if (!$signOnly && !$signed) {
+        return ['Approve the e-signature first, then review the signed PDF before finalizing.'];
+    }
     if (!$signed) {
         $config=fpoms_notice_config();
         if (empty($config['signature_path']) || empty($config['signature_sha256'])) {
@@ -494,6 +498,7 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
                     'revision'=>(int)$app['revision'],'artifact_id'=>$artifactId
                 ]);
             $pdo->commit();
+            if ($signOnly) return [];
         } catch (Throwable $e) {
             if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
             if (isset($absolute) && is_file($absolute)) @unlink($absolute);
@@ -502,8 +507,7 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
         }
     }
 
-    // Existing return path records the decision, releases the artifact, and emails applicant.
-    // A signed notice can be retried if the legacy downstream save/email failed.
+    // Finalization releases only the already reviewed signed artifact.
     $payload['_red_finalize']='1';
     return step4_decide($originalReviewer,$applicationId,$payload,$red);
 }
@@ -1046,6 +1050,7 @@ function fpoms_notice_queue_view(array $red): void
             .'<div class="d-flex flex-wrap gap-2 mt-2">'
             .'<a class="btn btn-outline-primary btn-sm" href="'.e($preview).'" '
             .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+            .($approved?'data-notice-preview-app="'.$id.'" ':'')
             .'data-notice-preview-url="'.e($preview).'" '
             .'data-notice-preview-title="'.e('FP #'.$id.' · '.$previewLabel).'">'
             .'<i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>'
@@ -1064,33 +1069,36 @@ function fpoms_notice_queue_view(array $red): void
                     .csrf_field()
                     .'<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" '
                     .'data-bs-target="#finalizeNoticeModal'.$id.'">'
-                    .($approved?'Finalize and Return':'Approve E-Sign and Return')
+                    .($approved?'Finalize and Return':'Approve E-Sign')
                     .'</button>'
                 : '')
             .($approved || $canEsign ? '<div class="modal fade" id="finalizeNoticeModal'.$id.'" tabindex="-1" '
             .'aria-labelledby="finalizeNoticeLabel'.$id.'" aria-hidden="true">'
             .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
             .'<div class="modal-header"><h5 class="modal-title" id="finalizeNoticeLabel'.$id.'">'
-            .($approved?'Confirm Finalize and Return':'Confirm RED Approval and Return')
+            .($approved?'Confirm Finalize and Return':'Confirm RED E-Signature')
             .'</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
             .'<div class="modal-body"><p>FP #'.$id.' &mdash; '.e((string)$row['project_title']).'</p>'
             .($approved
                 ? '<p>The existing RED-approved PDF will be released to the applicant. '
                   .'The application will be marked Returned for Compliance. The existing signature is not applied again.</p>'
-                : '<p>By confirming, RED approves the displayed e-signed notice. '
-                  .'The system will then return the application for documentary compliance.</p>')
-            .'<p class="small text-secondary">After a successful database return, the applicant will receive '
-            .'an in-system notice and an email attempt with the official PDF. A failed email can be retried separately.</p>'
+                : '<p>By confirming, RED signs and saves this notice. The signed PDF will open '
+                  .'immediately for your review before final release.</p>')
+            .($approved
+                ? '<p class="small text-secondary">After a successful database return, the applicant will receive '
+                    .'an in-system notice and an email attempt with the official PDF. A failed email can be retried separately.</p>'
+                : '<p class="small text-secondary">The applicant will not receive the PDF until you select Finalize and Return.</p>')
             .'<label class="d-flex align-items-start gap-2"><input type="checkbox" class="form-check-input mt-1" '
             .'name="confirmation" value="1" required>'
             .'<span>'.($approved
                 ? 'I have reviewed the signed PDF and confirm final release and return to the applicant.'
-                : 'I reviewed the preview with my RED e-signature and approve its release.')
+                : 'I approve applying my RED e-signature and will inspect the saved PDF before release.')
             .'</span></label></div>'
+            .'<input type="hidden" name="action" value="'.($approved?'finalize':'sign').'">'
             .'<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" '
             .'data-bs-dismiss="modal">Cancel</button>'
             .'<button type="submit" class="btn btn-success">'
-            .($approved?'Finalize and Return':'Approve E-Sign and Return')
+            .($approved?'Finalize and Return':'Approve E-Sign')
             .'</button></div></div></div></div></form>' : '')
             .'</div>'
             .(!$approved

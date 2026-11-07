@@ -16,6 +16,7 @@ function notice_modal_source(string $relative): string
 $controller=notice_modal_source('app/deficiency_notice.php');
 $application=notice_modal_source('app/permit_step2_views.php');
 $views=notice_modal_source('app/views.php');
+$routes=notice_modal_source('public/index.php');
 $script=notice_modal_source('public/assets/deficiency-notice-queue.js');
 $style=notice_modal_source('public/assets/deficiency-notice-queue.css');
 
@@ -36,12 +37,18 @@ notice_modal_assert(str_contains($controller,"header('X-Frame-Options: SAMEORIGI
     && str_contains($controller,"frame-ancestors 'self'"),
     'embedded draft PDF remains restricted to the same origin');
 notice_modal_assert(str_contains($views,'assets/deficiency-notice-queue.css?v=1')
-    && str_contains($views,'assets/deficiency-notice-queue.js?v=1'),
+    && str_contains($views,'assets/deficiency-notice-queue.js?v=2'),
     'queue modal assets load only when the modal is present');
 notice_modal_assert(str_contains($script,"show.bs.modal")
     && str_contains($script,'url.origin!==location.origin')
     && str_contains($script,"hidden.bs.modal"),
     'modal validates preview URLs and releases the iframe after closing');
+notice_modal_assert(str_contains($controller,'if ($signOnly) return [];')
+    && str_contains($controller,'data-notice-preview-app=')
+    && str_contains($controller,'name="action" value="')
+    && str_contains($routes,"'preview_signed'=>(int)\$id")
+    && str_contains($script,'Modal.getOrCreateInstance(modal).show(trigger)'),
+    'e-sign saves the PDF and automatically opens the saved artifact before final release');
 notice_modal_assert(str_contains($style,'max-width:1500px')
     && str_contains($style,'height:94vh')
     && substr_count($style,'{')===substr_count($style,'}'),

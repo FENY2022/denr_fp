@@ -804,9 +804,16 @@ try {
             $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
                 ['options'=>['min_range'=>1]]);
             if (!$id) show_error('Invalid notice reference.',400);
-            $errors=fpoms_notice_red_approve($red,(int)$id);
+            $approvalAction=(string)($_POST['action']??'');
+            if (!in_array($approvalAction,['sign','finalize'],true)) {
+                show_error('Select a valid RED notice action.',400);
+            }
+            $errors=fpoms_notice_red_approve($red,(int)$id,$approvalAction==='sign');
             if ($errors) {
                 flash('error',implode(' ',array_map('strval',$errors)));
+            } elseif ($approvalAction==='sign') {
+                flash('success','RED e-signature saved. Review the signed PDF, then Finalize and Return.');
+                go('deficiency_notice_queue',['preview_signed'=>(int)$id]);
             } else {
                 $notice=fpoms_notice_record((int)$id,
                     (int)(step2_application((int)$id)['revision']??0));
@@ -833,7 +840,10 @@ try {
             if (!$id) show_error('Invalid notice reference.',400);
             $errors=fpoms_notice_red_upload_signed($red,(int)$id,$_FILES['signed_pdf']??[]);
             if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
-            else flash('success','Signed PDF uploaded. Preview the signed file, then Finalize and Return.');
+            else {
+                flash('success','Signed PDF uploaded. Review the signed file, then Finalize and Return.');
+                go('deficiency_notice_queue',['preview_signed'=>(int)$id]);
+            }
             go('deficiency_notice_queue');
             break;
         case 'deficiency_notice_retry_email':
