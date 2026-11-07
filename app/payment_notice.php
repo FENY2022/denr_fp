@@ -294,36 +294,92 @@ function fpoms_payment_notice_send_pdf(array $viewer,int $id): never
 function fpoms_payment_notice_queue_view(array $red): void
 {
     if (!fpoms_payment_notice_schema_ready()) {
-        render_page('RED Payment Notice Approvals','<div class="alert alert-warning">Apply database migration 036 first.</div>'); return;
+        render_page('RED Payment Notice Approvals',
+            '<div class="alert alert-warning">Template No. 2 storage could not initialize. Check database CREATE TABLE permission.</div>');
+        return;
     }
     $rows=query_all("SELECT n.*,a.project_title,c.name AS applicant_name FROM fpoms_payment_notices n
         JOIN permit_step2_applications a ON a.id=n.application_id AND a.revision=n.revision
         JOIN user_client c ON c.id=a.client_id
         WHERE n.status IN ('pending_red','signed') ORDER BY n.created_at ASC LIMIT 100");
-    $config=fpoms_notice_config(); $canEsign=!empty($config['signature_path'])&&!empty($config['signature_sha256']);
+    $config=fpoms_notice_config();
+    $canEsign=!empty($config['signature_path'])&&!empty($config['signature_sha256']);
     $html='<div class="panel"><h2 class="h5">RED – Template No. 2 Payment Notice Approvals</h2>'
-        .'<p class="text-secondary">Review the Complete Documents / Advise to Pay letter, apply the RED electronic signature or upload a physically signed PDF, then review and Finalize & Send.</p>';
+        .'<p class="text-secondary">Review the Complete Documents / Advise to Pay letter, apply the RED electronic signature '
+        .'or upload a physically signed PDF, review the saved signed PDF, then Finalize &amp; Send to the applicant.</p>';
     if (!$rows) $html.='<div class="alert alert-success">No Template No. 2 notices awaiting RED action.</div>';
+
     foreach($rows as $row) {
-        $id=(int)$row['application_id']; $signed=(string)$row['status']==='signed';
-        $preview=$signed ? url('payment_notice_pdf',['id'=>$id]) : url('payment_notice_pdf',['id'=>$id]+($canEsign?['signed_preview'=>1]:[]));
+        $id=(int)$row['application_id'];
+        $signed=(string)$row['status']==='signed';
+        $preview=$signed
+            ? url('payment_notice_pdf',['id'=>$id])
+            : url('payment_notice_pdf',['id'=>$id]+($canEsign?['signed_preview'=>1]:[]));
         $draft=url('payment_notice_pdf',['id'=>$id]);
+        $modalId='paymentNoticeConfirm'.$id;
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '.e((string)$row['project_title']).'</strong>'
             .'<div class="small text-secondary">'.e((string)$row['applicant_name']).' · Revision '.(int)$row['revision'].'</div>'
-            .'<div class="d-flex flex-wrap gap-2 mt-2"><a class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener" href="'.e($preview).'">'
-            .'<i class="bi bi-file-earmark-pdf me-1"></i>'.($signed?'View Signed PDF':($canEsign?'Preview with RED e-Signature':'Preview Unsigned Draft')).'</a>'
-            .(!$signed?'<a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" href="'.e($draft).'"><i class="bi bi-printer me-1"></i>Open / Print Draft for Signing</a>':'')
-            .(($signed||$canEsign)?'<form method="post" action="'.e(url('payment_notice_approve',['id'=>$id])).'">'.csrf_field()
-                .'<input type="hidden" name="confirmation" value="1"><input type="hidden" name="action" value="'.($signed?'finalize':'sign').'">'
-                .'<button class="btn btn-success btn-sm" type="submit">'.($signed?'Finalize & Send':'Approve E-Sign').'</button></form>':'')
-            .'</div>'
-            .(!$signed?'<form class="mt-3 border-top pt-3" method="post" enctype="multipart/form-data" action="'.e(url('payment_notice_upload_signed',['id'=>$id])).'">'
-                .csrf_field().'<label class="form-label fw-semibold">Upload physically signed PDF</label>'
-                .'<input class="form-control form-control-sm mb-2" type="file" name="signed_pdf" accept=".pdf,application/pdf" required>'
-                .'<label class="small d-flex gap-2"><input type="checkbox" class="form-check-input" name="confirmation" value="1" required>'
-                .'<span>I confirm this is the RED-signed Template No. 2 for FP #'.$id.'.</span></label>'
-                .'<button class="btn btn-outline-success btn-sm mt-2" type="submit"><i class="bi bi-upload me-1"></i>Upload Signed PDF</button></form>':'')
+            .($signed
+                ? '<p class="small text-warning mb-0 mt-1">RED-signed Template No. 2 saved. Final release/email is still pending.</p>'
+                : '<p class="small text-secondary mb-0 mt-1">Unsigned draft. Applicant payment notice/email is withheld until RED finalization.</p>')
+            .'<div class="d-flex flex-wrap gap-2 mt-2">'
+            .'<a class="btn btn-outline-primary btn-sm" href="'.e($preview).'" '
+            .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+            .'data-notice-preview-url="'.e($preview).'" '
+            .'data-notice-preview-title="'.e('FP #'.$id.' · '.($signed?'RED-Signed Template No. 2':'Template No. 2 RED Preview')).'">'
+            .'<i class="bi bi-file-earmark-pdf me-1"></i>'
+            .($signed?'View Signed PDF':($canEsign?'Preview with RED e-Signature':'Preview Unsigned Draft')).'</a>'
+            .(!$signed
+                ? '<a class="btn btn-outline-secondary btn-sm" href="'.e($draft).'" target="_blank" rel="noopener">'
+                    .'<i class="bi bi-printer me-1"></i>Open / Print Draft for Signing</a>'
+                : '')
+            .(($signed||$canEsign)
+                ? '<button class="btn btn-success btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#'.$modalId.'">'
+                    .($signed?'Finalize & Send':'Approve E-Sign').'</button>'
+                : '')
             .'</div>';
+
+        if ($signed||$canEsign) {
+            $html.='<div class="modal fade" id="'.$modalId.'" tabindex="-1" aria-hidden="true">'
+                .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+                .'<div class="modal-header"><h5 class="modal-title">'
+                .($signed?'Confirm Finalize & Send':'Confirm RED E-Signature').'</h5>'
+                .'<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+                .'<div class="modal-body"><p><strong>FP #'.$id.'</strong> – '.e((string)$row['project_title']).'</p>'
+                .($signed
+                    ? '<p>The existing RED-signed Template No. 2 will be officially released. The applicant will receive an in-system notice and an email attempt with the signed PDF attached.</p>'
+                    : '<p>RED will apply the configured electronic signature to Template No. 2. The signed PDF must still be reviewed before Finalize &amp; Send.</p>')
+                .'<form id="paymentNoticeAction'.$id.'" method="post" action="'.e(url('payment_notice_approve',['id'=>$id])).'">'
+                .csrf_field()
+                .'<input type="hidden" name="confirmation" value="1">'
+                .'<input type="hidden" name="action" value="'.($signed?'finalize':'sign').'">'
+                .'<label class="d-flex gap-2 align-items-start"><input type="checkbox" class="form-check-input mt-1" required>'
+                .'<span>'.($signed
+                    ? 'I have reviewed the RED-signed Template No. 2 and confirm release to the applicant.'
+                    : 'I approve applying the RED electronic signature and will review the signed PDF before release.')
+                .'</span></label></form></div>'
+                .'<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+                .'<button type="submit" form="paymentNoticeAction'.$id.'" class="btn btn-success">'
+                .($signed?'Finalize & Send':'Approve E-Sign').'</button></div>'
+                .'</div></div></div>';
+        }
+
+        if (!$signed) {
+            $html.='<form class="mt-3 border-top pt-3" method="post" enctype="multipart/form-data" '
+                .'action="'.e(url('payment_notice_upload_signed',['id'=>$id])).'">'
+                .csrf_field()
+                .'<label class="form-label fw-semibold" for="paymentNoticeSigned'.$id.'">Upload physically signed PDF</label>'
+                .'<input class="form-control form-control-sm mb-2" type="file" id="paymentNoticeSigned'.$id.'" '
+                .'name="signed_pdf" accept=".pdf,application/pdf" required>'
+                .'<label class="small d-flex gap-2 align-items-start">'
+                .'<input type="checkbox" class="form-check-input mt-0" name="confirmation" value="1" required>'
+                .'<span>I confirm this is the RED-signed Template No. 2 for FP #'.$id.'. I will review it before final release.</span></label>'
+                .'<button class="btn btn-outline-success btn-sm mt-2" type="submit">'
+                .'<i class="bi bi-upload me-1"></i>Upload Signed PDF</button>'
+                .'<p class="small text-secondary mb-0 mt-2">PDF only, up to 10 MB. Upload saves the signed document; it does not email the applicant until Finalize &amp; Send.</p>'
+                .'</form>';
+        }
+        $html.='</div>';
     }
-    render_page('RED Payment Notice Approvals',$html.'</div>');
+    render_page('RED Payment Notice Approvals',$html.'</div>'.fpoms_notice_pdf_preview_modal_html());
 }
