@@ -351,6 +351,9 @@ function fpoms_complete_notice_finalize(array $red,int $applicationId): array
     if (!$notice || (string)$notice['status']!=='signed' || (int)$notice['artifact_id']<1) {
         return ['A RED-signed Template No. 2 PDF must be reviewed before final release.'];
     }
+    if (!fpoms_complete_notice_attachment($notice)) {
+        return ['The RED-signed Template No. 2 PDF is missing or failed integrity verification. Final release was blocked.'];
+    }
     $pdo=db();
     try {
         $pdo->beginTransaction();
