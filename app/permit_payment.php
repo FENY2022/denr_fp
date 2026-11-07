@@ -111,7 +111,7 @@ function permit_payment_verify(array $lpddFus,int $applicationId,array $input,ar
     try {
         $pdo->beginTransaction();
         $app=query_one(
-            'SELECT a.id,a.status,a.revision,a.client_id,c.email AS applicant_email,
+            'SELECT a.id,a.status,a.revision,a.flow_version,a.client_id,c.email AS applicant_email,
                     c.name AS applicant_name
              FROM permit_step2_applications a
              JOIN user_client c ON c.id=a.client_id
