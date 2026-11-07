@@ -254,7 +254,12 @@ function fpoms_payment_notice_released_artifact_ids(int $id): array
 function fpoms_payment_notice_artifact(array $notice): ?array
 {
     $artifactId=(int)($notice['artifact_id']??0);
-    return $artifactId>0 ? query_one("SELECT * FROM permit_flow_artifacts WHERE id=? AND category='red_signed_payment_notice'",[$artifactId]) : null;
+    $applicationId=(int)($notice['application_id']??0);
+    return $artifactId>0 && $applicationId>0
+        ? query_one("SELECT * FROM permit_flow_artifacts
+            WHERE id=? AND application_id=? AND category='red_signed_payment_notice'",
+            [$artifactId,$applicationId])
+        : null;
 }
 function fpoms_payment_notice_attachment(array $notice): array
 {
@@ -283,8 +288,13 @@ function fpoms_payment_notice_finalize(array $red,int $id): array
     if (!$attachments) return ['Signed Template No. 2 is unavailable or failed integrity verification.'];
     try {
         $pdo=db(); $pdo->beginTransaction();
+        $lockedApp=query_one('SELECT status,revision FROM permit_step2_applications WHERE id=? FOR UPDATE',[$id]);
         $locked=query_one('SELECT * FROM fpoms_payment_notices WHERE id=? FOR UPDATE',[(int)$notice['id']]);
-        if (!$locked || (string)$locked['status']!=='signed') throw new RuntimeException('Notice changed; reload.');
+        if (!$lockedApp || (int)$lockedApp['revision']!==(int)$app['revision']
+            || !in_array((string)$lockedApp['status'],['ro_received','forwarded_to_lpdd','step4_complete'],true)
+            || !$locked || (string)$locked['status']!=='signed') {
+            throw new RuntimeException('Application or notice changed; reload.');
+        }
         $pdo->prepare("INSERT INTO permit_payment_verifications
             (application_id,status,notified_at) VALUES (?,'awaiting_payment',NOW())
             ON DUPLICATE KEY UPDATE notified_at=COALESCE(notified_at,VALUES(notified_at))")
@@ -340,7 +350,8 @@ function fpoms_payment_notice_send_pdf(array $viewer,int $id): never
 {
     $app=fpoms_payment_notice_app($id); if (!$app) show_error('Notice not found.',404);
     $notice=fpoms_payment_notice_record($id,(int)$app['revision']); if (!$notice) show_error('Notice not found.',404);
-    $isRed=($viewer['user_kind']??'')==='internal' && has_role($viewer,'red');
+    $isRed=($viewer['user_kind']??'')==='internal'
+        && ($viewer['status']??'')==='active' && has_role($viewer,'red');
     $mine=($viewer['user_kind']??'')==='applicant' && (int)$viewer['id']===(int)$app['client_id'];
     $signed=(string)$notice['status']!=='pending_red';
     $printForSigning=(string)($_GET['print_for_signing']??'')==='1';
