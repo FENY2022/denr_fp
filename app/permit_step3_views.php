@@ -22,6 +22,27 @@ function step3_action_panel_html(array $app): string
                 .'<br><strong>Forwarded by:</strong> '.e((string)($movement['forwarder_name'] ?? 'DENR Personnel'))
                 : '').'</p>';
     }
+    if (permit_flow_is_new($app) && $movement) {
+        $completeNotice=fpoms_complete_notice_record($id,(int)$app['revision']);
+        if ($completeNotice) {
+            $noticeStatus=(string)$completeNotice['status'];
+            $html.='<div class="alert '.($noticeStatus==='released'?'alert-success':'alert-info').' small">'
+                .'<strong>Template No. 2:</strong> '
+                .($noticeStatus==='pending_red'
+                    ? 'Generated and awaiting RED signature. The applicant has not received a payment email yet.'
+                    :($noticeStatus==='signed'
+                        ? 'RED-signed PDF saved; awaiting RED Finalize & Send.'
+                        : 'Official RED-signed advice-to-pay notice released to the applicant.'))
+                .($noticeStatus==='pending_red'
+                    ? ' <a href="'.e(url('complete_notice_pdf',['id'=>$id])).'" target="_blank" rel="noopener">Preview Draft</a>'
+                    : '')
+                .((string)($completeNotice['email_status']??'')==='failed'
+                    ? ' <form class="d-inline" method="post" action="'.e(url('complete_notice_retry_email',['id'=>$id])).'">'
+                        .csrf_field().'<button class="btn btn-link btn-sm p-0 ms-1" type="submit">Retry Applicant Email</button></form>'
+                    : '')
+                .'</div>';
+        }
+    }
     if ($status==='forwarded_to_ro' || $status==='ro_received') {
         $receive=$status==='forwarded_to_ro';
         $name=$receive ? 'Receive Documents':'Forward to LPDD-FUS';
@@ -44,7 +65,9 @@ function step3_action_panel_html(array $app): string
             .'data-bs-dismiss="modal" aria-label="Close"></button></div>'
             .'<div class="modal-body"><p><strong>FP Application #'.$id.'</strong> – '
             .e((string)$app['applicant_name']).'</p><p class="mb-0">'
-            .($receive ? 'Confirm actual RO receipt of electronic documents.'
+            .($receive ? (permit_flow_is_new($app)
+                    ? 'Confirm actual RO receipt of electronic documents. FP-OMS will generate Template No. 2 and send it to the RED approval queue. The applicant payment email is withheld until RED signs and finalizes the official PDF.'
+                    : 'Confirm actual RO receipt of electronic documents.')
                 : (permit_flow_is_new($app)
                     ? 'Confirm forwarding complete documents to LPDD-FUS for Step 4 payment notice and CENRO instructions.'
                     : 'Confirm forwarding to LPDD-FUS for legacy Step 4 evaluation.'))
