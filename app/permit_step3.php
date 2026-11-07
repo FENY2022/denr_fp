@@ -48,9 +48,16 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
         || !has_role($staff,'ro_receiving')) return ['Only authorized RO Receiving personnel may process this application.'];
     if (!step2_schema_ready() || !step3_schema_ready()) return ['Migration 022 is required.'];
     if ($applicationId<1 || !in_array($action,['receive','forward'],true)) return ['Invalid action.'];
+    if ($action==='receive') {
+        $preflight=step2_application($applicationId);
+        if ($preflight && permit_flow_is_new($preflight) && !fpoms_complete_notice_schema_ready()) {
+            return ['Template No. 2 notice storage could not initialize. Confirm migration 036 / CREATE TABLE permission.'];
+        }
+    }
     $remarks=trim($remarks);
     if (strlen($remarks)>2000) return ['Remarks must not exceed 2,000 bytes.'];
     $pdo=db();
+    $completeNoticeDraftPath=null;
     try {
         $pdo->beginTransaction();
         $app=query_one('SELECT a.*,c.name AS applicant_name,c.email AS applicant_email
@@ -84,14 +91,9 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
                     $applicationId,(int)$app['revision'],(int)$staff['id'],$remarks !== '' ? $remarks : null
                 ]);
             if (permit_flow_is_new($app)) {
-                // Create the payment-tracking record as part of the same RO
-                // receipt transaction; receipt never implies payment verified.
-                $pdo->prepare("INSERT INTO permit_payment_verifications
-                    (application_id,status,notified_at)
-                    VALUES (?,'awaiting_payment',NOW())
-                    ON DUPLICATE KEY UPDATE
-                      notified_at=COALESCE(notified_at,VALUES(notified_at))")
-                    ->execute([$applicationId]);
+                $completeNoticeDraftPath=fpoms_complete_notice_prepare_in_transaction(
+                    $pdo,$staff,$app
+                );
             }
             $next='ro_received';
             $event='ro_documents_received';
@@ -131,20 +133,22 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
             $applicationId,['revision'=>(int)$app['revision'],'remarks'=>$remarks]);
         $pdo->commit();
 
-        // Delivery failures never roll back a recorded action.
+        // Updated Annex A receipt creates the official Template No. 2 draft.
+        // No generic payment email is sent before RED signs and finalizes it.
         $newFlowReceipt=$action==='receive' && permit_flow_is_new($app);
         try {
-            create_client_notification((int)$app['client_id'],
-                $newFlowReceipt ? 'Notice to Pay Application Fee'
-                    : ($action==='receive' ? 'FP Application Received by RO' : 'FP Application Forwarded to LPDD-FUS'),
-                $newFlowReceipt ? permit_payment_instructions($applicationId)
-                    : ($action==='receive' ? 'RO Receiving received FP application #'.$applicationId.'.'
-                        : 'RO Receiving forwarded FP application #'.$applicationId.' to LPDD-FUS for Step 4 field validation schedule and CENRO instruction.'),
-                $newFlowReceipt ? 'receipt' : ($action==='receive' ? 'inbox':'send'),
-                'info','permit_application',['id'=>$applicationId]);
+            if ($newFlowReceipt) {
+                fpoms_complete_notice_after_receipt($app,$applicationId);
+            } else {
+                create_client_notification((int)$app['client_id'],
+                    $action==='receive' ? 'FP Application Received by RO' : 'FP Application Forwarded to LPDD-FUS',
+                    $action==='receive' ? 'RO Receiving received FP application #'.$applicationId.'.'
+                        : 'RO Receiving forwarded FP application #'.$applicationId.' to LPDD-FUS for Step 4 field validation schedule and CENRO instruction.',
+                    $action==='receive' ? 'inbox':'send','info','permit_application',['id'=>$applicationId]);
+            }
             if ($action==='forward') notify_role('lpdd_fus',
                 permit_flow_is_new($app)
-                    ? 'FP Application – Step 4 Notice & CENRO Instructions'
+                    ? 'FP Application – Step 4 Schedule & CENRO Instructions'
                     : 'FP Application for Documentary Evaluation',
                 'FP application #'.$applicationId.' forwarded by RO Receiving; open the appropriate Step 4 queue.',
                 'file-earmark-check','info',
@@ -152,19 +156,11 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
         } catch (Throwable $e) {
             error_log('FP-OMS Step 3 notification failed: '.$e->getMessage());
         }
-        if ($newFlowReceipt) {
-            // Only the successful RO receipt triggers the Cashier email.
-            // Repeated receive actions are rejected by the status transition.
-            if (!permit_flow_email($app,'Notice to Pay – FP Application #'.$applicationId,
-                permit_payment_instructions($applicationId))) {
-                error_log('FP-OMS Step 3 Cashier notice email failed for FP #'.$applicationId);
-            }
-        } else {
-            step3_send_email_alerts($app,$applicationId,$action);
-        }
+        if (!$newFlowReceipt) step3_send_email_alerts($app,$applicationId,$action);
         return [];
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($completeNoticeDraftPath && is_file($completeNoticeDraftPath)) @unlink($completeNoticeDraftPath);
         error_log('FP-OMS Step 3 action failed: '.$e->getMessage());
         return ['RO Step 3 action could not be saved. Verify migration 022 and try again.'];
     }
