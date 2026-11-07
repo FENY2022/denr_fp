@@ -636,6 +636,13 @@ function fpoms_notice_send_pdf(array $viewer,int $applicationId): never
                 (string)$notice['draft_sha256']);
         }
     } catch (Throwable $e) { show_error('Protected notice unavailable.',404); }
+    $embedded=(string)($_GET['embed']??'')==='1';
+    if ($embedded) {
+        header_remove('X-Frame-Options');
+        header_remove('Content-Security-Policy');
+        header('X-Frame-Options: SAMEORIGIN');
+        header("Content-Security-Policy: default-src 'none'; frame-ancestors 'self'");
+    }
     header('Content-Type: application/pdf');
     header('Cache-Control: private,no-store');
     header('X-Content-Type-Options: nosniff');
@@ -861,6 +868,31 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
     render_page('Deficiency Notice Configuration',$html);
 }
 
+function fpoms_notice_pdf_preview_modal_html(): string
+{
+    return '<div class="modal fade notice-pdf-preview-modal" id="notice-pdf-preview-modal" '
+        .'tabindex="-1" aria-labelledby="notice-pdf-preview-title" aria-hidden="true">'
+        .'<div class="modal-dialog modal-xl modal-dialog-centered">'
+        .'<div class="modal-content">'
+        .'<div class="modal-header"><div>'
+        .'<h2 class="modal-title h5 mb-1" id="notice-pdf-preview-title">Generated PDF Preview</h2>'
+        .'<p class="small text-secondary mb-0">Review the complete notice before approval and return.</p>'
+        .'</div><button type="button" class="btn-close" data-bs-dismiss="modal" '
+        .'aria-label="Close PDF preview"></button></div>'
+        .'<div class="modal-body">'
+        .'<div class="notice-pdf-preview-loading" data-notice-preview-loading>'
+        .'<div class="spinner-border text-success" role="status"><span class="visually-hidden">Loading PDF</span></div>'
+        .'<span>Loading generated PDF…</span></div>'
+        .'<iframe class="notice-pdf-preview-frame" data-notice-preview-frame '
+        .'title="Generated deficiency notice PDF"></iframe></div>'
+        .'<div class="modal-footer">'
+        .'<a class="btn btn-outline-primary" href="#" target="_blank" rel="noopener" '
+        .'data-notice-preview-open><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>'
+        .'Open in New Tab</a>'
+        .'<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
+        .'</div></div></div></div>';
+}
+
 function fpoms_notice_queue_view(array $red): void
 {
     if (!has_role($red,'red') || ($red['status']??'')!=='active') show_error('RED approval role required.',403);
@@ -885,8 +917,11 @@ function fpoms_notice_queue_view(array $red): void
         $id=(int)$row['application_id'];
         $approved=(string)$row['status']==='signed' && (int)$row['artifact_id']>0;
         $preview=$approved
-            ? url('permit_flow_file',['id'=>$id,'file'=>(int)$row['artifact_id'],'preview'=>1])
-            : url('deficiency_notice_pdf',['id'=>$id]);
+            ? url('permit_flow_file',[
+                'id'=>$id,'file'=>(int)$row['artifact_id'],'preview'=>1,'raw'=>1
+            ])
+            : url('deficiency_notice_pdf',['id'=>$id,'embed'=>1]);
+        $previewLabel=$approved?'View RED-Approved PDF':'Preview Generated PDF';
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '
             .e((string)$row['project_title']).'</strong><div class="small text-secondary">'
             .e((string)$row['applicant_name']).' · Revision '.(int)$row['revision'].'</div>'
@@ -894,8 +929,12 @@ function fpoms_notice_queue_view(array $red): void
                 ? '<p class="small text-warning mb-0 mt-1">RED has signed this notice but Return finalization is pending. Recheck and finalize.</p>'
                 : '<p class="small text-secondary mb-0 mt-1">Unsigned draft – applicant notification is withheld until RED approval.</p>')
             .'<div class="d-flex flex-wrap gap-2 mt-2">'
-            .'<a target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" href="'
-            .e($preview).'">'.($approved?'View RED-Approved PDF':'Preview Generated PDF').'</a>'
+            .'<a class="btn btn-outline-primary btn-sm" href="'.e($preview).'" '
+            .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+            .'data-notice-preview-url="'.e($preview).'" '
+            .'data-notice-preview-title="'.e('FP #'.$id.' · '.$previewLabel).'">'
+            .'<i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>'
+            .e($previewLabel).'</a>'
             .'<form method="post" action="'.e(url('deficiency_notice_approve',['id'=>$id])).'">'
             .csrf_field()
             .'<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" '
@@ -929,5 +968,6 @@ function fpoms_notice_queue_view(array $red): void
             .'</button></div></div></div></div>'
             .'</form></div></div>';
     }
-    render_page('RED Deficiency Approvals',$html.'</div>');
+    $html.='</div>'.fpoms_notice_pdf_preview_modal_html();
+    render_page('RED Deficiency Approvals',$html);
 }

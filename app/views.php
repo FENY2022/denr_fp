@@ -117,6 +117,8 @@ function render_page(string $title, string $content): void
             ? '<link href="assets/registration-document-preview.css?v=2" rel="stylesheet">' : '')
         . (str_contains($content, 'id="step4-evaluation-modal"')
             ? '<link href="assets/permit-step4-modal.css?v=5" rel="stylesheet">' : '')
+        . (str_contains($content, 'id="notice-pdf-preview-modal"')
+            ? '<link href="assets/deficiency-notice-queue.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'data-fp-location-map=')
             ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
                 . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
@@ -194,6 +196,8 @@ function render_page(string $title, string $content): void
             ? '<script src="assets/recovery-otp-input.js?v=1" defer></script>' : '')
         . (str_contains($content, 'data-payment-amount')
             ? '<script src="assets/payment-amount.js?v=1" defer></script>' : '')
+        . (str_contains($content, 'id="notice-pdf-preview-modal"')
+            ? '<script src="assets/deficiency-notice-queue.js?v=1" defer></script>' : '')
         . '</body></html>';
 }
 

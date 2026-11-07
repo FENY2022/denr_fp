@@ -46,7 +46,7 @@ $checks=[
     'Exactly one A4 page'=>str_contains($draft,'/Type /Pages /Count 1'),
     'A4 page object'=>preg_match('/\\/Type \\/Page\\b/',$draft)===1,
     'RED queue previews generated PDF'=>str_contains($noticeController,
-        ": url('deficiency_notice_pdf',['id'=>\$id])")
+        ": url('deficiency_notice_pdf',['id'=>\$id,'embed'=>1])")
         && str_contains($noticeController,'Preview Generated PDF'),
 ];
 foreach ($checks as $label=>$passed) {

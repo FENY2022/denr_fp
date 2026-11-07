@@ -677,6 +677,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
     $mine = $viewer['user_kind'] === 'applicant';
     $reviewer = !$mine && has_role($viewer,'lpdd_fus');
     $modern=permit_flow_is_new($app);
+    $noticePdfPreviewModal=false;
     $step4Statuses=[
         'forwarded_to_lpdd','step4_under_evaluation','step4_corrections_required',
         'step4_resubmitted','step4_complete'
@@ -793,14 +794,27 @@ function view_step2_application(int $applicationId, array $errors = []): void
         && ($redNotice=fpoms_notice_record($applicationId,(int)$app['revision']))
         && in_array((string)$redNotice['status'],['pending_red','signed'],true)) {
         $signed=(string)$redNotice['status']==='signed';
+        $approved=$signed && (int)$redNotice['artifact_id']>0;
+        $noticePreview=$approved
+            ? url('permit_flow_file',[
+                'id'=>$applicationId,'file'=>(int)$redNotice['artifact_id'],
+                'preview'=>1,'raw'=>1
+            ])
+            : url('deficiency_notice_pdf',['id'=>$applicationId,'embed'=>1]);
+        $noticePreviewLabel=$approved?'View RED-Approved PDF':'Preview Draft PDF';
+        $noticePdfPreviewModal=true;
         $html.='<div class="panel soft"><h3 class="h6">'
             .($signed?'RED Approved – Return Finalization Pending':'Awaiting RED Approval').'</h3>'
             .'<p class="mb-2">'.($signed
                 ? 'RED has approved the official deficiency PDF. Release could not be completed yet; an authorized RED user can retry Finalize Approved Return from the RED queue.'
                 : 'LPDD-FUS submitted the draft deficiency notice for RED review. It is no longer in the LPDD-FUS active queue. The applicant is notified only after RED approval and successful Return finalization.')
             .'</p><div class="d-flex flex-wrap gap-2">'
-            .'<a target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm" href="'
-            .e(url('deficiency_notice_pdf',['id'=>$applicationId])).'">Preview Draft PDF</a>'
+            .'<a class="btn btn-outline-primary btn-sm" href="'.e($noticePreview).'" '
+            .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+            .'data-notice-preview-url="'.e($noticePreview).'" '
+            .'data-notice-preview-title="'.e('FP #'.$applicationId.' · '.$noticePreviewLabel).'">'
+            .'<i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>'
+            .e($noticePreviewLabel).'</a>'
             .(!$signed
                 ? '<form method="post" class="d-inline" action="'
                     .e(url('deficiency_notice_regenerate',['id'=>$applicationId])).'">'
@@ -888,6 +902,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
                 . '<script src="assets/permit-location-map.js?v=1" defer></script>';
         }
     }
+    if ($noticePdfPreviewModal) $html .= fpoms_notice_pdf_preview_modal_html();
     render_page('FP Application', $html);
 }
 
