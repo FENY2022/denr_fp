@@ -35,7 +35,9 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         }
         if (in_array('red', $roles, true)) {
             $html .= shell_nav_item('deficiency_notice_queue',
-                'RED – Deficiency Approvals', 'file-earmark-check', $active);
+                'RED – Deficiency Approvals', 'file-earmark-check', $active)
+                . shell_nav_item('complete_notice_queue',
+                'RED – Template No. 2 Approvals', 'receipt-cutoff', $active);
         }
         if (in_array('ro_receiving', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Records Management</div>'
@@ -60,7 +62,7 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
                 . shell_nav_item('user_management','User Management','people-fill',
                     in_array($active, ['user_management','user_create','user_edit','user_login_logs'], true) ? 'user_management' : $active)
                 . shell_nav_item('realtime_settings','Realtime Notifications','broadcast',$active)
-                . shell_nav_item('deficiency_notice_settings','Deficiency Notice Template','file-earmark-pdf',$active)
+                . shell_nav_item('deficiency_notice_settings','RED Notices / E-Sign','file-earmark-pdf',$active)
                 . shell_nav_item('otp_delivery_diagnostics','OTP Delivery Diagnostics','envelope-exclamation',$active)
                 . '</div></details>';
         }
