@@ -681,7 +681,9 @@ function view_step2_application(int $applicationId, array $errors = []): void
     $clientNoticePreview='';
     $clientReleasedNoticeIds=$mine && $modern
         ? permit_flow_released_notice_artifact_ids($applicationId) : [];
-    if ($clientReleasedNoticeIds) $noticePdfPreviewModal=true;
+    $clientPaymentNoticeReleased=$mine && $modern
+        ? fpoms_payment_notice_is_released($applicationId,(int)$app['revision']) : false;
+    if ($clientReleasedNoticeIds || $clientPaymentNoticeReleased) $noticePdfPreviewModal=true;
     if ($mine && $modern && (string)$app['status']==='step4_corrections_required') {
         $releasedNotice=fpoms_notice_record($applicationId,(int)$app['revision']);
         $releasedArtifact=$releasedNotice
@@ -745,7 +747,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
                 .'<a href="'.e(url('permit_flow',['id'=>$applicationId]))
                 .'" class="alert-link">Open Annex A Workflow / Audit</a></div>'
             : '')
-        . ((string)$app['status']==='step4_complete'
+        . (((string)$app['status']==='step4_complete'
+                || ($modern && fpoms_payment_notice_is_released($applicationId,(int)$app['revision'])))
             ? '<div class="alert alert-info mt-3 mb-3" role="status">'
                 .'<h3 class="h6 mb-2">Next Action – Application Fee</h3>'
                 .'<p class="small mb-2">'.(
@@ -922,7 +925,8 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '. Check the audit trail for completed actions.</p></div>';
     }
     $html .= '</div></div>'
-        . ((string)$app['status']==='step4_complete'
+        . (((string)$app['status']==='step4_complete'
+                || ($modern && fpoms_payment_notice_is_released($applicationId,(int)$app['revision'])))
             ? permit_payment_panel_html($app,$viewer,$errors) : '')
         . step2_files_modal_html($documents)
         . permit_tracking_audit_modal_html($applicationId)
