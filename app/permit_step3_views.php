@@ -24,6 +24,13 @@ function step3_action_panel_html(array $app): string
     }
     if (permit_flow_is_new($app) && $movement) {
         $completeNotice=fpoms_complete_notice_record($id,(int)$app['revision']);
+        if (!$completeNotice && in_array($status,['ro_received','forwarded_to_lpdd','step4_complete'],true)) {
+            $html.='<div class="alert alert-warning small"><strong>Template No. 2:</strong> '
+                .'This application was received before the RED-signed Template No. 2 workflow was enabled. '
+                .'<form class="mt-2" method="post" action="'.e(url('complete_notice_generate',['id'=>$id])).'">'
+                .csrf_field().'<button class="btn btn-sm btn-warning" type="submit">'
+                .'<i class="bi bi-file-earmark-plus me-1"></i>Generate Template No. 2 for RED Review</button></form></div>';
+        }
         if ($completeNotice) {
             $noticeStatus=(string)$completeNotice['status'];
             $html.='<div class="alert '.($noticeStatus==='released'?'alert-success':'alert-info').' small">'
