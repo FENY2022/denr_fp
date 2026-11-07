@@ -14,6 +14,18 @@ function step3_action_panel_html(array $app): string
             ? 'forward complete applications to LPDD-FUS for Step 4 payment notice, field schedule and CENRO instruction. '
             : 'forward them to LPDD-FUS for legacy Step 4 documentary evaluation. ')
         .'Annex A processing time: within 1/2 day.</p>';
+    if (permit_flow_is_new($app) && $status==='ro_received') {
+        $paymentNotice=fpoms_payment_notice_record_for_app($id);
+        if ($paymentNotice) {
+            $noticeStatus=(string)$paymentNotice['status'];
+            $html.='<div class="alert '.($noticeStatus==='released'?'alert-success':'alert-warning').' small">'
+                .'<strong>Template No. 2:</strong> '
+                .($noticeStatus==='pending_red'?'Awaiting RED signature. Applicant payment email is withheld.'
+                    :($noticeStatus==='signed'?'RED-signed PDF saved; awaiting Finalize & Send.'
+                    :'Official RED-signed payment notice released to applicant.'))
+                .'</div>';
+        }
+    }
     if ($movement) {
         $html.='<p class="small"><strong>RO Received:</strong> '.e((string)$movement['received_at'])
             .'<br><strong>Received by:</strong> '.e((string)($movement['receiver_name'] ?? 'DENR Personnel'))

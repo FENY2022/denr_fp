@@ -752,6 +752,66 @@ try {
                 go('permit_application',['id'=>(int)$id]);
             }
             break;
+        case 'payment_notice_queue':
+            if ($post) show_error('RED payment notice queue is read-only.',405);
+            fpoms_payment_notice_queue_view(require_role('red'));
+            break;
+        case 'payment_notice_pdf':
+            if ($post) show_error('Payment notice preview requires GET.',405);
+            $viewer=require_user();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid payment notice reference.',400);
+            fpoms_payment_notice_send_pdf($viewer,(int)$id);
+            break;
+        case 'payment_notice_approve':
+            if (!$post) show_error('RED payment notice approval requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='1') show_error('RED approval confirmation required.',400);
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid payment notice reference.',400);
+            $action=(string)($_POST['action']??'');
+            if (!in_array($action,['sign','finalize'],true)) show_error('Invalid payment notice action.',400);
+            $errors=fpoms_payment_notice_red_approve($red,(int)$id,$action==='sign');
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            elseif ($action==='sign') {
+                flash('success','RED e-signature saved. Review the signed Template No. 2, then Finalize & Send.');
+                go('payment_notice_queue',['preview_signed'=>(int)$id]);
+            } else {
+                $notice=fpoms_payment_notice_record_for_app((int)$id);
+                $delivery=(string)($notice['email_status']??'');
+                flash($delivery==='sent'?'success':'info',$delivery==='sent'
+                    ? 'Template No. 2 finalized and emailed to the applicant with the RED-signed PDF attached.'
+                    : 'Template No. 2 finalized and released in FP-OMS. Email delivery was not confirmed; retry after checking SMTP.');
+            }
+            go('payment_notice_queue');
+            break;
+        case 'payment_notice_upload_signed':
+            if (!$post) show_error('Signed payment notice upload requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='1') show_error('Signed PDF upload confirmation required.',400);
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid payment notice reference.',400);
+            $errors=fpoms_payment_notice_red_upload_signed($red,(int)$id,$_FILES['signed_pdf']??[]);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else {
+                flash('success','Physically signed Template No. 2 uploaded. Review it, then Finalize & Send.');
+                go('payment_notice_queue',['preview_signed'=>(int)$id]);
+            }
+            go('payment_notice_queue');
+            break;
+        case 'payment_notice_retry_email':
+            if (!$post) show_error('Retry requires POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application reference.',400);
+            $errors=fpoms_payment_notice_retry_email($staff,(int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Official RED-signed Template No. 2 email was accepted by SMTP.');
+            go('permit_application',['id'=>(int)$id]);
+            break;
         case 'deficiency_notice_settings':
             $admin=require_role('super_admin');
             if ($post) {

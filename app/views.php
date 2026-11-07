@@ -35,7 +35,9 @@ function shell_sidebar_menu(array $user, array $roles, string $active): string
         }
         if (in_array('red', $roles, true)) {
             $html .= shell_nav_item('deficiency_notice_queue',
-                'RED – Deficiency Approvals', 'file-earmark-check', $active);
+                'RED – Deficiency Approvals', 'file-earmark-check', $active)
+                . shell_nav_item('payment_notice_queue',
+                'RED – Payment Notice Approvals', 'cash-coin', $active);
         }
         if (in_array('ro_receiving', $roles, true)) {
             $html .= '<div class="sidebar-section-title">Records Management</div>'

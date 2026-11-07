@@ -83,16 +83,6 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
                 VALUES (?,?,NOW(),?,?)')->execute([
                     $applicationId,(int)$app['revision'],(int)$staff['id'],$remarks !== '' ? $remarks : null
                 ]);
-            if (permit_flow_is_new($app)) {
-                // Create the payment-tracking record as part of the same RO
-                // receipt transaction; receipt never implies payment verified.
-                $pdo->prepare("INSERT INTO permit_payment_verifications
-                    (application_id,status,notified_at)
-                    VALUES (?,'awaiting_payment',NOW())
-                    ON DUPLICATE KEY UPDATE
-                      notified_at=COALESCE(notified_at,VALUES(notified_at))")
-                    ->execute([$applicationId]);
-            }
             $next='ro_received';
             $event='ro_documents_received';
         } else {
@@ -131,35 +121,38 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
             $applicationId,['revision'=>(int)$app['revision'],'remarks'=>$remarks]);
         $pdo->commit();
 
-        // Delivery failures never roll back a recorded action.
+        // Delivery/signing failures never roll back a recorded receipt.
         $newFlowReceipt=$action==='receive' && permit_flow_is_new($app);
-        try {
-            create_client_notification((int)$app['client_id'],
-                $newFlowReceipt ? 'Notice to Pay Application Fee'
-                    : ($action==='receive' ? 'FP Application Received by RO' : 'FP Application Forwarded to LPDD-FUS'),
-                $newFlowReceipt ? permit_payment_instructions($applicationId)
-                    : ($action==='receive' ? 'RO Receiving received FP application #'.$applicationId.'.'
-                        : 'RO Receiving forwarded FP application #'.$applicationId.' to LPDD-FUS for Step 4 field validation schedule and CENRO instruction.'),
-                $newFlowReceipt ? 'receipt' : ($action==='receive' ? 'inbox':'send'),
-                'info','permit_application',['id'=>$applicationId]);
-            if ($action==='forward') notify_role('lpdd_fus',
-                permit_flow_is_new($app)
-                    ? 'FP Application – Step 4 Notice & CENRO Instructions'
-                    : 'FP Application for Documentary Evaluation',
-                'FP application #'.$applicationId.' forwarded by RO Receiving; open the appropriate Step 4 queue.',
-                'file-earmark-check','info',
-                permit_flow_is_new($app)?'permit_flow_queue':'permit_step4_queue');
-        } catch (Throwable $e) {
-            error_log('FP-OMS Step 3 notification failed: '.$e->getMessage());
-        }
         if ($newFlowReceipt) {
-            // Only the successful RO receipt triggers the Cashier email.
-            // Repeated receive actions are rejected by the status transition.
-            if (!permit_flow_email($app,'Notice to Pay – FP Application #'.$applicationId,
-                permit_payment_instructions($applicationId))) {
-                error_log('FP-OMS Step 3 Cashier notice email failed for FP #'.$applicationId);
+            $noticeErrors=fpoms_payment_notice_prepare_on_ro_receipt($app,$staff);
+            if ($noticeErrors) {
+                error_log('FP-OMS Template No. 2 preparation failed for FP #'.$applicationId.': '.implode(' ',$noticeErrors));
+                return ['RO receipt was saved, but Template No. 2 could not be prepared for RED signature: '.implode(' ',$noticeErrors)];
+            }
+            try {
+                notify_role('red','Template No. 2 for RED Signature – FP #'.$applicationId,
+                    'RO Receiving recorded the complete electronic documents. Review and sign the Complete Documents / Advise to Pay letter before applicant release.',
+                    'cash-coin','warning','payment_notice_queue');
+            } catch (Throwable $e) {
+                error_log('FP-OMS Template No. 2 RED notification failed: '.$e->getMessage());
             }
         } else {
+            try {
+                if ($action==='receive') {
+                    create_client_notification((int)$app['client_id'],'FP Application Received by RO',
+                        'RO Receiving received FP application #'.$applicationId.'.',
+                        'inbox','info','permit_application',['id'=>$applicationId]);
+                }
+                if ($action==='forward') notify_role('lpdd_fus',
+                    permit_flow_is_new($app)
+                        ? 'FP Application – Step 4 Notice & CENRO Instructions'
+                        : 'FP Application for Documentary Evaluation',
+                    'FP application #'.$applicationId.' forwarded by RO Receiving; open the appropriate Step 4 queue.',
+                    'file-earmark-check','info',
+                    permit_flow_is_new($app)?'permit_flow_queue':'permit_step4_queue');
+            } catch (Throwable $e) {
+                error_log('FP-OMS Step 3 notification failed: '.$e->getMessage());
+            }
             step3_send_email_alerts($app,$applicationId,$action);
         }
         return [];
