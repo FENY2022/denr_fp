@@ -44,22 +44,39 @@
     button.append(symbol);
     return button;
   };
+  const normalizeRotation = angle => {
+    const value = Number(angle) || 0;
+    return ((value % 360) + 360) % 360;
+  };
+  const rotationText = angle => {
+    const rotation = normalizeRotation(angle);
+    if (rotation === 90) return '90° right';
+    if (rotation === 180) return '180°';
+    if (rotation === 270) return '90° left';
+    return '';
+  };
+  const thumbnailKey = (origin,rotation) =>
+    String(origin) + ':' + String(normalizeRotation(rotation));
 
   function showPages() {
     if (!session || !session.document) return;
     const state = session;
     const cards = document.createDocumentFragment();
     state.order.forEach((original, index) => {
+      const rotation = normalizeRotation(state.rotations[index] || 0);
+      const rotationLabel = rotationText(rotation);
       const tile = document.createElement('article');
       tile.className = 'fp-pdf-page' + (index === state.selected ? ' is-selected' : '');
       tile.dataset.pdfIndex = String(index);
       tile.draggable = !state.working;
       tile.tabIndex = 0;
-      tile.setAttribute('aria-label','Position ' + (index + 1) + ', original page ' + (original + 1));
+      tile.setAttribute('aria-label','Position ' + (index + 1) + ', original page ' + (original + 1)
+        + (rotationLabel ? ', rotated ' + rotationLabel : ''));
       const frame = document.createElement('div');
       frame.className = 'fp-pdf-page-thumbnail';
       frame.dataset.pdfOrigin = String(original);
-      const thumb = state.thumbnails.get(original);
+      frame.dataset.pdfRotation = String(rotation);
+      const thumb = state.thumbnails.get(thumbnailKey(original,rotation));
       if (thumb) {
         const image = document.createElement('img');
         image.src = thumb;
@@ -73,7 +90,8 @@
       }
       const label = document.createElement('div');
       label.className = 'fp-pdf-page-label';
-      label.textContent = 'Position ' + (index + 1) + ' · Page ' + (original + 1);
+      label.textContent = 'Position ' + (index + 1) + ' · Page ' + (original + 1)
+        + (rotationLabel ? ' · ' + rotationLabel : '');
       const actions = document.createElement('div');
       actions.className = 'fp-pdf-page-actions';
       const up = makeButton('up','arrow-left','Move page left');
@@ -82,6 +100,8 @@
       down.disabled = state.working || index === state.order.length - 1;
       actions.append(
         up, down,
+        makeButton('rotate-left','arrow-counterclockwise','Rotate page left 90°'),
+        makeButton('rotate-right','arrow-clockwise','Rotate page right 90°'),
         makeButton('duplicate','copy','Duplicate this page'),
         makeButton('remove','trash','Remove this page'),
         makeButton('preview','eye','Preview this page')
@@ -106,10 +126,14 @@
     }
     return pdfjsPromise;
   }
-  async function renderPdfPage(document, originalIndex, canvas, maxWidth) {
+  async function renderPdfPage(document, originalIndex, canvas, maxWidth, deltaRotation = 0) {
     const page = await document.getPage(originalIndex + 1);
-    const base = page.getViewport({scale:1});
-    const viewport = page.getViewport({scale:Math.min(1.8, maxWidth / Math.max(base.width,1))});
+    const rotation = normalizeRotation(Number(page.rotate || 0) + deltaRotation);
+    const base = page.getViewport({scale:1,rotation});
+    const viewport = page.getViewport({
+      scale:Math.min(1.8, maxWidth / Math.max(base.width,1)),
+      rotation
+    });
     canvas.width = Math.max(1,Math.round(viewport.width));
     canvas.height = Math.max(1,Math.round(viewport.height));
     const context = canvas.getContext('2d',{alpha:false});
@@ -119,19 +143,31 @@
   async function refreshThumbnails() {
     const state = session;
     if (!state || !state.reader) return;
-    const unique = [...new Set(state.order)].slice(0,80);
-    for (const origin of unique) {
+    const seen = new Set();
+    const unique = [];
+    state.order.forEach((origin,index) => {
+      const rotation = normalizeRotation(state.rotations[index] || 0);
+      const key = thumbnailKey(origin,rotation);
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push({origin,rotation,key});
+      }
+    });
+    for (const item of unique.slice(0,80)) {
       if (session !== state) return;
-      if (state.thumbnails.has(origin)) continue;
+      if (state.thumbnails.has(item.key)) continue;
       try {
         const canvas = document.createElement('canvas');
-        await renderPdfPage(state.reader,origin,canvas,120);
+        await renderPdfPage(state.reader,item.origin,canvas,120,item.rotation);
         if (session !== state) return;
-        state.thumbnails.set(origin,canvas.toDataURL('image/png'));
-        grid.querySelectorAll('[data-pdf-origin="' + origin + '"]').forEach(frame => {
+        state.thumbnails.set(item.key,canvas.toDataURL('image/png'));
+        grid.querySelectorAll(
+          '[data-pdf-origin="' + item.origin + '"][data-pdf-rotation="' + item.rotation + '"]'
+        ).forEach(frame => {
           const image = document.createElement('img');
-          image.src = state.thumbnails.get(origin);
-          image.alt = 'Original page ' + (origin + 1);
+          image.src = state.thumbnails.get(item.key);
+          image.alt = 'Original page ' + (item.origin + 1)
+            + (rotationText(item.rotation) ? ', rotated ' + rotationText(item.rotation) : '');
           image.loading = 'lazy';
           frame.replaceChildren(image);
         });
@@ -146,10 +182,12 @@
     if (!state || !state.document) return;
     const origin = state.order[state.selected];
     if (origin === undefined) return;
+    const rotation = normalizeRotation(state.rotations[state.selected] || 0);
     const stamp = ++state.previewStamp;
     const heading = document.createElement('p');
     heading.className = 'small fw-semibold mb-2';
-    heading.textContent = 'Position ' + (state.selected + 1) + ' · Original page ' + (origin + 1);
+    heading.textContent = 'Position ' + (state.selected + 1) + ' · Original page ' + (origin + 1)
+      + (rotationText(rotation) ? ' · ' + rotationText(rotation) : '');
     preview.replaceChildren(heading);
     if (!state.reader) {
       const message = document.createElement('p');
@@ -159,7 +197,7 @@
     }
     try {
       const canvas = document.createElement('canvas');
-      await renderPdfPage(state.reader,origin,canvas,450);
+      await renderPdfPage(state.reader,origin,canvas,450,rotation);
       if (session === state && stamp === state.previewStamp) preview.replaceChildren(heading,canvas);
     } catch (error) {
       if (session === state) setStatus('Preview unavailable; the pages can still be arranged.',true);
@@ -170,7 +208,9 @@
     if (!session || session.working || from === to ||
         from < 0 || to < 0 || from >= session.order.length || to >= session.order.length) return;
     const [page] = session.order.splice(from,1);
+    const [rotation] = session.rotations.splice(from,1);
     session.order.splice(to,0,page);
+    session.rotations.splice(to,0,rotation);
     session.selected = to;
     showPages();
   }
@@ -182,12 +222,19 @@
     const action = event.target.closest('[data-pdf-action]')?.dataset.pdfAction;
     if (action === 'up') return move(index,index - 1);
     if (action === 'down') return move(index,index + 1);
-    if (action === 'duplicate') {
+    if (action === 'rotate-left' || action === 'rotate-right') {
+      const delta = action === 'rotate-left' ? -90 : 90;
+      session.rotations[index] = normalizeRotation((session.rotations[index] || 0) + delta);
+      session.selected = index;
+      setStatus('Page ' + (session.order[index] + 1) + ' rotated '
+        + (rotationText(session.rotations[index]) || 'to its original orientation') + '.');
+    } else if (action === 'duplicate') {
       if (session.order.length >= maxPages) {
         setStatus('Maximum ' + maxPages + ' arranged pages. Remove pages to continue.',true);
         return;
       }
       session.order.splice(index + 1,0,session.order[index]);
+      session.rotations.splice(index + 1,0,normalizeRotation(session.rotations[index] || 0));
       session.selected = index + 1;
     } else if (action === 'remove') {
       if (session.order.length === 1) {
@@ -195,6 +242,7 @@
         return;
       }
       session.order.splice(index,1);
+      session.rotations.splice(index,1);
       session.selected = Math.min(index,session.order.length - 1);
     } else {
       session.selected = index;
@@ -234,8 +282,9 @@
   resetButton.addEventListener('click',() => {
     if (!session || session.working) return;
     session.order = Array.from({length:session.document.getPageCount()},(_,i) => i);
+    session.rotations = Array.from({length:session.document.getPageCount()},() => 0);
     session.selected = 0;
-    setStatus('Original page order restored.');
+    setStatus('Original page order and orientation restored.');
     showPages();
   });
 
@@ -247,12 +296,20 @@
     setStatus('Generating your arranged PDF in this browser…');
     try {
       const unchanged = state.order.length === state.document.getPageCount()
-        && state.order.every((n,i) => n === i);
+        && state.order.every((n,i) => n === i)
+        && state.rotations.every(angle => normalizeRotation(angle) === 0);
       let output = state.file;
       if (!unchanged) {
         const created = await window.PDFLib.PDFDocument.create();
         const pages = await created.copyPages(state.document,state.order);
-        for (const page of pages) created.addPage(page);
+        pages.forEach((page,index) => {
+          const delta = normalizeRotation(state.rotations[index] || 0);
+          if (delta !== 0) {
+            const existing = Number(page.getRotation()?.angle || 0);
+            page.setRotation(window.PDFLib.degrees(normalizeRotation(existing + delta)));
+          }
+          created.addPage(page);
+        });
         const bytes = await created.save();
         output = new File([bytes],state.file.name,{type:'application/pdf',lastModified:Date.now()});
       }
@@ -301,7 +358,7 @@
     return new Promise(resolve => {
       session = {
         file,maxBytes,modal,finish:resolve,done:false,result:null,working:false,
-        document:null,reader:null,order:[],selected:0,previewStamp:0,thumbnails:new Map()
+        document:null,reader:null,order:[],rotations:[],selected:0,previewStamp:0,thumbnails:new Map()
       };
       filename.textContent = file.name;
       const saveLabel = saveButton.querySelector('[data-pdf-save-label]');
@@ -329,9 +386,10 @@
           }
           state.document = source;
           state.order = Array.from({length:source.getPageCount()},(_,i) => i);
+          state.rotations = Array.from({length:source.getPageCount()},() => 0);
           state.working = false;
           showPages();
-          setStatus('Drag page cards, use arrows, duplicate or remove pages. Save when ready.');
+          setStatus('Drag pages, use arrows, rotate scanned pages, duplicate or remove pages. Save when ready.');
           try {
             const library = await pdfjs();
             if (session !== state) return;

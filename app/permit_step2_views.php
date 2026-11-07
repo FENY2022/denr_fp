@@ -309,7 +309,7 @@ function step2_pdf_organizer_modal_html(): string
         . '<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">'
         . '<span class="badge text-bg-success" data-pdf-page-count>Loading pages…</span>'
         . '<span class="fp-pdf-organizer-summary">Drag cards or use arrows to change order. '
-        . 'Duplicate, remove, or preview any page.</span></div>'
+        . 'Rotate scanned pages, duplicate, remove, or preview any page.</span></div>'
         . '<div class="alert alert-warning small py-2">'
         . '<i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>'
         . 'Reorganizing a digitally signed PDF can invalidate signatures, links, '
@@ -657,7 +657,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . step2_pdf_organizer_modal_html();
     if ($persistent) $html .= step2_clear_form_modal_html();
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
-        . '<script src="assets/permit-pdf-organizer.js?v=1" defer></script>'
+        . '<script src="assets/permit-pdf-organizer.js?v=2" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=2" defer></script>'
         . '<script src="assets/permit-project-type.js?v=2" defer></script>'
         . '<script src="assets/permit-step2-drafts.js?v=13" defer></script>'
