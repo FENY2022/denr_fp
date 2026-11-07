@@ -125,6 +125,9 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
 function view_lpdd_fus_payment_queue(): void
 {
     permit_payment_require_lpdd_fus();
+    if (!fpoms_complete_notice_schema_ready()) {
+        show_error('Template No. 2 payment notice storage is unavailable. Confirm migration 036 / CREATE TABLE permission.',503);
+    }
     $tab=(string)($_GET['tab']??'awaiting');
     if (!in_array($tab,['awaiting','verified'],true)) show_error('Invalid payment queue tab.',400);
 
