@@ -19,10 +19,12 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
     $categories=permit_flow_categories($step);
     $available=array_column($all,'category');
     if ($step===4) {
-        $html.='<div class="alert alert-info small">'
-            .'LPDD-FUS must notify the applicant to pay at the Regional Office Cashier, '
-            .'provide the field validation schedule, and prepare the memo instruction to CENRO. '
-            .'The Cashier receives payment; LPDD-FUS separately verifies and uploads the Official Receipt.</div>';
+        $paymentNoticeReleased=fpoms_payment_notice_is_released($id,(int)$app['revision']);
+        $html.='<div class="alert '.($paymentNoticeReleased?'alert-info':'alert-warning').' small">'
+            .($paymentNoticeReleased
+                ? 'The official RED-signed Template No. 2 advice-to-pay notice has been released. LPDD-FUS may now record the field validation schedule and prepare the CENRO instruction. Cashier payment is verified separately from the Official Receipt.'
+                : 'Step 4 cannot be completed yet. RED must sign, review and Finalize & Send Template No. 2 to the applicant first.')
+            .'</div>';
     } elseif ($step===5) {
         $html.='<p class="small">CENRO notifies applicant to submit hard copies, instructs TWG, '
             .'conducts the field assessment and uploads the CENRO/GIS Report, GIS Map, '
@@ -129,6 +131,10 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
     $missing=permit_flow_missing_artifacts($id,$step);
     if ($missing) $html.='<div class="alert alert-warning small">Before completing this step, upload: '
         .e(implode('; ',$missing)).'</div>';
+    $paymentNoticeMissing=$step===4
+        && !fpoms_payment_notice_is_released($id,(int)$app['revision']);
+    if ($paymentNoticeMissing) $html.='<div class="alert alert-warning small">'
+        .'Official RED-signed Template No. 2 release is required before this step can be completed.</div>';
     $milestoneMissing=($step===5 && (
         !permit_flow_event_exists($id,5,'hardcopy_notice_sent')
         || !permit_flow_event_exists($id,5,'twg_instructed')))
@@ -157,7 +163,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             .'I confirm the required actions and uploaded documents have been checked. '
             .'This records an authorized hand-off, not an automatic or fabricated signature.</label></div>'
             .'<button class="btn btn-success w-100" name="confirmation" value="1" type="submit"'
-            .($missing || $milestoneMissing?' disabled':'').'>'
+            .($missing || $milestoneMissing || $paymentNoticeMissing?' disabled':'').'>'
             .e($step===11?'Confirm Release & Issue Feasibility Permit':'Complete Step '.$step.' & Forward')
             .'</button></form>';
     } else {
@@ -217,8 +223,18 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
                 .'data-notice-preview-url="'.e($preview).'" '
                 .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Deficiency Notice').'">'
                 .e((string)$d['original_name']).'</button></li>';
+        } elseif ($isPaymentNotice && $noticeModal) {
+            $preview=url('permit_flow_file',[
+                'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
+            ]);
+            $html.='<li><button type="button" class="btn btn-link p-0 align-baseline" '
+                .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+                .'data-notice-preview-url="'.e($preview).'" '
+                .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Template No. 2 / Notice to Pay').'">'
+                .'<i class="bi bi-cash-coin me-1"></i>'.e((string)$d['original_name']).'</button>'
+                .' <span class="badge text-bg-success">Official Notice to Pay</span></li>';
         } elseif ($isPaymentNotice) {
-            $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
+            $html.='<li><a href="'.e(url('permit_flow_file',
                     ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))
                 .'"><i class="bi bi-cash-coin me-1"></i>'.e((string)$d['original_name']).'</a>'
                 .' <span class="badge text-bg-success">Official Notice to Pay</span></li>';
