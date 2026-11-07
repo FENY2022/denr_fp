@@ -456,13 +456,7 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
         try {
             $signature=fpoms_notice_safe_read((string)$config['signature_path'],
                 (string)$config['signature_sha256']);
-            // Use the saved immutable findings, never browser-provided assessments.
-            $layout=is_array($payload['notice_config_snapshot']??null)
-                ? $payload['notice_config_snapshot'] : $config;
-            $layout['letterhead_images']=fpoms_notice_template_branding([
-                'template_path'=>(string)($payload['notice_template_path']??$config['template_path']??'')
-            ]);
-            $pdf=FpomsNoticePdf::render($app,$payload,$layout,$signature,date('F d, Y'));
+            $pdf=fpoms_notice_render_red_signed_preview($app,$payload,$config,$signature);
             [$relative,$absolute]=fpoms_notice_private_path('pdf',$applicationId);
             fpoms_file_write_encrypted_bytes($pdf,$absolute);
             $pdo=db();
@@ -512,6 +506,101 @@ function fpoms_notice_red_approve(array $red,int $applicationId): array
     // A signed notice can be retried if the legacy downstream save/email failed.
     $payload['_red_finalize']='1';
     return step4_decide($originalReviewer,$applicationId,$payload,$red);
+}
+
+function fpoms_notice_render_red_signed_preview(
+    array $app,array $payload,array $config,string $signature
+): string {
+    // Use the saved findings and template revision, never browser-provided assessments.
+    $layout=is_array($payload['notice_config_snapshot']??null)
+        ? $payload['notice_config_snapshot'] : $config;
+    $layout['letterhead_images']=fpoms_notice_template_branding([
+        'template_path'=>(string)($payload['notice_template_path']??$config['template_path']??'')
+    ]);
+    return FpomsNoticePdf::render($app,$payload,$layout,$signature,date('F d, Y'));
+}
+
+/** Store a physically signed scan for RED review; final release is a separate action. */
+function fpoms_notice_red_upload_signed(array $red,int $applicationId,array $upload): array
+{
+    if (($red['user_kind']??'')!=='internal' || ($red['status']??'')!=='active'
+        || !has_role($red,'red')) return ['Only an active RED account may upload a signed notice.'];
+    if (!fpoms_notice_schema_ready()) return ['Apply database migration 032 first.'];
+    if ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
+        || !is_uploaded_file((string)($upload['tmp_name']??''))) {
+        return ['Select the physically signed PDF to upload.'];
+    }
+    $size=(int)($upload['size']??0);
+    if ($size<100 || $size>10485760) return ['The signed PDF must be 10 MB or less.'];
+    if (strtolower((string)pathinfo((string)($upload['name']??''),PATHINFO_EXTENSION))!=='pdf') {
+        return ['Upload a PDF document.'];
+    }
+    $tmp=(string)$upload['tmp_name'];
+    $pdf=file_get_contents($tmp);
+    if (!is_string($pdf) || strlen($pdf)!==$size
+        || !preg_match('/^%PDF-1\.[0-7]/',$pdf)
+        || !preg_match('/%%EOF\s*$/',$pdf)
+        || (new finfo(FILEINFO_MIME_TYPE))->buffer($pdf)!=='application/pdf') {
+        return ['The uploaded file is not a valid PDF.'];
+    }
+    $app=fpoms_notice_application($applicationId);
+    if (!$app || !permit_flow_is_new($app)
+        || (string)$app['status']!=='step4_under_evaluation') {
+        return ['Application is no longer awaiting RED review.'];
+    }
+    $notice=fpoms_notice_record($applicationId,(int)$app['revision']);
+    if (!$notice || (string)$notice['status']!=='pending_red') {
+        return ['Only a pending notice can receive a signed upload.'];
+    }
+    $reviewer=query_one('SELECT * FROM users WHERE id=?',[(int)$notice['reviewer_user_id']]);
+    if (!$reviewer || (string)$reviewer['status']!=='active'
+        || !has_role($reviewer,'lpdd_fus')) {
+        return ['Original LPDD-FUS reviewer is no longer authorized. Reassign/re-evaluate first.'];
+    }
+    try {
+        [$relative,$absolute]=fpoms_notice_private_path('pdf',$applicationId);
+        fpoms_file_write_encrypted_bytes($pdf,$absolute);
+        $pdo=db();
+        $pdo->beginTransaction();
+        $locked=query_one('SELECT status,revision FROM permit_step2_applications WHERE id=? FOR UPDATE',
+            [$applicationId]);
+        $pending=query_one('SELECT id,status FROM fpoms_deficiency_notices
+            WHERE application_id=? AND revision=? FOR UPDATE',[$applicationId,(int)$app['revision']]);
+        if (!$locked || (string)$locked['status']!=='step4_under_evaluation'
+            || (int)$locked['revision']!==(int)$app['revision']
+            || !$pending || (string)$pending['status']!=='pending_red') {
+            throw new RuntimeException('Notice changed; reload the RED approval queue.');
+        }
+        $filename='DENR_RED_Manually_Signed_Deficiency_Notice_FP'.$applicationId
+            .'_R'.$app['revision'].'.pdf';
+        $pdo->prepare('INSERT INTO permit_flow_artifacts
+            (application_id,step_number,application_revision,category,original_name,
+             stored_path,mime_type,file_size,sha256,uploaded_by)
+            VALUES (?,2,?,"red_signed_deficiency_notice",?, ?,"application/pdf",?,?,?)')
+            ->execute([
+                $applicationId,(int)$app['revision'],$filename,$relative,
+                $size,hash('sha256',$pdf),(int)$red['id']
+            ]);
+        $artifactId=(int)$pdo->lastInsertId();
+        $pdo->prepare("UPDATE fpoms_deficiency_notices
+            SET status='signed',artifact_id=?,approved_by=?,approved_at=NOW()
+            WHERE id=? AND status='pending_red'")
+            ->execute([$artifactId,(int)$red['id'],(int)$pending['id']]);
+        permit_flow_record_event($pdo,$applicationId,2,$red,
+            'deficiency_notice_red_signed_upload',
+            'RED uploaded a physically signed notice PDF for final review.');
+        audit((int)$red['id'],'fp.deficiency_notice.red_signed_upload',
+            'permit_step2_application',$applicationId,[
+                'revision'=>(int)$app['revision'],'artifact_id'=>$artifactId
+            ]);
+        $pdo->commit();
+        return [];
+    } catch (Throwable $e) {
+        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        if (isset($absolute) && is_file($absolute)) @unlink($absolute);
+        error_log('FP-OMS signed notice upload failed: '.$e->getMessage());
+        return ['Unable to save the signed PDF: '.$e->getMessage()];
+    }
 }
 
 
@@ -614,11 +703,29 @@ function fpoms_notice_send_pdf(array $viewer,int $applicationId): never
         && (has_role($viewer,'lpdd_fus') || has_role($viewer,'red')
             || has_role($viewer,'super_admin'));
     if (!$isStaff) show_error('You cannot view an unsigned notice.',403);
+    $signedPreview=(string)($_GET['signed_preview']??'')==='1';
+    $printForSigning=(string)($_GET['print_for_signing']??'')==='1';
+    if (($signedPreview || $printForSigning) && (!has_role($viewer,'red')
+        || (string)$notice['status']!=='pending_red')) {
+        show_error('RED signing copy is unavailable.',403);
+    }
     try {
         // Pending drafts are rendered from their immutable assessment snapshot
         // so layout improvements apply immediately to the preview URL. Signed
         // records continue to use their protected, approval-time artifact.
-        if ((string)$notice['status']==='pending_red') {
+        if ($signedPreview) {
+            $config=fpoms_notice_config();
+            if (empty($config['signature_path']) || empty($config['signature_sha256'])) {
+                show_error('RED e-signature is not configured.',404);
+            }
+            $signature=fpoms_notice_safe_read((string)$config['signature_path'],
+                (string)$config['signature_sha256']);
+            $payload=json_decode((string)$notice['payload_json'],true,512,JSON_THROW_ON_ERROR);
+            if (!is_array($payload)) throw new RuntimeException('Stored notice data is invalid.');
+            $payload=fpoms_notice_refresh_payload_rows($payload);
+            $renderApp=fpoms_notice_application($applicationId)??$app;
+            $pdf=fpoms_notice_render_red_signed_preview($renderApp,$payload,$config,$signature);
+        } elseif ((string)$notice['status']==='pending_red') {
             $payload=json_decode((string)$notice['payload_json'],true,512,JSON_THROW_ON_ERROR);
             if (!is_array($payload)) throw new RuntimeException('Stored notice data is invalid.');
             $layout=is_array($payload['notice_config_snapshot']??null)
@@ -630,7 +737,8 @@ function fpoms_notice_send_pdf(array $viewer,int $applicationId): never
             $created=(string)($notice['created_at']??'');
             $timestamp=$created!==''?strtotime($created):false;
             $noticeDate=$timestamp!==false?date('F d, Y',$timestamp):date('F d, Y');
-            $pdf=FpomsNoticePdf::render($renderApp,$payload,$layout,null,$noticeDate);
+            $pdf=FpomsNoticePdf::render($renderApp,$payload,$layout,null,$noticeDate,
+                $printForSigning);
         } else {
             $pdf=fpoms_notice_safe_read((string)$notice['draft_path'],
                 (string)$notice['draft_sha256']);
@@ -646,7 +754,9 @@ function fpoms_notice_send_pdf(array $viewer,int $applicationId): never
     header('Content-Type: application/pdf');
     header('Cache-Control: private,no-store');
     header('X-Content-Type-Options: nosniff');
-    header('Content-Disposition: inline; filename="Draft_Deficiency_Notice.pdf"');
+    header('Content-Disposition: inline; filename="'
+        .($signedPreview?'RED_ESign_Preview.pdf':($printForSigning
+            ?'RED_Print_For_Signing.pdf':'Deficiency_Notice.pdf')).'"');
     header('Content-Length: '.strlen($pdf));
     echo $pdf;
     exit;
@@ -888,7 +998,7 @@ function fpoms_notice_pdf_preview_modal_html(): string
         .'<div class="modal-footer">'
         .'<a class="btn btn-outline-primary" href="#" target="_blank" rel="noopener" '
         .'data-notice-preview-open><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>'
-        .'Open in New Tab</a>'
+        .'Open / Print PDF</a>'
         .'<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>'
         .'</div></div></div></div>';
 }
@@ -909,9 +1019,11 @@ function fpoms_notice_queue_view(array $red): void
            AND n.status IN ('pending_red','signed')
          ORDER BY n.created_at ASC LIMIT 100"
     );
+    $config=fpoms_notice_config();
+    $canEsign=!empty($config['signature_path']) && !empty($config['signature_sha256']);
     $html='<div class="panel"><h2 class="h5">RED – Pending Generated Deficiency Notices</h2>'
-        .'<p class="text-secondary">Preview drafts before approving. RED-approved notices awaiting '
-        .'final application return also appear here for safe retry.</p>';
+        .'<p class="text-secondary">Review the RED e-signed preview, or print the draft and upload '
+        .'a physically signed PDF. Review the final PDF before releasing it to the applicant.</p>';
     if (!$rows) $html.='<div class="alert alert-success">No notices awaiting RED approval.</div>';
     foreach ($rows as $row) {
         $id=(int)$row['application_id'];
@@ -920,8 +1032,11 @@ function fpoms_notice_queue_view(array $red): void
             ? url('permit_flow_file',[
                 'id'=>$id,'file'=>(int)$row['artifact_id'],'preview'=>1,'raw'=>1
             ])
-            : url('deficiency_notice_pdf',['id'=>$id,'embed'=>1]);
-        $previewLabel=$approved?'View RED-Approved PDF':'Preview Generated PDF';
+            : url('deficiency_notice_pdf',['id'=>$id,'embed'=>1]
+                + ($canEsign?['signed_preview'=>1]:[]));
+        $previewLabel=$approved?'View Signed PDF':($canEsign
+            ? 'Preview with RED e-Signature':'Preview Unsigned Draft');
+        $draftUrl=url('deficiency_notice_pdf',['id'=>$id,'print_for_signing'=>1]);
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '
             .e((string)$row['project_title']).'</strong><div class="small text-secondary">'
             .e((string)$row['applicant_name']).' · Revision '.(int)$row['revision'].'</div>'
@@ -935,13 +1050,24 @@ function fpoms_notice_queue_view(array $red): void
             .'data-notice-preview-title="'.e('FP #'.$id.' · '.$previewLabel).'">'
             .'<i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>'
             .e($previewLabel).'</a>'
-            .'<form method="post" action="'.e(url('deficiency_notice_approve',['id'=>$id])).'">'
-            .csrf_field()
-            .'<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" '
-            .'data-bs-target="#finalizeNoticeModal'.$id.'">'
-            .($approved?'Finalize and Return':'RED Approve &amp; Sign and Return')
-            .'</button>'
-            .'<div class="modal fade" id="finalizeNoticeModal'.$id.'" tabindex="-1" '
+            .(!$approved
+                ? '<a class="btn btn-outline-secondary btn-sm" href="'.e($draftUrl).'" '
+                    .'target="_blank" rel="noopener">'
+                    .'<i class="bi bi-printer me-1" aria-hidden="true"></i>'
+                    .'Open / Print Draft for Signing</a>'
+                : '')
+            .(!$approved && !$canEsign
+                ? '<span class="small text-warning align-self-center">RED e-signature is not configured; use the signed PDF upload.</span>'
+                : '')
+            .($approved || $canEsign
+                ? '<form method="post" action="'.e(url('deficiency_notice_approve',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" '
+                    .'data-bs-target="#finalizeNoticeModal'.$id.'">'
+                    .($approved?'Finalize and Return':'Approve E-Sign and Return')
+                    .'</button>'
+                : '')
+            .($approved || $canEsign ? '<div class="modal fade" id="finalizeNoticeModal'.$id.'" tabindex="-1" '
             .'aria-labelledby="finalizeNoticeLabel'.$id.'" aria-hidden="true">'
             .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
             .'<div class="modal-header"><h5 class="modal-title" id="finalizeNoticeLabel'.$id.'">'
@@ -951,7 +1077,7 @@ function fpoms_notice_queue_view(array $red): void
             .($approved
                 ? '<p>The existing RED-approved PDF will be released to the applicant. '
                   .'The application will be marked Returned for Compliance. The existing signature is not applied again.</p>'
-                : '<p>By confirming, RED explicitly approves and signs the generated notice. '
+                : '<p>By confirming, RED approves the displayed e-signed notice. '
                   .'The system will then return the application for documentary compliance.</p>')
             .'<p class="small text-secondary">After a successful database return, the applicant will receive '
             .'an in-system notice and an email attempt with the official PDF. A failed email can be retried separately.</p>'
@@ -959,14 +1085,32 @@ function fpoms_notice_queue_view(array $red): void
             .'name="confirmation" value="1" required>'
             .'<span>'.($approved
                 ? 'I have reviewed the signed PDF and confirm final release and return to the applicant.'
-                : 'I reviewed the notice PDF and explicitly approve RED signing and return.')
+                : 'I reviewed the preview with my RED e-signature and approve its release.')
             .'</span></label></div>'
             .'<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" '
             .'data-bs-dismiss="modal">Cancel</button>'
             .'<button type="submit" class="btn btn-success">'
-            .($approved?'Finalize and Return':'Approve, Sign and Return')
-            .'</button></div></div></div></div>'
-            .'</form></div></div>';
+            .($approved?'Finalize and Return':'Approve E-Sign and Return')
+            .'</button></div></div></div></div></form>' : '')
+            .'</div>'
+            .(!$approved
+                ? '<form class="mt-3 border-top pt-3" method="post" enctype="multipart/form-data" '
+                    .'action="'.e(url('deficiency_notice_upload_signed',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<label class="form-label fw-semibold" for="signedNotice'.$id.'">Upload physically signed PDF</label>'
+                    .'<div class="d-flex flex-wrap align-items-center gap-2">'
+                    .'<input class="form-control form-control-sm" style="max-width:440px" type="file" '
+                    .'id="signedNotice'.$id.'" name="signed_pdf" accept=".pdf,application/pdf" required>'
+                    .'<button class="btn btn-outline-success btn-sm" type="submit">'
+                    .'<i class="bi bi-upload me-1" aria-hidden="true"></i>Upload Signed PDF</button></div>'
+                    .'<label class="small d-flex align-items-start gap-2 mt-2">'
+                    .'<input type="checkbox" class="form-check-input mt-0" name="confirmation" value="1" required>'
+                    .'<span>I confirm this is the RED-signed PDF for FP #'.$id
+                    .'. I will preview it here before final release.</span></label>'
+                    .'<p class="small text-secondary mb-0">PDF only, up to 10 MB. Upload saves the document '
+                    .'for review; Finalize and Return releases it to the applicant.</p></form>'
+                : '')
+            .'</div>';
     }
     $html.='</div>'.fpoms_notice_pdf_preview_modal_html();
     render_page('RED Deficiency Approvals',$html);

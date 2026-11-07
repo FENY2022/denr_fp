@@ -303,7 +303,7 @@ final class FpomsNoticePdf
     }
 
     public static function render(array $app,array $input,array $config,?string $jpegSignature=null,
-        ?string $approvalDate=null): string
+        ?string $approvalDate=null,bool $printForManualSigning=false): string
     {
         $pdf=new self();
         $pdf->footer=(string)($config['footer_text']??
@@ -320,7 +320,7 @@ final class FpomsNoticePdf
         } while (true);
 
         $pdf->startPage();
-        if ($jpegSignature===null) {
+        if ($jpegSignature===null && !$printForManualSigning) {
             $pdf->stream.="0.72 0.02 0.02 rg\n";
             $pdf->line(335,128,'DRAFT - NOT SIGNED / NOT FOR RELEASE',7.2,true);
             $pdf->stream.="0 g\n";

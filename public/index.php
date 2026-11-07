@@ -821,6 +821,21 @@ try {
             }
             go('deficiency_notice_queue');
             break;
+        case 'deficiency_notice_upload_signed':
+            if (!$post) show_error('Signed notice upload requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='1') {
+                show_error('Signed PDF upload confirmation required.',400);
+            }
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid notice reference.',400);
+            $errors=fpoms_notice_red_upload_signed($red,(int)$id,$_FILES['signed_pdf']??[]);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Signed PDF uploaded. Preview the signed file, then Finalize and Return.');
+            go('deficiency_notice_queue');
+            break;
         case 'deficiency_notice_retry_email':
             if (!$post) show_error('Retrying notice email requires POST.',405);
             $staff=require_user();
