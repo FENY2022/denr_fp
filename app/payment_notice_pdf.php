@@ -89,12 +89,27 @@ final class FpomsPaymentNoticePdf
         $location=(string)($app['project_location']??'LOCATION OF THE PROJECT');
         $company=(string)($app['company_name']??'COMPANY NAME');
         $project=(string)($app['project_title']??'PROJECT NAME');
+        $penro=trim((string)($app['concerned_penro']??''));
+        $cenro=trim((string)($app['concerned_cenro']??''));
+        $penroLabel=$penro!=='' ? (preg_replace('/^PENRO\s+/i','PENRO-',$penro)??$penro)
+            : 'PENRO-________________';
+        $cenroLabel=$cenro!=='' ? (preg_replace('/^CENRO\s+/i','CENRO-',$cenro)??$cenro)
+            : 'CENRO-________________';
+        if ($penro!=='' && $cenro==='') {
+            $fieldOfficeSentence='Moreover, we have instructed the '.$penroLabel
+                .' to conduct field validation and assessment of the applied area for FP. '
+                .'Kindly coordinate with the concerned PENRO regarding the schedule and any other relevant matters.';
+        } else {
+            $fieldOfficeSentence='Moreover, we have instructed the '.$penroLabel.' and '.$cenroLabel
+                .' to conduct field validation and assessment of the applied area for FP. '
+                .'Kindly coordinate with them regarding the schedule and any other relevant matters.';
+        }
         $paragraphs=[
             'This pertains to the application for a Feasibility Permit of '.$company.' covering the proposed '.$project
                 .' with an area of '.$area.' hectares located in '.$location.'.',
             'Please be informed that upon review and evaluation of the application documents, the application is found complete and meritorious, consistent with the existing policy and regulation.',
             'In this regard, kindly submit a hard copy of the complete documentary requirements to this Office and pay the corresponding payment of the Application Fee of PHP 10,000.00 pursuant to Item 4 of the Memorandum of the DENR Secretary dated January 28, 2026 (Interim Guidelines relative to the Implementation of Section 14 of DENR Administrative Order No. 2025-22 or the Rules and Regulations Governing Sustainable Forest Land Management Agreement).',
-            'Moreover, we have instructed the PENRO-________________ and CENRO-________________ to conduct field validation and assessment of the applied area for FP. Kindly coordinate with them regarding the schedule and any other relevant matters.',
+            $fieldOfficeSentence,
             'Should you have any questions or require further assistance, please feel free to visit our Office, contact us via email at r13@denr.gov.ph and lasangutilizationlpdd@gmail.com, or through a teleconferencing at your convenience.',
             'Please be guided accordingly. Thank you.'
         ];
