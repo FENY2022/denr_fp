@@ -54,12 +54,14 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
     // and must never implicitly commit an in-progress receiving transaction.
     // This prevents a new receipt being saved without the required RED notice
     // storage. Existing receipts can use payment_notice_generate for recovery.
-    if ($action==='receive') {
+    if ($action==='receive' || $action==='forward') {
         $candidate=query_one('SELECT * FROM permit_step2_applications WHERE id=?',[$applicationId]);
         if ($candidate && permit_flow_is_new($candidate)
             && !fpoms_payment_notice_schema_ready()) {
-            return ['Template No. 2 storage is unavailable. Apply only database/036_red_signed_payment_notice.sql '
-                .'to denr_fp_oms (not a full database backup), then retry receiving. No RO receipt was saved.'];
+            return [$action==='forward'
+                ? 'Forwarding blocked: Template No. 2 storage is unavailable. Apply database migration 036 first.'
+                : 'Template No. 2 storage is unavailable. Apply only database/036_red_signed_payment_notice.sql '
+                    .'to denr_fp_oms (not a full database backup), then retry receiving. No RO receipt was saved.'];
         }
     }
     $pdo=db();
@@ -106,6 +108,18 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
                 || (int)$movement['revision']!==(int)$app['revision']) {
                 $pdo->rollBack();
                 return ['Formal RO receipt must be recorded before forwarding.'];
+            }
+            // Enforce the RED-signed and officially released notice on the server.
+            // The UI button is not a security boundary; direct POSTs must be blocked.
+            if (permit_flow_is_new($app)) {
+                $notice=query_one('SELECT status,artifact_id FROM fpoms_payment_notices
+                    WHERE application_id=? AND revision=? FOR UPDATE',
+                    [$applicationId,(int)$app['revision']]);
+                if (!$notice || (string)$notice['status']!=='released'
+                    || (int)($notice['artifact_id']??0)<1) {
+                    $pdo->rollBack();
+                    return ['Forwarding to LPDD-FUS is disabled until the RED-signed Template No. 2 has been finalized and released to the applicant.'];
+                }
             }
             $pdo->prepare('UPDATE permit_step3_movements
                 SET forwarded_at=NOW(),forwarded_by_user_id=?,forwarding_remarks=?
