@@ -38,6 +38,10 @@
   const persistent = root.dataset.persistent === '1';
   const draftKey = form.dataset.draftKey || '';
   const fields = ['project_title','project_type','project_type_other','project_location',
+    'project_province_code','project_province_name',
+    'project_city_municipality_code','project_city_municipality_name',
+    'project_barangay_code','project_barangay_name','project_street_purok',
+    'concerned_penro','concerned_cenro',
     'project_area_hectares','purpose','project_latitude','project_longitude'];
   const saveStatus = form.querySelector('[data-step2-autosave-status]');
   const warning = root.querySelector('[data-step2-js-warning]');
