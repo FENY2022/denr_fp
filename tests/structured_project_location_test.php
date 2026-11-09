@@ -65,7 +65,7 @@ $checks=[
     '1608506000'=>['PENRO Dinagat Islands',''],
 ];
 foreach ($checks as $code=>[$penro,$cenro]) {
-    $resolved=fp_test_resolve_city($code);
+    $resolved=fp_test_resolve_city((string)$code);
     if ($resolved['concerned_penro']!==$penro || $resolved['concerned_cenro']!==$cenro) {
         throw new RuntimeException('Unexpected DENR jurisdiction for '.$code);
     }
