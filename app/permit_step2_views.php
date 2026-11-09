@@ -794,7 +794,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-project-type.js?v=2" defer></script>'
         . ($hasStructuredLocation
             ? '<script src="assets/permit-location-address.js?v=1" defer></script>' : '')
-        . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>
+        . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
