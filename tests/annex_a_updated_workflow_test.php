@@ -41,6 +41,7 @@ updated_flow_assert(permit_flow_categories(6)['signed_final_map'][0]
     'Step 6 requires the scanned signed final map');
 
 $schema=updated_flow_text('database/031_annex_a_updated_workflow.sql');
+$scheduleSchema=updated_flow_text('database/039_field_validation_schedule_communication.sql');
 $submit=updated_flow_text('app/permit_step2.php');
 $step2=updated_flow_text('app/permit_step2_views.php');
 $evaluation=updated_flow_text('app/permit_step4.php');
@@ -57,6 +58,9 @@ updated_flow_assert(str_contains($schema,'flow_version TINYINT UNSIGNED NOT NULL
     && str_contains($schema,'permit_flow_events')
     && str_contains($schema,'rrdc_schedule DATETIME'),
     'migration 031 preserves legacy cases and creates auditable updated workflow');
+updated_flow_assert(str_contains($scheduleSchema,'field_schedule_communicated_at')
+    && str_contains($scheduleSchema,'field_schedule_communicated_by'),
+    'migration 039 records schedule communication time and LPDD-FUS actor');
 updated_flow_assert(str_contains($submit,'status,flow_version')
     && str_contains($submit,"'submitted',2")
     && str_contains($submit,'permit_flow_is_new($workflow)'),
@@ -66,14 +70,15 @@ updated_flow_assert(str_contains($step2,'Step 2 Completeness & Sufficiency')
     && str_contains($evaluation,'deficiency_notice_issued'),
     'Step 2 completeness decision forwards to RO and requires actual issued signed notices');
 updated_flow_assert(str_contains($clientJs,"dataset.step4FlowVersion === '2'")
-    && str_contains($clientJs,'Step 2')
-    && str_contains($clientJs,'RED-signed deficiency notice'),
+    && str_contains($clientJs,'Payment and scheduling will happen after RO')
+    && str_contains($clientJs,'generate an unsigned deficiency PDF for RED review'),
     'wizard bypasses early scheduling and checks signed notice on incomplete decisions');
 updated_flow_assert(str_contains($step3,'INSERT INTO permit_flow_cases')
     && str_contains($step3,'current_step')
     && str_contains($step3,'permit_flow_is_new'),
     'RO Step 3 forwards updated applications to Step 4 action case');
-updated_flow_assert(str_contains($flow,'permit_payment_instructions')
+updated_flow_assert(str_contains($flow,'permit_flow_communicate_schedule')
+    && str_contains($flow,'field_schedule_communicated_at')
     && str_contains($flow,"status='step4_complete'")
     && str_contains($flow,'cenro_instructions')
     && str_contains($flow,'rrdc_scheduled')
@@ -85,11 +90,11 @@ updated_flow_assert(str_contains($flow,'fpoms_file_store_upload')
     && str_contains($flow,'hash_equals')
     && str_contains($flow,'permit_flow_staff_can_act'),
     'all stage documents use encrypted storage with role-checked access');
-updated_flow_assert(str_contains($flow,'deficiency_notice_issued')
+updated_flow_assert(str_contains($flow,'permit_flow_released_notice_artifact_ids')
     && str_contains($flow,'(int)$case'."['current_step']===12")
     && str_contains($views,'$issued'),
     'client only sees issued notices and final permits after RO release');
-updated_flow_assert(str_contains($evaluation,'permit_flow_application_email_url')
+updated_flow_assert(str_contains($flow,'permit_flow_application_email_url')
     && str_contains($evaluation,'permit_flow_notice_email_attachments')
     && str_contains($flow,'/permit-application?id=')
     && str_contains($flow,'deficiency notice email attachment failed integrity verification')
@@ -97,6 +102,7 @@ updated_flow_assert(str_contains($evaluation,'permit_flow_application_email_url'
     && str_contains((string)file_get_contents(__DIR__.'/../app/smtp.php'),'addStringAttachment'),
     'returned application email attaches verified RED-signed notice and includes configured system link');
 updated_flow_assert(str_contains($router,"case 'permit_flow_advance':")
+    && str_contains($router,"case 'permit_flow_schedule':")
     && str_contains($router,"case 'permit_flow_upload':")
     && str_contains($router,"case 'permit_flow_milestone':")
     && str_contains($router,"case 'permit_flow_notice':")

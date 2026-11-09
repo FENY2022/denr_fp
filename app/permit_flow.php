@@ -319,9 +319,112 @@ function permit_flow_missing_artifacts(int $id,int $step): array
     return $missing;
 }
 
+/** LPDD-FUS records and immediately communicates the Step 4 field schedule. */
+function permit_flow_communicate_schedule(array $staff,int $id,array $input): array
+{
+    if (!permit_flow_schedule_schema_ready()) return ['Apply database migration 039 first.'];
+    if (!permit_flow_staff_can_act($staff,4)) {
+        return ['Only authorized LPDD-FUS personnel may communicate the field schedule.'];
+    }
+    if (($input['confirmation']??'')!=='communicate_schedule') {
+        return ['Confirm that the field validation schedule is ready to communicate.'];
+    }
+    if (($input['schedule_reviewed']??'')!=='yes') {
+        return ['Review and confirm the schedule before communicating it.'];
+    }
+    $schedule=step4_parse_schedule(trim((string)($input['field_validation_schedule']??'')));
+    $location=trim((string)($input['field_validation_location']??''));
+    $notes=trim((string)($input['field_schedule_notes']??''));
+    if (!$schedule) return ['Set a valid field validation/assessment date and time.'];
+    if ((new DateTimeImmutable($schedule))->getTimestamp()<=time()) {
+        return ['Field validation/assessment must be scheduled for a future date and time.'];
+    }
+    if (mb_strlen($location)<5 || mb_strlen($location)>300) {
+        return ['Provide the field validation venue/location (5–300 characters).'];
+    }
+    if (mb_strlen($notes)<10 || mb_strlen($notes)>2000) {
+        return ['Provide coordination details for the applicant and field office (10–2,000 characters).'];
+    }
+
+    $pdo=db();
+    $app=null;
+    $wasCommunicated=false;
+    try {
+        $pdo->beginTransaction();
+        $app=query_one('SELECT a.*,c.name AS applicant_name,c.email AS applicant_email
+            FROM permit_step2_applications a
+            JOIN user_client c ON c.id=a.client_id WHERE a.id=? FOR UPDATE',[$id]);
+        $case=query_one('SELECT * FROM permit_flow_cases WHERE application_id=? FOR UPDATE',[$id]);
+        if (!$app || !permit_flow_is_new($app) || !$case
+            || (int)$case['current_step']!==4 || $case['completed_at']!==null
+            || (string)$app['status']!=='forwarded_to_lpdd') {
+            $pdo->rollBack();
+            return ['Application is no longer awaiting LPDD-FUS Step 4 scheduling. Refresh.'];
+        }
+        if (!fpoms_payment_notice_is_released($id,(int)$app['revision'])) {
+            $pdo->rollBack();
+            return ['The RED-signed Template No. 2 must be finalized and released before communicating the schedule.'];
+        }
+        $wasCommunicated=!empty($case['field_schedule_communicated_at']);
+        $pdo->prepare('UPDATE permit_flow_cases
+            SET field_validation_schedule=?,field_validation_location=?,field_schedule_notes=?,
+                field_schedule_communicated_at=NOW(),field_schedule_communicated_by=?
+            WHERE application_id=?')
+            ->execute([$schedule,$location,$notes,(int)$staff['id'],$id]);
+        $office=trim((string)($app['concerned_cenro']??''));
+        if ($office==='') $office=trim((string)($app['concerned_penro']??''));
+        $remarks='Field validation/assessment scheduled for '.$schedule
+            .' at '.$location.'. Concerned office: '.($office!==''?$office:'Field office')
+            .'. Coordination details: '.$notes;
+        permit_flow_record_event(
+            $pdo,$id,4,$staff,
+            $wasCommunicated?'field_schedule_recommunicated':'field_schedule_communicated',
+            $remarks
+        );
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('FP-OMS field schedule communication failed: '.$e->getMessage());
+        return ['Field schedule could not be saved. Check migration 039 and try again.'];
+    }
+
+    $display=fpoms_display_datetime($schedule);
+    $office=trim((string)($app['concerned_cenro']??''));
+    if ($office==='') $office=trim((string)($app['concerned_penro']??''));
+    $message='FP application #'.$id.' field validation/assessment is scheduled on '
+        .$display.' at '.$location.'. '.$notes;
+    try {
+        create_client_notification(
+            (int)$app['client_id'],
+            ($wasCommunicated?'Updated ':'').'Field Validation Schedule – FP #'.$id,
+            $message,'calendar-event','warning','permit_application',['id'=>$id]
+        );
+        foreach (['cenro_twg','penro_user'] as $role) {
+            notify_role(
+                $role,
+                ($wasCommunicated?'Updated ':'').'Field Validation Schedule – FP #'.$id,
+                $message.($office!==''?' Concerned field office: '.$office.'.':''),
+                'calendar-event','warning','permit_flow',['id'=>$id]
+            );
+        }
+    } catch (Throwable $e) {
+        error_log('FP-OMS field schedule bell notification failed: '.$e->getMessage());
+    }
+    permit_flow_email(
+        $app,
+        ($wasCommunicated?'Updated ':'').'Field Validation Schedule – FP Application #'.$id,
+        $message,
+        permit_flow_application_email_url($id),
+        [],
+        'View Field Validation Schedule'
+    );
+    fpoms_pusher_flush_pending();
+    return [];
+}
+
 /**
- * Advances one signed/validated stage at a time. Step 4 automatically sends the
- * Cashier→LPDD-FUS notice, but does NOT mark the applicant as paid.
+ * Advances one signed/validated stage at a time. Step 4 scheduling is recorded
+ * and communicated separately before the memo hand-off can be completed.
  */
 function permit_flow_advance(array $staff,int $id,int $step,array $input): array
 {
@@ -331,12 +434,13 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
     $notes=trim((string)($input['remarks']??''));
     if (strlen($notes)>3000) return ['Remarks must not exceed 3,000 characters.'];
 
-    $schedule=null;
     $instructions='';
     if ($step===4) {
-        $schedule=step4_parse_schedule(trim((string)($input['field_validation_schedule']??'')));
         $instructions=trim((string)($input['cenro_instructions']??''));
-        if (!$schedule) return ['Set a valid CENRO field validation/assessment schedule.'];
+        if (!permit_flow_schedule_schema_ready()) return ['Apply database migration 039 first.'];
+        if (!permit_flow_schedule_communicated($id)) {
+            return ['Save and communicate the field validation/assessment schedule first.'];
+        }
         if (strlen($instructions)<10 || strlen($instructions)>3000) {
             return ['Provide CENRO memo instructions (10–3,000 characters).'];
         }
@@ -377,6 +481,11 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             $pdo->rollBack();
             return ['Official RED-signed Template No. 2 has not yet been finalized/released.'];
         }
+        if ($step===4 && (empty($case['field_validation_schedule'])
+            || empty($case['field_schedule_communicated_at']))) {
+            $pdo->rollBack();
+            return ['Field validation/assessment schedule has not been communicated.'];
+        }
         // Recheck required documents inside the transaction after locking the case.
         $missing=permit_flow_missing_artifacts($id,$step);
         if ($missing) { $pdo->rollBack(); return ['Required signed documents are still missing.']; }
@@ -390,8 +499,8 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
         }
         if ($step===4) {
             $pdo->prepare('UPDATE permit_flow_cases
-                SET field_validation_schedule=?,cenro_instructions=?,notice_text=? WHERE application_id=?')
-                ->execute([$schedule,$instructions,permit_payment_instructions($id),$id]);
+                SET cenro_instructions=? WHERE application_id=?')
+                ->execute([$instructions,$id]);
             $pdo->prepare("UPDATE permit_step2_applications SET status='step4_complete' WHERE id=?")
                 ->execute([$id]);
             $pdo->prepare("INSERT INTO permit_payment_verifications
@@ -420,18 +529,11 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             'Updated Annex A application #'.$id.' is ready for '.permit_flow_step_label($step+1).'.',
             'file-earmark-check','info','permit_flow',['id'=>$id]);
         if ($step===4) {
-            // The RED-signed Template No. 2 was officially released after RO receipt.
-            // Step 4 sends only the field schedule/CENRO instruction update,
-            // preventing a duplicate Notice to Pay email or bell alert.
-            $message='FP application #'.$id.' field validation/assessment schedule: '
-                .fpoms_display_datetime((string)$schedule)
-                .'. LPDD-FUS has prepared the CENRO field validation instructions.';
-            create_client_notification((int)$app['client_id'],'Field Validation Schedule – FP #'.$id,
-                $message,'calendar-event','info','permit_application',['id'=>$id]);
+            // Schedule communication is a separate audited action. Completion
+            // now only hands the prepared field-office instruction to Step 5.
             notify_role('lpdd_fus','FP Cashier Payment Awaiting Verification',
                 'FP application #'.$id.' requires Cashier payment and LPDD-FUS receipt verification.',
                 'receipt','info','lpdd_fus_payment_queue',['tab'=>'awaiting']);
-            permit_flow_email($app,'Field Validation Schedule – FP Application #'.$id,$message);
         } elseif ($step===11) {
             $message='Your FP application #'.$id.' has been approved and released. '
                 .'See the authorized FP/TOR documents and records release instructions in FP-OMS.';

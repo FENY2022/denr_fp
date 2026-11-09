@@ -1,6 +1,40 @@
 <?php
 declare(strict_types=1);
 
+/** Applicant/staff view of the latest communicated field-validation schedule. */
+function permit_flow_schedule_summary_html(array $app,array $viewer,bool $compact=false): string
+{
+    $id=(int)($app['id']??0);
+    $schedule=permit_flow_schedule_details($id);
+    if (!$schedule) return '';
+    $mine=($viewer['user_kind']??'')==='applicant'
+        && (int)($viewer['id']??0)===(int)($app['client_id']??0);
+    $staff=($viewer['user_kind']??'')==='internal' && ($viewer['status']??'')==='active';
+    if (!$mine && !$staff) return '';
+    $office=trim((string)($app['concerned_cenro']??''));
+    if ($office==='') $office=trim((string)($app['concerned_penro']??''));
+    $body='<div class="d-flex align-items-center gap-2 mb-2">'
+        .'<i class="bi bi-calendar-event-fill text-warning fs-5" aria-hidden="true"></i>'
+        .'<h3 class="h6 mb-0">Field Validation / Assessment Schedule</h3></div>'
+        .'<dl class="row small mb-0">'
+        .'<dt class="col-sm-4">Date and Time</dt><dd class="col-sm-8 fw-semibold">'
+        .e(fpoms_display_datetime((string)$schedule['field_validation_schedule'])).'</dd>'
+        .'<dt class="col-sm-4">Venue / Location</dt><dd class="col-sm-8">'
+        .e((string)$schedule['field_validation_location']).'</dd>'
+        .($office!==''?'<dt class="col-sm-4">Concerned Field Office</dt><dd class="col-sm-8">'
+            .e($office).'</dd>':'')
+        .'<dt class="col-sm-4">Coordination Details</dt><dd class="col-sm-8">'
+        .nl2br(e((string)$schedule['field_schedule_notes'])).'</dd>'
+        .'<dt class="col-sm-4">Communicated At</dt><dd class="col-sm-8">'
+        .e(fpoms_display_datetime((string)$schedule['field_schedule_communicated_at'])).'</dd>'
+        .($staff?'<dt class="col-sm-4">Communicated By</dt><dd class="col-sm-8">'
+            .e((string)($schedule['communicator_name']??'LPDD-FUS Personnel')).'</dd>':'')
+        .'</dl>';
+    return $compact
+        ? '<div class="alert alert-warning border-warning-subtle">'.$body.'</div>'
+        : '<section class="panel soft mt-3" id="field-validation-schedule">'.$body.'</section>';
+}
+
 /** Role-aware Annex A post-receipt workflow (Step 4 through final release). */
 function permit_flow_stage_form_html(array $app,array $user,array $case,array $errors=[]): string
 {
@@ -34,6 +68,53 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'CENRO: '.e($concernedCenro!==''?$concernedCenro:'Direct PENRO jurisdiction')
                     .'</div>'
                 : '');
+        if (!permit_flow_schedule_schema_ready()) {
+            $html.='<div class="alert alert-warning small">Apply database migration 039 to '
+                .'record and communicate the field validation schedule.</div>';
+        } else {
+            $html.=permit_flow_schedule_summary_html($app,$user,true);
+            if ($paymentNoticeReleased && permit_flow_staff_can_act($user,4)) {
+                $existingTimestamp=strtotime((string)($case['field_validation_schedule']??''));
+                $scheduleValue=$existingTimestamp!==false && $existingTimestamp>time()
+                    ? date('Y-m-d\TH:i',$existingTimestamp) : '';
+                $location=trim((string)($case['field_validation_location']??''));
+                if ($location==='') $location=trim((string)($app['project_location']??''));
+                $scheduleNotes=(string)($case['field_schedule_notes']??'');
+                $alreadyCommunicated=!empty($case['field_schedule_communicated_at']);
+                $html.='<div class="border rounded-3 p-3 mb-3 bg-body">'
+                    .'<h4 class="h6">'.($alreadyCommunicated?'Update &amp; Re-communicate':'Provide &amp; Communicate')
+                    .' Field Validation Schedule</h4>'
+                    .'<p class="small text-secondary">This immediately records the schedule and sends '
+                    .'an in-system notice to the applicant and concerned PENRO/CENRO roles, plus an email '
+                    .'to the applicant. It does not complete Step 4 or generate Template No. 3.</p>'
+                    .'<form method="post" action="'.e(url('permit_flow_schedule',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<div class="row g-3"><div class="col-md-6">'
+                    .'<label class="form-label" for="field-validation-schedule-'.$id.'">Date and Time *</label>'
+                    .'<input type="datetime-local" class="form-control" '
+                    .'id="field-validation-schedule-'.$id.'" name="field_validation_schedule" '
+                    .'min="'.e(date('Y-m-d\TH:i')).'" required value="'.e($scheduleValue).'"></div>'
+                    .'<div class="col-md-6"><label class="form-label" '
+                    .'for="field-validation-location-'.$id.'">Venue / Location *</label>'
+                    .'<input class="form-control" id="field-validation-location-'.$id.'" '
+                    .'name="field_validation_location" minlength="5" maxlength="300" required '
+                    .'value="'.e($location).'"></div></div>'
+                    .'<div class="mt-3"><label class="form-label" '
+                    .'for="field-schedule-notes-'.$id.'">Applicant / Field Office Coordination Details *</label>'
+                    .'<textarea class="form-control" id="field-schedule-notes-'.$id.'" '
+                    .'name="field_schedule_notes" minlength="10" maxlength="2000" required rows="3" '
+                    .'placeholder="Meeting point, contact person, documents or site-access instructions">'
+                    .e($scheduleNotes).'</textarea></div>'
+                    .'<div class="form-check my-3"><input class="form-check-input" type="checkbox" '
+                    .'id="field-schedule-confirm-'.$id.'" name="schedule_reviewed" value="yes" required>'
+                    .'<label class="form-check-label small" for="field-schedule-confirm-'.$id.'">'
+                    .'I reviewed the schedule and confirm it is ready to communicate.</label></div>'
+                    .'<button class="btn btn-warning" type="submit" name="confirmation" '
+                    .'value="communicate_schedule"><i class="bi bi-send me-1"></i>'
+                    .($alreadyCommunicated?'Update &amp; Re-communicate Schedule':'Save &amp; Communicate Schedule')
+                    .'</button></form></div>';
+            }
+        }
     } elseif ($step===5) {
         $html.='<p class="small">CENRO notifies applicant to submit hard copies, instructs TWG, '
             .'conducts the field assessment and uploads the CENRO/GIS Report, GIS Map, '
@@ -144,6 +225,10 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
         && !fpoms_payment_notice_is_released($id,(int)$app['revision']);
     if ($paymentNoticeMissing) $html.='<div class="alert alert-warning small">'
         .'Official RED-signed Template No. 2 release is required before this step can be completed.</div>';
+    $scheduleMissing=$step===4 && (!permit_flow_schedule_schema_ready()
+        || !permit_flow_schedule_communicated($id));
+    if ($scheduleMissing) $html.='<div class="alert alert-warning small">'
+        .'Provide and communicate the field validation/assessment schedule before completing Step 4.</div>';
     $milestoneMissing=($step===5 && (
         !permit_flow_event_exists($id,5,'hardcopy_notice_sent')
         || !permit_flow_event_exists($id,5,'twg_instructed')))
@@ -156,10 +241,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
         $html.='<form method="post" action="'.e(url('permit_flow_advance',['id'=>$id,'step'=>$step])).'">'
             .csrf_field();
         if ($step===4) {
-            $html.='<label class="form-label" for="annex-field-date">Field Validation / Assessment Schedule *</label>'
-                .'<input type="datetime-local" class="form-control mb-3" name="field_validation_schedule" '
-                .'id="annex-field-date" required>'
-                .'<label class="form-label" for="annex-cenro-instructions">Memo Instruction to '
+            $html.='<label class="form-label" for="annex-cenro-instructions">Memo Instruction to '
                 .e($concernedFieldOffice!==''?$concernedFieldOffice:'Concerned CENRO').' *</label>'
                 .'<textarea class="form-control mb-3" id="annex-cenro-instructions" '
                 .'name="cenro_instructions" rows="4" minlength="10" maxlength="3000" required '
@@ -174,7 +256,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             .'I confirm the required actions and uploaded documents have been checked. '
             .'This records an authorized hand-off, not an automatic or fabricated signature.</label></div>'
             .'<button class="btn btn-success w-100" name="confirmation" value="1" type="submit"'
-            .($missing || $milestoneMissing || $paymentNoticeMissing?' disabled':'').'>'
+            .($missing || $milestoneMissing || $paymentNoticeMissing || $scheduleMissing?' disabled':'').'>'
             .e($step===11?'Confirm Release & Issue Feasibility Permit':'Complete Step '.$step.' & Forward')
             .'</button></form>';
     } else {
@@ -315,6 +397,7 @@ function view_permit_flow(int $id,array $errors=[]): void
         .'processing clock. Process milestones and timestamps are recorded in the audit trail; '
         .'holidays, pauses and statutory SLA calculations must be verified separately.</p></div>';
     if ($case) {
+        if ($mine) $html.=permit_flow_schedule_summary_html($app,$viewer);
         if ($mine && $step>=5) $html.='<div class="panel mt-3"><h3 class="h6">Payment and Field Validation</h3>'
             .'<p class="small">'.e(permit_payment_instructions($id)).'</p></div>';
         if (!$mine) $html.=permit_flow_stage_form_html($app,$viewer,$case,$errors);

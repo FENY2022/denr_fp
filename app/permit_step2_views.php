@@ -1066,6 +1066,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
             . '. Check the audit trail for completed actions.</p></div>';
     }
     $html .= '</div></div>'
+        . ($modern ? permit_flow_schedule_summary_html($app,$viewer) : '')
         . (((string)$app['status']==='step4_complete'
                 || ($modern && fpoms_payment_notice_is_released($applicationId,(int)$app['revision'])))
             ? permit_payment_panel_html($app,$viewer,$errors) : '')

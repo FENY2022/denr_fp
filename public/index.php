@@ -1005,6 +1005,20 @@ try {
                 go('permit_flow',['id'=>(int)$id]);
             }
             break;
+        case 'permit_flow_schedule':
+            if (!$post) show_error('Field schedule communication requires confirmed POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application ID.',400);
+            $errors=permit_flow_communicate_schedule($staff,(int)$id,$_POST);
+            if ($errors) view_permit_flow((int)$id,$errors);
+            else {
+                flash('success','Field validation/assessment schedule saved and communicated.');
+                go('permit_flow',['id'=>(int)$id]);
+            }
+            break;
         case 'permit_flow_milestone':
             if (!$post) show_error('DENR milestone actions require confirmed POST.',405);
             $staff=require_user();
