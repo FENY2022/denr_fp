@@ -151,6 +151,16 @@ function step2_persistent_clear(array $client, int $scope): array
                      VALUES (?,?,?,?,?,?,?)'
                 )->execute([$clientId,$scope,'','','','','']);
             }
+            if (fp_location_structured_schema_ready()) {
+                $pdo->prepare(
+                    "UPDATE permit_step2_form_drafts SET
+                        project_province_code='',project_province_name='',
+                        project_city_municipality_code='',project_city_municipality_name='',
+                        project_barangay_code='',project_barangay_name='',
+                        project_street_purok='',concerned_penro='',concerned_cenro=''
+                     WHERE client_id=? AND application_id=?"
+                )->execute([$clientId,$scope]);
+            }
         }
         $pdo->commit();
         foreach ($paths as $relative) {
