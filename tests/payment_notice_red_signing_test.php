@@ -12,6 +12,7 @@ $flow=file_get_contents($root.'/app/permit_flow.php');
 $flowViews=file_get_contents($root.'/app/permit_flow_views.php');
 $step2Views=file_get_contents($root.'/app/permit_step2_views.php');
 $views=file_get_contents($root.'/app/views.php');
+$style=file_get_contents($root.'/public/assets/style.css');
 $router=file_get_contents($root.'/public/index.php');
 $migration038=file_get_contents($root.'/database/038_payment_notice_applicant_viewed.sql');
 
@@ -37,6 +38,9 @@ $checks=[
  [$flow,'fpoms_payment_notice_is_released','Step 4 waits for official signed Template No. 2 release'],
  [$flowViews,'Official RED-signed Template No. 2 release is required','Step 4 UI shows release gate'],
  [$flowViews,'RED-Signed Template No. 2 / Notice to Pay','client modal preview for official Template No. 2'],
+ [$flowViews,'alert alert-danger d-flex','official notice is presented as a red message'],
+ [$flowViews,'bi-envelope-fill','official notice uses a message icon'],
+ [$style,'overflow-wrap:anywhere','long official notice filenames stay inside the message card'],
  [$payment,'permit_payment_available_for_application','payment becomes available after official notice release'],
  [$paymentViews,'fpoms_payment_notices pn','payment queue includes released updated-flow notices'],
  [$step2Views,'fpoms_payment_notice_is_released','application page shows payment action after notice release'],
@@ -49,6 +53,8 @@ $checks=[
  [$pdf,'justifiedLines','Template No. 2 body paragraphs use justified alignment'],
  [$pdf,'%.3F Tw','Template No. 2 justification emits measured PDF word spacing'],
  [$pdf,'0 Tw','ordinary Template No. 2 lines reset PDF word spacing'],
+ [$pdf,'$idx===5?24:8','Template No. 2 separates the closing from the final paragraph'],
+ [$pdf,'$nameY=$y+50','Template No. 2 keeps balanced signature and signatory spacing'],
  [$pdf,'PHP 10,000.00','Template No. 2 fee amount'],
  [$pdf,"concerned_penro",'Template No. 2 reads detected PENRO jurisdiction'],
  [$pdf,"concerned_cenro",'Template No. 2 reads detected CENRO jurisdiction'],

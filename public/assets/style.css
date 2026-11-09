@@ -904,3 +904,19 @@ body.page-loading{overflow:hidden}
 @media(max-width:420px){
   .recovery-otp-boxes{grid-template-columns:repeat(6,minmax(0,1fr))}
 }
+
+/* Official applicant messages must remain inside their panel with long PDF names. */
+.official-document-messages{
+  min-width:0;
+  grid-template-columns:minmax(0,1fr);
+}
+.official-document-message,.official-document-file{
+  width:100%;max-width:100%;min-width:0;
+}
+.official-document-message__body{
+  min-width:0;max-width:100%;overflow:hidden;
+}
+.official-document-message__link{
+  display:block;width:100%;max-width:100%;white-space:normal;
+  overflow-wrap:anywhere;word-break:break-word;
+}

@@ -200,11 +200,14 @@ final class FpomsPaymentNoticePdf
         ];
         foreach ($paragraphs as $idx=>$text) {
             $pdf->justifiedLines(72,$y,$text,self::W-144,10.3,12.4);
-            $y+=($idx===5?10:8);
+            // Keep the closing visually separate from the final instruction.
+            $y+=($idx===5?24:8);
         }
-        $pdf->line(72,$y,'Very truly yours,',10.5); $y+=10;
-        if ($signature!==null) $pdf->image('signature',72,$y,132,34);
-        $nameY=$y+48;
+        $pdf->line(72,$y,'Very truly yours,',10.5);
+        $signatureY=$y+10;
+        if ($signature!==null) $pdf->image('signature',72,$signatureY,132,34);
+        // Preserve a clean signature space without pushing the name too far down.
+        $nameY=$y+50;
         $pdf->line(72,$nameY,(string)($config['signatory_name']??'MA. THERESA J. ALLEN'),10.7,true);
         $pdf->line(72,$nameY+13,(string)($config['signatory_title']??'OIC, Regional Executive Director'),10.2);
         $parts=array_values(array_filter(array_map('trim',explode('|',$pdf->footer))));

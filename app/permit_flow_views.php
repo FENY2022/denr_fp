@@ -228,7 +228,11 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
                 'approved_fp','approved_tor','approved_map','approved_sheet',
                 'transmittal'],true))));
     if (!$permitted) return '';
-    $html='<div class="panel mt-3"><h3 class="h6">Official Notices / Approved Documents</h3><ul>';
+    $html='<div class="panel mt-3">'
+        .'<div class="d-flex align-items-center gap-2">'
+        .'<i class="bi bi-envelope-exclamation-fill text-danger fs-5" aria-hidden="true"></i>'
+        .'<h3 class="h6 mb-0">Official Notices / Approved Documents</h3></div>'
+        .'<div class="d-grid gap-2 mt-3 official-document-messages">';
     foreach ($permitted as $d) {
         $isNotice=(string)$d['category']==='red_signed_deficiency_notice';
         $isPaymentNotice=(string)$d['category']==='red_signed_payment_notice';
@@ -236,37 +240,58 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
             $preview=url('permit_flow_file',[
                 'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
             ]);
-            $html.='<li><button type="button" class="btn btn-link p-0 align-baseline" '
+            $html.='<div class="alert alert-danger d-flex align-items-start gap-3 mb-0 official-document-message" role="alert">'
+                .'<i class="bi bi-envelope-fill fs-4 flex-shrink-0" aria-hidden="true"></i>'
+                .'<div class="official-document-message__body">'
+                .'<div class="fw-bold">Official DENR Message</div>'
+                .'<button type="button" class="btn btn-link alert-link fw-semibold p-0 text-start official-document-message__link" '
                 .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
                 .'data-notice-preview-url="'.e($preview).'" '
                 .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Deficiency Notice').'">'
-                .e((string)$d['original_name']).'</button></li>';
+                .e((string)$d['original_name']).'</button>'
+                .'<div class="small mt-1">Click this message to read the official RED-signed notice.</div>'
+                .'</div></div>';
         } elseif ($isPaymentNotice && $noticeModal) {
             $isCurrentPaymentNotice=(int)$d['id']===$currentPaymentArtifactId;
+            $isUnread=(int)$d['id']===$unreadPaymentArtifactId;
             $preview=$isCurrentPaymentNotice
                 ? url('payment_notice_pdf',['id'=>$id,'embed'=>1])
                 : url('permit_flow_file',[
                     'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
                 ]);
-            $html.='<li><button type="button" class="btn btn-link p-0 align-baseline" '
+            $html.='<div class="alert alert-danger d-flex align-items-start gap-3 mb-0 official-document-message" role="alert">'
+                .'<i class="bi bi-envelope-fill fs-4 flex-shrink-0" aria-hidden="true"></i>'
+                .'<div class="flex-grow-1 official-document-message__body">'
+                .'<div class="d-flex flex-wrap align-items-center gap-2 mb-1">'
+                .'<strong>Official Notice to Pay</strong>'
+                .'<span class="badge text-bg-danger">'.($isUnread?'New Message':'Official Message').'</span></div>'
+                .'<button type="button" class="btn btn-link alert-link fw-semibold p-0 text-start official-document-message__link" '
                 .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
-                .((int)$d['id']===$unreadPaymentArtifactId?'data-notice-auto-open ':'')
+                .($isUnread?'data-notice-auto-open ':'')
                 .'data-notice-preview-url="'.e($preview).'" '
                 .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Template No. 2 / Notice to Pay').'">'
-                .'<i class="bi bi-cash-coin me-1"></i>'.e((string)$d['original_name']).'</button>'
-                .' <span class="badge text-bg-success">Official Notice to Pay</span></li>';
+                .e((string)$d['original_name']).'</button>'
+                .'<div class="small mt-1">A RED-signed message from DENR is ready. Click to open and read.</div>'
+                .'</div></div>';
         } elseif ($isPaymentNotice) {
-            $html.='<li><a href="'.e(url('permit_flow_file',
+            $html.='<div class="alert alert-danger d-flex align-items-start gap-3 mb-0 official-document-message" role="alert">'
+                .'<i class="bi bi-envelope-fill fs-4 flex-shrink-0" aria-hidden="true"></i>'
+                .'<div class="official-document-message__body">'
+                .'<div class="fw-bold mb-1">Official Notice to Pay</div>'
+                .'<a class="alert-link fw-semibold official-document-message__link" href="'.e(url('permit_flow_file',
                     ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))
-                .'"><i class="bi bi-cash-coin me-1"></i>'.e((string)$d['original_name']).'</a>'
-                .' <span class="badge text-bg-success">Official Notice to Pay</span></li>';
+                .'">'.e((string)$d['original_name']).'</a>'
+                .'<div class="small mt-1">Click this message to read the official RED-signed notice.</div>'
+                .'</div></div>';
         } else {
-            $html.='<li><a target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
+            $html.='<div class="border rounded p-3 bg-body-tertiary official-document-file">'
+                .'<i class="bi bi-file-earmark-check me-2 text-success" aria-hidden="true"></i>'
+                .'<a class="official-document-message__link" target="_blank" rel="noopener" href="'.e(url('permit_flow_file',
                     ['id'=>$id,'file'=>(int)$d['id'],'preview'=>1]))
-                .'">'.e((string)$d['original_name']).'</a></li>';
+                .'">'.e((string)$d['original_name']).'</a></div>';
         }
     }
-    return $html.'</ul></div>';
+    return $html.'</div></div>';
 }
 function view_permit_flow(int $id,array $errors=[]): void
 {
