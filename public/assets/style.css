@@ -920,3 +920,19 @@ body.page-loading{overflow:hidden}
   display:block;width:100%;max-width:100%;white-space:normal;
   overflow-wrap:anywhere;word-break:break-word;
 }
+
+/* LPDD-FUS checks the entered payment data beside the local receipt preview. */
+.payment-review-details dt,.payment-review-details dd{margin-bottom:.65rem}
+.payment-receipt-review{
+  min-height:clamp(320px,52vh,620px);display:flex;align-items:center;
+  justify-content:center;overflow:auto;border:1px solid #d9e3dc;
+  border-radius:.65rem;background:#f4f7f5;
+}
+.payment-receipt-review__frame{
+  width:100%;height:clamp(320px,52vh,620px);border:0;background:#fff;
+}
+.payment-receipt-review__image{
+  display:block;max-width:100%;max-height:clamp(320px,52vh,620px);
+  object-fit:contain;transform-origin:center center;
+}
+.payment-receipt-review.is-zoomed{align-items:flex-start;justify-content:flex-start}

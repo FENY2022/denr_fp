@@ -46,7 +46,7 @@ if (!headers_sent()) {
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: geolocation=(self), microphone=(), camera=(self)');
-    header('Content-Security-Policy: default-src \'self\'; connect-src \'self\' https://cdn.jsdelivr.net https://*.pusher.com wss://*.pusher.com; style-src \'self\' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src \'self\' https://cdn.jsdelivr.net https://js.pusher.com; worker-src \'self\' blob:; img-src \'self\' data: blob: https://cdn.jsdelivr.net https://*.tile.openstreetmap.org; frame-src \'self\'; font-src \'self\' https://cdn.jsdelivr.net https://fonts.gstatic.com; object-src \'none\'; base-uri \'self\'; frame-ancestors \'none\'; form-action \'self\'');
+    header('Content-Security-Policy: default-src \'self\'; connect-src \'self\' https://cdn.jsdelivr.net https://*.pusher.com wss://*.pusher.com; style-src \'self\' https://cdn.jsdelivr.net https://fonts.googleapis.com; script-src \'self\' https://cdn.jsdelivr.net https://js.pusher.com; worker-src \'self\' blob:; img-src \'self\' data: blob: https://cdn.jsdelivr.net https://*.tile.openstreetmap.org; frame-src \'self\' blob:; font-src \'self\' https://cdn.jsdelivr.net https://fonts.gstatic.com; object-src \'none\'; base-uri \'self\'; frame-ancestors \'none\'; form-action \'self\'');
     header('Cache-Control: no-store, private');
 }
 require_once __DIR__ . '/domain.php';

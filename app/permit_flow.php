@@ -58,10 +58,38 @@ function permit_flow_case(int $id): ?array
     if (!permit_flow_ready()) return null;
     return query_one('SELECT * FROM permit_flow_cases WHERE application_id=?',[$id]);
 }
+function permit_flow_schedule_schema_ready(): bool
+{
+    static $ready=null;
+    if ($ready!==null) return $ready;
+    try {
+        db()->query('SELECT field_validation_location,field_schedule_notes,
+            field_schedule_communicated_at,field_schedule_communicated_by
+            FROM permit_flow_cases LIMIT 0');
+        return $ready=true;
+    } catch (Throwable $e) {
+        return $ready=false;
+    }
+}
+function permit_flow_schedule_details(int $id): ?array
+{
+    if ($id<1 || !permit_flow_schedule_schema_ready()) return null;
+    return query_one('SELECT c.field_validation_schedule,c.field_validation_location,
+            c.field_schedule_notes,c.field_schedule_communicated_at,
+            c.field_schedule_communicated_by,u.name AS communicator_name
+        FROM permit_flow_cases c
+        LEFT JOIN users u ON u.id=c.field_schedule_communicated_by
+        WHERE c.application_id=? AND c.field_validation_schedule IS NOT NULL
+          AND c.field_schedule_communicated_at IS NOT NULL',[$id]);
+}
+function permit_flow_schedule_communicated(int $id): bool
+{
+    return permit_flow_schedule_details($id)!==null;
+}
 function permit_flow_roles(): array
 {
     return ['lpdd_fus','ro_receiving','cenro_twg','gis_focal','smd','cdd',
-        'rrdc_member','rrdc_secretariat','lpdd_chief','ard_ts','red','super_admin'];
+        'rrdc_member','rrdc_secretariat','lpdd_chief','ard_ts','red','penro_user','super_admin'];
 }
 function permit_flow_staff_can_view(array $user): bool
 {

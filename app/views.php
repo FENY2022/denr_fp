@@ -106,7 +106,7 @@ function render_page(string $title, string $content): void
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">'
         . '<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">'
         . '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
-        . '<link href="assets/style.css?v=38" rel="stylesheet">'
+        . '<link href="assets/style.css?v=39" rel="stylesheet">'
         . '<link href="assets/action-feedback.css?v=1" rel="stylesheet">'
         . ($user ? '<link href="assets/messenger.css?v=1" rel="stylesheet">' : '')
         . (str_contains($content, 'id="applicant-fp-requirements"')
@@ -198,6 +198,8 @@ function render_page(string $title, string $content): void
             ? '<script src="assets/recovery-otp-input.js?v=1" defer></script>' : '')
         . (str_contains($content, 'data-payment-amount')
             ? '<script src="assets/payment-amount.js?v=1" defer></script>' : '')
+        . (str_contains($content, 'data-payment-review-modal')
+            ? '<script src="assets/payment-verification-review.js?v=1" defer></script>' : '')
         . (str_contains($content, 'id="notice-pdf-preview-modal"')
             ? '<script src="assets/deficiency-notice-queue.js?v=3" defer></script>' : '')
         . '</body></html>';

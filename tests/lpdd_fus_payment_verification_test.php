@@ -32,6 +32,7 @@ payment_assert(permit_payment_input_errors([
 ])!==[],'invalid OR, amount and payment date rejected');
 
 $payment=payment_content('app/permit_payment.php');
+$paymentNotice=payment_content('app/payment_notice.php');
 $step4=payment_content('app/permit_step4.php');
 $step4Views=payment_content('app/permit_step4_views.php');
 $paymentViews=payment_content('app/permit_payment_views.php');
@@ -42,6 +43,7 @@ $appViews=payment_content('app/permit_step2_views.php');
 $tracking=payment_content('app/permit_tracking.php');
 $events=payment_content('app/permit_tracking_views.php');
 $bootstrap=payment_content('app/bootstrap.php');
+$paymentReviewScript=payment_content('public/assets/payment-verification-review.js');
 $sql=payment_content('database/028_lpdd_fus_payment_verification.sql');
 $upgrade=payment_content('database/029_consolidate_legacy_payment_role_into_lpdd_fus.sql');
 
@@ -60,7 +62,8 @@ payment_assert(str_contains($upgrade,"legacy.code='".$legacyRoleCode."'")
     'upgrade migration transfers legacy role access and historical audit events');
 payment_assert(str_contains($payment,"require_role('lpdd_fus')")
     && str_contains($payment,"has_role(\$lpddFus,'lpdd_fus')")
-    && str_contains($payment,"\$app['status']!=='step4_complete'"),
+    && str_contains($payment,'permit_payment_available_for_application($app)')
+    && str_contains($payment,'fpoms_payment_notice_is_released'),
     'only active LPDD-FUS accounts can verify eligible payments');
 payment_assert(str_contains($payment,"'verify_payment'")
     && str_contains($payment,'SELECT id,status FROM permit_payment_verifications')
@@ -71,10 +74,10 @@ payment_assert(str_contains($payment,'fpoms_file_store_upload')
     && str_contains($payment,'fpoms_file_plaintext_sha256')
     && str_contains($payment,'fpoms_file_read'),
     'OR remains encrypted and integrity checked');
-payment_assert(str_contains($step4,"notify_role(\n                    'lpdd_fus'")
-    && str_contains($step4,'lpdd_fus_payment_queue')
-    && str_contains($step4,'Notice to Pay Application Fee'),
-    'Step 4 completion notifies LPDD-FUS payment queue');
+payment_assert(str_contains($paymentNotice,"notify_role('lpdd_fus'")
+    && str_contains($paymentNotice,'lpdd_fus_payment_queue')
+    && str_contains($paymentNotice,'Official Notice to Pay Application Fee'),
+    'RED notice release notifies the LPDD-FUS payment queue');
 payment_assert(str_contains($routes,"case 'lpdd_fus_payment_queue':")
     && str_contains($routes,'permit_payment_require_lpdd_fus')
     && str_contains($routes,"case 'permit_payment_verify':"),
@@ -84,6 +87,23 @@ payment_assert(str_contains($paymentViews,'Awaiting LPDD-FUS Verification')
     && str_contains($paymentViews,'Verify Payment & Upload OR')
     && str_contains($paymentViews,'name="official_receipt"'),
     'LPDD-FUS queue and receipt upload controls are present');
+payment_assert(str_contains($paymentViews,'data-payment-review-modal')
+    && str_contains($paymentViews,'data-payment-review-value="receipt_number"')
+    && str_contains($paymentViews,'data-payment-receipt-frame')
+    && str_contains($paymentViews,'data-payment-receipt-image')
+    && str_contains($paymentViews,'data-payment-receipt-zoom-out')
+    && str_contains($paymentViews,'data-payment-receipt-fit')
+    && str_contains($paymentViews,'data-payment-receipt-zoom-in'),
+    'confirmation modal reviews entered information and the selected receipt');
+payment_assert(str_contains($paymentReviewScript,'URL.createObjectURL')
+    && str_contains($paymentReviewScript,'URL.revokeObjectURL')
+    && str_contains($paymentReviewScript,'form.checkValidity()')
+    && str_contains($paymentReviewScript,'textContent')
+    && str_contains($paymentReviewScript,"#zoom=\${fitMode ? 'page-fit' : percent}")
+    && str_contains($paymentReviewScript,'zoomLevels = [50, 75, 100, 125, 150, 200]'),
+    'receipt preview is local, released after use, validates the form and renders data safely');
+payment_assert(str_contains($bootstrap,"frame-src \\'self\\' blob:"),
+    'content security policy permits only same-origin and local blob receipt frames');
 payment_assert(str_contains($nav,'lpdd_fus_payment_queue')
     && str_contains($nav,'Payment Verification')
     && !str_contains($nav,"in_array('".$legacyRoleCode."'"),
