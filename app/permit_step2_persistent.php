@@ -18,6 +18,14 @@ function step2_persistent_form(int $clientId, int $scope): ?array
 {
     if (!step2_persistent_ready() || !step2_project_type_schema_ready()) return null;
     $fields=['project_title','project_type','project_type_other','project_location'];
+    if (fp_location_structured_schema_ready()) {
+        array_push($fields,
+            'project_province_code','project_province_name',
+            'project_city_municipality_code','project_city_municipality_name',
+            'project_barangay_code','project_barangay_name','project_street_purok',
+            'concerned_penro','concerned_cenro'
+        );
+    }
     if (step2_area_schema_ready()) $fields[]='project_area_hectares';
     if (step2_location_schema_ready()) {
         $fields[]='project_latitude';
@@ -37,6 +45,7 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
     if (!step2_persistent_ready()) return ['error'=>'Apply database migration 016 to save your draft.'];
     if (!step2_project_type_schema_ready()) return ['error'=>'Apply database migration 030 for project type fields.'];
     if (!step2_area_schema_ready()) return ['error'=>'Apply database migration 034 for Project Area (hectares).'];
+    if (!fp_location_structured_schema_ready()) return ['error'=>'Apply database migration 037 for structured project location.'];
     if (!step2_draft_scope_allowed($client,$scope)) return ['error'=>'Draft is no longer editable.'];
     $title = (string)($fields['project_title'] ?? '');
     $projectType=(string)($fields['project_type'] ?? '');
@@ -45,7 +54,8 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
         || ($projectType!=='' && !isset(step2_project_types()[$projectType]))) {
         return ['error'=>'Select a valid project type and enter at most 160 characters for Other.'];
     }
-    $location = (string)($fields['project_location'] ?? '');
+    $structured=fp_location_normalize_draft($fields);
+    $location=(string)$structured['project_location'];
     $area = trim((string)($fields['project_area_hectares'] ?? ''));
     $purpose = (string)($fields['purpose'] ?? '');
     $lat = (string)($fields['project_latitude'] ?? '');
@@ -61,32 +71,37 @@ function step2_persistent_save_fields(array $client, int $scope, array $fields):
         return ['error'=>'Project Area must be a number of hectares with up to 4 decimal places.'];
     }
     try {
+        $record=[
+            'client_id'=>(int)$client['id'],
+            'application_id'=>$scope,
+            'project_title'=>$title,
+            'project_type'=>$projectType,
+            'project_type_other'=>$projectOther,
+            'project_location'=>$location,
+            'project_province_code'=>$structured['project_province_code'],
+            'project_province_name'=>$structured['project_province_name'],
+            'project_city_municipality_code'=>$structured['project_city_municipality_code'],
+            'project_city_municipality_name'=>$structured['project_city_municipality_name'],
+            'project_barangay_code'=>$structured['project_barangay_code'],
+            'project_barangay_name'=>$structured['project_barangay_name'],
+            'project_street_purok'=>$structured['project_street_purok'],
+            'concerned_penro'=>$structured['concerned_penro'],
+            'concerned_cenro'=>$structured['concerned_cenro'],
+            'project_area_hectares'=>$area
+        ];
         if (step2_location_schema_ready()) {
-            // Drafts intentionally accept partial coordinate typing. Strict validation
-            // is applied only at final submission, not at each autosave keystroke.
-            db()->prepare(
-                'INSERT INTO permit_step2_form_drafts
-                 (client_id,application_id,project_title,project_type,project_type_other,project_location,
-                  project_area_hectares,project_latitude,project_longitude,purpose)
-                 VALUES (?,?,?,?,?,?,?,?,?,?)
-                 ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
-                 project_type=VALUES(project_type),project_type_other=VALUES(project_type_other),
-                 project_location=VALUES(project_location),
-                 project_area_hectares=VALUES(project_area_hectares),
-                 project_latitude=VALUES(project_latitude),
-                 project_longitude=VALUES(project_longitude),purpose=VALUES(purpose)'
-            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$area,$lat,$lon,$purpose]);
-        } else {
-            db()->prepare(
-                'INSERT INTO permit_step2_form_drafts
-                 (client_id,application_id,project_title,project_type,project_type_other,project_location,project_area_hectares,purpose)
-                 VALUES (?,?,?,?,?,?,?,?)
-                 ON DUPLICATE KEY UPDATE project_title=VALUES(project_title),
-                 project_type=VALUES(project_type),project_type_other=VALUES(project_type_other),
-                 project_location=VALUES(project_location),
-                 project_area_hectares=VALUES(project_area_hectares),purpose=VALUES(purpose)'
-            )->execute([(int)$client['id'],$scope,$title,$projectType,$projectOther,$location,$area,$purpose]);
+            $record['project_latitude']=$lat;
+            $record['project_longitude']=$lon;
         }
+        $record['purpose']=$purpose;
+        $columns=array_keys($record);
+        $updates=array_values(array_filter($columns,
+            static fn(string $column): bool=>!in_array($column,['client_id','application_id'],true)));
+        $sql='INSERT INTO permit_step2_form_drafts ('.implode(',',$columns).') VALUES ('
+            .implode(',',array_fill(0,count($columns),'?')).') ON DUPLICATE KEY UPDATE '
+            .implode(',',array_map(static fn(string $column): string=>
+                $column.'=VALUES('.$column.')',$updates));
+        db()->prepare($sql)->execute(array_values($record));
         return ['saved'=>true];
     } catch (Throwable $error) {
         error_log('FP-OMS persistent draft save error: '.$error->getMessage());
