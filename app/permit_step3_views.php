@@ -43,6 +43,8 @@ function step3_action_panel_html(array $app): string
     }
     if ($status==='forwarded_to_ro' || $status==='ro_received') {
         $receive=$status==='forwarded_to_ro';
+        $forwardBlocked=!$receive && permit_flow_is_new($app)
+            && !fpoms_payment_notice_is_released($id,(int)$app['revision']);
         $name=$receive ? 'Receive Documents':'Forward to LPDD-FUS';
         $action=$receive ? 'permit_ro_receive':'permit_ro_forward';
         $form=$receive ? 'ro-step3-receive-form':'ro-step3-forward-form';
@@ -53,8 +55,14 @@ function step3_action_panel_html(array $app): string
             .'<label class="form-label" for="ro-step3-remarks">Remarks (optional)</label>'
             .'<textarea id="ro-step3-remarks" name="remarks" rows="4" maxlength="2000" '
             .'class="form-control mb-3" placeholder="Notes for the audit trail"></textarea>'
-            .'<button type="button" class="btn btn-success w-100" data-bs-toggle="modal" '
-            .'data-bs-target="#'.$modal.'">'.e($name).'</button></form>'
+            .'<button type="button" class="btn btn-success w-100"'
+            .($forwardBlocked?' disabled aria-disabled="true"':' data-bs-toggle="modal" data-bs-target="#'.$modal.'"')
+            .'>'.e($name).'</button></form>'
+            .($forwardBlocked
+                ? '<div class="alert alert-warning small mt-2" role="status">'
+                    .'<i class="bi bi-lock me-1"></i><strong>Awaiting RED-Signed Template No. 2.</strong> '
+                    .'Forwarding to LPDD-FUS is available only after the RED-signed notice has been finalized and released to the applicant.</div>'
+                : '')
             .'<div class="modal fade" id="'.$modal.'" tabindex="-1" '
             .'aria-labelledby="'.$modal.'-title" aria-hidden="true">'
             .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
