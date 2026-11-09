@@ -940,7 +940,7 @@ function fpoms_notice_config_view(array $admin,array $errors=[]): void
     if (!has_role($admin,'super_admin')) show_error('Access denied.',403);
     $config=fpoms_notice_config();
     $html='<div class="panel"><h2 class="h5">RED Notice Templates / E-Signature</h2>'
-        .'<p class="text-secondary">The configured RED signatory and JPEG e-signature are shared by Template No. 1 deficiency notices and Template No. 2 complete-documents / advice-to-pay notices. FP-OMS includes a built-in Template No. 1 letter structure, so DOCX upload is optional. 
+        .'<p class="text-secondary">The configured RED signatory and JPEG e-signature are shared by Template No. 1 deficiency notices and Template No. 2 complete-documents / advice-to-pay notices. FP-OMS includes a built-in Template No. 1 letter structure, so DOCX upload is optional. '
         .'If you upload the official DOCX, FP-OMS will prefer its DENR seal, Bagong Pilipinas and SOCOTEC artwork. '
         .'Applicant, project and deficiency details are filled automatically.</p>'
         .errors_html($errors);
