@@ -306,6 +306,15 @@ function step2_input(): array
         'project_type'=>safe_post('project_type',20),
         'project_type_other'=>safe_post('project_type_other',160),
         'project_location'=>safe_post('project_location',300),
+        'project_province_code'=>safe_post('project_province_code',10),
+        'project_province_name'=>safe_post('project_province_name',120),
+        'project_city_municipality_code'=>safe_post('project_city_municipality_code',10),
+        'project_city_municipality_name'=>safe_post('project_city_municipality_name',120),
+        'project_barangay_code'=>safe_post('project_barangay_code',10),
+        'project_barangay_name'=>safe_post('project_barangay_name',120),
+        'project_street_purok'=>safe_post('project_street_purok',180),
+        'concerned_penro'=>safe_post('concerned_penro',120),
+        'concerned_cenro'=>safe_post('concerned_cenro',120),
         'project_area_hectares'=>safe_post('project_area_hectares',24),
         'purpose'=>safe_post('purpose',2000)
     ];
@@ -368,7 +377,11 @@ function step2_submit(array $client, array $data, array $files, int $application
     if (!step2_area_schema_ready()) {
         return ['Apply database migration 034 before submitting Project Area (hectares).'];
     }
-    $errors = step2_validate_input($data);
+    if (!fp_location_structured_schema_ready()) {
+        return ['Apply database migration 037 before submitting the structured project location.'];
+    }
+    $locationErrors=fp_location_normalize_submission($data);
+    $errors = array_merge($locationErrors,step2_validate_input($data));
     $coordsReady = step2_location_schema_ready();
     $lat = trim((string)($data['project_latitude'] ?? ''));
     $lon = trim((string)($data['project_longitude'] ?? ''));
@@ -525,6 +538,23 @@ function step2_submit(array $client, array $data, array $files, int $application
             $applicationId = (int)$pdo->lastInsertId();
             $action = 'submitted';
         }
+
+        $pdo->prepare(
+            'UPDATE permit_step2_applications SET
+                project_location=?,
+                project_province_code=?,project_province_name=?,
+                project_city_municipality_code=?,project_city_municipality_name=?,
+                project_barangay_code=?,project_barangay_name=?,project_street_purok=?,
+                concerned_penro=?,concerned_cenro=?
+             WHERE id=? AND client_id=?'
+        )->execute([
+            $data['project_location'],
+            $data['project_province_code'],$data['project_province_name'],
+            $data['project_city_municipality_code'],$data['project_city_municipality_name'],
+            $data['project_barangay_code'],$data['project_barangay_name'],$data['project_street_purok'],
+            $data['concerned_penro'],$data['concerned_cenro'],
+            $applicationId,$clientId
+        ]);
 
         foreach ($uploads['items'] as $info) {
             $relative = 'fp_step2/' . $clientId . '/' . $applicationId . '/'
