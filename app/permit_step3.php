@@ -50,6 +50,18 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
     if ($applicationId<1 || !in_array($action,['receive','forward'],true)) return ['Invalid action.'];
     $remarks=trim($remarks);
     if (strlen($remarks)>2000) return ['Remarks must not exceed 2,000 bytes.'];
+    // Preflight Template No. 2 outside the receipt transaction: CREATE TABLE is DDL
+    // and must never implicitly commit an in-progress receiving transaction.
+    // This prevents a new receipt being saved without the required RED notice
+    // storage. Existing receipts can use payment_notice_generate for recovery.
+    if ($action==='receive') {
+        $candidate=query_one('SELECT * FROM permit_step2_applications WHERE id=?',[$applicationId]);
+        if ($candidate && permit_flow_is_new($candidate)
+            && !fpoms_payment_notice_schema_ready()) {
+            return ['Template No. 2 storage is unavailable. Apply only database/036_red_signed_payment_notice.sql '
+                .'to denr_fp_oms (not a full database backup), then retry receiving. No RO receipt was saved.'];
+        }
+    }
     $pdo=db();
     try {
         $pdo->beginTransaction();
