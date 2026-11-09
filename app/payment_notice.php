@@ -378,6 +378,13 @@ function fpoms_payment_notice_send_pdf(array $viewer,int $id): never
         }
     }
     if (!is_string($raw)) show_error('Notice PDF unavailable.',404);
+    $embedded=(string)($_GET['embed']??'')==='1';
+    if ($embedded) {
+        header_remove('X-Frame-Options');
+        header_remove('Content-Security-Policy');
+        header('X-Frame-Options: SAMEORIGIN');
+        header("Content-Security-Policy: default-src 'none'; frame-ancestors 'self'");
+    }
     header('Content-Type: application/pdf'); header('Cache-Control: private, no-store');
     header('Content-Disposition: inline; filename="'
         .($printForSigning?'Template_No_2_Print_For_Signing_FP'.$id.'.pdf':'Template_No_2_FP'.$id.'.pdf').'"');
@@ -405,8 +412,9 @@ function fpoms_payment_notice_queue_view(array $red): void
         $id=(int)$row['application_id'];
         $signed=(string)$row['status']==='signed';
         $preview=$signed
-            ? url('payment_notice_pdf',['id'=>$id])
-            : url('payment_notice_pdf',['id'=>$id]+($canEsign?['signed_preview'=>1]:[]));
+            ? url('payment_notice_pdf',['id'=>$id,'embed'=>1])
+            : url('payment_notice_pdf',['id'=>$id,'embed'=>1]
+                +($canEsign?['signed_preview'=>1]:[]));
         $draft=url('payment_notice_pdf',['id'=>$id,'print_for_signing'=>1]);
         $modalId='paymentNoticeConfirm'.$id;
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '.e((string)$row['project_title']).'</strong>'
