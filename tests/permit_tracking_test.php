@@ -193,7 +193,7 @@ $trackingViews = (string)file_get_contents(__DIR__.'/../app/permit_tracking_view
 tracking_assert(str_contains($trackingViews,"'view'=>'audit'"), 'staff action has audit link');
 tracking_assert(str_contains($trackingViews,"'view'=>'files'"), 'staff action has file link');
 tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
-        'permit-case-modals.js?v=6'), 'modal transition script loaded');
+        'permit-case-modals.js?v=7'), 'modal transition script loaded');
 $modalScript = (string)file_get_contents(__DIR__.'/../public/assets/permit-case-modals.js');
 tracking_assert(str_contains($modalScript,"hidden.bs.modal")
     && str_contains($modalScript,"returnToFileList")

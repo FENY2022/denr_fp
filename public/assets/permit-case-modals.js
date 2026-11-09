@@ -97,10 +97,12 @@
   // pages stay closed unless a view is explicitly selected. A query parameter
   // never authorizes access; the PHP case route does.
   const selected = query.get('view');
+  const unreadNotice = document.querySelector?.('[data-notice-auto-open]');
   if (selected === 'files') {
     Modal.getOrCreateInstance(filesModal).show();
   } else if (selected === 'audit'
-      || (selected === null && auditModal.hasAttribute('data-audit-auto-open'))) {
+      || (selected === null && !unreadNotice
+        && auditModal.hasAttribute('data-audit-auto-open'))) {
     Modal.getOrCreateInstance(auditModal).show();
   }
 })();

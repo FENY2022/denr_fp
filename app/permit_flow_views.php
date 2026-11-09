@@ -208,6 +208,13 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
     $releasedNoticeIds=permit_flow_released_notice_artifact_ids($id);
     $releasedPaymentNoticeIds=function_exists('fpoms_payment_notice_released_artifact_ids')
         ? fpoms_payment_notice_released_artifact_ids($id) : [];
+    $paymentNotice=fpoms_payment_notice_record($id,(int)$app['revision']);
+    $currentPaymentArtifactId=$paymentNotice
+        && (string)$paymentNotice['status']==='released'
+        ? (int)($paymentNotice['artifact_id']??0) : 0;
+    $unreadPaymentArtifactId=fpoms_payment_notice_is_unread_for_applicant(
+        $id,(int)$app['revision']
+    ) ? $currentPaymentArtifactId : 0;
     $case=permit_flow_case($id);
     $issued=$case && (int)$case['current_step']===12
         && !empty($case['completed_at']);
@@ -235,11 +242,15 @@ function permit_flow_public_documents_html(array $app,array $viewer,bool $notice
                 .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Deficiency Notice').'">'
                 .e((string)$d['original_name']).'</button></li>';
         } elseif ($isPaymentNotice && $noticeModal) {
-            $preview=url('permit_flow_file',[
-                'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
-            ]);
+            $isCurrentPaymentNotice=(int)$d['id']===$currentPaymentArtifactId;
+            $preview=$isCurrentPaymentNotice
+                ? url('payment_notice_pdf',['id'=>$id,'embed'=>1])
+                : url('permit_flow_file',[
+                    'id'=>$id,'file'=>(int)$d['id'],'preview'=>1,'raw'=>1
+                ]);
             $html.='<li><button type="button" class="btn btn-link p-0 align-baseline" '
                 .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+                .((int)$d['id']===$unreadPaymentArtifactId?'data-notice-auto-open ':'')
                 .'data-notice-preview-url="'.e($preview).'" '
                 .'data-notice-preview-title="'.e('FP #'.$id.' · RED-Signed Template No. 2 / Notice to Pay').'">'
                 .'<i class="bi bi-cash-coin me-1"></i>'.e((string)$d['original_name']).'</button>'

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const script = fs.readFileSync(__dirname + '/../public/assets/permit-case-modals.js', 'utf8');
 
-function makePage(selection, autoOpenAudit = false) {
+function makePage(selection, autoOpenAudit = false, autoOpenNotice = false) {
   class Element {}
   const filesBody = new Element();
   filesBody.scrollTop = 0;
@@ -87,7 +87,11 @@ function makePage(selection, autoOpenAudit = false) {
       },
       requestAnimationFrame: callback => callback()
     },
-    document: { getElementById: id => lookup[id] ?? null }
+    document: {
+      getElementById: id => lookup[id] ?? null,
+      querySelector: selector => selector === '[data-notice-auto-open]' && autoOpenNotice
+        ? { dataset: {} } : null
+    }
   }, { filename: 'permit-case-modals.js' });
   return { files, filesBody, audit, preview, documentLink, counters, stored };
 }
@@ -103,6 +107,9 @@ assert.equal(defaultView.files.visible, false,
 const staffDefaultView = makePage(undefined, false);
 assert.equal(staffDefaultView.audit.visible, false,
   'plain DENR staff detail URL does not automatically show the audit modal');
+const unreadNoticeView = makePage(undefined, true, true);
+assert.equal(unreadNoticeView.audit.visible, false,
+  'unread official notice takes precedence over the applicant audit modal');
 const files = makePage('files');
 assert.equal(files.files.visible, true, 'files direct link shows file list');
 assert.equal(files.audit.visible, false, 'files direct link does not show audit');

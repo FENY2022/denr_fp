@@ -13,6 +13,7 @@ $flowViews=file_get_contents($root.'/app/permit_flow_views.php');
 $step2Views=file_get_contents($root.'/app/permit_step2_views.php');
 $views=file_get_contents($root.'/app/views.php');
 $router=file_get_contents($root.'/public/index.php');
+$migration038=file_get_contents($root.'/database/038_payment_notice_applicant_viewed.sql');
 
 $checks=[
  [$step3,'fpoms_payment_notice_prepare_on_ro_receipt','RO receipt creates Template No. 2 draft'],
@@ -39,6 +40,11 @@ $checks=[
  [$payment,'permit_payment_available_for_application','payment becomes available after official notice release'],
  [$paymentViews,'fpoms_payment_notices pn','payment queue includes released updated-flow notices'],
  [$step2Views,'fpoms_payment_notice_is_released','application page shows payment action after notice release'],
+ [$notice,'fpoms_payment_notice_is_unread_for_applicant','released payment notice tracks applicant unread state'],
+ [$notice,'fpoms_payment_notice_mark_applicant_viewed','successful applicant PDF access records the read receipt'],
+ [$flowViews,'data-notice-auto-open','unread applicant payment notice is selected for automatic preview'],
+ [$flowViews,"url('payment_notice_pdf'",'current official notice preview records applicant PDF access'],
+ [$migration038,'applicant_viewed_at','payment notice read receipt migration'],
  [$pdf,'application is found complete and meritorious','Template No. 2 complete/meritorious language'],
  [$pdf,'justifiedLines','Template No. 2 body paragraphs use justified alignment'],
  [$pdf,'%.3F Tw','Template No. 2 justification emits measured PDF word spacing'],

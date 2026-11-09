@@ -17,6 +17,7 @@ function fpoms_payment_notice_install_schema(): bool
           approved_at DATETIME NULL,
           released_by BIGINT UNSIGNED NULL,
           released_at DATETIME NULL,
+          applicant_viewed_at DATETIME NULL,
           email_status ENUM('pending','sent','failed') NOT NULL DEFAULT 'pending',
           email_last_attempt_at DATETIME NULL,
           email_sent_at DATETIME NULL,
@@ -62,6 +63,36 @@ function fpoms_payment_notice_record(int $applicationId,int $revision): ?array
 {
     if (!fpoms_payment_notice_schema_ready()) return null;
     return query_one('SELECT * FROM fpoms_payment_notices WHERE application_id=? AND revision=?',[$applicationId,$revision]);
+}
+function fpoms_payment_notice_applicant_view_tracking_ready(): bool
+{
+    static $ready=null;
+    if ($ready!==null) return $ready;
+    try {
+        db()->query('SELECT applicant_viewed_at FROM fpoms_payment_notices LIMIT 0');
+        return $ready=true;
+    } catch (Throwable $e) {
+        return $ready=false;
+    }
+}
+function fpoms_payment_notice_is_unread_for_applicant(int $applicationId,int $revision): bool
+{
+    if (!fpoms_payment_notice_applicant_view_tracking_ready()) return false;
+    $notice=fpoms_payment_notice_record($applicationId,$revision);
+    return $notice && (string)$notice['status']==='released'
+        && (int)($notice['artifact_id']??0)>0
+        && ($notice['applicant_viewed_at']??null)===null;
+}
+function fpoms_payment_notice_mark_applicant_viewed(int $noticeId): void
+{
+    if (!fpoms_payment_notice_applicant_view_tracking_ready()) return;
+    try {
+        db()->prepare('UPDATE fpoms_payment_notices '
+            .'SET applicant_viewed_at=COALESCE(applicant_viewed_at,NOW()) WHERE id=?')
+            ->execute([$noticeId]);
+    } catch (Throwable $e) {
+        error_log('FP-OMS payment notice read receipt failed: '.$e->getMessage());
+    }
 }
 function fpoms_payment_notice_app(int $id): ?array
 {
@@ -378,6 +409,9 @@ function fpoms_payment_notice_send_pdf(array $viewer,int $id): never
         }
     }
     if (!is_string($raw)) show_error('Notice PDF unavailable.',404);
+    if ($mine && (string)$notice['status']==='released') {
+        fpoms_payment_notice_mark_applicant_viewed((int)$notice['id']);
+    }
     $embedded=(string)($_GET['embed']??'')==='1';
     if ($embedded) {
         header_remove('X-Frame-Options');
