@@ -389,7 +389,11 @@ function view_profile(): void
         . '</div></section>';
 
     if ($registration) {
-        $html .= '<section class="panel profile-information-card mt-4"><div class="profile-section-title"><i class="bi bi-building"></i><h3>Applicant Information</h3></div>'
+        $html .= '<section class="panel profile-information-card mt-4" id="applicant-information">'
+            . '<div class="profile-section-title"><i class="bi bi-building"></i><h3>Applicant Information</h3>'
+            . '<a class="btn btn-sm btn-outline-primary ms-auto" href="'
+            . e(url('profile', ['tab'=>'edit'])) . '#edit-applicant-information">'
+            . '<i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Edit Applicant Information</a></div>'
             . '<div class="profile-info-grid">'
             . '<div class="profile-info-item"><span class="profile-info-label">Company / Proponent</span><div class="profile-info-value">' . e((string)$registration['company_name']) . '</div></div>'
             . '<div class="profile-info-item"><span class="profile-info-label">Contact Number</span><div class="profile-info-value">' . e((string)$registration['contact_number']) . '</div></div>'
@@ -474,7 +478,8 @@ function view_edit_profile(array $errors = []): void
     if ($registration) {
         $organizationTypes = registration_organization_types();
         $organizationType = (string)($registration['organization_type'] ?? 'individual');
-        $html .= '<hr class="my-4"><div class="profile-section-title"><i class="bi bi-building"></i><h3>Applicant Information</h3></div>'
+        $html .= '<hr class="my-4"><div class="profile-section-title" id="edit-applicant-information">'
+            . '<i class="bi bi-building"></i><h3>Applicant Information</h3></div>'
             . '<div class="row g-3">'
             . '<div class="col-md-6">' . field('company_name', 'Company / Proponent', form_value('company_name', $registration), 'text', true, 'maxlength="220"') . '</div>'
             . '<div class="col-md-6">' . field('representative_position', 'Position / Designation', form_value('representative_position', $registration), 'text', false, 'maxlength="150"') . '</div>'

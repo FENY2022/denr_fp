@@ -42,7 +42,9 @@ assert_client_separation(str_contains($registration, 'UPDATE user_client SET sta
 assert_client_separation(str_contains($profile, 'principal_table($user)')
     && str_contains($profile, 'UPDATE applicant_registrations SET representative_name=?,representative_position=?,company_name=?,company_address=?,contact_number=? WHERE client_id=?')
     && str_contains($profile, "field('company_name', 'Company / Proponent'")
-    && str_contains($profile, "field('contact_number', 'Contact Number'"),
+    && str_contains($profile, "field('contact_number', 'Contact Number'")
+    && str_contains($profile, 'Edit Applicant Information')
+    && str_contains($profile, '#edit-applicant-information'),
     'Client profile edits update the client account and applicant information');
 assert_client_separation(str_contains($views, 'JOIN user_client u ON u.id=ar.client_id'),
     'Reviewer screens load applicant details from user_client');

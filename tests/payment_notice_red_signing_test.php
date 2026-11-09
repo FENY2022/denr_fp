@@ -40,6 +40,9 @@ $checks=[
  [$paymentViews,'fpoms_payment_notices pn','payment queue includes released updated-flow notices'],
  [$step2Views,'fpoms_payment_notice_is_released','application page shows payment action after notice release'],
  [$pdf,'application is found complete and meritorious','Template No. 2 complete/meritorious language'],
+ [$pdf,'justifiedLines','Template No. 2 body paragraphs use justified alignment'],
+ [$pdf,'%.3F Tw','Template No. 2 justification emits measured PDF word spacing'],
+ [$pdf,'0 Tw','ordinary Template No. 2 lines reset PDF word spacing'],
  [$pdf,'PHP 10,000.00','Template No. 2 fee amount'],
  [$pdf,"concerned_penro",'Template No. 2 reads detected PENRO jurisdiction'],
  [$pdf,"concerned_cenro",'Template No. 2 reads detected CENRO jurisdiction'],
@@ -54,5 +57,19 @@ foreach($checks as [$haystack,$needle,$label]) {
     if(!str_contains((string)$haystack,$needle)) {
         throw new RuntimeException('Template No. 2 regression failed: '.$label);
     }
+}
+
+require_once $root.'/app/payment_notice_pdf.php';
+$justifiedPdf=FpomsPaymentNoticePdf::render([
+    'applicant_name'=>'Sample Applicant','representative_position'=>'Representative',
+    'company_name'=>'Sample Renewable Energy Corporation','company_address'=>'Butuan City',
+    'project_title'=>'Hydropower Feasibility Study','project_area_hectares'=>'125.50',
+    'project_location'=>'Buenavista, Agusan del Norte',
+    'concerned_penro'=>'PENRO Agusan del Norte','concerned_cenro'=>'CENRO Nasipit',
+],[],null,'November 9, 2026',true);
+if (!preg_match('/\/F1 10\.30 Tf [1-9][0-9]*\.[0-9]+ Tw/',$justifiedPdf)
+    || !str_contains($justifiedPdf,'0 Tw')
+    || !str_contains($justifiedPdf,'/Type /Pages /Count 1')) {
+    throw new RuntimeException('Template No. 2 regression failed: rendered body is not justified on one A4 page.');
 }
 echo "Template No. 2 RED-signing workflow checks passed.\n";

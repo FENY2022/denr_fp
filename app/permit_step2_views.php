@@ -1070,7 +1070,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
                 || ($modern && fpoms_payment_notice_is_released($applicationId,(int)$app['revision'])))
             ? permit_payment_panel_html($app,$viewer,$errors) : '')
         . step2_files_modal_html($documents)
-        . permit_tracking_audit_modal_html($applicationId)
+        . permit_tracking_audit_modal_html($applicationId,'fp-audit-trail-modal',$mine)
         . ($reviewer && !$modern && $app['status'] === 'submitted'
             ? decision_confirmation_modal_html() : '');
     if (step2_location_schema_ready()) {

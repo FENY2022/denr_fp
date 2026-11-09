@@ -16,19 +16,104 @@ final class FpomsPaymentNoticePdf
         return str_replace(['\\','(',')'],['\\\\','\\(','\\)'],
             preg_replace('/[\x00-\x1f]/',' ',(string)$encoded)??'');
     }
+    private static function ascii(string $text): string
+    {
+        $encoded=iconv('UTF-8','Windows-1252//TRANSLIT//IGNORE',$text);
+        if ($encoded===false) $encoded=$text;
+        return preg_replace('/\s+/',' ',trim($encoded))??'';
+    }
+    /** Approximate Adobe Times-Roman metrics for paragraph word spacing. */
+    private static function timesWidth(string $text,float $size): float
+    {
+        $units=0;
+        foreach (str_split(self::ascii($text)) as $character) {
+            $units+=match (true) {
+                $character===' '=>250,
+                str_contains('.,', $character)=>250,
+                str_contains(':;!', $character)=>333,
+                str_contains("'`", $character)=>180,
+                str_contains('()[]-', $character)=>333,
+                str_contains('/\\', $character)=>278,
+                $character==='@'=>921,
+                $character==='&'=>778,
+                ctype_digit($character)=>500,
+                str_contains('ijl', $character)=>278,
+                str_contains('fr', $character)=>333,
+                $character==='t'=>278,
+                $character==='s'=>389,
+                str_contains('acez', $character)=>444,
+                str_contains('bdghknopquvxy', $character)=>500,
+                $character==='m'=>778,
+                $character==='w'=>722,
+                $character==='I'=>333,
+                $character==='J'=>389,
+                str_contains('FPS', $character)=>556,
+                str_contains('ELTZ', $character)=>611,
+                str_contains('BCR', $character)=>667,
+                str_contains('ADGHKNOQUVXY', $character)=>722,
+                $character==='M'=>889,
+                $character==='W'=>944,
+                default=>500,
+            };
+        }
+        return $units*$size/1000;
+    }
     private function line(float $x,float $top,string $text,float $size=10,bool $bold=false): void
     {
-        $this->stream.=sprintf("BT /%s %.2F Tf 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
+        $this->stream.=sprintf("BT /%s %.2F Tf 0 Tw 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
             $bold?'F2':'F1',$size,$x,self::H-$top,self::txt($text));
+    }
+    private function justifiedLine(float $x,float $top,string $text,float $size,
+        float $width): void
+    {
+        $spaces=substr_count(self::ascii($text),' ');
+        $remaining=$width-self::timesWidth($text,$size);
+        if ($spaces<1 || $remaining<=0) {
+            $this->line($x,$top,$text,$size);
+            return;
+        }
+        $this->stream.=sprintf(
+            "BT /F1 %.2F Tf %.3F Tw 1 0 0 1 %.2F %.2F Tm (%s) Tj ET\n",
+            $size,$remaining/$spaces,$x,self::H-$top,self::txt($text)
+        );
     }
     private function wrap(string $text,int $columns): array
     {
         return explode("\n",wordwrap(trim($text),$columns,"\n",true));
     }
+    private function wrapToWidth(string $text,float $size,float $width): array
+    {
+        $words=preg_split('/\s+/',trim($text),-1,PREG_SPLIT_NO_EMPTY)?:[];
+        if (!$words) return [''];
+        $lines=[];
+        $line='';
+        foreach ($words as $word) {
+            $candidate=$line===''?$word:$line.' '.$word;
+            if ($line!=='' && self::timesWidth($candidate,$size)>$width) {
+                $lines[]=$line;
+                $line=$word;
+            } else {
+                $line=$candidate;
+            }
+        }
+        if ($line!=='') $lines[]=$line;
+        return $lines;
+    }
     private function lines(float $x,float &$y,string $text,int $columns,float $size=10,float $leading=13,bool $bold=false): void
     {
         foreach ($this->wrap($text,$columns) as $line) {
             $this->line($x,$y,$line,$size,$bold);
+            $y+=$leading;
+        }
+    }
+    private function justifiedLines(float $x,float &$y,string $text,float $width,
+        float $size=10,float $leading=13): void
+    {
+        $lines=$this->wrapToWidth($text,$size,$width);
+        $last=count($lines)-1;
+        foreach ($lines as $index=>$line) {
+            if ($index<$last) $this->justifiedLine($x,$y,$line,$size,$width);
+            else $this->line($x,$y,$line,$size);
             $y+=$leading;
         }
     }
@@ -114,7 +199,7 @@ final class FpomsPaymentNoticePdf
             'Please be guided accordingly. Thank you.'
         ];
         foreach ($paragraphs as $idx=>$text) {
-            $pdf->lines(72,$y,$text,90,10.3,12.4);
+            $pdf->justifiedLines(72,$y,$text,self::W-144,10.3,12.4);
             $y+=($idx===5?10:8);
         }
         $pdf->line(72,$y,'Very truly yours,',10.5); $y+=10;

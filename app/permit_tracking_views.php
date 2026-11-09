@@ -109,12 +109,14 @@ function permit_tracking_timeline_html(int $applicationId): string
 /** Audit history is intentionally hidden until the authorized viewer opens it. */
 function permit_tracking_audit_modal_html(
     int $applicationId,
-    string $modalId = 'fp-audit-trail-modal'
+    string $modalId = 'fp-audit-trail-modal',
+    bool $autoOpen = false
 ): string
 {
     $titleId = $modalId === 'fp-audit-trail-modal'
         ? 'fp-audit-trail-title' : $modalId . '-title';
     return '<div class="modal fade" id="' . e($modalId) . '" tabindex="-1" '
+        . ($autoOpen ? 'data-audit-auto-open ' : '')
         . 'aria-labelledby="' . e($titleId) . '" aria-hidden="true">'
         . '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
         . '<div class="modal-content"><div class="modal-header">'

@@ -113,7 +113,8 @@ tracking_assert(str_contains($view,'permit_tracking_client_dashboard_html('), 'a
 tracking_assert(str_contains($detail,'permit_tracking_summary_html($app)'), 'detail case tracking summary');
 tracking_assert(str_contains($detail,'permit_tracking_timeline_html($applicationId)'), 'timeline integrated');
 tracking_assert(str_contains($detail,'step2_files_modal_html($documents)'), 'dedicated files modal rendered');
-tracking_assert(str_contains($detail,'permit_tracking_audit_modal_html($applicationId)'), 'audit timeline moved into modal');
+tracking_assert(str_contains($detail,"permit_tracking_audit_modal_html(\$applicationId,'fp-audit-trail-modal',\$mine)"),
+    'audit timeline moved into an applicant-aware modal');
 tracking_assert(str_contains($detail,'data-bs-target="#fp-files-modal"'), 'files launcher button');
 tracking_assert(str_contains($detail,'data-bs-target="#fp-audit-trail-modal"'), 'audit launcher button');
 tracking_assert(!str_contains($detail,'. step2_history_html($applicationId)'), 'audit timeline not inline');
@@ -172,6 +173,11 @@ tracking_assert(!str_contains($timeline, 'style='), 'no CSP-blocked inline style
 
 $auditModal = permit_tracking_audit_modal_html(20);
 tracking_assert(str_contains($auditModal,'id="fp-audit-trail-modal"'), 'audit has its own modal ID');
+tracking_assert(!str_contains($auditModal,'data-audit-auto-open'),
+    'DENR audit modal does not auto-open by default');
+$applicantAuditModal = permit_tracking_audit_modal_html(20,'fp-audit-trail-modal',true);
+tracking_assert(str_contains($applicantAuditModal,'data-audit-auto-open'),
+    'applicant audit modal carries the auto-open flag');
 tracking_assert(str_contains($auditModal,'modal-dialog-scrollable'), 'audit modal is scrollable');
 tracking_assert(str_contains($auditModal,'fp-audit-event--received'), 'colored timeline is inside audit modal');
 tracking_assert(str_contains($auditModal,'data-bs-dismiss="modal"'), 'audit modal has close control');
@@ -187,13 +193,13 @@ $trackingViews = (string)file_get_contents(__DIR__.'/../app/permit_tracking_view
 tracking_assert(str_contains($trackingViews,"'view'=>'audit'"), 'staff action has audit link');
 tracking_assert(str_contains($trackingViews,"'view'=>'files'"), 'staff action has file link');
 tracking_assert(str_contains((string)file_get_contents(__DIR__.'/../app/views.php'),
-        'permit-case-modals.js?v=5'), 'modal transition script loaded');
+        'permit-case-modals.js?v=6'), 'modal transition script loaded');
 $modalScript = (string)file_get_contents(__DIR__.'/../public/assets/permit-case-modals.js');
 tracking_assert(str_contains($modalScript,"hidden.bs.modal")
     && str_contains($modalScript,"returnToFileList")
     && str_contains($modalScript,"new URLSearchParams")
     && str_contains($modalScript,"getOrCreateInstance")
-    && str_contains($modalScript,"selected === 'audit' || selected === null"),
+    && str_contains($modalScript,"auditModal.hasAttribute('data-audit-auto-open')"),
     'preview switches modal rather than nesting and direct actions auto-open');
 
 

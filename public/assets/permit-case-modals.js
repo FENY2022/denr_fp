@@ -93,13 +93,14 @@
     Modal.getOrCreateInstance(filesModal).show();
   });
 
-  // The application detail opens its audit trail by default. Action-list links
-  // can still explicitly select the files modal. A query parameter never
-  // authorizes access; the PHP case route does.
+  // Applicant application details open the audit trail by default. DENR staff
+  // pages stay closed unless a view is explicitly selected. A query parameter
+  // never authorizes access; the PHP case route does.
   const selected = query.get('view');
   if (selected === 'files') {
     Modal.getOrCreateInstance(filesModal).show();
-  } else if (selected === 'audit' || selected === null) {
+  } else if (selected === 'audit'
+      || (selected === null && auditModal.hasAttribute('data-audit-auto-open'))) {
     Modal.getOrCreateInstance(auditModal).show();
   }
 })();

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const script = fs.readFileSync(__dirname + '/../public/assets/permit-case-modals.js', 'utf8');
 
-function makePage(selection) {
+function makePage(selection, autoOpenAudit = false) {
   class Element {}
   const filesBody = new Element();
   filesBody.scrollTop = 0;
@@ -17,6 +17,7 @@ function makePage(selection) {
       this.id = id;
       this.handlers = {};
       this.visible = false;
+      this.attributes = new Set();
       this.classList = { contains: className => className === 'show' && this.visible };
     }
     addEventListener(type, fn) {
@@ -34,9 +35,13 @@ function makePage(selection) {
     querySelectorAll(selector) {
       return this === files && selector === 'a[data-document-preview]' ? [documentLink] : [];
     }
+    hasAttribute(name) {
+      return this.attributes.has(name);
+    }
   }
   const files = new ModalNode('fp-files-modal');
   const audit = new ModalNode('fp-audit-trail-modal');
+  if (autoOpenAudit) audit.attributes.add('data-audit-auto-open');
   const preview = new ModalNode('registration-document-modal');
   const counters = { files: 0, audit: 0, preview: 0 };
   const lookup = {
@@ -90,11 +95,14 @@ function makePage(selection) {
 const audit = makePage('audit');
 assert.equal(audit.audit.visible, true, 'audit direct link shows only audit modal');
 assert.equal(audit.files.visible, false, 'audit direct link does not show files');
-const defaultView = makePage();
+const defaultView = makePage(undefined, true);
 assert.equal(defaultView.audit.visible, true,
-  'plain application detail URL automatically shows the audit modal');
+  'plain applicant detail URL automatically shows the audit modal');
 assert.equal(defaultView.files.visible, false,
-  'plain application detail URL does not show the files modal');
+  'plain applicant detail URL does not show the files modal');
+const staffDefaultView = makePage(undefined, false);
+assert.equal(staffDefaultView.audit.visible, false,
+  'plain DENR staff detail URL does not automatically show the audit modal');
 const files = makePage('files');
 assert.equal(files.files.visible, true, 'files direct link shows file list');
 assert.equal(files.audit.visible, false, 'files direct link does not show audit');
