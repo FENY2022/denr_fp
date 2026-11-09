@@ -351,6 +351,120 @@ function step2_clear_form_modal_html(): string
 }
 
 /**
+ * Structured Caraga address selector. PSGC ancestry and DENR jurisdiction are
+ * revalidated server-side on final submission.
+ */
+function step2_structured_location_editor_html(array $values): string
+{
+    $provinceCode=trim((string)($values['project_province_code']??''));
+    $cityCode=trim((string)($values['project_city_municipality_code']??''));
+    $barangayCode=trim((string)($values['project_barangay_code']??''));
+    $street=trim((string)($values['project_street_purok']??''));
+    $address=trim((string)($values['project_location']??''));
+    $areas=fp_location_areas();
+    $selectedArea=null;
+    $selectedCity=null;
+    foreach ($areas as $area) {
+        if ((string)($area['code']??'')===$provinceCode) {
+            $selectedArea=$area;
+            foreach (($area['cities']??[]) as $city) {
+                if ((string)($city['code']??'')===$cityCode) {
+                    $selectedCity=$city;
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    $resolved=fp_location_resolve($provinceCode,$cityCode,$barangayCode);
+    $provinceName=$resolved['project_province_name']
+        ?? (string)($values['project_province_name']??'');
+    $cityName=$resolved['project_city_municipality_name']
+        ?? (string)($values['project_city_municipality_name']??'');
+    $barangayName=$resolved['project_barangay_name']
+        ?? (string)($values['project_barangay_name']??'');
+    $penro=$resolved['concerned_penro']??(string)($values['concerned_penro']??'');
+    $cenro=$resolved['concerned_cenro']??(string)($values['concerned_cenro']??'');
+    if ($resolved && $street!=='') $address=fp_location_format_address($street,$resolved);
+
+    $html='<div class="border rounded-3 p-3 mb-3" data-fp-structured-location '
+        .'data-psgc-url="assets/caraga-psgc-2026-q2.json?v=1" '
+        .'data-selected-province="'.e($provinceCode).'" '
+        .'data-selected-city="'.e($cityCode).'" '
+        .'data-selected-barangay="'.e($barangayCode).'">'
+        .'<div class="alert alert-info small py-2">'
+        .'<i class="bi bi-diagram-3 me-1" aria-hidden="true"></i>'
+        .'Select the project address. FP-OMS automatically determines the concerned PENRO and CENRO from the Municipality/City jurisdiction.</div>'
+        .'<div class="row g-3">'
+        .'<div class="col-md-4"><label class="form-label" for="project_province_code">'
+        .'Province / Independent City <span class="text-danger">*</span></label>'
+        .'<select class="form-select" id="project_province_code" name="project_province_code" required>'
+        .'<option value="">Select Province / Independent City</option>';
+    foreach ($areas as $area) {
+        $code=(string)($area['code']??'');
+        $label=(string)($area['name']??'');
+        if ((string)($area['kind']??'')==='independent_city') $label.=' (Independent City)';
+        $html.='<option value="'.e($code).'"'.($code===$provinceCode?' selected':'').'>'
+            .e($label).'</option>';
+    }
+    $html.='</select></div>'
+        .'<div class="col-md-4"><label class="form-label" for="project_city_municipality_code">'
+        .'Municipality / City <span class="text-danger">*</span></label>'
+        .'<select class="form-select" id="project_city_municipality_code" '
+        .'name="project_city_municipality_code" required>'
+        .'<option value="">Select Municipality / City</option>';
+    foreach (($selectedArea['cities']??[]) as $city) {
+        $code=(string)($city['code']??'');
+        $html.='<option value="'.e($code).'"'.($code===$cityCode?' selected':'').'>'
+            .e((string)($city['name']??'')).'</option>';
+    }
+    $html.='</select></div>'
+        .'<div class="col-md-4"><label class="form-label" for="project_barangay_code">'
+        .'Barangay <span class="text-danger">*</span></label>'
+        .'<select class="form-select" id="project_barangay_code" name="project_barangay_code" required>'
+        .'<option value="">Select Barangay</option>';
+    foreach (($selectedCity['barangays']??[]) as $barangay) {
+        if (!is_array($barangay) || count($barangay)<2) continue;
+        $code=(string)$barangay[0];
+        $html.='<option value="'.e($code).'"'.($code===$barangayCode?' selected':'').'>'
+            .e((string)$barangay[1]).'</option>';
+    }
+    $html.='</select></div></div>'
+        .'<div class="mt-3"><label class="form-label" for="project_street_purok">'
+        .'Street / Purok / Sitio <span class="text-danger">*</span></label>'
+        .'<input class="form-control" id="project_street_purok" name="project_street_purok" '
+        .'required minlength="2" maxlength="180" autocomplete="street-address" '
+        .'placeholder="e.g. Purok 3 / Sitio Riverside / J.P. Rizal Street" value="'.e($street).'"></div>'
+        .'<div class="mt-3"><label class="form-label" for="project_location_display">'
+        .'Complete Project Location</label>'
+        .'<input class="form-control bg-body-tertiary" id="project_location_display" '
+        .'data-fp-complete-address readonly value="'.e($address).'">'
+        .'<div class="form-text">Generated automatically from the structured address above.</div></div>'
+        .'<input type="hidden" id="project_location" name="project_location" value="'.e($address).'">'
+        .'<input type="hidden" name="project_province_name" value="'.e($provinceName).'">'
+        .'<input type="hidden" name="project_city_municipality_name" value="'.e($cityName).'">'
+        .'<input type="hidden" name="project_barangay_name" value="'.e($barangayName).'">'
+        .'<input type="hidden" name="concerned_penro" value="'.e($penro).'">'
+        .'<input type="hidden" name="concerned_cenro" value="'.e($cenro).'">'
+        .'<div class="row g-2 mt-2">'
+        .'<div class="col-md-6"><div class="border rounded-3 p-3 h-100">'
+        .'<div class="small text-secondary">Concerned PENRO</div>'
+        .'<strong class="text-success" data-fp-penro>'.e($penro!==''?$penro:'Select a Municipality / City').'</strong>'
+        .'</div></div>'
+        .'<div class="col-md-6"><div class="border rounded-3 p-3 h-100">'
+        .'<div class="small text-secondary">Concerned CENRO</div>'
+        .'<strong class="text-success" data-fp-cenro>'
+        .e($cenro!==''?$cenro:($penro!==''?'Direct PENRO jurisdiction':'Select a Municipality / City'))
+        .'</strong></div></div></div>'
+        .'<p class="small text-secondary mt-2 mb-0" role="status" aria-live="polite" data-fp-address-status>'
+        .'Complete the Province/Independent City, Municipality/City, Barangay, and Street/Purok/Sitio.</p>'
+        .'<noscript><div class="alert alert-warning small mt-2 mb-0">'
+        .'JavaScript is required for the cascading Municipality/City and Barangay lists.</div></noscript>'
+        .'</div>';
+    return $html;
+}
+
+/**
  * Applicant map pin + optional decimal coordinate inputs.
  * Address remains required independently of the GPS pin.
  */
@@ -433,6 +547,19 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $projectType=(string)($_POST['project_type'] ?? $fieldDraft['project_type'] ?? $app['project_type'] ?? '');
     $projectOther=(string)($_POST['project_type_other'] ?? $fieldDraft['project_type_other'] ?? $app['project_type_other'] ?? '');
     $location = (string)($_POST['project_location'] ?? $fieldDraft['project_location'] ?? $app['project_location'] ?? '');
+    $hasStructuredLocation=fp_location_structured_schema_ready();
+    $structuredKeys=[
+        'project_province_code','project_province_name',
+        'project_city_municipality_code','project_city_municipality_name',
+        'project_barangay_code','project_barangay_name','project_street_purok',
+        'concerned_penro','concerned_cenro'
+    ];
+    $structuredLocation=['project_location'=>$location];
+    foreach ($structuredKeys as $key) {
+        $structuredLocation[$key]=(string)($_POST[$key]
+            ?? ($fieldDraft[$key]??null)
+            ?? ($app[$key]??''));
+    }
     $area = (string)($_POST['project_area_hectares'] ?? $fieldDraft['project_area_hectares'] ?? $app['project_area_hectares'] ?? '');
     $hasArea = step2_area_schema_ready();
     $hasCoordinates = step2_location_schema_ready();
@@ -460,6 +587,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . errors_html($errors)
         . (!$hasArea
             ? '<div class="alert alert-warning small">Project Area requires database migration 034 before final submission and secure draft autosave.</div>'
+            : '')
+        . (!$hasStructuredLocation
+            ? '<div class="alert alert-warning small">Structured Project Location requires database migration 037. FP-OMS will attempt to initialize it automatically when the database account has ALTER permission.</div>'
             : '')
         . '<p class="small text-secondary">Provide basic project identification and upload supporting documents. '
         . 'Documentary completeness will be evaluated by LPDD-FUS Technical Staff, '
@@ -529,10 +659,12 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<section class="step2-form-section" id="step2-section-2" '
         . 'aria-labelledby="step2-section-title-2" data-step2-form-section="2">'
         . step2_form_section_heading_html(2,'Project Location','geo-alt')
-         . '<div class="mb-3"><label class="form-label" for="project_location">Project Location / Complete Address '
-         . '<span class="text-danger">*</span></label>'
-         . '<input class="form-control" id="project_location" name="project_location" '
-         . 'required minlength="5" maxlength="300" value="' . e($location) . '"></div>'
+         . ($hasStructuredLocation
+            ? step2_structured_location_editor_html($structuredLocation)
+            : '<div class="mb-3"><label class="form-label" for="project_location">Project Location / Complete Address '
+                .'<span class="text-danger">*</span></label>'
+                .'<input class="form-control" id="project_location" name="project_location" '
+                .'required minlength="5" maxlength="300" value="'.e($location).'"></div>')
          . ($hasCoordinates ? step2_location_editor_html($latitude,$longitude)
              : '<p class="small text-secondary">Interactive location pin and coordinates '
                 . 'will be available after the ICT administrator applies migration 017.</p>')
@@ -660,7 +792,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-pdf-organizer.js?v=2" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=2" defer></script>'
         . '<script src="assets/permit-project-type.js?v=2" defer></script>'
-        . '<script src="assets/permit-step2-drafts.js?v=13" defer></script>'
+        . ($hasStructuredLocation
+            ? '<script src="assets/permit-location-address.js?v=1" defer></script>' : '')
+        . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=2" defer></script>'
@@ -731,6 +865,13 @@ function view_step2_application(int $applicationId, array $errors = []): void
             (string)($app['project_type_other'] ?? ''))) . '</dd>'
         . '<dt class="col-sm-4">Location</dt><dd class="col-sm-8">'
         . e((string)$app['project_location']) . '</dd>'
+        . (trim((string)($app['concerned_penro']??''))!==''
+            ? '<dt class="col-sm-4">Concerned PENRO</dt><dd class="col-sm-8">'
+                .e((string)$app['concerned_penro']).'</dd>'
+                .'<dt class="col-sm-4">Concerned CENRO</dt><dd class="col-sm-8">'
+                .e(trim((string)($app['concerned_cenro']??''))!==''
+                    ? (string)$app['concerned_cenro'] : 'Direct PENRO jurisdiction').'</dd>'
+            : '')
         . '<dt class="col-sm-4">Project Area</dt><dd class="col-sm-8">'
         . e(step2_area_display($app['project_area_hectares'] ?? null)) . '</dd>'
         . '<dt class="col-sm-4">Description</dt><dd class="col-sm-8">'
