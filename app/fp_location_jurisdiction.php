@@ -33,30 +33,36 @@ function fp_location_dataset(): array
 
 function fp_location_install_schema(): bool
 {
-    $statements=[
-        "ALTER TABLE permit_step2_applications
-            ADD COLUMN IF NOT EXISTS project_province_code VARCHAR(10) NULL AFTER project_location,
-            ADD COLUMN IF NOT EXISTS project_province_name VARCHAR(120) NULL AFTER project_province_code,
-            ADD COLUMN IF NOT EXISTS project_city_municipality_code VARCHAR(10) NULL AFTER project_province_name,
-            ADD COLUMN IF NOT EXISTS project_city_municipality_name VARCHAR(120) NULL AFTER project_city_municipality_code,
-            ADD COLUMN IF NOT EXISTS project_barangay_code VARCHAR(10) NULL AFTER project_city_municipality_name,
-            ADD COLUMN IF NOT EXISTS project_barangay_name VARCHAR(120) NULL AFTER project_barangay_code,
-            ADD COLUMN IF NOT EXISTS project_street_purok VARCHAR(180) NULL AFTER project_barangay_name,
-            ADD COLUMN IF NOT EXISTS concerned_penro VARCHAR(120) NULL AFTER project_street_purok,
-            ADD COLUMN IF NOT EXISTS concerned_cenro VARCHAR(120) NULL AFTER concerned_penro",
-        "ALTER TABLE permit_step2_form_drafts
-            ADD COLUMN IF NOT EXISTS project_province_code VARCHAR(10) NULL AFTER project_location,
-            ADD COLUMN IF NOT EXISTS project_province_name VARCHAR(120) NULL AFTER project_province_code,
-            ADD COLUMN IF NOT EXISTS project_city_municipality_code VARCHAR(10) NULL AFTER project_province_name,
-            ADD COLUMN IF NOT EXISTS project_city_municipality_name VARCHAR(120) NULL AFTER project_city_municipality_code,
-            ADD COLUMN IF NOT EXISTS project_barangay_code VARCHAR(10) NULL AFTER project_city_municipality_name,
-            ADD COLUMN IF NOT EXISTS project_barangay_name VARCHAR(120) NULL AFTER project_barangay_code,
-            ADD COLUMN IF NOT EXISTS project_street_purok VARCHAR(180) NULL AFTER project_barangay_name,
-            ADD COLUMN IF NOT EXISTS concerned_penro VARCHAR(120) NULL AFTER project_street_purok,
-            ADD COLUMN IF NOT EXISTS concerned_cenro VARCHAR(120) NULL AFTER concerned_penro"
-    ];
+    $applicationSql="ALTER TABLE permit_step2_applications
+        ADD COLUMN IF NOT EXISTS project_province_code VARCHAR(10) NULL AFTER project_location,
+        ADD COLUMN IF NOT EXISTS project_province_name VARCHAR(120) NULL AFTER project_province_code,
+        ADD COLUMN IF NOT EXISTS project_city_municipality_code VARCHAR(10) NULL AFTER project_province_name,
+        ADD COLUMN IF NOT EXISTS project_city_municipality_name VARCHAR(120) NULL AFTER project_city_municipality_code,
+        ADD COLUMN IF NOT EXISTS project_barangay_code VARCHAR(10) NULL AFTER project_city_municipality_name,
+        ADD COLUMN IF NOT EXISTS project_barangay_name VARCHAR(120) NULL AFTER project_barangay_code,
+        ADD COLUMN IF NOT EXISTS project_street_purok VARCHAR(180) NULL AFTER project_barangay_name,
+        ADD COLUMN IF NOT EXISTS concerned_penro VARCHAR(120) NULL AFTER project_street_purok,
+        ADD COLUMN IF NOT EXISTS concerned_cenro VARCHAR(120) NULL AFTER concerned_penro";
+    $draftSql="ALTER TABLE permit_step2_form_drafts
+        ADD COLUMN IF NOT EXISTS project_province_code VARCHAR(10) NULL AFTER project_location,
+        ADD COLUMN IF NOT EXISTS project_province_name VARCHAR(120) NULL AFTER project_province_code,
+        ADD COLUMN IF NOT EXISTS project_city_municipality_code VARCHAR(10) NULL AFTER project_province_name,
+        ADD COLUMN IF NOT EXISTS project_city_municipality_name VARCHAR(120) NULL AFTER project_city_municipality_code,
+        ADD COLUMN IF NOT EXISTS project_barangay_code VARCHAR(10) NULL AFTER project_city_municipality_name,
+        ADD COLUMN IF NOT EXISTS project_barangay_name VARCHAR(120) NULL AFTER project_barangay_code,
+        ADD COLUMN IF NOT EXISTS project_street_purok VARCHAR(180) NULL AFTER project_barangay_name,
+        ADD COLUMN IF NOT EXISTS concerned_penro VARCHAR(120) NULL AFTER project_street_purok,
+        ADD COLUMN IF NOT EXISTS concerned_cenro VARCHAR(120) NULL AFTER concerned_penro";
     try {
-        foreach ($statements as $sql) db()->exec($sql);
+        db()->exec($applicationSql);
+        try {
+            db()->query('SELECT 1 FROM permit_step2_form_drafts LIMIT 0');
+            db()->exec($draftSql);
+        } catch (Throwable $draftError) {
+            // Migration 016 is optional. If its table exists but cannot be altered,
+            // the readiness check below will keep persistent structured drafts disabled.
+            error_log('FP-OMS structured draft location schema skipped/failed: '.$draftError->getMessage());
+        }
         return true;
     } catch (Throwable $e) {
         error_log('FP-OMS structured project location schema initialization failed: '.$e->getMessage());
@@ -75,6 +81,15 @@ function fp_location_structured_schema_ready(): bool
                 project_barangay_code,project_barangay_name,project_street_purok,
                 concerned_penro,concerned_cenro
                 FROM permit_step2_applications LIMIT 0');
+        } catch (Throwable $e) {
+            return false;
+        }
+        try {
+            db()->query('SELECT 1 FROM permit_step2_form_drafts LIMIT 0');
+        } catch (Throwable $e) {
+            return true; // Persistent draft migration 016 is not installed.
+        }
+        try {
             db()->query('SELECT project_province_code,project_province_name,
                 project_city_municipality_code,project_city_municipality_name,
                 project_barangay_code,project_barangay_name,project_street_purok,
