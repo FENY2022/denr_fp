@@ -6,6 +6,9 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
 {
     $id=(int)$app['id'];
     $step=(int)$case['current_step'];
+    $concernedPenro=trim((string)($app['concerned_penro']??''));
+    $concernedCenro=trim((string)($app['concerned_cenro']??''));
+    $concernedFieldOffice=$concernedCenro!==''?$concernedCenro:$concernedPenro;
     $html='<div class="panel soft mt-3" id="annex-a-step-'.$step.'">'
         .'<div class="d-flex gap-3 align-items-center mb-3 flex-wrap">'
         .'<span class="badge text-bg-primary">STEP '.$step.'</span>'
@@ -22,9 +25,15 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
         $paymentNoticeReleased=fpoms_payment_notice_is_released($id,(int)$app['revision']);
         $html.='<div class="alert '.($paymentNoticeReleased?'alert-info':'alert-warning').' small">'
             .($paymentNoticeReleased
-                ? 'The official RED-signed Template No. 2 advice-to-pay notice has been released. LPDD-FUS may now record the field validation schedule and prepare the CENRO instruction. Cashier payment is verified separately from the Official Receipt.'
+                ? 'The official RED-signed Template No. 2 advice-to-pay notice has been released. LPDD-FUS may now record the field validation schedule and prepare the field-office instruction. Cashier payment is verified separately from the Official Receipt.'
                 : 'Step 4 cannot be completed yet. RED must sign, review and Finalize & Send Template No. 2 to the applicant first.')
-            .'</div>';
+            .'</div>'
+            .($concernedPenro!==''
+                ? '<div class="border rounded-3 p-3 mb-3 small"><strong>Detected DENR Jurisdiction</strong><br>'
+                    .'PENRO: '.e($concernedPenro).'<br>'
+                    .'CENRO: '.e($concernedCenro!==''?$concernedCenro:'Direct PENRO jurisdiction')
+                    .'</div>'
+                : '');
     } elseif ($step===5) {
         $html.='<p class="small">CENRO notifies applicant to submit hard copies, instructs TWG, '
             .'conducts the field assessment and uploads the CENRO/GIS Report, GIS Map, '
@@ -150,9 +159,11 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             $html.='<label class="form-label" for="annex-field-date">Field Validation / Assessment Schedule *</label>'
                 .'<input type="datetime-local" class="form-control mb-3" name="field_validation_schedule" '
                 .'id="annex-field-date" required>'
-                .'<label class="form-label" for="annex-cenro-instructions">Memo Instruction to CENRO *</label>'
+                .'<label class="form-label" for="annex-cenro-instructions">Memo Instruction to '
+                .e($concernedFieldOffice!==''?$concernedFieldOffice:'Concerned CENRO').' *</label>'
                 .'<textarea class="form-control mb-3" id="annex-cenro-instructions" '
-                .'name="cenro_instructions" rows="4" minlength="10" maxlength="3000" required></textarea>';
+                .'name="cenro_instructions" rows="4" minlength="10" maxlength="3000" required '
+                .'placeholder="'.e($concernedFieldOffice!==''?'Instructions for '.$concernedFieldOffice:'Enter CENRO field validation instructions').'"></textarea>';
         }
         $html.='<label class="form-label" for="annex-handoff-remarks">Remarks (Optional)</label>'
             .'<textarea class="form-control mb-2" id="annex-handoff-remarks" '

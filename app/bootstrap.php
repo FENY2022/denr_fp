@@ -74,6 +74,7 @@ require_once __DIR__ . '/registration.php';
 require_once __DIR__ . '/registration_attachments.php';
 require_once __DIR__ . '/registration_requirements.php';
 require_once __DIR__ . '/permit_step2_requirements.php';
+require_once __DIR__ . '/fp_location_jurisdiction.php';
 require_once __DIR__ . '/permit_step2.php';
 require_once __DIR__ . '/permit_step3.php';
 require_once __DIR__ . '/permit_step4.php';
