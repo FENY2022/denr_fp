@@ -96,8 +96,7 @@ function permit_tracking_timeline_html(int $applicationId): string
             . '</div><time class="small text-secondary">'
             . e((string)$event['occurred_at']) . '</time></div>'
             . '<p class="small mb-1"><i class="bi bi-person-check me-1" aria-hidden="true"></i>'
-            . e($actor) . ' · ' . e($who) . $staffOffice
-            . ' · Revision ' . (int)$event['revision'] . '</p>'
+            . e($actor) . ' · ' . e($who) . $staffOffice . '</p>'
             . '<p class="small text-secondary mb-0">Routed to: '
             . e(permit_tracking_event_destination($action)) . '</p>'
             . ($remarks !== '' ? '<p class="small fp-audit-remarks mt-2 mb-0">'

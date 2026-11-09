@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // Database-free tests for applicant/staff tracking, destination rules, and
 // permission-aware integration. Real MySQL/role/browser tests still required.
+function permit_flow_is_new(array $app): bool { return false; }
 require_once __DIR__ . '/../app/permit_tracking.php';
 function tracking_assert(bool $ok,string $message): void {
     if (!$ok) throw new RuntimeException('FP-OMS tracking: '.$message);
@@ -35,6 +36,9 @@ function url(string $page,array $query=[]): string {
 }
 function step2_status_badge(string $status): string {
     return '<span>'.e($status).'</span>';
+}
+function permit_flow_status_badge(array $app): string {
+    return '<span>'.e((string)($app['status'] ?? '')).'</span>';
 }
 function step2_events(int $appId): array {
     return [
@@ -90,6 +94,8 @@ $timeline = permit_tracking_timeline_html(20);
 tracking_assert(str_contains($timeline,'Documents Received by LPDD-FUS'), 'receipt timeline');
 tracking_assert(str_contains($timeline,'Routed to:'), 'destination timeline');
 tracking_assert(str_contains($timeline,'LPDD/FUS'), 'actor office timeline');
+tracking_assert(!str_contains($timeline,'Revision '),
+    'application audit actor metadata omits the revision label');
 tracking_assert(!str_contains($timeline,'<script>'), 'escape actor name');
 tracking_assert(!str_contains($timeline,'<img src=x>'), 'escape remarks');
 tracking_assert(str_contains($timeline,'&lt;script&gt;'), 'HTML escaped');
