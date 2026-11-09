@@ -43,7 +43,7 @@ $checks=[
  [$pdf,'PHP 10,000.00','Template No. 2 fee amount'],
  [$pdf,"concerned_penro",'Template No. 2 reads detected PENRO jurisdiction'],
  [$pdf,"concerned_cenro",'Template No. 2 reads detected CENRO jurisdiction'],
- [$pdf,"$fieldOfficeSentence",'Template No. 2 renders dynamic DENR field-office instruction'],
+ [$pdf,'$fieldOfficeSentence','Template No. 2 renders dynamic DENR field-office instruction'],
  [$views,'RED – Payment Notice Approvals','RED sidebar queue'],
  [$views,'RED Notices / E-Sign','shared RED signature configuration label'],
  [$router,"case 'payment_notice_generate':",'existing received-case generation route'],
