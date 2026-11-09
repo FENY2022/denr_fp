@@ -187,7 +187,7 @@ function render_page(string $title, string $content): void
         . (str_contains($content, 'id="registration-document-modal"')
             ? '<script src="assets/registration-document-preview.js?v=6" defer></script>' : '')
         . (str_contains($content, 'id="fp-files-modal"')
-            ? '<script src="assets/permit-case-modals.js?v=4" defer></script>' : '')
+            ? '<script src="assets/permit-case-modals.js?v=5" defer></script>' : '')
         . (str_contains($content, 'id="registration-action-audit-modal"')
             ? '<script src="assets/registration-action-audit.js?v=1" defer></script>' : '')
         . (str_contains($content, 'id="otp-verification-success-modal"')

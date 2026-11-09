@@ -69,12 +69,13 @@ function makePage(selection) {
     };
   }};
   const stored = new Map();
+  const search = selection === undefined ? '?id=5' : '?id=5&view=' + selection;
   vm.runInNewContext(script, {
     Element,
     URLSearchParams,
     window: {
       bootstrap: { Modal: modal },
-      location: { search: '?id=5&view=' + selection, pathname: '/permit-application' },
+      location: { search, pathname: '/permit-application' },
       sessionStorage: {
         getItem: key => stored.get(key) ?? null,
         setItem: (key, value) => stored.set(key, value)
@@ -89,6 +90,11 @@ function makePage(selection) {
 const audit = makePage('audit');
 assert.equal(audit.audit.visible, true, 'audit direct link shows only audit modal');
 assert.equal(audit.files.visible, false, 'audit direct link does not show files');
+const defaultView = makePage();
+assert.equal(defaultView.audit.visible, true,
+  'plain application detail URL automatically shows the audit modal');
+assert.equal(defaultView.files.visible, false,
+  'plain application detail URL does not show the files modal');
 const files = makePage('files');
 assert.equal(files.files.visible, true, 'files direct link shows file list');
 assert.equal(files.audit.visible, false, 'files direct link does not show audit');

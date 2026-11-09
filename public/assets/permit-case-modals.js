@@ -93,12 +93,13 @@
     Modal.getOrCreateInstance(filesModal).show();
   });
 
-  // Action-list links open the case first, then only the selected modal.
-  // A query parameter never authorizes access; the PHP case route does.
+  // The application detail opens its audit trail by default. Action-list links
+  // can still explicitly select the files modal. A query parameter never
+  // authorizes access; the PHP case route does.
   const selected = query.get('view');
   if (selected === 'files') {
     Modal.getOrCreateInstance(filesModal).show();
-  } else if (selected === 'audit') {
+  } else if (selected === 'audit' || selected === null) {
     Modal.getOrCreateInstance(auditModal).show();
   }
 })();
