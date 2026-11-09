@@ -83,6 +83,12 @@ function step3_action_panel_html(array $app): string
     return $html.'</div>';
 }
 
+function step3_inbox_tab_badge_class(int $count,bool $active): string
+{
+    if ($count>0) return 'text-bg-danger';
+    return $active ? 'text-bg-light':'text-bg-success';
+}
+
 function view_step3_ro_inbox(): void
 {
     step3_require_officer();
@@ -124,12 +130,13 @@ function view_step3_ro_inbox(): void
         .'aria-label="RO Receiving status tabs">';
     foreach ($tabs as $key=>$data) {
         $active=$key===$tab;
+        $count=$counts[$data['status']];
         $html.='<a class="nav-link'.($active?' active':'').'" href="'
             .e(url('permit_ro_inbox',['tab'=>$key])).'"'
             .($active?' aria-current="page"':'').'>'
             .e($data['label']).': <span class="badge '
-            .($active?'text-bg-light':'text-bg-success').'">'
-            .$counts[$data['status']].'</span></a>';
+            .step3_inbox_tab_badge_class($count,$active).'">'
+            .$count.'</span></a>';
     }
     $html.='</nav><h3 class="h6 mb-3">'.e($tabs[$tab]['label']).' '
         .'<span class="badge text-bg-secondary">'.$counts[$selected].'</span></h3>';

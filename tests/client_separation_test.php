@@ -40,8 +40,10 @@ assert_client_separation(str_contains($registration, 'INSERT INTO user_client')
 assert_client_separation(str_contains($registration, 'UPDATE user_client SET status='),
     'LPDD-FUS review changes applicant activation in user_client');
 assert_client_separation(str_contains($profile, 'principal_table($user)')
-    && str_contains($profile, 'SET representative_name=? WHERE client_id=?'),
-    'Client profile edits update the client account and company representative');
+    && str_contains($profile, 'UPDATE applicant_registrations SET representative_name=?,representative_position=?,company_name=?,company_address=?,contact_number=? WHERE client_id=?')
+    && str_contains($profile, "field('company_name', 'Company / Proponent'")
+    && str_contains($profile, "field('contact_number', 'Contact Number'"),
+    'Client profile edits update the client account and applicant information');
 assert_client_separation(str_contains($views, 'JOIN user_client u ON u.id=ar.client_id'),
     'Reviewer screens load applicant details from user_client');
 assert_client_separation(str_contains($reset, "INSERT INTO password_reset_tokens ({\$column}")

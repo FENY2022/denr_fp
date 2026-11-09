@@ -196,6 +196,8 @@ function process_profile_update(array $user, array $data, array $files): array
     $emailInput = strtolower(trim((string)($data['email'] ?? '')));
     $email = $emailInput === '' ? strtolower((string)($user['email'] ?? '')) : $emailInput;
     $errors = [];
+    $registration = null;
+    $applicantData = null;
 
     $nameLength = profile_name_length($name);
     if ($nameLength < 3 || $nameLength > 160) {
@@ -209,6 +211,23 @@ function process_profile_update(array $user, array $data, array $files): array
     if ($email !== '') {
         if (email_assigned_to_other_account($email, (string)$user['user_kind'], (int)$user['id'])) {
             $errors[] = 'Another account already uses this email address.';
+        }
+    }
+
+    if ((string)$user['user_kind'] === 'applicant') {
+        $registration = registration_for_user((int)$user['id']);
+        if (!$registration) {
+            $errors[] = 'Applicant information could not be found.';
+        } else {
+            $applicantData = [
+                'representative_name' => $name,
+                'representative_position' => trim((string)($data['representative_position'] ?? '')),
+                'company_name' => trim((string)($data['company_name'] ?? '')),
+                'organization_type' => (string)($registration['organization_type'] ?? 'individual'),
+                'company_address' => trim((string)($data['company_address'] ?? '')),
+                'contact_number' => trim((string)($data['contact_number'] ?? '')),
+            ];
+            $errors = array_merge($errors, registration_validation($applicantData));
         }
     }
 
@@ -235,9 +254,23 @@ function process_profile_update(array $user, array $data, array $files): array
         $pdo->prepare("UPDATE {$table} SET name=?,email=?,profile_photo=? WHERE id=?")
             ->execute([$name, $email, $newPhoto !== '' ? $newPhoto : null, (int)$user['id']]);
 
-        if ((string)$locked['user_kind'] === 'applicant') {
-            $pdo->prepare('UPDATE applicant_registrations SET representative_name=? WHERE client_id=?')
-                ->execute([$name, (int)$user['id']]);
+        if ((string)$locked['user_kind'] === 'applicant' && $applicantData !== null) {
+            $lockedRegistration = query_one(
+                'SELECT id FROM applicant_registrations WHERE client_id=? FOR UPDATE',
+                [(int)$user['id']]
+            );
+            if (!$lockedRegistration) throw new RuntimeException('Applicant information was not found.');
+
+            $pdo->prepare(
+                'UPDATE applicant_registrations SET representative_name=?,representative_position=?,company_name=?,company_address=?,contact_number=? WHERE client_id=?'
+            )->execute([
+                $applicantData['representative_name'],
+                $applicantData['representative_position'] !== '' ? $applicantData['representative_position'] : null,
+                $applicantData['company_name'],
+                $applicantData['company_address'],
+                $applicantData['contact_number'],
+                (int)$user['id'],
+            ]);
         }
 
         $details = [
@@ -398,6 +431,7 @@ function view_edit_profile(array $errors = []): void
 {
     $user = require_user();
     $context = profile_context($user);
+    $registration = $user['user_kind'] === 'applicant' ? registration_for_user((int)$user['id']) : null;
     $name = form_value('name', ['name' => (string)$user['name']]);
     $email = form_value('email', ['email' => (string)($user['email'] ?? '')]);
     $hasPhoto = trim((string)($user['profile_photo'] ?? '')) !== '';
@@ -435,8 +469,24 @@ function view_edit_profile(array $errors = []): void
         . '<div class="col-md-6"><label class="form-label">Contact Number</label><div class="profile-readonly-field">' . e((string)($user['contact_number'] ?? 'Not provided')) . '</div></div>'
             : '')
         . '<div class="col-md-6"><label class="form-label">Account Status</label><div class="profile-readonly-field">' . profile_status_badge((string)$user['status']) . '</div></div>'
-        . '</div><div class="alert alert-light border small mt-3 mb-0"><i class="bi bi-shield-check me-1"></i>Username, role, office assignment and account status are controlled account fields and cannot be changed from this page.</div>'
-        . ($user['user_kind'] === 'applicant' ? '<div class="alert alert-info small mt-3 mb-0">Changing your full name also updates the representative name in your applicant registration.</div>' : '')
+        . '</div>';
+
+    if ($registration) {
+        $organizationTypes = registration_organization_types();
+        $organizationType = (string)($registration['organization_type'] ?? 'individual');
+        $html .= '<hr class="my-4"><div class="profile-section-title"><i class="bi bi-building"></i><h3>Applicant Information</h3></div>'
+            . '<div class="row g-3">'
+            . '<div class="col-md-6">' . field('company_name', 'Company / Proponent', form_value('company_name', $registration), 'text', true, 'maxlength="220"') . '</div>'
+            . '<div class="col-md-6">' . field('representative_position', 'Position / Designation', form_value('representative_position', $registration), 'text', false, 'maxlength="150"') . '</div>'
+            . '<div class="col-md-6">' . field('contact_number', 'Contact Number', form_value('contact_number', $registration), 'tel', true, 'maxlength="40"') . '</div>'
+            . '<div class="col-md-6"><label class="form-label">Applicant / Organization Type</label><div class="profile-readonly-field">'
+            . e((string)($organizationTypes[$organizationType] ?? ucwords(str_replace('_', ' ', $organizationType)))) . '</div></div>'
+            . '<div class="col-12"><label class="form-label" for="company_address">Company Address <span class="text-danger">*</span></label>'
+            . '<textarea class="form-control" id="company_address" name="company_address" rows="3" maxlength="2000" required>'
+            . e(form_value('company_address', $registration)) . '</textarea></div></div>';
+    }
+
+    $html .= '<div class="alert alert-light border small mt-3 mb-0"><i class="bi bi-shield-check me-1"></i>Username, role, office assignment and account status are controlled account fields and cannot be changed from this page.</div>'
         . '<div class="profile-edit-actions"><button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle me-1"></i>Save Changes</button>'
         . '<a class="btn btn-outline-secondary" href="' . e(url('profile')) . '">Cancel</a></div>'
         . '</div></section></div></div></form>'
