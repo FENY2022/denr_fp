@@ -400,6 +400,10 @@ function step2_submit(array $client, array $data, array $files, int $application
     if ($draftMode && $files) $errors[] = 'Use the secure Selected Files uploader.';
     if ($errors) return $errors;
 
+    // Resolve optional area-photo schema before starting the submission transaction;
+    // DDL must never be attempted while the application transaction is active.
+    $areaPhotoReady=step2_area_photo_schema_ready();
+
     $pdo = db();
     $stored = [];
     $draftRows = [];
@@ -427,7 +431,7 @@ function step2_submit(array $client, array $data, array $files, int $application
                 }
             }
         }
-        if (step2_area_photo_schema_ready()) {
+        if ($areaPhotoReady) {
             $photoDraft=step2_area_photo_draft_submission($clientId,$draftScope,true);
             if ($photoDraft['errors']) {
                 $pdo->rollBack();
