@@ -248,6 +248,13 @@
       return;
     }
 
+    form?.addEventListener('submit',event=>{
+      if (!busy) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      message('Finish the current area-photo upload or map update before submitting.',true);
+    },true);
+
     input?.addEventListener('change',async ()=>{
       if (busy) return;
       const selected=[...(input.files || [])];
