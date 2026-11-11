@@ -100,10 +100,16 @@
       marker.bindPopup(popupNode(photo),{maxWidth:260});
       if (editable) {
         marker.on('dragend',async ()=>{
+          if (busy) {
+            marker.setLatLng([Number(photo.latitude),Number(photo.longitude)]);
+            return;
+          }
           const previous={
             lat:Number(photo.latitude),lon:Number(photo.longitude)
           };
           const point=marker.getLatLng();
+          busy=true;
+          if (input) input.disabled=true;
           marker.dragging?.disable();
           try {
             const data=new FormData();
@@ -117,8 +123,10 @@
             message('Photo marker location saved.');
           } catch(error) {
             marker.setLatLng([previous.lat,previous.lon]);
-            marker.dragging?.enable();
             message(error.message || 'Photo marker could not be saved.',true);
+          } finally {
+            busy=false;
+            render(currentPhotos());
           }
         });
       }
@@ -321,14 +329,17 @@
         data.set('latitude',fmt(point.lat));
         data.set('longitude',fmt(point.lon));
         try {
+          busy=true;
           useProject.disabled=true;
+          if (input) input.disabled=true;
           const result=await post('permit-area-photo-update',data);
           render(result.photos || []);
           message('Photo marker moved to the current project pin.');
         } catch(error) {
           message(error.message || 'Photo marker could not be updated.',true);
         } finally {
-          useProject.disabled=false;
+          busy=false;
+          render(currentPhotos());
         }
         return;
       }
@@ -341,13 +352,17 @@
       data.set('application_id',scope);
       data.set('id',remove.dataset.areaPhotoDelete || '');
       try {
+        busy=true;
         remove.disabled=true;
+        if (input) input.disabled=true;
         const result=await post('permit-area-photo-delete',data);
         render(result.photos || []);
         message('Area photo removed from the draft.');
       } catch(error) {
-        remove.disabled=false;
         message(error.message || 'Area photo could not be removed.',true);
+      } finally {
+        busy=false;
+        render(currentPhotos());
       }
     });
 
