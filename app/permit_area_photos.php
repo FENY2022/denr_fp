@@ -154,7 +154,7 @@ function step2_area_photo_upload(array $client,int $applicationId,array $files,m
         $pdo->prepare('SELECT id FROM user_client WHERE id=? FOR UPDATE')->execute([$clientId]);
         $count=query_one(
             'SELECT COUNT(*) AS n FROM permit_step2_area_photo_drafts
-             WHERE client_id=? AND application_id=? FOR UPDATE',
+             WHERE client_id=? AND application_id=?',
             [$clientId,$applicationId]
         );
         if ((int)($count['n']??0)>=20) {
