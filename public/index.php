@@ -627,6 +627,49 @@ try {
                 show_error('Invalid PDF draft reference.',400);
             }
             step2_persistent_send_pdf($client,(int)$scope,(int)$draftId);
+        case 'permit_area_photo_upload':
+        case 'permit_area_photo_update':
+        case 'permit_area_photo_delete':
+            $client=step2_require_applicant();
+            if (!$post) step2_draft_json(['error'=>'POST required.'],405);
+            check_csrf();
+            $scope=filter_var($_POST['application_id']??0,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>0]]);
+            if ($scope===false || $scope===null) {
+                step2_draft_json(['error'=>'Invalid FP application reference.'],400);
+            }
+            $photoId=filter_var($_POST['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]) ?: 0;
+            if ($page==='permit_area_photo_upload') {
+                $result=step2_area_photo_upload(
+                    $client,(int)$scope,$_FILES,
+                    $_POST['latitude']??'',$_POST['longitude']??''
+                );
+            } elseif ($page==='permit_area_photo_update') {
+                $result=step2_area_photo_update(
+                    $client,(int)$scope,(int)$photoId,
+                    $_POST['latitude']??'',$_POST['longitude']??''
+                );
+            } else {
+                $result=step2_area_photo_delete($client,(int)$scope,(int)$photoId);
+            }
+            step2_draft_json($result,isset($result['error'])?422:200);
+        case 'permit_area_photo':
+            if ($post) show_error('Area photo preview requires GET.',405);
+            $viewer=require_user();
+            $scope=filter_var($_GET['application_id']??0,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>0]]);
+            $photoId=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if ($scope===false || $scope===null || !$photoId) {
+                show_error('Invalid area photo reference.',400);
+            }
+            if ((string)($_GET['draft']??'')==='1') {
+                require_kind($viewer,'applicant');
+                step2_area_photo_send_draft($viewer,(int)$scope,(int)$photoId);
+            }
+            if ((int)$scope<1) show_error('Invalid submitted area photo reference.',400);
+            step2_area_photo_send_submitted($viewer,(int)$scope,(int)$photoId);
         case 'permit_apply':
             $client = step2_require_applicant();
             $id = filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) ?: 0;
