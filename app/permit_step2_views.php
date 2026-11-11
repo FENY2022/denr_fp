@@ -472,9 +472,10 @@ function step2_location_editor_html(string $latitude, string $longitude): string
 {
     return '<section class="mb-3 fp-location-fields" data-fp-location-wrapper>'
         . '<h3 class="h6 mb-2"><i class="bi bi-geo-alt-fill text-success me-1" '
-        . 'aria-hidden="true"></i>Pinpoint Project Location (optional)</h3>'
-        . '<p class="small text-secondary">Click or drag the map pin to identify the project site. '
-        . 'You may enter WGS84 decimal coordinates manually. The address above is still required.</p>'
+        . 'aria-hidden="true"></i>Pinpoint Project Location</h3>'
+        . '<p class="small text-secondary">Use your current device location, click the free OpenStreetMap, '
+        . 'drag the project pin, or enter WGS84 decimal coordinates manually. '
+        . 'A project pin is required when uploading geotagged area photos; otherwise coordinates remain optional.</p>'
         . '<div class="fp-project-location-map mb-2" data-fp-location-map="edit" '
         . 'data-latitude="'.e($latitude).'" data-longitude="'.e($longitude).'" '
         . 'aria-label="Interactive project location map"></div>'
