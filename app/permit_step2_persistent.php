@@ -118,6 +118,7 @@ function step2_persistent_clear(array $client, int $scope): array
     if (!step2_persistent_ready()) return ['error'=>'Apply migration 016 first.'];
     if (!step2_draft_scope_allowed($client,$scope)) return ['error'=>'Draft cannot be cleared.'];
     $clientId = (int)$client['id'];
+    $areaPhotoReady=step2_area_photo_schema_ready();
     $pdo = db();
     $paths = [];
     $areaPhotoPaths = [];
@@ -134,7 +135,7 @@ function step2_persistent_clear(array $client, int $scope): array
         }
         $pdo->prepare('DELETE FROM permit_step2_draft_documents
                        WHERE client_id=? AND application_id=?')->execute([$clientId,$scope]);
-        if (step2_area_photo_schema_ready()) {
+        if ($areaPhotoReady) {
             $areaPhotoPaths=step2_area_photo_clear_drafts($pdo,$clientId,$scope);
         }
         $pdo->prepare('DELETE FROM permit_step2_form_drafts
