@@ -120,6 +120,7 @@ function step2_persistent_clear(array $client, int $scope): array
     $clientId = (int)$client['id'];
     $pdo = db();
     $paths = [];
+    $areaPhotoPaths = [];
     try {
         $pdo->beginTransaction();
         $pdo->prepare('SELECT id FROM user_client WHERE id=? FOR UPDATE')->execute([$clientId]);
@@ -133,6 +134,9 @@ function step2_persistent_clear(array $client, int $scope): array
         }
         $pdo->prepare('DELETE FROM permit_step2_draft_documents
                        WHERE client_id=? AND application_id=?')->execute([$clientId,$scope]);
+        if (step2_area_photo_schema_ready()) {
+            $areaPhotoPaths=step2_area_photo_clear_drafts($pdo,$clientId,$scope);
+        }
         $pdo->prepare('DELETE FROM permit_step2_form_drafts
                        WHERE client_id=? AND application_id=?')->execute([$clientId,$scope]);
         // For correction screens, an empty draft overrides the pre-populated
@@ -167,7 +171,11 @@ function step2_persistent_clear(array $client, int $scope): array
             $file = step2_draft_real_path($relative);
             if ($file !== null) @unlink($file);
         }
-        return ['cleared'=>true,'documents'=>[]];
+        foreach ($areaPhotoPaths as $relative) {
+            $file=step2_area_photo_draft_real_path($relative);
+            if ($file !== null) @unlink($file);
+        }
+        return ['cleared'=>true,'documents'=>[],'photos'=>[]];
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('FP-OMS persistent draft clear error: '.$error->getMessage());
