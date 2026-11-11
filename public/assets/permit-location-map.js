@@ -107,5 +107,17 @@
         setStatus('Could not obtain your location ('+error.message+'). Pin the project manually.',true);
       },{enableHighAccuracy:true,timeout:12000,maximumAge:0});
     });
+
+    const api={
+      map,
+      readonly,
+      getProjectPoint:()=>marker ? marker.getLatLng() : null,
+      setProjectPoint:(lat,lon)=>position(Number(lat),Number(lon),!readonly),
+      invalidate:()=>map.invalidateSize()
+    };
+    element.fpomsLocationMap=api;
+    document.dispatchEvent(new CustomEvent('fpoms:location-map-ready',{
+      detail:{element,api}
+    }));
   });
 })();

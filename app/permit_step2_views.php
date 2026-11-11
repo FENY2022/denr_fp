@@ -472,9 +472,10 @@ function step2_location_editor_html(string $latitude, string $longitude): string
 {
     return '<section class="mb-3 fp-location-fields" data-fp-location-wrapper>'
         . '<h3 class="h6 mb-2"><i class="bi bi-geo-alt-fill text-success me-1" '
-        . 'aria-hidden="true"></i>Pinpoint Project Location (optional)</h3>'
-        . '<p class="small text-secondary">Click or drag the map pin to identify the project site. '
-        . 'You may enter WGS84 decimal coordinates manually. The address above is still required.</p>'
+        . 'aria-hidden="true"></i>Pinpoint Project Location</h3>'
+        . '<p class="small text-secondary">Use your current device location, click the free OpenStreetMap, '
+        . 'drag the project pin, or enter WGS84 decimal coordinates manually. '
+        . 'A project pin is required when uploading geotagged area photos; otherwise coordinates remain optional.</p>'
         . '<div class="fp-project-location-map mb-2" data-fp-location-map="edit" '
         . 'data-latitude="'.e($latitude).'" data-longitude="'.e($longitude).'" '
         . 'aria-label="Interactive project location map"></div>'
@@ -502,6 +503,93 @@ function step2_location_editor_html(string $latitude, string $longitude): string
         . '<p class="fp-location-attribution text-secondary small mb-0">'
         . 'Map data © OpenStreetMap contributors. Verify that the pin identifies '
         . 'the actual project site.</p></section>';
+}
+
+function step2_area_photo_card_html(array $photo,bool $editable,int $applicationId): string
+{
+    $id=(int)($photo['id']??0);
+    $name=(string)($photo['original_name']??'Area photo');
+    $lat=(string)($photo['latitude']??'');
+    $lon=(string)($photo['longitude']??'');
+    $preview=(string)($photo['preview_url']??url('permit_area_photo',[
+        'application_id'=>$applicationId,'id'=>$id
+    ]));
+    $revision=(int)($photo['revision']??0);
+    return '<div class="card mb-2" data-area-photo-id="'.$id.'" '
+        .'data-photo-name="'.e($name).'" data-latitude="'.e($lat).'" '
+        .'data-longitude="'.e($lon).'" data-preview-url="'.e($preview).'">'
+        .'<div class="card-body p-2"><div class="d-flex gap-2 align-items-start">'
+        .'<img src="'.e($preview).'" alt="Area photo preview" loading="lazy" '
+        .'width="92" height="72" class="rounded border object-fit-cover flex-shrink-0">'
+        .'<div class="flex-grow-1 min-width-0"><div class="fw-semibold text-break">'
+        .e($name).'</div>'
+        .'<div class="small text-secondary" data-area-photo-coords>GPS: '
+        .e($lat).', '.e($lon).'</div>'
+        .($revision>0?'<span class="badge text-bg-light mt-1">Revision '.$revision.'</span>':'')
+        .($editable
+            ? '<div class="small text-secondary mt-1">Drag this photo marker on the map '
+                .'to tag a different point.</div>'
+            : '')
+        .'<div class="d-flex flex-wrap gap-1 mt-2">'
+        .'<button type="button" class="btn btn-sm btn-outline-primary" '
+        .'data-area-photo-locate="'.$id.'">'
+        .'<i class="bi bi-geo-alt me-1" aria-hidden="true"></i>Show on Map</button>'
+        .($editable
+            ? '<button type="button" class="btn btn-sm btn-outline-success" '
+                .'data-area-photo-use-project="'.$id.'">'
+                .'<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use Project Pin</button>'
+                .'<button type="button" class="btn btn-sm btn-outline-danger" '
+                .'data-area-photo-delete="'.$id.'">'
+                .'<i class="bi bi-trash3 me-1" aria-hidden="true"></i>Remove</button>'
+            : '')
+        .'</div></div></div></div></div>';
+}
+
+function step2_area_photo_editor_html(array $photos,int $applicationId,int $maxBytes): string
+{
+    $html='<section class="border rounded-3 p-3 mt-3" data-fp-area-photos data-editable="1" '
+        .'data-application-id="'.$applicationId.'" data-max-bytes="'.$maxBytes.'">'
+        .'<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">'
+        .'<div><h3 class="h6 mb-1"><i class="bi bi-camera-fill text-success me-1" '
+        .'aria-hidden="true"></i>Area Photo Documentation</h3>'
+        .'<p class="small text-secondary mb-0">Pin the project site first, then upload JPG/PNG '
+        .'area photos. Each photo starts at the project pin and can be moved independently '
+        .'by dragging its marker on the map.</p></div>'
+        .'<span class="badge text-bg-secondary"><span data-fp-area-photo-count>'
+        .count($photos).'</span>/20 photos</span></div>'
+        .'<label class="form-label" for="fp_area_photos">Upload / Take Area Photos</label>'
+        .'<input class="form-control" type="file" id="fp_area_photos" '
+        .'data-fp-area-photo-input accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple>'
+        .'<div class="form-text">JPG/JPEG/PNG only. Maximum '
+        .e((string)round($maxBytes/1048576,1)).' MB each. Photos are encrypted inside FP-OMS; '
+        .'they are not uploaded to OpenStreetMap.</div>'
+        .'<div class="mt-3" data-fp-area-photo-list>';
+    foreach ($photos as $photo) $html.=step2_area_photo_card_html($photo,true,$applicationId);
+    $html.='</div><p class="small text-secondary mb-0" data-fp-area-photo-empty'
+        .($photos?' hidden':'').'>No area photos uploaded yet.</p>'
+        .'<p class="small text-secondary mt-2 mb-0" role="status" aria-live="polite" '
+        .'data-fp-area-photo-feedback></p></section>';
+    return $html;
+}
+
+function step2_area_photo_gallery_html(array $photos,int $applicationId): string
+{
+    if (!$photos) return '';
+    $html='<section class="panel mt-3" data-fp-area-photos data-editable="0" '
+        .'data-application-id="'.$applicationId.'">'
+        .'<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">'
+        .'<div><h3 class="h6 mb-1"><i class="bi bi-images text-success me-1" '
+        .'aria-hidden="true"></i>Geotagged Area Photos</h3>'
+        .'<p class="small text-secondary mb-0">Photo markers show the applicant-supplied '
+        .'map position recorded for each submitted image.</p></div>'
+        .'<span class="badge text-bg-secondary"><span data-fp-area-photo-count>'
+        .count($photos).'</span> photos</span></div>'
+        .'<div data-fp-area-photo-list>';
+    foreach ($photos as $photo) $html.=step2_area_photo_card_html($photo,false,$applicationId);
+    $html.='</div><p class="small text-secondary mb-0" data-fp-area-photo-empty hidden>'
+        .'No area photos.</p><p class="small text-secondary mt-2 mb-0" '
+        .'data-fp-area-photo-feedback></p></section>';
+    return $html;
 }
 
 /** Show captured coordinates and a read-only map to the permitted viewer. */
@@ -563,6 +651,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $area = (string)($_POST['project_area_hectares'] ?? $fieldDraft['project_area_hectares'] ?? $app['project_area_hectares'] ?? '');
     $hasArea = step2_area_schema_ready();
     $hasCoordinates = step2_location_schema_ready();
+    $hasAreaPhotoStorage=step2_area_photo_schema_ready();
+    $areaPhotoFeature=$hasCoordinates && $hasAreaPhotoStorage;
+    $savedAreaPhotos=$areaPhotoFeature
+        ? step2_area_photo_draft_public_list((int)$client['id'],$applicationId) : [];
     $latitude = $hasCoordinates
         ? (string)($_POST['project_latitude'] ?? $fieldDraft['project_latitude'] ?? $app['project_latitude'] ?? '')
         : '';
@@ -590,6 +682,12 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             : '')
         . (!$hasStructuredLocation
             ? '<div class="alert alert-warning small">Structured Project Location requires database migration 037. FP-OMS will attempt to initialize it automatically when the database account has ALTER permission.</div>'
+            : '')
+        . (!$hasAreaPhotoStorage
+            ? '<div class="alert alert-warning small">Geotagged Area Photos require database migration 038. FP-OMS will attempt to initialize the photo tables automatically when CREATE TABLE permission is available.</div>'
+            : '')
+        . ($hasAreaPhotoStorage && !$hasCoordinates
+            ? '<div class="alert alert-warning small">Apply migration 017 for project latitude/longitude before geotagged area photos can be used.</div>'
             : '')
         . '<p class="small text-secondary">Provide basic project identification and upload supporting documents. '
         . 'Documentary completeness will be evaluated by LPDD-FUS Technical Staff, '
@@ -668,6 +766,12 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
          . ($hasCoordinates ? step2_location_editor_html($latitude,$longitude)
              : '<p class="small text-secondary">Interactive location pin and coordinates '
                 . 'will be available after the ICT administrator applies migration 017.</p>')
+         . ($areaPhotoFeature
+            ? step2_area_photo_editor_html(
+                $savedAreaPhotos,$applicationId,
+                max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880'))
+              )
+            : '')
         . '</section><section class="step2-form-section" id="step2-section-3" '
         . 'aria-labelledby="step2-section-title-3" data-step2-form-section="3">'
         . step2_form_section_heading_html(3,'FP Supporting Documentary Requirements','files')
@@ -797,8 +901,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>'
         . ($hasCoordinates
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-location-map.js?v=2" defer></script>'
+                . '<script src="assets/permit-location-map.js?v=3" defer></script>'
             : '')
+        . ($areaPhotoFeature
+            ? '<script src="assets/permit-area-photos.js?v=1" defer></script>' : '')
         . '<script src="assets/permit-step2-sections.js?v=6" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
@@ -808,6 +914,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
     $viewer = require_user();
     $app = step2_application_for_view($viewer,$applicationId);
     $documents = step2_documents($applicationId);
+    $areaPhotos=step2_area_photo_schema_ready()?step2_area_photos($applicationId):[];
     $mine = $viewer['user_kind'] === 'applicant';
     $reviewer = !$mine && has_role($viewer,'lpdd_fus');
     $modern=permit_flow_is_new($app);
@@ -1078,8 +1185,10 @@ function view_step2_application(int $applicationId, array $errors = []): void
         $html .= step2_location_preview_html($app);
         if (($app['project_latitude'] ?? null) !== null
             && ($app['project_longitude'] ?? null) !== null) {
-            $html .= '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-location-map.js?v=1" defer></script>';
+            $html .= step2_area_photo_gallery_html($areaPhotos,$applicationId)
+                . '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
+                . '<script src="assets/permit-location-map.js?v=3" defer></script>'
+                . ($areaPhotos?'<script src="assets/permit-area-photos.js?v=1" defer></script>':'');
         }
     }
     if ($noticePdfPreviewModal) $html .= fpoms_notice_pdf_preview_modal_html();

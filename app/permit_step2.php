@@ -400,10 +400,16 @@ function step2_submit(array $client, array $data, array $files, int $application
     if ($draftMode && $files) $errors[] = 'Use the secure Selected Files uploader.';
     if ($errors) return $errors;
 
+    // Resolve optional area-photo schema before starting the submission transaction;
+    // DDL must never be attempted while the application transaction is active.
+    $areaPhotoReady=step2_area_photo_schema_ready();
+
     $pdo = db();
     $stored = [];
     $draftRows = [];
+    $areaPhotoRows = [];
     $draftFilesToRemove = [];
+    $areaPhotosAdded = 0;
     $draftScope = $applicationId;
     try {
         $pdo->beginTransaction();
@@ -424,6 +430,14 @@ function step2_submit(array $client, array $data, array $files, int $application
                         . 'Remove it and upload under its correct requirement.'];
                 }
             }
+        }
+        if ($areaPhotoReady) {
+            $photoDraft=step2_area_photo_draft_submission($clientId,$draftScope,true);
+            if ($photoDraft['errors']) {
+                $pdo->rollBack();
+                return $photoDraft['errors'];
+            }
+            $areaPhotoRows=$photoDraft['rows'];
         }
         // Annex 1 #10 is exempt for Solar and Biomass, but required for Other.
         // Classifications from already-submitted revisions remain available for
@@ -611,6 +625,12 @@ function step2_submit(array $client, array $data, array $files, int $application
             ]);
             $draftFilesToRemove[] = $source;
         }
+        if ($areaPhotoRows) {
+            $areaPhotosAdded=step2_area_photo_copy_submission(
+                $pdo,$areaPhotoRows,$clientId,$draftScope,$applicationId,$revision,
+                $stored,$draftFilesToRemove
+            );
+        }
         if ($draftRows) {
             if (step2_persistent_ready()) {
                 $pdo->prepare(
@@ -641,7 +661,8 @@ function step2_submit(array $client, array $data, array $files, int $application
         )->execute([$applicationId,$clientId,$action,$revision]);
         audit_client($clientId, 'permit.step2.' . $action, 'permit_step2_application',
             $applicationId, ['revision'=>$revision,
-                'documents_added'=>count($uploads['items'])+count($draftRows)]);
+                'documents_added'=>count($uploads['items'])+count($draftRows),
+                'area_photos_added'=>$areaPhotosAdded]);
         $pdo->commit();
         foreach ($draftFilesToRemove as $source) @unlink($source);
 
