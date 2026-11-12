@@ -601,11 +601,11 @@
         const galleryPoint=point
           ? [point.lat,point.lon]
           : boundPoints.length ? boundPoints[0] : center;
-        galleryPopup=leaflet.popup({maxWidth:420})
+        galleryPopup=leaflet.popup({maxWidth:420,maxHeight:360})
           .setLatLng(galleryPoint)
           .setContent(allPhotosPopup(group,photos));
         if (pin) {
-          pin.bindPopup(allPhotosPopup(group,photos),{maxWidth:420});
+          pin.bindPopup(allPhotosPopup(group,photos),{maxWidth:420,maxHeight:360});
         }
       }
 
