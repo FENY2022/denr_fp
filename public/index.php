@@ -627,6 +627,7 @@ try {
                 show_error('Invalid PDF draft reference.',400);
             }
             step2_persistent_send_pdf($client,(int)$scope,(int)$draftId);
+        case 'permit_area_photo_group_save':
         case 'permit_area_photo_upload':
         case 'permit_area_photo_update':
         case 'permit_area_photo_delete':
@@ -640,10 +641,14 @@ try {
             }
             $photoId=filter_var($_POST['id']??null,FILTER_VALIDATE_INT,
                 ['options'=>['min_range'=>1]]) ?: 0;
-            if ($page==='permit_area_photo_upload') {
+            if ($page==='permit_area_photo_group_save') {
+                $result=step2_area_photo_group_save(
+                    $client,(int)$scope,$_POST['documentation_group']??1,
+                    $_POST['latitude']??'',$_POST['longitude']??''
+                );
+            } elseif ($page==='permit_area_photo_upload') {
                 $result=step2_area_photo_upload(
                     $client,(int)$scope,$_FILES,
-                    $_POST['latitude']??'',$_POST['longitude']??'',
                     $_POST['documentation_group']??1
                 );
             } elseif ($page==='permit_area_photo_update') {
