@@ -1008,7 +1008,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>'
         . ($areaPhotoFeature
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-area-photos.js?v=4" defer></script>'
+                . '<script src="assets/permit-area-photos.js?v=5" defer></script>'
             : '')
         . '<script src="assets/permit-step2-sections.js?v=6" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
