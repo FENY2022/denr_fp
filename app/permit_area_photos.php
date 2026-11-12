@@ -157,7 +157,7 @@ function step2_area_photo_upload(
     array $client,int $applicationId,array $files,mixed $lat,mixed $lon,mixed $documentationGroup=1
 ): array
 {
-    if (!step2_area_photo_schema_ready()) return ['error'=>'Area photo storage is unavailable; apply migration 038.'];
+    if (!step2_area_photo_schema_ready()) return ['error'=>'Area photo storage is unavailable; apply migrations 038 and 039.'];
     if (!step2_draft_scope_allowed($client,$applicationId)) return ['error'=>'Application is not available for area-photo upload.'];
     $group=step2_area_photo_group($documentationGroup);
     if ($group===null) return ['error'=>'Select a valid Area Photo Documentation group.'];
