@@ -730,7 +730,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             ? '<div class="alert alert-warning small">Structured Project Location requires database migration 037. FP-OMS will attempt to initialize it automatically when the database account has ALTER permission.</div>'
             : '')
         . (!$hasAreaPhotoStorage
-            ? '<div class="alert alert-warning small">Geotagged Area Photos require database migration 038. FP-OMS will attempt to initialize the photo tables automatically when CREATE TABLE permission is available.</div>'
+            ? '<div class="alert alert-warning small">Geotagged Area Photos require database migrations 038 and 039. FP-OMS will attempt to initialize/upgrade the photo tables automatically when CREATE/ALTER TABLE permission is available.</div>'
             : '')
         . ($hasAreaPhotoStorage && !$hasCoordinates
             ? '<div class="alert alert-warning small">Apply migration 017 for project latitude/longitude before geotagged area photos can be used.</div>'
