@@ -75,6 +75,7 @@ $checks=[
     [$photoJs,"data-fp-add-area-photo-documentation","browser supports adding documentation blocks"],
     [$photoJs,"if (!editable || group===1) visibleGroups.add(group)","editable form initially reveals only Documentation 1"],
     [$photoJs,"Reveal the next saved group when one already exists","Add Another reveals saved data without duplicating it"],
+    [$photoJs,"if (editable) continue;","saved photos in hidden groups stay hidden until explicitly revealed"],
     [$photoJs,"permit-area-photo-group-save","browser persists an empty/new documentation block and its pin"],
     [$photoJs,"data-area-photo-group-map","browser initializes independent documentation maps"],
     [$photoJs,"data-area-group-gps","each documentation map supports current-device GPS"],
