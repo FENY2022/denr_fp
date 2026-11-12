@@ -1,112 +1,134 @@
-# FP-OMS ↔ PNPKI_2: RED Template No. 2 signing and Records release
+# FP-OMS ↔ PNPKI_2: Authorized RED Signed PDF → Records Release (v2)
 
-## Current integration scope
-This is **server-to-server integration**, NOT an in-browser certificate signer.
-1. Authorized FP-OMS RED clicks **PNPKI Sign**. FP-OMS generates a clean unsigned
-   Template No. 2 (not the watermark draft) and securely imports it to PNPKI_2.
-2. PNPKI_2 creates a document assigned to its configured active **RED**.
-3. RED applies their personal PNPKI digital signature using an approved local
-   signing program, uploads the signed **PDF**, and forwards it to the configured
-   **Records Office** user in PNPKI_2.
-4. Records officially releases it using PNPKI_2 **Finalize**. The existing
-   PNPKI_2 page requires a processed signed PDF upload at this step.
-   For the bridge, PNPKI_2 verifies that final PDF: trusted certificate,
-   RED certificate Common Name, all signature validity results, and full
-   document coverage. A JPEG signature/image stamp does **not** qualify.
-5. After commit, PNPKI_2 sends an authenticated release callback to FP-OMS.
-   FP-OMS independently fetches release status and the signed PDF using
-   authenticated API calls. Only after verification does FP-OMS store an
-   encrypted signed artifact, notify RED, finalize Template No. 2 and send
-   the applicant the original existing in-system + email notice to pay.
-6. **Check PNPKI Status** on the RED queue provides a manual retry/recovery
-   if a callback or SMTP delivery fails. A callback cannot by itself
-   force a release: FP-OMS always queries the PNPKI_2 source of truth.
+**This replaces the earlier unsigned-Template-to-PNPKI_2 RED signing flow.**
+The FP-OMS RED is the initiating authorizing user. RED applies a real PNPKI
+digital signature locally and uploads that signed PDF **inside FP-OMS**.
+PNPKI_2 then receives the signed document directly in the linked Records
+Office account; Records does not need to upload or sign a second PDF.
+The applicant is NOT told to pay until the PNPKI_2 Records release is verified.
 
-### One-time database migrations
-Back up both databases first:
-- On FP-OMS database `denr_fp_oms`, run only `database/041_pnpki_2_bridge.sql`.
-- On PNPKI_2 database `ddts_pnpki`, run only
-  `migrations/fpoms_pnpki_bridge_001.sql`.
-Do not import an entire backup or TRUNCATE any existing user/application table.
+## Install database migrations (after separate database backups)
+- FP-OMS database `denr_fp_oms`:
+  1. `database/041_pnpki_2_bridge.sql` if not installed
+  2. `database/042_pnpki_authorized_upload.sql`
+- PNPKI_2 database `ddts_pnpki`:
+  1. `migrations/fpoms_pnpki_bridge_001.sql` if not installed
+  2. `migrations/fpoms_pnpki_bridge_002.sql`
 
-### FP-OMS .env (never commit credentials)
-Copy these settings into your real `.env` (change URL to your actual
-PNPKI_2 local subfolder):
+**Run the bridge_002 migration only once** because it alters an existing
+table. Do not import a full database dump, TRUNCATE records or drop old
+PNPKI documents. Existing legacy PNPKI bridge links remain supported.
+
+## FP-OMS environment variables (private `.env` only)
 ```ini
 PNPKI_BRIDGE_URL=http://localhost/PNPKI_2/fpoms_bridge.php
-PNPKI_BRIDGE_SECRET=PUT_YOUR_64_PLUS_CHARACTER_RANDOM_SECRET_HERE
+PNPKI_BRIDGE_SECRET=YOUR_64_HEX_CHARACTER_RANDOM_SECRET
 PNPKI_BRIDGE_ALLOW_LOCAL_HTTP=true
 ```
-Only allow loopback HTTP on the **same** XAMPP computer. For separate
-machines or production, configure HTTPS, real DNS names, and set
-`PNPKI_BRIDGE_ALLOW_LOCAL_HTTP=false`.
-
-Create a strong matching secret locally with:
-```bash
+Use the exact actual installation path on XAMPP. `http://localhost`
+is for **same-computer local development ONLY**. Production and cross-machine
+deployments require HTTPS and `PNPKI_BRIDGE_ALLOW_LOCAL_HTTP=false`.
+Generate a random secret locally with:
+```
 php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
 ```
 
-### PNPKI_2 configuration
-In the PNPKI_2 repository, copy
-`fpoms_bridge_config.example.php` to `fpoms_bridge_config.local.php`
-(excluded in Git):
+## PNPKI_2 private configuration
+Copy `fpoms_bridge_config.example.php` to
+`fpoms_bridge_config.local.php` and fill all required fields.
+Better: store the configuration **outside the webroot** and set
+`FPOMS_BRIDGE_CONFIG_PATH` in the PNPKI_2 server environment to its absolute path.
+
 ```php
 <?php
 return [
-  'secret' => 'THE_EXACT_SAME_SECRET_AS_FPOMS',
+  'secret' => 'EXACT_SAME_SECRET_AS_FPOMS',
   'initiator_user_id' => 0,
   'red_user_id' => 0,
   'records_user_id' => 0,
   'callback_url' => 'http://localhost/denr_fp/denr_fp/public/pnpki-callback',
+  'fpoms_return_url' => 'http://localhost/denr_fp/denr_fp/public/pnpki-authorized',
   'allow_local_http' => true,
   'pdfsig_bin' => 'C:/path/to/pdfsig.exe',
-  'red_signer_common_name' => 'EXACT_COMMON_NAME_FROM_THE_RED_PNPKI_CERTIFICATE',
+  'red_signer_common_name' => 'EXACT_RED_PNPKI_CERTIFICATE_COMMON_NAME',
 ];
 ```
-Replace the three zero IDs with **real active PNPKI_2 account IDs**.
-Look them up in PNPKI_2's `users` table and verify their assigned roles:
+
+Set valid active IDs from PNPKI_2 (`red_user_id` must have **RED**
+role; `records_user_id` must have **Records Office** role).
+`initiator_user_id` is retained for compatibility with the old flow.
+Never confuse PNPKI_2 user IDs with FP-OMS user IDs.
+Use this read-only SQL in `ddts_pnpki` to check IDs:
 ```sql
 SELECT user_id, first_name, last_name, role, status
-FROM users
-WHERE role IN ('RED','Records Office','Initiator','Admin')
-ORDER BY role, user_id;
+FROM users WHERE role IN ('RED','Records Office','Initiator','Admin')
+ORDER BY role,user_id;
 ```
-The initiator must be an active account; RED/Records IDs must match their
-exact roles. Do not confuse PNPKI_2 user IDs with FP-OMS user IDs.
 
-**Important:** Install/configure a trusted Poppler `pdfsig` executable on the
-PNPKI_2 server. Its certificate trust store must trust the relevant
-DICT/PNPKI chain. `pdfsig` must report valid signature(s), a trusted
-certificate, a fully signed document, and the expected RED certificate
-Common Name. Never turn off certificate verification or use `-nocert`
-for this workflow. If verification cannot be performed, the bridge
-intentionally leaves status at **verification_required** and does not
-notify the applicant.
+The signing verifier requires a trusted Poppler `pdfsig` executable and
+a configured certificate trust store for the RED's PNPKI chain. The verifier
+checks PDF signature validity, trusted certification and the configured
+RED certificate common name. It never sees the PNPKI password, PIN or
+private-key file. A JPEG/stamp does NOT qualify as a digital signature.
 
-### Web server / PHP requirements
-- PHP 8.2+, mysqli, PDO MySQL, cURL, random_bytes.
-- PHP `exec()` enabled and `pdfsig_bin` executable by the web server.
-- Both installations can reach one another's URLs. Use HTTPS between machines.
-- Increase POST body limits on PNPKI_2 to support your PDF file sizes:
-  e.g., `post_max_size=20M`, `upload_max_filesize=10M`.
-- Ensure both server clocks are synchronized to within five minutes.
-- Keep both application secret and signing keys in private server-side
-  configuration, never Git, browser JavaScript, or SQL backups shared publicly.
+## How RED uses FP-OMS
 
-### Smoke-test before deployment
-1. Apply both migrations and configure both ends. Visit RED
-   `/payment-notice-queue`; an unsigned notice now shows an enabled
-   PNPKI Sign action rather than Setup Required.
-2. Send. Confirm the PNPKI_2 document ID and RED inbox assignment.
-3. Upload an actually PNPKI-signed PDF as RED and **Forward** to the
-   configured Records Office account.
-4. Records uploads the signed final PDF and uses **Finalize**.
-5. Confirm callback status and the FP-OMS signed attachment and payment
-   notification. Use **Check PNPKI Status** if callback failed.
-6. Negative tests: reject unsigned/JPEG-stamped PDF, invalid/expired/
-   untrusted certificate, wrong RED CN, missing Records release, wrong
-   secret, repeated nonce, and duplicate callback. None should notify
-   the applicant before verified release.
+1. Log in to FP-OMS with an authorized RED role.
+2. Open `/payment-notice-queue`.
+3. Click **Authorize PNPKI_2 Account**.
+   - Browser opens PNPKI_2. Log in as the real RED user there (first time).
+   - Review the consent page and click **Authorize FP-OMS**.
+   - PNPKI_2 issues a short-lived, single-use code and redirects back to
+     FP-OMS. FP-OMS redeems it server-to-server, links the exact RED accounts.
+     No PNPKI password is copied or stored in FP-OMS.
+4. Download **Open / Print Draft for Signing** (clean Template No. 2),
+   digitally sign the PDF with your authorized PNPKI certificate locally.
+5. Upload the digitally signed PDF in the **PNPKI Sign / Upload** section
+   of FP-OMS, confirm the correct notice, and press
+   **Submit Signed PDF to PNPKI_2 Records**.
+6. PNPKI_2 verifies the genuine digital signature and creates a
+   **CONFIDENTIAL** document owned by the configured Records Office user.
+7. Records signs into PNPKI_2 and reviews the already-signed attachment.
+   Select **Release PNPKI-Signed FP-OMS Notice**, then confirm release.
+   For this imported document, NO second signed-file upload is required.
+8. After Records release commits, PNPKI_2 sends a signed callback.
+   FP-OMS does a separate authenticated status check, verifies the final
+   digitally signed PDF, stores the PDF encrypted, notifies RED, then
+   issues the applicant's **Official Notice to Pay** in-system and by email.
+9. RED may click **Check PNPKI Status** if the callback failed. A signed
+   PDF alone cannot trigger applicant payment instructions.
 
-Do **not** declare real signing/live integration successful from code review
-alone: complete the tests with your actual PNPKI_2 and FP-OMS deployments.
+### One-time PNPKI_2 auto-login
+After the account was authorized, RED may select **Auto-Login PNPKI_2**
+from the linked document card. FP-OMS requests a short-lived one-time
+ticket through the authenticated PNPKI_2 server API; PNPKI_2 verifies
+the saved account link before creating a new RED session and opening
+the linked document. It is NOT a permanent shared session or a bypass
+of first-time user consent.
+
+### Troubleshooting
+- **Setup Required**: apply 041 and 042 and configure the shared secret.
+- **Authorize** still visible: complete the PNPKI_2 consent and return.
+- **Upload saved, forward pending**: use **Retry PNPKI_2 Submission**.
+  Repeated imports are idempotent and compare the original file SHA-256.
+- **Verification required**: trusted digital signature, RED certificate,
+  pdfsig binary, or Records release does not validate; applicant remains
+  unnotified.
+- **Missing applicant email**: inspect FP-OMS SMTP and use existing
+  Retry Applicant Email for the already-released notice.
+- **Different PNPKI user already logged in**: sign out of that PNPKI_2
+  account before using the one-time auto-login link.
+
+### Acceptance testing before production
+Verify consent, account-link mismatch rejection, cross-session replay
+rejection, expired code/one-time ticket rejection, forged HMAC/nonce
+rejection, invalid certificate, wrong RED CN, unsigned PDF rejection,
+Records refusal of a duplicate upload, delayed Records release,
+successful callback and manual retry, protected access to applicant
+PDF attachments, and exactly-once applicant notification.
+Because this integration processes government applicant documents,
+complete a privacy and deployment security review before live use.
+
+**GitHub code is not proof of live operation:** Both migrations, local
+server configuration, trusted certificate verification and browser
+workflow testing are required.
