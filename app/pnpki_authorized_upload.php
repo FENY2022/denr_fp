@@ -195,7 +195,7 @@ function pnpki_submit_saved_signed_pdf(array $red,int $id): array
         $response=pnpki_bridge_request([
             'action'=>'import_signed',
             'application_id'=>$id,
-            'project_title'=>mb_substr((string)($app['project_title']??''),0,130),
+            'project_title'=>substr((string)($app['project_title']??''),0,130),
             'source_key'=>$source,
             'fpoms_user_id'=>(int)$red['id'],
             'remote_user_id'=>(int)$auth['remote_user_id'],
