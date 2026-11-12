@@ -516,6 +516,38 @@ function step2_area_photo_grouped(array $photos): array
     return $groups;
 }
 
+function step2_area_photo_location_index(array $locations): array
+{
+    $indexed=[];
+    foreach ($locations as $location) {
+        $group=max(1,min(10,(int)($location['documentation_group']??1)));
+        $revision=(int)($location['revision']??0);
+        if (!isset($indexed[$group]) || $revision>=(int)($indexed[$group]['revision']??0)) {
+            $indexed[$group]=$location;
+        }
+    }
+    ksort($indexed,SORT_NUMERIC);
+    return $indexed;
+}
+
+function step2_area_photo_group_location(
+    int $group,array $photos,array $locationIndex
+): array {
+    $row=$locationIndex[$group]??[];
+    $lat=trim((string)($row['latitude']??''));
+    $lon=trim((string)($row['longitude']??''));
+    if ($lat!=='' && $lon!=='') {
+        return ['latitude'=>$lat,'longitude'=>$lon];
+    }
+    foreach ($photos as $photo) {
+        if ((int)($photo['documentation_group']??1)!==$group) continue;
+        $lat=trim((string)($photo['latitude']??''));
+        $lon=trim((string)($photo['longitude']??''));
+        if ($lat!=='' && $lon!=='') return ['latitude'=>$lat,'longitude'=>$lon];
+    }
+    return ['latitude'=>'','longitude'=>''];
+}
+
 function step2_area_photo_card_html(array $photo,bool $editable,int $applicationId): string
 {
     $id=(int)($photo['id']??0);
@@ -530,7 +562,8 @@ function step2_area_photo_card_html(array $photo,bool $editable,int $application
     return '<div class="card mb-2" data-area-photo-id="'.$id.'" '
         .'data-documentation-group="'.$group.'" '
         .'data-photo-name="'.e($name).'" data-latitude="'.e($lat).'" '
-        .'data-longitude="'.e($lon).'" data-preview-url="'.e($preview).'">'
+        .'data-longitude="'.e($lon).'" data-preview-url="'.e($preview).'" '
+        .'data-revision="'.$revision.'">'
         .'<div class="card-body p-2"><div class="d-flex gap-2 align-items-start">'
         .'<img src="'.e($preview).'" alt="Area photo preview" loading="lazy" '
         .'width="92" height="72" class="rounded border object-fit-cover flex-shrink-0">'
@@ -541,7 +574,7 @@ function step2_area_photo_card_html(array $photo,bool $editable,int $application
         .e($lat).', '.e($lon).'</div>'
         .($revision>0?'<span class="badge text-bg-light mt-1">Revision '.$revision.'</span>':'')
         .($editable
-            ? '<div class="small text-secondary mt-1">Drag this photo marker on the map '
+            ? '<div class="small text-secondary mt-1">Drag this photo marker on this documentation map '
                 .'to tag a different point.</div>'
             : '')
         .'<div class="d-flex flex-wrap gap-1 mt-2">'
@@ -550,8 +583,8 @@ function step2_area_photo_card_html(array $photo,bool $editable,int $application
         .'<i class="bi bi-geo-alt me-1" aria-hidden="true"></i>Show on Map</button>'
         .($editable
             ? '<button type="button" class="btn btn-sm btn-outline-success" '
-                .'data-area-photo-use-project="'.$id.'">'
-                .'<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use Project Pin</button>'
+                .'data-area-photo-use-group="'.$id.'">'
+                .'<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use Documentation Pin</button>'
                 .'<button type="button" class="btn btn-sm btn-outline-danger" '
                 .'data-area-photo-delete="'.$id.'">'
                 .'<i class="bi bi-trash3 me-1" aria-hidden="true"></i>Remove</button>'
@@ -560,24 +593,70 @@ function step2_area_photo_card_html(array $photo,bool $editable,int $application
 }
 
 function step2_area_photo_group_html(
-    int $group,array $photos,bool $editable,int $applicationId,int $maxBytes=0
+    int $group,array $photos,array $location,bool $editable,int $applicationId,
+    int $maxBytes=0,string $defaultLat='',string $defaultLon=''
 ): string {
     $inputId='fp_area_photos_'.$group;
+    $lat=trim((string)($location['latitude']??''));
+    $lon=trim((string)($location['longitude']??''));
+    $hasPin=$lat!=='' && $lon!=='';
     $html='<section class="border rounded-3 p-3 mb-3 bg-body" '
         .'data-area-photo-group="'.$group.'">'
         .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">'
         .'<h4 class="h6 mb-0"><i class="bi bi-camera-fill text-success me-1" '
         .'aria-hidden="true"></i>Area Photo Documentation '.$group.'</h4>'
         .'<span class="badge text-bg-light border"><span data-area-photo-group-count>'
-        .count($photos).'</span> photo'.(count($photos)===1?'':'s').'</span></div>';
+        .count($photos).'</span> photo'.(count($photos)===1?'':'s').'</span></div>'
+        .'<div class="border rounded-3 p-3 mb-3" data-area-photo-group-pin '
+        .'data-documentation-group="'.$group.'" data-latitude="'.e($lat).'" '
+        .'data-longitude="'.e($lon).'" data-default-latitude="'.e($defaultLat).'" '
+        .'data-default-longitude="'.e($defaultLon).'">'
+        .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">'
+        .'<div><h5 class="h6 mb-1"><i class="bi bi-geo-alt-fill text-success me-1" '
+        .'aria-hidden="true"></i>Pinpoint Project Location '.$group.'</h5>'
+        .'<p class="small text-secondary mb-0">This pin belongs only to Area Photo Documentation '
+        .$group.'. Photos uploaded in this block start at this point.</p></div>';
+    if ($editable) {
+        $html.='<div class="d-flex flex-wrap gap-1">'
+            .'<button type="button" class="btn btn-sm btn-outline-success" data-area-group-gps>'
+            .'<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use My Current Location</button>'
+            .'<button type="button" class="btn btn-sm btn-outline-secondary" data-area-group-use-project>'
+            .'<i class="bi bi-pin-map me-1" aria-hidden="true"></i>Use Main Project Pin</button>'
+            .'</div>';
+    }
+    $html.='</div>';
+    if ($editable) {
+        $html.='<div class="row g-2 mb-2">'
+            .'<div class="col-md-6"><label class="form-label small">Latitude</label>'
+            .'<input class="form-control form-control-sm" type="text" inputmode="decimal" '
+            .'data-area-group-latitude value="'.e($lat).'" placeholder="e.g. 8.9471234"></div>'
+            .'<div class="col-md-6"><label class="form-label small">Longitude</label>'
+            .'<input class="form-control form-control-sm" type="text" inputmode="decimal" '
+            .'data-area-group-longitude value="'.e($lon).'" placeholder="e.g. 125.5423456"></div>'
+            .'</div>';
+    } else {
+        $html.='<p class="small mb-2">Latitude: <strong>'.e($lat).'</strong> · Longitude: <strong>'
+            .e($lon).'</strong></p>';
+    }
+    $html.='<div class="fp-project-location-map" data-area-photo-group-map '
+        .'data-documentation-group="'.$group.'" aria-label="Area Photo Documentation '.$group
+        .' pinpoint map"></div>'
+        .'<p class="small text-secondary mt-2 mb-0" role="status" data-area-group-status>'
+        .($hasPin
+            ? 'Pinned documentation location: '.e($lat).', '.e($lon)
+            : ($editable
+                ? 'No documentation pin selected. Use GPS, the main project pin, click this map, or enter coordinates.'
+                : 'Documentation pin unavailable.'))
+        .'</p></div>';
     if ($editable) {
         $html.='<label class="form-label" for="'.$inputId.'">Upload / Take Area Photos</label>'
             .'<input class="form-control" type="file" id="'.$inputId.'" '
             .'data-fp-area-photo-input data-documentation-group="'.$group.'" '
-            .'accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple>'
-            .'<div class="form-text">JPG/JPEG/PNG only. Maximum '
-            .e((string)round($maxBytes/1048576,1)).' MB each. New photos initially use '
-            .'the current project pin; drag each photo marker if its actual point is different.</div>';
+            .'accept="image/jpeg,image/png,.jpg,.jpeg,.png" multiple '
+            .($hasPin?'':'disabled').'>'
+            .'<div class="form-text">Pinpoint Project Location '.$group.' first. JPG/JPEG/PNG only. Maximum '
+            .e((string)round($maxBytes/1048576,1)).' MB each. New photos use this documentation pin; '
+            .'individual photo markers may still be adjusted afterward.</div>';
     }
     $html.='<div class="mt-3" data-fp-area-photo-list>';
     foreach ($photos as $photo) $html.=step2_area_photo_card_html($photo,$editable,$applicationId);
@@ -586,24 +665,37 @@ function step2_area_photo_group_html(
         .'</section>';
 }
 
-function step2_area_photo_editor_html(array $photos,int $applicationId,int $maxBytes): string
-{
-    $groups=step2_area_photo_grouped($photos);
-    if (!$groups) $groups=[1=>[]];
+function step2_area_photo_editor_html(
+    array $photos,array $locations,int $applicationId,int $maxBytes,
+    string $projectLat='',string $projectLon=''
+): string {
+    $photoGroups=step2_area_photo_grouped($photos);
+    $locationIndex=step2_area_photo_location_index($locations);
+    $groupIds=array_values(array_unique(array_merge(
+        array_keys($photoGroups),array_keys($locationIndex)
+    )));
+    sort($groupIds,SORT_NUMERIC);
+    if (!$groupIds) $groupIds=[1];
+
     $html='<section class="border rounded-3 p-3 mt-3" data-fp-area-photos data-editable="1" '
         .'data-application-id="'.$applicationId.'" data-max-bytes="'.$maxBytes.'" '
-        .'data-max-documentation-groups="10">'
+        .'data-max-documentation-groups="10" data-project-latitude="'.e($projectLat).'" '
+        .'data-project-longitude="'.e($projectLon).'">'
         .'<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-images text-success me-1" '
         .'aria-hidden="true"></i>Area Photo Documentation</h3>'
-        .'<p class="small text-secondary mb-0">Create separate Area Photo Documentation blocks '
-        .'for different portions or viewpoints of the applied area. All photos remain geotagged '
-        .'on the same project map and are stored securely in FP-OMS.</p></div>'
+        .'<p class="small text-secondary mb-0">Each documentation block has its own '
+        .'<strong>Pinpoint Project Location</strong>. Use GPS or a manual map pin for that block, '
+        .'then upload its photos. All maps use free OpenStreetMap/Leaflet.</p></div>'
         .'<span class="badge text-bg-secondary"><span data-fp-area-photo-count>'
         .count($photos).'</span>/20 photos</span></div>'
         .'<div data-fp-area-photo-groups>';
-    foreach ($groups as $group=>$items) {
-        $html.=step2_area_photo_group_html((int)$group,$items,true,$applicationId,$maxBytes);
+    foreach ($groupIds as $group) {
+        $items=$photoGroups[$group]??[];
+        $location=step2_area_photo_group_location((int)$group,$items,$locationIndex);
+        $html.=step2_area_photo_group_html(
+            (int)$group,$items,$location,true,$applicationId,$maxBytes,$projectLat,$projectLon
+        );
     }
     $html.='</div>'
         .'<button type="button" class="btn btn-outline-success btn-sm" '
@@ -617,22 +709,27 @@ function step2_area_photo_editor_html(array $photos,int $applicationId,int $maxB
     return $html;
 }
 
-function step2_area_photo_gallery_html(array $photos,int $applicationId): string
-{
+function step2_area_photo_gallery_html(
+    array $photos,array $locations,int $applicationId
+): string {
     if (!$photos) return '';
-    $groups=step2_area_photo_grouped($photos);
+    $photoGroups=step2_area_photo_grouped($photos);
+    $locationIndex=step2_area_photo_location_index($locations);
     $html='<section class="panel mt-3" data-fp-area-photos data-editable="0" '
-        .'data-application-id="'.$applicationId.'">'
+        .'data-application-id="'.$applicationId.'" data-max-documentation-groups="10">'
         .'<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-images text-success me-1" '
         .'aria-hidden="true"></i>Geotagged Area Photo Documentation</h3>'
-        .'<p class="small text-secondary mb-0">Submitted photos remain grouped by documentation '
-        .'set. Photo markers show the applicant-supplied map position for each image.</p></div>'
+        .'<p class="small text-secondary mb-0">Each submitted documentation set keeps its own '
+        .'Pinpoint Project Location plus the individual photo markers recorded by the applicant.</p></div>'
         .'<span class="badge text-bg-secondary"><span data-fp-area-photo-count>'
         .count($photos).'</span> photos</span></div>'
         .'<div data-fp-area-photo-groups>';
-    foreach ($groups as $group=>$items) {
-        $html.=step2_area_photo_group_html((int)$group,$items,false,$applicationId);
+    foreach ($photoGroups as $group=>$items) {
+        $location=step2_area_photo_group_location((int)$group,$items,$locationIndex);
+        $html.=step2_area_photo_group_html(
+            (int)$group,$items,$location,false,$applicationId
+        );
     }
     return $html.'</div><p class="small text-secondary mt-2 mb-0" '
         .'data-fp-area-photo-feedback></p></section>';
@@ -701,6 +798,8 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $areaPhotoFeature=$hasCoordinates && $hasAreaPhotoStorage;
     $savedAreaPhotos=$areaPhotoFeature
         ? step2_area_photo_draft_public_list((int)$client['id'],$applicationId) : [];
+    $savedAreaPhotoGroups=$areaPhotoFeature
+        ? step2_area_photo_group_draft_public_list((int)$client['id'],$applicationId) : [];
     $latitude = $hasCoordinates
         ? (string)($_POST['project_latitude'] ?? $fieldDraft['project_latitude'] ?? $app['project_latitude'] ?? '')
         : '';
@@ -730,7 +829,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
             ? '<div class="alert alert-warning small">Structured Project Location requires database migration 037. FP-OMS will attempt to initialize it automatically when the database account has ALTER permission.</div>'
             : '')
         . (!$hasAreaPhotoStorage
-            ? '<div class="alert alert-warning small">Geotagged Area Photos require database migrations 038 and 039. FP-OMS will attempt to initialize/upgrade the photo tables automatically when CREATE/ALTER TABLE permission is available.</div>'
+            ? '<div class="alert alert-warning small">Geotagged Area Photos and independent documentation pins require database migrations 038, 039 and 040. FP-OMS will attempt to initialize/upgrade the photo tables automatically when CREATE/ALTER TABLE permission is available.</div>'
             : '')
         . ($hasAreaPhotoStorage && !$hasCoordinates
             ? '<div class="alert alert-warning small">Apply migration 017 for project latitude/longitude before geotagged area photos can be used.</div>'
@@ -814,8 +913,9 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
                 . 'will be available after the ICT administrator applies migration 017.</p>')
          . ($areaPhotoFeature
             ? step2_area_photo_editor_html(
-                $savedAreaPhotos,$applicationId,
-                max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880'))
+                $savedAreaPhotos,$savedAreaPhotoGroups,$applicationId,
+                max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880')),
+                $latitude,$longitude
               )
             : '')
         . '</section><section class="step2-form-section" id="step2-section-3" '
@@ -950,7 +1050,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
                 . '<script src="assets/permit-location-map.js?v=3" defer></script>'
             : '')
         . ($areaPhotoFeature
-            ? '<script src="assets/permit-area-photos.js?v=2" defer></script>' : '')
+            ? '<script src="assets/permit-area-photos.js?v=3" defer></script>' : '')
         . '<script src="assets/permit-step2-sections.js?v=6" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
@@ -961,6 +1061,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
     $app = step2_application_for_view($viewer,$applicationId);
     $documents = step2_documents($applicationId);
     $areaPhotos=step2_area_photo_schema_ready()?step2_area_photos($applicationId):[];
+    $areaPhotoGroups=step2_area_photo_schema_ready()?step2_area_photo_groups($applicationId):[];
     $mine = $viewer['user_kind'] === 'applicant';
     $reviewer = !$mine && has_role($viewer,'lpdd_fus');
     $modern=permit_flow_is_new($app);
@@ -1231,10 +1332,10 @@ function view_step2_application(int $applicationId, array $errors = []): void
         $html .= step2_location_preview_html($app);
         if (($app['project_latitude'] ?? null) !== null
             && ($app['project_longitude'] ?? null) !== null) {
-            $html .= step2_area_photo_gallery_html($areaPhotos,$applicationId)
+            $html .= step2_area_photo_gallery_html($areaPhotos,$areaPhotoGroups,$applicationId)
                 . '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=3" defer></script>'
-                . ($areaPhotos?'<script src="assets/permit-area-photos.js?v=2" defer></script>':'');
+                . ($areaPhotos?'<script src="assets/permit-area-photos.js?v=3" defer></script>':'');
         }
     }
     if ($noticePdfPreviewModal) $html .= fpoms_notice_pdf_preview_modal_html();
