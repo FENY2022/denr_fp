@@ -643,7 +643,8 @@ try {
             if ($page==='permit_area_photo_upload') {
                 $result=step2_area_photo_upload(
                     $client,(int)$scope,$_FILES,
-                    $_POST['latitude']??'',$_POST['longitude']??''
+                    $_POST['latitude']??'',$_POST['longitude']??'',
+                    $_POST['documentation_group']??1
                 );
             } elseif ($page==='permit_area_photo_update') {
                 $result=step2_area_photo_update(

@@ -16,8 +16,14 @@ foreach ([
     }
 }
 
+if (step2_area_photo_group(1)!==1 || step2_area_photo_group('10')!==10
+    || step2_area_photo_group(0)!==null || step2_area_photo_group(11)!==null) {
+    throw new RuntimeException('Area Photo Documentation group validation failed.');
+}
+
 $module=file_get_contents(PROJECT_ROOT.'/app/permit_area_photos.php');
 $migration=file_get_contents(PROJECT_ROOT.'/database/038_geotagged_area_photos.sql');
+$groupMigration=file_get_contents(PROJECT_ROOT.'/database/039_multiple_area_photo_documentation.sql');
 $step2=file_get_contents(PROJECT_ROOT.'/app/permit_step2.php');
 $persistent=file_get_contents(PROJECT_ROOT.'/app/permit_step2_persistent.php');
 $views=file_get_contents(PROJECT_ROOT.'/app/permit_step2_views.php');
@@ -29,24 +35,32 @@ $bootstrap=file_get_contents(PROJECT_ROOT.'/app/bootstrap.php');
 $checks=[
     [$migration,'permit_step2_area_photo_drafts','migration creates draft photo storage'],
     [$migration,'permit_step2_area_photos','migration creates submitted photo storage'],
+    [$groupMigration,'documentation_group','migration 039 adds documentation grouping'],
     [$module,'fpoms_file_store_upload','draft photos are encrypted on upload'],
     [$module,'fpoms_file_copy_encrypted','submitted photos stay encrypted'],
     [$module,"['image/jpeg','image/png']",'server restricts photo MIME types'],
     [$module,'Maximum 20 area photos','server limits draft photo count'],
+    [$module,'step2_area_photo_group','server validates documentation group 1-10'],
+    [$module,'documentation_group,original_name','draft upload persists documentation group'],
+    [$module,'revision,documentation_group,original_name','submitted photo preserves documentation group'],
     [$module,'step2_area_photo_send_submitted','submitted photo access endpoint exists'],
     [$step2,'step2_area_photo_draft_submission','final submit locks and validates photo drafts'],
     [$step2,'step2_area_photo_copy_submission','final submit copies photos into immutable application storage'],
     [$step2,"'area_photos_added'","area photo additions are recorded in client audit metadata"],
     [$persistent,'step2_area_photo_clear_drafts','Clear Form removes unsubmitted photo drafts'],
-    [$views,'Area Photo Documentation','client area photo UI exists'],
-    [$views,'Geotagged Area Photos','submitted photo gallery exists'],
-    [$views,'permit-area-photos.js?v=1','area photo map script is loaded'],
+    [$views,'Add Another Area Photo Documentation','client can add another documentation block'],
+    [$views,'data-area-photo-group','server renders numbered documentation groups'],
+    [$views,'Geotagged Area Photo Documentation','submitted grouped photo gallery exists'],
+    [$views,'permit-area-photos.js?v=2','updated grouped area photo script is loaded'],
     [$router,"case 'permit_area_photo_upload':",'area photo upload route exists'],
+    [$router,"documentation_group",'upload route forwards documentation group'],
     [$router,"case 'permit_area_photo_update':",'area photo coordinate update route exists'],
     [$router,"case 'permit_area_photo_delete':",'area photo delete route exists'],
     [$router,"case 'permit_area_photo':",'secure photo preview route exists'],
     [$mapJs,'fpoms:location-map-ready','project map exposes a safe integration hook'],
     [$photoJs,"post('permit-area-photo-upload'","browser uploads photos through protected endpoint"],
+    [$photoJs,"data-fp-add-area-photo-documentation","browser supports adding documentation blocks"],
+    [$photoJs,"documentation_group","browser sends and preserves documentation group"],
     [$photoJs,"post('permit-area-photo-update'","dragged photo marker saves coordinates"],
     [$photoJs,"data-area-photo-use-project","photo can reuse the main project pin"],
     [$photoJs,'navigator.geolocation', ''],
