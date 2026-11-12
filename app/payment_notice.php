@@ -449,7 +449,12 @@ function fpoms_payment_notice_queue_view(array $red): void
     $pnpkiReady=pnpki_bridge_configured() && pnpki_bridge_schema_ready();
     $html='<div class="panel"><h2 class="h5">RED – Template No. 2 Payment Notice Approvals</h2>'
         .'<p class="text-secondary">Review the Complete Documents / Advise to Pay letter, apply the RED electronic signature '
-        .'or upload a physically signed PDF, review the saved signed PDF, then Finalize &amp; Send to the applicant.</p>';
+        .'or upload a physically signed PDF, review the saved signed PDF, then Finalize &amp; Send to the applicant.</p>'
+        .'<p class="small text-secondary border-start border-primary border-3 ps-3">'
+        .'<strong>PNPKI_2 option:</strong> Forward unsigned Template No. 2 to RED in PNPKI_2 '
+        .'&rarr; RED digitally signs and forwards to Records &rarr; Records officially releases '
+        .'&rarr; verified PNPKI_2 confirmation returns to FP-OMS &rarr; applicant is notified to pay. '
+        .'Payment notification is blocked until the verified Records release.</p>';
     if (!$rows) $html.='<div class="alert alert-success">No Template No. 2 notices awaiting RED action.</div>';
 
     foreach($rows as $row) {
@@ -460,7 +465,7 @@ function fpoms_payment_notice_queue_view(array $red): void
         $preview=$signed
             ? url('payment_notice_pdf',['id'=>$id,'embed'=>1])
             : url('payment_notice_pdf',['id'=>$id,'embed'=>1]
-                +($canEsign?['signed_preview'=>1]:[]));
+                +($canEsign&&!$pnpkiLink?['signed_preview'=>1]:[]));
         $draft=url('payment_notice_pdf',['id'=>$id,'print_for_signing'=>1]);
         $modalId='paymentNoticeConfirm'.$id;
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '.e((string)$row['project_title']).'</strong>'
@@ -485,7 +490,7 @@ function fpoms_payment_notice_queue_view(array $red): void
             .'data-notice-preview-url="'.e($preview).'" '
             .'data-notice-preview-title="'.e('FP #'.$id.' · '.($signed?'RED-Signed Template No. 2':'Template No. 2 RED Preview')).'">'
             .'<i class="bi bi-file-earmark-pdf me-1"></i>'
-            .($signed?'View Signed PDF':($canEsign?'Preview with RED e-Signature':'Preview Unsigned Draft')).'</a>'
+            .($signed?'View Signed PDF':($canEsign&&!$pnpkiLink?'Preview with RED e-Signature':'Preview Unsigned Draft')).'</a>'
             .(!$signed
                 ? '<a class="btn btn-outline-secondary btn-sm" href="'.e($draft).'" target="_blank" rel="noopener">'
                     .'<i class="bi bi-printer me-1"></i>Open / Print Draft for Signing</a>'
