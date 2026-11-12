@@ -1329,13 +1329,21 @@ function view_step2_application(int $applicationId, array $errors = []): void
         . ($reviewer && !$modern && $app['status'] === 'submitted'
             ? decision_confirmation_modal_html() : '');
     if (step2_location_schema_ready()) {
-        $html .= step2_location_preview_html($app);
-        if (($app['project_latitude'] ?? null) !== null
-            && ($app['project_longitude'] ?? null) !== null) {
-            $html .= step2_area_photo_gallery_html($areaPhotos,$areaPhotoGroups,$applicationId)
-                . '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-location-map.js?v=3" defer></script>'
-                . ($areaPhotos?'<script src="assets/permit-area-photos.js?v=3" defer></script>':'');
+        $hasMainProjectPin=($app['project_latitude'] ?? null)!==null
+            && ($app['project_longitude'] ?? null)!==null
+            && (string)$app['project_latitude']!=='' && (string)$app['project_longitude']!=='';
+        if ($hasMainProjectPin) $html .= step2_location_preview_html($app);
+        if ($areaPhotos) $html .= step2_area_photo_gallery_html(
+            $areaPhotos,$areaPhotoGroups,$applicationId
+        );
+        if ($hasMainProjectPin || $areaPhotos) {
+            $html .= '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>';
+        }
+        if ($hasMainProjectPin) {
+            $html .= '<script src="assets/permit-location-map.js?v=3" defer></script>';
+        }
+        if ($areaPhotos) {
+            $html .= '<script src="assets/permit-area-photos.js?v=3" defer></script>';
         }
     }
     if ($noticePdfPreviewModal) $html .= fpoms_notice_pdf_preview_modal_html();
