@@ -2,6 +2,11 @@
   'use strict';
   const form = document.getElementById('permit-step2-form');
   const type = form?.querySelector('[data-fp-project-type]');
+  const typeField = form?.querySelector('[data-fp-project-type-field]');
+  const typePicker = form?.querySelector('[data-fp-project-type-picker]');
+  const typeOptions = typePicker
+    ? [...typePicker.querySelectorAll('[data-fp-project-type-option]')]
+    : [];
   const other = form?.querySelector('[data-fp-other-project]');
   const otherWrap = form?.querySelector('[data-fp-other-project-wrap]');
   const doeCard = form?.querySelector('[data-step2-doe-upload]');
@@ -9,7 +14,61 @@
   const hint = form?.querySelector('[data-fp-doe-hint]');
   if (!form || !type || !other || !otherWrap) return;
 
+  if (typeField && typePicker && typeOptions.length) {
+    typeField.classList.add('is-enhanced');
+  }
+
   const exemption = value => value === 'solar' || value === 'biomass';
+  const syncPicker = () => {
+    if (!typeOptions.length) return;
+    const selected = typeOptions.find(option =>
+      option.dataset.fpProjectTypeOption === type.value);
+    typeOptions.forEach((option, index) => {
+      const active = option === selected;
+      option.classList.toggle('is-selected', active);
+      option.setAttribute('aria-checked', active ? 'true' : 'false');
+      option.tabIndex = active || (!selected && index === 0) ? 0 : -1;
+    });
+    typePicker.classList.toggle('is-invalid', !type.validity.valid && type.classList.contains('is-invalid'));
+  };
+
+  const chooseType = (option, focus = true) => {
+    const value = option?.dataset.fpProjectTypeOption || '';
+    if (!value || type.value === value) {
+      if (focus) option?.focus();
+      return;
+    }
+    type.value = value;
+    type.classList.remove('is-invalid');
+    type.dispatchEvent(new Event('input', {bubbles: true}));
+    type.dispatchEvent(new Event('change', {bubbles: true}));
+    if (focus) option.focus();
+  };
+
+  typeOptions.forEach((option, index) => {
+    option.addEventListener('click', () => chooseType(option));
+    option.addEventListener('keydown', event => {
+      let next = index;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % typeOptions.length;
+      else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + typeOptions.length) % typeOptions.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = typeOptions.length - 1;
+      else return;
+      event.preventDefault();
+      chooseType(typeOptions[next]);
+    });
+  });
+
+  type.addEventListener('focus', () => {
+    if (!typeField?.classList.contains('is-enhanced')) return;
+    const target = typeOptions.find(option => option.dataset.fpProjectTypeOption === type.value)
+      || typeOptions[0];
+    window.requestAnimationFrame(() => target?.focus());
+  });
+  type.addEventListener('invalid', () => {
+    typePicker?.classList.add('is-invalid');
+  });
+
   const update = () => {
     const kind = type.value;
     const isOther = kind === 'other';
@@ -42,6 +101,7 @@
           ? 'Annex 1 #10 (DOE ESC/COA) is required for Other projects.'
           : 'Select your Type of Project to determine whether DOE #10 applies.';
     }
+    syncPicker();
   };
   other.addEventListener('input', () => other.setCustomValidity(''));
   type.addEventListener('change', update);

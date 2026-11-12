@@ -34,7 +34,7 @@ annex_check(str_contains(step2_requirement_note('ecc_cnc'),'six (6) months')
     'post-issuance deadlines in source notes');
 
 $base=['project_title'=>'Sample Energy Project','project_location'=>'Barangay Sample, Caraga Region',
-    'purpose'=>'','project_type'=>'solar','project_type_other'=>''];
+    'project_area_hectares'=>'15.25','purpose'=>'','project_type'=>'solar','project_type_other'=>''];
 annex_check(step2_validate_input($base)===[], 'Solar selected without custom description');
 annex_check(step2_validate_input($base+['project_type_other'=>''])===[], 'solar remains valid');
 $other=$base;
@@ -67,13 +67,16 @@ annex_check(str_contains($submit,'step2_project_type_schema_ready')
 annex_check(str_contains($draft,'project_type_other') && str_contains($autosave,"'project_type_other'"),
     'custom type is retained in server and browser drafts');
 annex_check(str_contains($form,'data-fp-project-type')
+    && str_contains($form,'data-fp-project-type-picker')
+    && str_contains($form,'data-fp-project-type-option')
     && str_contains($form,'data-fp-other-project')
     && str_contains($form,'step2_upload_categories()'),
-    'project selector, Other input and optional document category are shown');
+    'accessible project type picker, Other input and optional document category are shown');
 annex_check(str_contains($script,'data-step2-doe-upload')
     && str_contains($script,'option[value="doe_esc_coa"]')
+    && str_contains($script,'ArrowRight')
     && str_contains($script,'data-fp-other-project'),
-    'DOE upload controls toggle for Solar/Biomass versus Other');
+    'keyboard project picker and DOE controls toggle for Solar/Biomass versus Other');
 annex_check(str_contains($step4,'step2_project_doe_exempt')
     && str_contains($step4,'step2_project_requires_doe')
     && str_contains($step4,"'not_applicable'"),

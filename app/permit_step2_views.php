@@ -856,17 +856,48 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
          . '<span class="text-danger">*</span></label>'
          . '<input class="form-control" id="project_title" name="project_title" required minlength="5" '
          . 'maxlength="180" value="' . e($title) . '"></div>'
-        . '<div class="mb-3"><label class="form-label" for="project_type">Type of Project '
+        . '<div class="mb-3 fp-project-type-field" data-fp-project-type-field>'
+        . '<label class="form-label" id="project_type_label" for="project_type">Type of Project '
         . '<span class="text-danger">*</span></label>'
-        . '<select class="form-select" id="project_type" name="project_type" '
-        . 'data-fp-project-type required>'
+        . '<select class="form-select fp-project-type-select" id="project_type" name="project_type" '
+        . 'data-fp-project-type aria-describedby="project_type_help" required>'
         . '<option value="">Select Type of Project</option>';
     foreach (step2_project_types() as $type=>$label) {
         $html.='<option value="'.e($type).'"'.($projectType===$type?' selected':'').'>'
             .e($label).'</option>';
     }
-    $html.='</select><div class="form-text">Solar and Biomass are exempt from Annex 1 #10. '
-        .'For Other, specify your project and upload the required DOE ESC/COA (#10).</div></div>'
+    $projectTypeMeta=[
+        'solar'=>[
+            'icon'=>'sun','description'=>'Solar energy development',
+            'rule'=>'DOE #10 exempt','rule_icon'=>'check-circle-fill'
+        ],
+        'biomass'=>[
+            'icon'=>'tree','description'=>'Biomass energy development',
+            'rule'=>'DOE #10 exempt','rule_icon'=>'check-circle-fill'
+        ],
+        'other'=>[
+            'icon'=>'grid','description'=>'Another energy project type',
+            'rule'=>'DOE #10 required','rule_icon'=>'exclamation-circle-fill'
+        ],
+    ];
+    $html.='</select><div class="fp-project-type-picker" data-fp-project-type-picker '
+        .'role="radiogroup" aria-labelledby="project_type_label" aria-describedby="project_type_help">';
+    foreach (step2_project_types() as $type=>$label) {
+        $meta=$projectTypeMeta[$type];
+        $selected=$projectType===$type;
+        $html.='<button class="fp-project-type-option'.($selected?' is-selected':'').'" '
+            .'type="button" role="radio" aria-checked="'.($selected?'true':'false').'" '
+            .'tabindex="'.($selected?'0':'-1').'" data-fp-project-type-option="'.e($type).'">'
+            .'<span class="fp-project-type-icon" aria-hidden="true"><i class="bi bi-'.e($meta['icon']).'"></i></span>'
+            .'<span class="fp-project-type-copy"><strong>'.e($label).'</strong>'
+            .'<span>'.e($meta['description']).'</span>'
+            .'<small class="fp-project-type-rule"><i class="bi bi-'.e($meta['rule_icon']).'" aria-hidden="true"></i>'
+            .e($meta['rule']).'</small></span>'
+            .'<span class="fp-project-type-check" aria-hidden="true"><i class="bi bi-check-lg"></i></span>'
+            .'</button>';
+    }
+    $html.='</div><div class="form-text" id="project_type_help">Choose the option that best describes '
+        .'the project. Solar and Biomass are exempt from Annex 1 #10; Other projects require a DOE ESC/COA.</div></div>'
         .'<div class="mb-3'.($projectType==='other'?'':' d-none').'" data-fp-other-project-wrap>'
         .'<label class="form-label" for="project_type_other">Specify Other Type of Project '
         .'<span class="text-danger">*</span></label>'
@@ -1025,7 +1056,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $html .= '<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js" defer></script>'
         . '<script src="assets/permit-pdf-organizer.js?v=2" defer></script>'
         . '<script src="assets/permit-pdf-choice.js?v=2" defer></script>'
-        . '<script src="assets/permit-project-type.js?v=2" defer></script>'
+        . '<script src="assets/permit-project-type.js?v=3" defer></script>'
         . ($hasStructuredLocation
             ? '<script src="assets/permit-location-address.js?v=1" defer></script>' : '')
         . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>'
