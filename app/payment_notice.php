@@ -507,6 +507,12 @@ function fpoms_payment_notice_queue_view(array $red): void
                         .'<i class="bi bi-shield-check me-1" aria-hidden="true"></i>PNPKI Sign</button>'
                         .'<span class="badge text-bg-secondary">Setup Required</span></span>')
                 : '')
+            .($pnpkiLink
+                ? '<a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener noreferrer" href="'
+                    .e(pnpki_bridge_document_url((int)$pnpkiLink['remote_doc_id'])).'">'
+                    .'<i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>'
+                    .'Open in PNPKI_2</a>'
+                : '')
             .($pnpkiLink && !$signed
                 ? '<form method="post" class="d-inline" action="'.e(url('payment_notice_pnpki_check',['id'=>$id])).'">'
                     .csrf_field()
