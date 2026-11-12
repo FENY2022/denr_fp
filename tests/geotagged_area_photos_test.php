@@ -56,12 +56,12 @@ $checks=[
     [$persistent,'step2_area_photo_clear_drafts','Clear Form removes unsubmitted photo drafts'],
     [$views,'Add Another Area Photo Documentation','client can add another documentation block'],
     [$views,'data-area-photo-group','server renders numbered documentation groups'],
+    [$views,'Pinpoint Project Location / Area Photo Documentation','combined pinpoint/photo documentation heading exists'],
     [$views,'Pinpoint Project Location','every documentation block includes its own pinpoint section'],
     [$views,'data-area-photo-group-map','every documentation block renders its own mini-map'],
     [$views,'Use My Current Location','every documentation block exposes GPS selection'],
-    [$views,'Use Main Project Pin','documentation pin can reuse the main project pin'],
     [$views,'Geotagged Area Photo Documentation','submitted grouped photo gallery exists'],
-    [$views,'permit-area-photos.js?v=3','independent group-map script is loaded'],
+    [$views,'permit-area-photos.js?v=4','combined documentation map script is loaded'],
     [$router,"case 'permit_area_photo_group_save':",'documentation group pin save route exists'],
     [$router,"case 'permit_area_photo_upload':",'area photo upload route exists'],
     [$router,"documentation_group",'upload route forwards documentation group'],
@@ -99,6 +99,16 @@ if (!str_contains((string)$module,
 }
 if (!str_contains((string)$photoJs,"event.stopImmediatePropagation()")) {
     throw new RuntimeException('Final submission is not blocked during active area-photo work.');
+}
+
+if (str_contains((string)$views,'step2_location_editor_html($latitude,$longitude)')
+    || str_contains((string)$views,'data-fp-location-map="edit"')) {
+    throw new RuntimeException('Standalone Pinpoint Project Location editor returned to the applicant form.');
+}
+if (str_contains((string)$views,'Use Main Project Pin')
+    || str_contains((string)$photoJs,'Use Main Project Pin')
+    || str_contains((string)$photoJs,'data-area-group-use-project')) {
+    throw new RuntimeException('Documentation maps must remain independent of a legacy main project pin.');
 }
 
 echo "Geotagged area photo and OpenStreetMap integration checks passed.\n";
