@@ -329,10 +329,21 @@
       heading.className='h6 mb-0';
       heading.innerHTML='<i class="bi bi-camera-fill text-success me-1" aria-hidden="true"></i>'
         +'Area Photo Documentation '+String(group);
+      const headerActions=document.createElement('div');
+      headerActions.className='d-flex align-items-center gap-1 flex-wrap';
       const badge=document.createElement('span');
       badge.className='badge text-bg-light border';
       badge.textContent=String(photos.length)+' photo'+(photos.length===1?'':'s');
-      top.append(heading,badge);
+      headerActions.append(badge);
+      if (editable) {
+        const removeGroup=document.createElement('button');
+        removeGroup.type='button';
+        removeGroup.className='btn btn-sm btn-outline-danger';
+        removeGroup.dataset.areaGroupRemove=String(group);
+        removeGroup.innerHTML='<i class="bi bi-trash3 me-1" aria-hidden="true"></i>Remove';
+        headerActions.append(removeGroup);
+      }
+      top.append(heading,headerActions);
       section.append(top);
 
       const pinBox=document.createElement('div');
@@ -356,15 +367,26 @@
       pinText.append(pinHeading,pinHelp);
       pinTop.append(pinText);
 
-      if (editable) {
+      if (editable || photos.length) {
         const controls=document.createElement('div');
         controls.className='d-flex flex-wrap gap-1';
-        const gps=document.createElement('button');
-        gps.type='button';
-        gps.className='btn btn-sm btn-outline-success';
-        gps.dataset.areaGroupGps='';
-        gps.innerHTML='<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use My Current Location';
-        controls.append(gps);
+        if (editable) {
+          const gps=document.createElement('button');
+          gps.type='button';
+          gps.className='btn btn-sm btn-outline-success';
+          gps.dataset.areaGroupGps='';
+          gps.innerHTML='<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use My Current Location';
+          controls.append(gps);
+        }
+        if (photos.length) {
+          const viewAll=document.createElement('button');
+          viewAll.type='button';
+          viewAll.className='btn btn-sm btn-outline-primary';
+          viewAll.dataset.areaGroupViewAll=String(group);
+          viewAll.innerHTML='<i class="bi bi-images me-1" aria-hidden="true"></i>View All Photos ('
+            +String(photos.length)+')';
+          controls.append(viewAll);
+        }
         pinTop.append(controls);
       }
       pinBox.append(pinTop);
