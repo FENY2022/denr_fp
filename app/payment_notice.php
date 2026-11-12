@@ -446,26 +446,44 @@ function fpoms_payment_notice_queue_view(array $red): void
         WHERE n.status IN ('pending_red','signed') ORDER BY n.created_at ASC LIMIT 100");
     $config=fpoms_notice_config();
     $canEsign=!empty($config['signature_path'])&&!empty($config['signature_sha256']);
-    $pnpkiReady=pnpki_bridge_configured() && pnpki_bridge_schema_ready();
+    $pnpkiReady=pnpki_bridge_configured() && pnpki_authorized_upload_ready();
+    $pnpkiAuth=$pnpkiReady?pnpki_authorization_for((int)$red['id']):null;
     $html='<div class="panel"><h2 class="h5">RED – Template No. 2 Payment Notice Approvals</h2>'
         .'<p class="text-secondary">Review the Complete Documents / Advise to Pay letter, apply the RED electronic signature '
         .'or upload a physically signed PDF, review the saved signed PDF, then Finalize &amp; Send to the applicant.</p>'
         .'<p class="small text-secondary border-start border-primary border-3 ps-3">'
-        .'<strong>PNPKI_2 option:</strong> Forward unsigned Template No. 2 to RED in PNPKI_2 '
-        .'&rarr; RED digitally signs and forwards to Records &rarr; Records officially releases '
-        .'&rarr; verified PNPKI_2 confirmation returns to FP-OMS &rarr; applicant is notified to pay. '
-        .'Payment notification is blocked until the verified Records release.</p>';
+        .'<strong>PNPKI_2:</strong> Authorize RED account once &rarr; upload digitally signed '
+        .'Template No. 2 in FP-OMS &rarr; automatically route to PNPKI_2 Records &rarr; '
+        .'Records officially releases &rarr; FP-OMS confirms the release and notifies the applicant to pay. '
+        .'No payment notification is sent before verified Records release.</p>'
+        .($pnpkiReady
+            ? ($pnpkiAuth
+                ? '<div class="alert alert-success py-2"><i class="bi bi-shield-check me-1"></i>'
+                    .'PNPKI_2 RED account authorized (Account #'.(int)$pnpkiAuth['remote_user_id'].'). '
+                    .'Upload your PNPKI-signed PDF below.</div>'
+                : '<form method="post" action="'.e(url('payment_notice_pnpki_authorize')).'" '
+                    .'class="border rounded p-3 mb-3">'
+                    .csrf_field()
+                    .'<strong>Connect your PNPKI_2 Account</strong>'
+                    .'<p class="small text-secondary mb-2">Sign in and authorize FP-OMS once. '
+                    .'No PNPKI password or private key is stored in FP-OMS.</p>'
+                    .'<button type="submit" class="btn btn-primary btn-sm">'
+                    .'<i class="bi bi-link-45deg me-1"></i>Authorize PNPKI_2 Account</button></form>')
+            : '<div class="alert alert-warning small">'
+                .'PNPKI_2 integration requires migrations 041/042 and server-side configuration. '
+                .'Other signed-PDF options remain available.</div>');
     if (!$rows) $html.='<div class="alert alert-success">No Template No. 2 notices awaiting RED action.</div>';
 
     foreach($rows as $row) {
         $id=(int)$row['application_id'];
         $signed=(string)$row['status']==='signed';
         $pnpkiLink=pnpki_bridge_link($id,(int)$row['revision']);
-        $pnpkiInProgress=(bool)$pnpkiLink && !$signed;
+        $pnpkiPending=pnpki_pending_signed_upload($id,(int)$row['revision']);
+        $pnpkiInProgress=((bool)$pnpkiLink || (bool)$pnpkiPending) && !$signed;
         $preview=$signed
             ? url('payment_notice_pdf',['id'=>$id,'embed'=>1])
             : url('payment_notice_pdf',['id'=>$id,'embed'=>1]
-                +($canEsign&&!$pnpkiLink?['signed_preview'=>1]:[]));
+                +($canEsign&&!$pnpkiInProgress?['signed_preview'=>1]:[]));
         $draft=url('payment_notice_pdf',['id'=>$id,'print_for_signing'=>1]);
         $modalId='paymentNoticeConfirm'.$id;
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '.e((string)$row['project_title']).'</strong>'
@@ -473,6 +491,11 @@ function fpoms_payment_notice_queue_view(array $red): void
             .($signed
                 ? '<p class="small text-warning mb-0 mt-1">RED-signed Template No. 2 saved. Final release/email is still pending.</p>'
                 : '<p class="small text-secondary mb-0 mt-1">Unsigned draft. Applicant payment notice/email is withheld until RED finalization.</p>')
+            .($pnpkiPending && !$pnpkiLink
+                ? '<p class="small text-warning mt-2 mb-1">Signed PDF saved in FP-OMS. '
+                    .'PNPKI_2 forwarding is pending; use Retry Submission below. '
+                    .'No applicant notice has been sent.</p>'
+                : '')
             .($pnpkiLink
                 ? '<div class="alert alert-info py-2 mt-2 mb-1 small">'
                     .'<strong>PNPKI_2 Document #'.(int)$pnpkiLink['remote_doc_id'].'</strong> — '
@@ -490,7 +513,7 @@ function fpoms_payment_notice_queue_view(array $red): void
             .'data-notice-preview-url="'.e($preview).'" '
             .'data-notice-preview-title="'.e('FP #'.$id.' · '.($signed?'RED-Signed Template No. 2':'Template No. 2 RED Preview')).'">'
             .'<i class="bi bi-file-earmark-pdf me-1"></i>'
-            .($signed?'View Signed PDF':($canEsign&&!$pnpkiLink?'Preview with RED e-Signature':'Preview Unsigned Draft')).'</a>'
+            .($signed?'View Signed PDF':($canEsign&&!$pnpkiInProgress?'Preview with RED e-Signature':'Preview Unsigned Draft')).'</a>'
             .(!$signed
                 ? '<a class="btn btn-outline-secondary btn-sm" href="'.e($draft).'" target="_blank" rel="noopener">'
                     .'<i class="bi bi-printer me-1"></i>Open / Print Draft for Signing</a>'
@@ -499,24 +522,19 @@ function fpoms_payment_notice_queue_view(array $red): void
                 ? '<button class="btn btn-success btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#'.$modalId.'">'
                     .($signed?'Finalize & Send':'Approve E-Sign').'</button>'
                 : '')
-            .(!$signed && !$pnpkiLink
-                ? ($pnpkiReady
-                    ? '<form method="post" class="d-inline" action="'.e(url('payment_notice_pnpki_send',['id'=>$id])).'">'
-                        .csrf_field()
-                        .'<input type="hidden" name="confirmation" value="1">'
-                        .'<button class="btn btn-outline-primary btn-sm" type="submit">'
-                        .'<i class="bi bi-shield-check me-1" aria-hidden="true"></i>PNPKI Sign</button></form>'
-                    : '<span class="d-inline-flex align-items-center gap-2">'
-                        .'<button type="button" class="btn btn-outline-primary btn-sm" disabled '
-                        .'title="Apply migration 041 and configure the secure PNPKI_2 bridge">'
-                        .'<i class="bi bi-shield-check me-1" aria-hidden="true"></i>PNPKI Sign</button>'
-                        .'<span class="badge text-bg-secondary">Setup Required</span></span>')
+            .(!$signed && !$pnpkiInProgress
+                ? ($pnpkiReady && $pnpkiAuth
+                    ? '<a class="btn btn-outline-primary btn-sm" href="#pnpki-upload-'.$id.'">'
+                        .'<i class="bi bi-shield-check me-1"></i>PNPKI Sign / Upload</a>'
+                    : '<button type="button" class="btn btn-outline-primary btn-sm" disabled>'
+                        .'<i class="bi bi-shield-check me-1"></i>PNPKI Sign / Upload</button>')
                 : '')
-            .($pnpkiLink
-                ? '<a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener noreferrer" href="'
-                    .e(pnpki_bridge_document_url((int)$pnpkiLink['remote_doc_id'])).'">'
-                    .'<i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>'
-                    .'Open in PNPKI_2</a>'
+            .($pnpkiLink && $pnpkiAuth
+                ? '<form method="post" class="d-inline" action="'
+                    .e(url('payment_notice_pnpki_open',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<button class="btn btn-outline-secondary btn-sm" type="submit">'
+                    .'<i class="bi bi-box-arrow-up-right me-1"></i>Auto-Login PNPKI_2</button></form>'
                 : '')
             .($pnpkiLink && !$signed
                 ? '<form method="post" class="d-inline" action="'.e(url('payment_notice_pnpki_check',['id'=>$id])).'">'
@@ -551,7 +569,7 @@ function fpoms_payment_notice_queue_view(array $red): void
                 .'</div></div></div>';
         }
 
-        if (!$signed && !$pnpkiLink) {
+        if (!$signed && !$pnpkiInProgress) {
             $html.='<form class="mt-3 border-top pt-3" method="post" enctype="multipart/form-data" '
                 .'action="'.e(url('payment_notice_upload_signed',['id'=>$id])).'">'
                 .csrf_field()
@@ -565,6 +583,38 @@ function fpoms_payment_notice_queue_view(array $red): void
                 .'<i class="bi bi-upload me-1"></i>Upload Signed PDF</button>'
                 .'<p class="small text-secondary mb-0 mt-2">PDF only, up to 10 MB. Upload saves the signed document; it does not email the applicant until Finalize &amp; Send.</p>'
                 .'</form>';
+        }
+        if (!$signed && !$pnpkiLink && $pnpkiReady && $pnpkiAuth) {
+            if ($pnpkiPending) {
+                $html.='<form class="mt-3 border-top pt-3" method="post" action="'
+                    .e(url('payment_notice_pnpki_retry',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<p class="fw-semibold mb-1">PNPKI Digitally-Signed PDF Saved</p>'
+                    .'<p class="small text-secondary">The signed PDF is already encrypted in FP-OMS. '
+                    .'Retry forwarding to Records without uploading another file.</p>'
+                    .'<button type="submit" class="btn btn-primary btn-sm">'
+                    .'<i class="bi bi-arrow-clockwise me-1"></i>Retry PNPKI_2 Submission</button></form>';
+            } else {
+                $html.='<form id="pnpki-upload-'.$id.'" class="mt-3 border rounded p-3" '
+                    .'method="post" enctype="multipart/form-data" action="'
+                    .e(url('payment_notice_pnpki_upload',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<input type="hidden" name="confirmation" value="1">'
+                    .'<label class="form-label fw-semibold" for="pnpkiFile'.$id.'">'
+                    .'<i class="bi bi-shield-check me-1"></i>PNPKI Sign — Upload RED-Signed PDF</label>'
+                    .'<input type="file" class="form-control form-control-sm mb-2" '
+                    .'id="pnpkiFile'.$id.'" name="signed_pdf" accept=".pdf,application/pdf" required>'
+                    .'<p class="small text-secondary">Sign the Template No. 2 PDF with RED PNPKI locally; '
+                    .'upload it here (PDF, max 10 MB). FP-OMS will forward the verified PDF '
+                    .'directly to PNPKI_2 Records.</p>'
+                    .'<label class="d-flex align-items-start gap-2 small mb-2">'
+                    .'<input type="checkbox" class="form-check-input mt-1" required>'
+                    .'<span>I confirm this is the correct RED PNPKI-signed Template No. 2 '
+                    .'for FP #'.$id.'. The client will be notified only after Records release.</span></label>'
+                    .'<button type="submit" class="btn btn-primary btn-sm">'
+                    .'<i class="bi bi-send me-1"></i>Submit Signed PDF to PNPKI_2 Records</button>'
+                    .'</form>';
+            }
         }
         $html.='</div>';
     }
