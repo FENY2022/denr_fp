@@ -41,6 +41,16 @@ function pnpki_bridge_configured(): bool
         && $local && env_value('PNPKI_BRIDGE_ALLOW_LOCAL_HTTP','false')==='true';
 }
 
+/** Open the linked PNPKI_2 document in the user's authenticated PNPKI_2 session. */
+function pnpki_bridge_document_url(int $docId): string
+{
+    if ($docId<1 || !pnpki_bridge_configured()) return '';
+    $base=env_value('PNPKI_BRIDGE_URL','');
+    $slash=strrpos($base,'/');
+    if ($slash===false) return '';
+    return substr($base,0,$slash+1).'view_document.php?id='.$docId;
+}
+
 function pnpki_bridge_signature(string $body,string $timestamp,string $nonce): string
 {
     return hash_hmac('sha256',$timestamp."\n".$nonce."\n".hash('sha256',$body),
@@ -188,6 +198,7 @@ function pnpki_bridge_reconcile(int $id): array
         $pdo=db();
         $pdo->beginTransaction();
         $path=null;
+        $importedNow=false;
         try {
             $locked=query_one('SELECT * FROM fpoms_payment_notices WHERE id=? FOR UPDATE',
                 [(int)$notice['id']]);
@@ -214,6 +225,7 @@ function pnpki_bridge_reconcile(int $id): array
                 permit_flow_record_event($pdo,$id,3,$red,'payment_notice_pnpki_verified',
                     'PNPKI_2 document #'.(int)$link['remote_doc_id']
                     .' digitally signed by RED, verified and released by Records.');
+                $importedNow=true;
             } elseif ((string)$bridge['stage']!=='released_verified') {
                 throw new RuntimeException('This notice was signed outside the active PNPKI_2 handoff.');
             }
@@ -224,6 +236,17 @@ function pnpki_bridge_reconcile(int $id): array
             if ($pdo->inTransaction()) $pdo->rollBack();
             if (is_string($path) && is_file($path)) @unlink($path);
             throw $e;
+        }
+        if ($importedNow) {
+            try {
+                notify_role('red','PNPKI_2 Signed and Released – FP #'.$id,
+                    'PNPKI_2 document #'.(int)$link['remote_doc_id']
+                    .' has been digitally signed by RED, verified and officially released by Records. '
+                    .'FP-OMS is processing the applicant notice to pay.',
+                    'shield-check','success','payment_notice_queue');
+            } catch (Throwable $notifyError) {
+                error_log('FP-OMS PNPKI_2 RED notification: '.$notifyError->getMessage());
+            }
         }
         $latest=fpoms_payment_notice_record($id,$revision);
         if ($latest && (string)$latest['status']==='released') return [];
