@@ -146,6 +146,182 @@
       marker.openPopup();
     }
 
+    // A dedicated fullscreen viewer keeps the original-resolution image within
+    // the authenticated area-photo stream, including submitted read-only views.
+    let photoLightbox=null;
+    let lightboxState=null;
+    let lightboxReturnFocus=null;
+
+    function ensurePhotoLightbox() {
+      if (photoLightbox) return photoLightbox;
+      const dialog=document.createElement('dialog');
+      dialog.className='fp-area-photo-lightbox';
+      dialog.setAttribute('aria-label','Enlarged Area Photo Documentation viewer');
+      dialog.innerHTML=`
+        <div class="fp-area-photo-lightbox-header">
+          <div class="fp-area-photo-lightbox-heading">
+            <strong data-fp-lightbox-title></strong>
+            <span data-fp-lightbox-gps></span>
+          </div>
+          <button type="button" class="btn btn-outline-secondary btn-sm"
+            data-fp-lightbox-action="close" aria-label="Close enlarged photo">
+            <i class="bi bi-x-lg" aria-hidden="true"></i> Close
+          </button>
+        </div>
+        <div class="fp-area-photo-lightbox-stage" data-fp-lightbox-stage>
+          <img class="fp-area-photo-lightbox-image" data-fp-lightbox-image
+            alt="Enlarged area photo" />
+        </div>
+        <div class="fp-area-photo-lightbox-toolbar">
+          <div class="fp-area-photo-lightbox-zoom">
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+              data-fp-lightbox-action="out" aria-label="Zoom out photo">
+              <i class="bi bi-zoom-out" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+              data-fp-lightbox-action="reset" aria-label="Reset photo zoom"
+              data-fp-lightbox-zoom>100%</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm"
+              data-fp-lightbox-action="in" aria-label="Zoom in photo">
+              <i class="bi bi-zoom-in" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="fp-area-photo-lightbox-navigation">
+            <button type="button" class="btn btn-outline-primary btn-sm"
+              data-fp-lightbox-action="previous">
+              <i class="bi bi-chevron-left" aria-hidden="true"></i> Previous
+            </button>
+            <span class="small text-secondary text-nowrap" aria-live="polite"
+              data-fp-lightbox-counter></span>
+            <button type="button" class="btn btn-outline-primary btn-sm"
+              data-fp-lightbox-action="next">
+              Next <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>`;
+      document.body.append(dialog);
+      dialog.addEventListener('click',event=>{
+        if (event.target===dialog) dialog.close();
+        const button=event.target.closest('[data-fp-lightbox-action]');
+        if (!button || !dialog.contains(button)) return;
+        const action=button.dataset.fpLightboxAction;
+        if (action==='close') dialog.close();
+        else if (action==='next') movePhotoLightbox(1);
+        else if (action==='previous') movePhotoLightbox(-1);
+        else if (action==='in') zoomPhotoLightbox(0.5);
+        else if (action==='out') zoomPhotoLightbox(-0.5);
+        else if (action==='reset') zoomPhotoLightbox(0,true);
+      });
+      dialog.addEventListener('keydown',event=>{
+        if (!dialog.open || event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.key==='ArrowRight' || event.key==='ArrowLeft') {
+          event.preventDefault();
+          movePhotoLightbox(event.key==='ArrowRight'?1:-1);
+        } else if (event.key==='+' || event.key==='=') {
+          event.preventDefault();
+          zoomPhotoLightbox(0.5);
+        } else if (event.key==='-') {
+          event.preventDefault();
+          zoomPhotoLightbox(-0.5);
+        }
+        // Escape is provided natively by dialog.close().
+      });
+      dialog.addEventListener('close',()=>{
+        lightboxState=null;
+        const focus=lightboxReturnFocus;
+        lightboxReturnFocus=null;
+        if (focus?.isConnected) focus.focus({preventScroll:true});
+      });
+      window.addEventListener('resize',()=>{
+        if (dialog.open) sizePhotoLightboxImage();
+      });
+      photoLightbox=dialog;
+      return dialog;
+    }
+
+    function sizePhotoLightboxImage() {
+      if (!photoLightbox?.open || !lightboxState) return;
+      const stage=photoLightbox.querySelector('[data-fp-lightbox-stage]');
+      const image=photoLightbox.querySelector('[data-fp-lightbox-image]');
+      if (!image.naturalWidth || !image.naturalHeight) return;
+      const availableWidth=Math.max(100,stage.clientWidth-24);
+      const availableHeight=Math.max(100,stage.clientHeight-24);
+      const fit=Math.min(availableWidth/image.naturalWidth,
+        availableHeight/image.naturalHeight);
+      const scale=fit*lightboxState.zoom;
+      image.style.width=Math.round(image.naturalWidth*scale)+'px';
+      image.style.height=Math.round(image.naturalHeight*scale)+'px';
+      stage.scrollLeft=0;
+      stage.scrollTop=0;
+    }
+
+    function zoomPhotoLightbox(amount,reset=false) {
+      if (!lightboxState || !photoLightbox?.open) return;
+      const previous=lightboxState.zoom;
+      const next=reset?1:Math.max(1,Math.min(4,Math.round((previous+amount)*2)/2));
+      if (next===previous) return;
+      lightboxState.zoom=next;
+      photoLightbox.querySelector('[data-fp-lightbox-zoom]').textContent=
+        Math.round(next*100)+'%';
+      sizePhotoLightboxImage();
+    }
+
+    function showPhotoLightbox(index) {
+      if (!lightboxState || !photoLightbox?.open) return;
+      const {photos,group}=lightboxState;
+      if (!photos.length) return;
+      lightboxState.index=(index%photos.length+photos.length)%photos.length;
+      lightboxState.zoom=1;
+      const photo=photos[lightboxState.index];
+      const image=photoLightbox.querySelector('[data-fp-lightbox-image]');
+      image.onload=()=>sizePhotoLightboxImage();
+      image.onerror=()=>{
+        photoLightbox.querySelector('[data-fp-lightbox-gps]').textContent=
+          'Photo could not be loaded. Please try again.';
+      };
+      image.removeAttribute('width');
+      image.removeAttribute('height');
+      image.style.width='';
+      image.style.height='';
+      image.alt=String(photo.original_name || 'Area photo');
+      // preview_url is the access-controlled full-size file endpoint, not a thumbnail.
+      image.src=String(photo.preview_url || '');
+      photoLightbox.querySelector('[data-fp-lightbox-title]').textContent=
+        String(photo.original_name || 'Area photo');
+      photoLightbox.querySelector('[data-fp-lightbox-gps]').textContent=
+        validPoint(photo.latitude,photo.longitude)
+          ? 'GPS: '+fmt(photo.latitude)+', '+fmt(photo.longitude)
+          : 'GPS location unavailable';
+      photoLightbox.querySelector('[data-fp-lightbox-counter]').textContent=
+        'Photo '+String(lightboxState.index+1)+' of '+String(photos.length);
+      photoLightbox.querySelector('[data-fp-lightbox-zoom]').textContent='100%';
+      photoLightbox.querySelectorAll(
+        '[data-fp-lightbox-action="previous"],[data-fp-lightbox-action="next"]'
+      ).forEach(button=>{ button.disabled=photos.length<2; });
+      // Keep the underlying map synchronized for when the viewer is closed.
+      openPhotoInGroup(group,photo.id);
+      if (image.complete && image.naturalWidth) sizePhotoLightboxImage();
+    }
+
+    function movePhotoLightbox(step) {
+      if (!lightboxState) return;
+      showPhotoLightbox(lightboxState.index+step);
+    }
+
+    function openPhotoLightbox(group,photoId) {
+      const photos=photosState.filter(photo=>
+        Number(photo.documentation_group || 1)===Number(group) && photo.preview_url
+      );
+      const index=photos.findIndex(photo=>Number(photo.id)===Number(photoId));
+      if (index<0) return;
+      const dialog=ensurePhotoLightbox();
+      lightboxReturnFocus=document.activeElement;
+      lightboxState={group:Number(group),photos,index,zoom:1};
+      if (!dialog.open) dialog.showModal();
+      showPhotoLightbox(index);
+      dialog.querySelector('[data-fp-lightbox-action="close"]')?.focus();
+    }
+
     function markerPopup(photo,group,photos) {
       const box=document.createElement('div');
       box.className='fp-area-photo-map-viewer';
@@ -159,22 +335,20 @@
       image.loading='lazy';
       image.style.maxHeight='205px';
       image.style.objectFit='contain';
-      if (total>1) {
-        const imageNext=document.createElement('button');
-        imageNext.type='button';
-        imageNext.className='btn p-0 border-0 w-100';
-        imageNext.title='Click to view next photo';
-        imageNext.setAttribute('aria-label','View next area photo');
-        imageNext.append(image);
-        imageNext.addEventListener('click',event=>{
-          event.preventDefault();
-          event.stopPropagation();
-          openPhotoInGroup(group,photo.id,1);
-        });
-        box.append(imageNext);
-      } else {
-        box.append(image);
-      }
+      // Clicking the image now opens a large viewer; Previous/Next in the
+      // small popup retain their existing marker-navigation behavior.
+      const enlarge=document.createElement('button');
+      enlarge.type='button';
+      enlarge.className='btn p-0 border-0 w-100 fp-area-photo-enlarge';
+      enlarge.title='Click to enlarge photo';
+      enlarge.setAttribute('aria-label','Enlarge '+String(photo.original_name || 'area photo'));
+      enlarge.append(image);
+      enlarge.addEventListener('click',event=>{
+        event.preventDefault();
+        event.stopPropagation();
+        openPhotoLightbox(group,photo.id);
+      });
+      box.append(enlarge);
 
       const title=document.createElement('strong');
       title.className='d-block text-break';
