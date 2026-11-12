@@ -234,6 +234,48 @@
       }
     }
 
+    async function removeDocumentationGroup(group) {
+      if (busy || group<1 || group>maxGroups) return;
+      busy=true;
+      inputsDisabled(true);
+      if (removeModalConfirm) removeModalConfirm.disabled=true;
+      try {
+        const data=new FormData();
+        data.set('csrf_token',csrf);
+        data.set('application_id',scope);
+        data.set('documentation_group',String(group));
+        const payload=await post('permit-area-photo-group-delete',data);
+
+        groupState.delete(group);
+        visibleGroups.delete(group);
+        applyPayload(payload);
+
+        if (group===1) {
+          visibleGroups.add(1);
+          groupState.set(1,{
+            documentation_group:1,
+            latitude:'',
+            longitude:''
+          });
+        }
+
+        render();
+        if (removeModalElement && window.bootstrap?.Modal) {
+          window.bootstrap.Modal.getOrCreateInstance(removeModalElement).hide();
+        }
+        pendingRemoveGroup=0;
+        message(group===1
+          ? 'Area Photo Documentation 1 cleared. The default block remains available.'
+          : 'Area Photo Documentation '+String(group)+' removed from the draft.');
+      } catch(error) {
+        message(error.message || 'Area Photo Documentation could not be removed.',true);
+      } finally {
+        busy=false;
+        inputsDisabled(false);
+        if (removeModalConfirm) removeModalConfirm.disabled=false;
+      }
+    }
+
     function photoCard(photo) {
       const item=document.createElement('div');
       item.className='card mb-2';
@@ -778,6 +820,50 @@
         return;
       }
 
+      const viewAll=event.target.closest('[data-area-group-view-all]');
+      if (viewAll) {
+        const group=Number(viewAll.dataset.areaGroupViewAll || 0);
+        const api=groupMaps.get(group);
+        if (api?.map) {
+          if (Array.isArray(api.uniquePoints) && api.uniquePoints.length>1) {
+            api.map.fitBounds(leaflet.latLngBounds(api.uniquePoints),{
+              padding:[35,35],
+              maxZoom:16
+            });
+          }
+          if (api.pin) api.pin.openPopup();
+          else if (api.galleryPopup) api.galleryPopup.openOn(api.map);
+        }
+        return;
+      }
+
+      const removeGroup=event.target.closest('[data-area-group-remove]');
+      if (removeGroup && !busy) {
+        const group=Number(removeGroup.dataset.areaGroupRemove || 0);
+        if (group<1 || group>maxGroups) return;
+        pendingRemoveGroup=group;
+        if (removeModalTitle) {
+          removeModalTitle.textContent='Remove Area Photo Documentation '+String(group)+'?';
+        }
+        if (removeModalMessage) {
+          removeModalMessage.textContent=group===1
+            ? 'This will remove the pinpoint location and all unsubmitted photos in Area Photo Documentation 1. Documentation 1 will remain as the default block.'
+            : 'This will remove Area Photo Documentation '+String(group)
+              +', its pinpoint location, and all unsubmitted photos. This cannot be undone.';
+        }
+        if (removeModalConfirmLabel) {
+          removeModalConfirmLabel.textContent=group===1
+            ? 'Yes, Clear Documentation 1'
+            : 'Yes, Remove Documentation '+String(group);
+        }
+        if (removeModalElement && window.bootstrap?.Modal) {
+          window.bootstrap.Modal.getOrCreateInstance(removeModalElement).show();
+        } else if (window.confirm(removeModalMessage?.textContent || 'Remove this documentation?')) {
+          removeDocumentationGroup(group);
+        }
+        return;
+      }
+
       const locate=event.target.closest('[data-area-photo-locate]');
       if (locate) {
         const id=Number(locate.dataset.areaPhotoLocate || 0);
@@ -844,6 +930,13 @@
         busy=false;
         inputsDisabled(false);
       }
+    });
+
+    removeModalConfirm?.addEventListener('click',()=>{
+      if (pendingRemoveGroup>0) removeDocumentationGroup(pendingRemoveGroup);
+    });
+    removeModalElement?.addEventListener('hidden.bs.modal',()=>{
+      pendingRemoveGroup=0;
     });
 
     render();
