@@ -34,9 +34,15 @@
     const feedback=root.querySelector('[data-fp-area-photo-feedback]');
     const count=root.querySelector('[data-fp-area-photo-count]');
     const addGroup=root.querySelector('[data-fp-add-area-photo-documentation]');
+    const removeModalElement=form?.querySelector('[data-area-group-remove-modal]') || null;
+    const removeModalTitle=removeModalElement?.querySelector('[data-area-group-remove-title]') || null;
+    const removeModalMessage=removeModalElement?.querySelector('[data-area-group-remove-message]') || null;
+    const removeModalConfirm=removeModalElement?.querySelector('[data-area-group-remove-confirm]') || null;
+    const removeModalConfirmLabel=removeModalElement?.querySelector('[data-area-group-remove-confirm-label]') || null;
     const maxBytes=Number(root.dataset.maxBytes || 5242880);
     const maxGroups=Math.max(1,Math.min(10,Number(root.dataset.maxDocumentationGroups || 10)));
     let busy=false;
+    let pendingRemoveGroup=0;
     let photosState=[];
     const groupState=new Map();
     const visibleGroups=new Set();
@@ -138,6 +144,44 @@
       return box;
     }
 
+    function allPhotosPopup(group,photos) {
+      const box=document.createElement('div');
+      const heading=document.createElement('strong');
+      heading.className='d-block mb-2';
+      heading.textContent='Area Photo Documentation '+String(group)+' — '+String(photos.length)
+        +' uploaded photo'+(photos.length===1?'':'s');
+      box.append(heading);
+
+      const list=document.createElement('div');
+      list.className='d-grid gap-2';
+      for (const photo of photos) {
+        const row=document.createElement('div');
+        row.className='d-flex gap-2 align-items-start border rounded p-2';
+        const image=document.createElement('img');
+        image.src=String(photo.preview_url || '');
+        image.alt='Area photo preview';
+        image.loading='lazy';
+        image.width=110;
+        image.height=76;
+        image.className='rounded border object-fit-cover flex-shrink-0';
+        const info=document.createElement('div');
+        info.className='small text-break';
+        const name=document.createElement('strong');
+        name.className='d-block';
+        name.textContent=String(photo.original_name || 'Area photo');
+        const coords=document.createElement('span');
+        coords.className='text-secondary';
+        coords.textContent=validPoint(photo.latitude,photo.longitude)
+          ? fmt(photo.latitude)+', '+fmt(photo.longitude)
+          : 'GPS location unavailable';
+        info.append(name,coords);
+        row.append(image,info);
+        list.append(row);
+      }
+      box.append(list);
+      return box;
+    }
+
     function saveGroup(group,lat='',lon='') {
       const data=new FormData();
       data.set('csrf_token',csrf);
@@ -156,15 +200,17 @@
       if (Array.isArray(payload.groups)) {
         for (const row of payload.groups) {
           const group=Math.max(1,Math.min(maxGroups,Number(row.documentation_group || 1)));
-          visibleGroups.add(group);
           groupState.set(group,{
             documentation_group:group,
             latitude:String(row.latitude || ''),
             longitude:String(row.longitude || '')
           });
+          if (!editable) visibleGroups.add(group);
         }
       }
-      for (const photo of photosState) visibleGroups.add(photo.documentation_group);
+      if (!editable) {
+        for (const photo of photosState) visibleGroups.add(photo.documentation_group);
+      }
     }
 
     async function persistGroupPoint(group,lat,lon,successMessage) {
