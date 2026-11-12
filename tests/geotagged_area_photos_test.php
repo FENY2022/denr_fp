@@ -120,9 +120,9 @@ if (str_contains((string)$views,
     throw new RuntimeException('Empty additional Area Photo Documentation groups must not auto-render on reload.');
 }
 
-if (str_contains((string)$photoJs,"for (const photo of photosState) visibleGroups.add(photo.documentation_group);")
-    && str_contains((string)$photoJs,"for (const group of groupState.keys()) visibleGroups.add(group);")) {
-    throw new RuntimeException('Editable form must not auto-reveal saved Documentation 2+ groups.');
+if (str_contains((string)$photoJs,
+        "visibleGroups.add(group);\n        const state=groupDataFromSection(section);")) {
+    throw new RuntimeException('Editable initial state must not auto-reveal saved Documentation 2+ groups.');
 }
 if (str_contains((string)$photoJs,"const payload=await saveGroup(next,'','');")) {
     throw new RuntimeException('Add Another must not blank-save or overwrite a hidden saved documentation pin.');
