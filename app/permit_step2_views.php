@@ -626,11 +626,20 @@ function step2_area_photo_editor_html(
 ): string {
     $photoGroups=step2_area_photo_grouped($photos);
     $locationIndex=step2_area_photo_location_index($locations);
+
+    // Documentation 1 is the only default block. Additional empty blocks that
+    // were clicked but never pinned/uploaded are not restored on page reload.
+    // Groups 2–10 return only after they contain an actual pin or photo.
+    $locationGroups=[];
+    foreach ($locationIndex as $group=>$location) {
+        $lat=trim((string)($location['latitude']??''));
+        $lon=trim((string)($location['longitude']??''));
+        if ($lat!=='' && $lon!=='') $locationGroups[]=(int)$group;
+    }
     $groupIds=array_values(array_unique(array_merge(
-        array_keys($photoGroups),array_keys($locationIndex)
+        [1],array_keys($photoGroups),$locationGroups
     )));
     sort($groupIds,SORT_NUMERIC);
-    if (!$groupIds) $groupIds=[1];
 
     $html='<section class="border rounded-3 p-3 mt-3" data-fp-area-photos data-editable="1" '
         .'data-application-id="'.$applicationId.'" data-max-bytes="'.$maxBytes.'" '
@@ -648,7 +657,7 @@ function step2_area_photo_editor_html(
         $items=$photoGroups[$group]??[];
         $location=step2_area_photo_group_location((int)$group,$items,$locationIndex);
         $html.=step2_area_photo_group_html(
-            (int)$group,$items,$location,true,$applicationId,$maxBytes,$projectLat,$projectLon
+            (int)$group,$items,$location,true,$applicationId,$maxBytes
         );
     }
     $html.='</div>'

@@ -55,6 +55,7 @@ $checks=[
     [$step2,"'area_photos_added'","area photo additions are recorded in client audit metadata"],
     [$persistent,'step2_area_photo_clear_drafts','Clear Form removes unsubmitted photo drafts'],
     [$views,'Add Another Area Photo Documentation','client can add another documentation block'],
+    [$views,'[1],array_keys($photoGroups),$locationGroups','Documentation 1 is the only default editor block'],
     [$views,'data-area-photo-group','server renders numbered documentation groups'],
     [$views,'Pinpoint Project Location / Area Photo Documentation','combined pinpoint/photo documentation heading exists'],
     [$views,'Pinpoint Project Location','every documentation block includes its own pinpoint section'],
@@ -109,6 +110,11 @@ if (str_contains((string)$views,'Use Main Project Pin')
     || str_contains((string)$photoJs,'Use Main Project Pin')
     || str_contains((string)$photoJs,'data-area-group-use-project')) {
     throw new RuntimeException('Documentation maps must remain independent of a legacy main project pin.');
+}
+
+if (str_contains((string)$views,
+        'array_keys($photoGroups),array_keys($locationIndex)')) {
+    throw new RuntimeException('Empty additional Area Photo Documentation groups must not auto-render on reload.');
 }
 
 echo "Geotagged area photo and OpenStreetMap integration checks passed.\n";
