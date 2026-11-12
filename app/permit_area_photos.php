@@ -447,6 +447,62 @@ function step2_area_photo_delete(array $client,int $applicationId,int $id): arra
     }
 }
 
+function step2_area_photo_group_delete(
+    array $client,int $applicationId,mixed $documentationGroup
+): array {
+    if (!step2_area_photo_schema_ready()) {
+        return ['error'=>'Area photo storage is unavailable; apply migrations 038–040.'];
+    }
+    if (!step2_draft_scope_allowed($client,$applicationId)) {
+        return ['error'=>'Application is not available for Area Photo Documentation removal.'];
+    }
+    $group=step2_area_photo_group($documentationGroup);
+    if ($group===null) return ['error'=>'Select a valid Area Photo Documentation group.'];
+
+    $clientId=(int)$client['id'];
+    $pdo=db();
+    $storedPaths=[];
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare('SELECT id FROM user_client WHERE id=? FOR UPDATE')->execute([$clientId]);
+
+        $stmt=$pdo->prepare(
+            'SELECT stored_path FROM permit_step2_area_photo_drafts
+             WHERE client_id=? AND application_id=? AND documentation_group=? FOR UPDATE'
+        );
+        $stmt->execute([$clientId,$applicationId,$group]);
+        $storedPaths=array_map(
+            static fn(array $row): string=>(string)$row['stored_path'],
+            $stmt->fetchAll(PDO::FETCH_ASSOC)
+        );
+
+        $pdo->prepare(
+            'DELETE FROM permit_step2_area_photo_drafts
+             WHERE client_id=? AND application_id=? AND documentation_group=?'
+        )->execute([$clientId,$applicationId,$group]);
+        $pdo->prepare(
+            'DELETE FROM permit_step2_area_photo_group_drafts
+             WHERE client_id=? AND application_id=? AND documentation_group=?'
+        )->execute([$clientId,$applicationId,$group]);
+
+        $pdo->commit();
+
+        foreach ($storedPaths as $relative) {
+            $path=step2_area_photo_draft_real_path($relative);
+            if ($path) @unlink($path);
+        }
+
+        $state=step2_area_photo_draft_state($clientId,$applicationId);
+        $state['removed_group']=$group;
+        $state['group_one_reset']=$group===1;
+        return $state;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('FP-OMS area photo documentation removal failed: '.$e->getMessage());
+        return ['error'=>'Could not remove the Area Photo Documentation draft.'];
+    }
+}
+
 function step2_area_photo_draft_submission(int $clientId,int $applicationId,bool $lock=true): array
 {
     if (!step2_area_photo_schema_ready()) return ['rows'=>[],'groups'=>[],'errors'=>[]];
