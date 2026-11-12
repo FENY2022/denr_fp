@@ -516,8 +516,12 @@
       const byGroup=new Map();
       for (const group of [...visibleGroups].sort((a,b)=>a-b)) byGroup.set(group,[]);
       for (const photo of photosState) {
-        if (!byGroup.has(photo.documentation_group)) byGroup.set(photo.documentation_group,[]);
-        byGroup.get(photo.documentation_group).push(photo);
+        const group=Number(photo.documentation_group || 1);
+        if (!byGroup.has(group)) {
+          if (editable) continue;
+          byGroup.set(group,[]);
+        }
+        byGroup.get(group).push(photo);
       }
 
       groupContainer?.replaceChildren();
