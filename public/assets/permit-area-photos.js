@@ -508,10 +508,15 @@
       }
 
       const photoMarkers=new Map();
+      const boundPoints=[];
+      if (point) boundPoints.push([point.lat,point.lon]);
+
       for (const photo of photos) {
         if (!validPoint(photo.latitude,photo.longitude)) continue;
+        const photoPoint=[Number(photo.latitude),Number(photo.longitude)];
+        boundPoints.push(photoPoint);
         const marker=leaflet.marker(
-          [Number(photo.latitude),Number(photo.longitude)],
+          photoPoint,
           {draggable:editable,title:String(photo.original_name || 'Area photo')}
         ).addTo(map);
         marker.bindPopup(markerPopup(photo),{maxWidth:260});
@@ -549,6 +554,19 @@
         photoMarkers.set(Number(photo.id),marker);
       }
 
+      let galleryPopup=null;
+      if (photos.length) {
+        const galleryPoint=point
+          ? [point.lat,point.lon]
+          : boundPoints.length ? boundPoints[0] : center;
+        galleryPopup=leaflet.popup({maxWidth:420})
+          .setLatLng(galleryPoint)
+          .setContent(allPhotosPopup(group,photos));
+        if (pin) {
+          pin.bindPopup(allPhotosPopup(group,photos),{maxWidth:420});
+        }
+      }
+
       if (editable) {
         map.on('click',event=>{
           persistGroupPoint(
@@ -566,8 +584,28 @@
           });
         }
       }
-      groupMaps.set(group,{map,pin,photoMarkers});
-      requestAnimationFrame(()=>map.invalidateSize());
+
+      const uniquePoints=[];
+      const seenPoints=new Set();
+      for (const item of boundPoints) {
+        const key=Number(item[0]).toFixed(7)+','+Number(item[1]).toFixed(7);
+        if (seenPoints.has(key)) continue;
+        seenPoints.add(key);
+        uniquePoints.push(item);
+      }
+
+      groupMaps.set(group,{map,pin,photoMarkers,galleryPopup,uniquePoints});
+      requestAnimationFrame(()=>{
+        map.invalidateSize();
+        if (uniquePoints.length>1) {
+          map.fitBounds(leaflet.latLngBounds(uniquePoints),{
+            padding:[35,35],
+            maxZoom:16
+          });
+        } else if (uniquePoints.length===1) {
+          map.setView(uniquePoints[0],16);
+        }
+      });
     }
 
     function render() {
