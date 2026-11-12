@@ -128,6 +128,14 @@ successful callback and manual retry, protected access to applicant
 PDF attachments, and exactly-once applicant notification.
 Because this integration processes government applicant documents,
 complete a privacy and deployment security review before live use.
+New imported signed-PDF files in PNPKI_2 are classified CONFIDENTIAL.
+On Apache/XAMPP, `uploads/.htaccess` blocks direct requests to
+`fpoms_signed_*.pdf`; signed PDFs are streamed through the authenticated
+`fpoms_bridge_file.php` endpoint for the authorized RED/Records accounts.
+**Verify that Apache honors the .htaccess restriction before production.**
+On Nginx or any webserver that ignores .htaccess, create equivalent deny
+rules for the protected filename prefix or move the files to private
+non-webroot storage. Never deploy while those URLs are publicly accessible.
 
 **GitHub code is not proof of live operation:** Both migrations, local
 server configuration, trusted certificate verification and browser
