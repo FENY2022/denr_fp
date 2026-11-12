@@ -464,47 +464,6 @@ function step2_structured_location_editor_html(array $values): string
     return $html;
 }
 
-/**
- * Applicant map pin + optional decimal coordinate inputs.
- * Address remains required independently of the GPS pin.
- */
-function step2_location_editor_html(string $latitude, string $longitude): string
-{
-    return '<section class="mb-3 fp-location-fields" data-fp-location-wrapper>'
-        . '<h3 class="h6 mb-2"><i class="bi bi-geo-alt-fill text-success me-1" '
-        . 'aria-hidden="true"></i>Pinpoint Project Location</h3>'
-        . '<p class="small text-secondary">Use your current device location, click the free OpenStreetMap, '
-        . 'drag the project pin, or enter WGS84 decimal coordinates manually. '
-        . 'A project pin is required when uploading geotagged area photos; otherwise coordinates remain optional.</p>'
-        . '<div class="fp-project-location-map mb-2" data-fp-location-map="edit" '
-        . 'data-latitude="'.e($latitude).'" data-longitude="'.e($longitude).'" '
-        . 'aria-label="Interactive project location map"></div>'
-        . '<div class="row g-2 mb-2">'
-        . '<div class="col-sm-6"><label class="form-label" for="project_latitude">'
-        . 'Latitude</label><input class="form-control" id="project_latitude" '
-        . 'name="project_latitude" type="text" inputmode="decimal" '
-        . 'autocomplete="off" maxlength="32" placeholder="e.g. 8.9471230" '
-        . 'value="'.e($latitude).'"></div>'
-        . '<div class="col-sm-6"><label class="form-label" for="project_longitude">'
-        . 'Longitude</label><input class="form-control" id="project_longitude" '
-        . 'name="project_longitude" type="text" inputmode="decimal" '
-        . 'autocomplete="off" maxlength="32" placeholder="e.g. 125.5423450" '
-        . 'value="'.e($longitude).'"></div></div>'
-        . '<div class="d-flex flex-wrap gap-2 mb-2">'
-        . '<button type="button" class="btn btn-outline-primary btn-sm" '
-        . 'data-fp-location-gps><i class="bi bi-crosshair me-1" '
-        . 'aria-hidden="true"></i>Use My Current Location</button>'
-        . '<button type="button" class="btn btn-outline-secondary btn-sm" '
-        . 'data-fp-location-clear><i class="bi bi-x-circle me-1" '
-        . 'aria-hidden="true"></i>Clear Pin</button></div>'
-        . '<p class="fp-location-help text-secondary small" role="status" '
-        . 'data-fp-location-status>Coordinates are optional. A pin is never selected '
-        . 'automatically; GPS location requires your permission.</p>'
-        . '<p class="fp-location-attribution text-secondary small mb-0">'
-        . 'Map data © OpenStreetMap contributors. Verify that the pin identifies '
-        . 'the actual project site.</p></section>';
-}
-
 function step2_area_photo_grouped(array $photos): array
 {
     $groups=[];
@@ -594,7 +553,7 @@ function step2_area_photo_card_html(array $photo,bool $editable,int $application
 
 function step2_area_photo_group_html(
     int $group,array $photos,array $location,bool $editable,int $applicationId,
-    int $maxBytes=0,string $defaultLat='',string $defaultLon=''
+    int $maxBytes=0
 ): string {
     $inputId='fp_area_photos_'.$group;
     $lat=trim((string)($location['latitude']??''));
@@ -609,8 +568,7 @@ function step2_area_photo_group_html(
         .count($photos).'</span> photo'.(count($photos)===1?'':'s').'</span></div>'
         .'<div class="border rounded-3 p-3 mb-3" data-area-photo-group-pin '
         .'data-documentation-group="'.$group.'" data-latitude="'.e($lat).'" '
-        .'data-longitude="'.e($lon).'" data-default-latitude="'.e($defaultLat).'" '
-        .'data-default-longitude="'.e($defaultLon).'">'
+        .'data-longitude="'.e($lon).'">'
         .'<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2">'
         .'<div><h5 class="h6 mb-1"><i class="bi bi-geo-alt-fill text-success me-1" '
         .'aria-hidden="true"></i>Pinpoint Project Location '.$group.'</h5>'
@@ -620,8 +578,6 @@ function step2_area_photo_group_html(
         $html.='<div class="d-flex flex-wrap gap-1">'
             .'<button type="button" class="btn btn-sm btn-outline-success" data-area-group-gps>'
             .'<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use My Current Location</button>'
-            .'<button type="button" class="btn btn-sm btn-outline-secondary" data-area-group-use-project>'
-            .'<i class="bi bi-pin-map me-1" aria-hidden="true"></i>Use Main Project Pin</button>'
             .'</div>';
     }
     $html.='</div>';
@@ -645,7 +601,7 @@ function step2_area_photo_group_html(
         .($hasPin
             ? 'Pinned documentation location: '.e($lat).', '.e($lon)
             : ($editable
-                ? 'No documentation pin selected. Use GPS, the main project pin, click this map, or enter coordinates.'
+                ? 'No documentation pin selected. Use GPS, click this map, or enter coordinates.'
                 : 'Documentation pin unavailable.'))
         .'</p></div>';
     if ($editable) {
@@ -666,8 +622,7 @@ function step2_area_photo_group_html(
 }
 
 function step2_area_photo_editor_html(
-    array $photos,array $locations,int $applicationId,int $maxBytes,
-    string $projectLat='',string $projectLon=''
+    array $photos,array $locations,int $applicationId,int $maxBytes
 ): string {
     $photoGroups=step2_area_photo_grouped($photos);
     $locationIndex=step2_area_photo_location_index($locations);
@@ -679,11 +634,10 @@ function step2_area_photo_editor_html(
 
     $html='<section class="border rounded-3 p-3 mt-3" data-fp-area-photos data-editable="1" '
         .'data-application-id="'.$applicationId.'" data-max-bytes="'.$maxBytes.'" '
-        .'data-max-documentation-groups="10" data-project-latitude="'.e($projectLat).'" '
-        .'data-project-longitude="'.e($projectLon).'">'
+        .'data-max-documentation-groups="10">'
         .'<div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-3">'
         .'<div><h3 class="h6 mb-1"><i class="bi bi-images text-success me-1" '
-        .'aria-hidden="true"></i>Area Photo Documentation</h3>'
+        .'aria-hidden="true"></i>Pinpoint Project Location / Area Photo Documentation</h3>'
         .'<p class="small text-secondary mb-0">Each documentation block has its own '
         .'<strong>Pinpoint Project Location</strong>. Use GPS or a manual map pin for that block, '
         .'then upload its photos. All maps use free OpenStreetMap/Leaflet.</p></div>'
@@ -795,7 +749,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
     $hasArea = step2_area_schema_ready();
     $hasCoordinates = step2_location_schema_ready();
     $hasAreaPhotoStorage=step2_area_photo_schema_ready();
-    $areaPhotoFeature=$hasCoordinates && $hasAreaPhotoStorage;
+    $areaPhotoFeature=$hasAreaPhotoStorage;
     $savedAreaPhotos=$areaPhotoFeature
         ? step2_area_photo_draft_public_list((int)$client['id'],$applicationId) : [];
     $savedAreaPhotoGroups=$areaPhotoFeature
@@ -831,9 +785,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . (!$hasAreaPhotoStorage
             ? '<div class="alert alert-warning small">Geotagged Area Photos and independent documentation pins require database migrations 038, 039 and 040. FP-OMS will attempt to initialize/upgrade the photo tables automatically when CREATE/ALTER TABLE permission is available.</div>'
             : '')
-        . ($hasAreaPhotoStorage && !$hasCoordinates
-            ? '<div class="alert alert-warning small">Apply migration 017 for project latitude/longitude before geotagged area photos can be used.</div>'
-            : '')
+
         . '<p class="small text-secondary">Provide basic project identification and upload supporting documents. '
         . 'Documentary completeness will be evaluated by LPDD-FUS Technical Staff, '
         . 'using the official checklist approved by DENR.</p></header>'
@@ -908,14 +860,14 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
                 .'<span class="text-danger">*</span></label>'
                 .'<input class="form-control" id="project_location" name="project_location" '
                 .'required minlength="5" maxlength="300" value="'.e($location).'"></div>')
-         . ($hasCoordinates ? step2_location_editor_html($latitude,$longitude)
-             : '<p class="small text-secondary">Interactive location pin and coordinates '
-                . 'will be available after the ICT administrator applies migration 017.</p>')
+         . ($hasCoordinates
+            ? '<input type="hidden" name="project_latitude" value="'.e($latitude).'">'
+                .'<input type="hidden" name="project_longitude" value="'.e($longitude).'">'
+            : '')
          . ($areaPhotoFeature
             ? step2_area_photo_editor_html(
                 $savedAreaPhotos,$savedAreaPhotoGroups,$applicationId,
-                max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880')),
-                $latitude,$longitude
+                max(1,(int)env_value('MAX_UPLOAD_BYTES','5242880'))
               )
             : '')
         . '</section><section class="step2-form-section" id="step2-section-3" '
@@ -1045,12 +997,10 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . ($hasStructuredLocation
             ? '<script src="assets/permit-location-address.js?v=1" defer></script>' : '')
         . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>'
-        . ($hasCoordinates
-            ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-location-map.js?v=3" defer></script>'
-            : '')
         . ($areaPhotoFeature
-            ? '<script src="assets/permit-area-photos.js?v=3" defer></script>' : '')
+            ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
+                . '<script src="assets/permit-area-photos.js?v=4" defer></script>'
+            : '')
         . '<script src="assets/permit-step2-sections.js?v=6" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
