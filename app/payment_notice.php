@@ -471,6 +471,14 @@ function fpoms_payment_notice_queue_view(array $red): void
                 ? '<button class="btn btn-success btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#'.$modalId.'">'
                     .($signed?'Finalize & Send':'Approve E-Sign').'</button>'
                 : '')
+            // Presentation-only placeholder. No PNPKI signing action is available yet.
+            .(!$signed
+                ? '<span class="d-inline-flex align-items-center flex-wrap gap-2">'
+                    .'<button class="btn btn-outline-primary btn-sm" type="button" disabled '
+                    .'aria-disabled="true" title="PNPKI signing integration is planned; not yet available">'
+                    .'<i class="bi bi-shield-check me-1" aria-hidden="true"></i>PNPKI Sign</button>'
+                    .'<span class="badge text-bg-secondary">Coming Soon</span></span>'
+                : '')
             .'</div>';
 
         if ($signed||$canEsign) {
