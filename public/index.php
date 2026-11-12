@@ -25,6 +25,9 @@ try {
     }
 
     switch ($page) {
+        case 'pnpki_callback':
+            pnpki_bridge_callback();
+            break;
         case 'landing':
             view_landing();
             break;
