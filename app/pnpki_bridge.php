@@ -121,8 +121,11 @@ function pnpki_bridge_send(array $red,int $id): array
     try {
         // Send an unsigned clean copy for signing. The stored draft contains
         // a DRAFT watermark and MUST NOT be cryptographically signed.
+        // Stable date preserves idempotent imports if the response is lost
+        // and RED retries on a later day.
+        $noticeDate=date('F d, Y',strtotime((string)$notice['created_at']));
         $pdf=FpomsPaymentNoticePdf::render(
-            $app,fpoms_payment_notice_config(),null,date('F d, Y'),true);
+            $app,fpoms_payment_notice_config(),null,$noticeDate,true);
         if (strlen($pdf)<100 || strlen($pdf)>10485760) {
             return ['Generated Template No. 2 is not a valid signing payload.'];
         }
