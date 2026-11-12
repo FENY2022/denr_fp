@@ -924,7 +924,9 @@ function view_change_password(array $errors = []): void
     $html = '<div class="row justify-content-center"><div class="col-md-9 col-lg-8"><div class="panel">'
         . errors_html($errors)
         . ($user['must_change_password']
-            ? '<div class="alert alert-warning">Change your initial password to continue.</div>' : '')
+            ? '<div class="alert alert-warning">For your account security, please change your initial password. '
+                . 'You may also choose <strong>I\'ll Do It Later</strong> to continue for this login session.</div>'
+            : '')
         . '<p class="text-secondary small">Use a secure new password that follows the requirements below. '
         . 'Your current password is required to confirm this change.</p>'
         . '<form id="change-password-form" method="post" action="' . url('change_password') . '">' . csrf_field()
@@ -969,6 +971,16 @@ function view_change_password(array $errors = []): void
         . 'role="status" aria-live="polite">Re-enter your new password to confirm.</div>'
         . '</div></div>'
         . '<button class="btn btn-primary" type="submit">Update Password</button></form>'
+        . ($user['must_change_password']
+            ? '<form method="post" action="' . e(url('change_password')) . '" class="mt-3">'
+                . csrf_field()
+                . '<input type="hidden" name="action" value="defer_initial_password_change">'
+                . '<button class="btn btn-outline-secondary" type="submit">'
+                . '<i class="bi bi-clock-history me-1" aria-hidden="true"></i>'
+                . 'I\'ll Do It Later</button>'
+                . '<p class="small text-secondary mt-2 mb-0">You can continue now, but you will be '
+                . 'asked to change your initial password when you sign in again.</p></form>'
+            : '')
         . '</div></div></div>'
         . '<script src="assets/change-password.js?v=1" defer></script>';
     render_page('Change Password', $html);
