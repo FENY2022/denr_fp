@@ -127,20 +127,91 @@
       groupMaps.clear();
     }
 
-    function markerPopup(photo) {
+    // Keep photo navigation within the current documentation map. Each arrow
+    // focuses the selected photo's own marker before opening its popup.
+    function openPhotoInGroup(group,photoId,step=0) {
+      const api=groupMaps.get(Number(group));
+      if (!api?.map) return;
+      const photos=photosState.filter(photo=>
+        Number(photo.documentation_group || 1)===Number(group)
+        && api.photoMarkers.has(Number(photo.id))
+      );
+      if (!photos.length) return;
+      const index=photos.findIndex(photo=>Number(photo.id)===Number(photoId));
+      if (index<0) return;
+      const next=(index+step%photos.length+photos.length)%photos.length;
+      const marker=api.photoMarkers.get(Number(photos[next].id));
+      if (!marker) return;
+      api.map.setView(marker.getLatLng(),Math.max(16,api.map.getZoom()));
+      marker.openPopup();
+    }
+
+    function markerPopup(photo,group,photos) {
       const box=document.createElement('div');
+      box.className='fp-area-photo-map-viewer';
+      const current=photos.findIndex(item=>Number(item.id)===Number(photo.id));
+      const total=photos.length;
+
       const image=document.createElement('img');
       image.src=String(photo.preview_url || '');
-      image.alt='Area photo preview';
-      image.className='img-fluid rounded mb-2';
+      image.alt=String(photo.original_name || 'Area photo');
+      image.className='img-fluid rounded d-block mx-auto mb-2';
       image.loading='lazy';
+      image.style.maxHeight='205px';
+      image.style.objectFit='contain';
+      if (total>1) {
+        const imageNext=document.createElement('button');
+        imageNext.type='button';
+        imageNext.className='btn p-0 border-0 w-100';
+        imageNext.title='Click to view next photo';
+        imageNext.setAttribute('aria-label','View next area photo');
+        imageNext.append(image);
+        imageNext.addEventListener('click',event=>{
+          event.preventDefault();
+          event.stopPropagation();
+          openPhotoInGroup(group,photo.id,1);
+        });
+        box.append(imageNext);
+      } else {
+        box.append(image);
+      }
+
       const title=document.createElement('strong');
-      title.className='d-block';
+      title.className='d-block text-break';
       title.textContent=String(photo.original_name || 'Area photo');
-      const coords=document.createElement('span');
+      const coords=document.createElement('div');
       coords.className='small text-secondary';
-      coords.textContent=fmt(photo.latitude)+', '+fmt(photo.longitude);
-      box.append(image,title,coords);
+      coords.textContent=validPoint(photo.latitude,photo.longitude)
+        ? fmt(photo.latitude)+', '+fmt(photo.longitude)
+        : 'GPS location unavailable';
+      box.append(title,coords);
+
+      const footer=document.createElement('div');
+      footer.className='d-flex align-items-center justify-content-between gap-2 mt-2';
+      const makeArrow=(step,label,icon)=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='btn btn-sm btn-outline-primary';
+        button.disabled=total<2;
+        button.setAttribute('aria-label',label+' area photo');
+        button.innerHTML='<i class="bi '+icon+'" aria-hidden="true"></i> '+label;
+        button.addEventListener('click',event=>{
+          event.preventDefault();
+          event.stopPropagation();
+          openPhotoInGroup(group,photo.id,step);
+        });
+        return button;
+      };
+      const counter=document.createElement('span');
+      counter.className='small text-secondary text-nowrap';
+      counter.setAttribute('aria-live','polite');
+      counter.textContent='Photo '+String(current+1)+' of '+String(total);
+      footer.append(
+        makeArrow(-1,'Previous','bi-chevron-left'),
+        counter,
+        makeArrow(1,'Next','bi-chevron-right')
+      );
+      box.append(footer);
       return box;
     }
 
@@ -154,9 +225,11 @@
 
       const list=document.createElement('div');
       list.className='d-grid gap-2';
-      for (const photo of photos) {
-        const row=document.createElement('div');
-        row.className='d-flex gap-2 align-items-start border rounded p-2';
+      photos.forEach((photo,index)=>{
+        const row=document.createElement('button');
+        row.type='button';
+        row.className='d-flex gap-2 align-items-start border rounded p-2 bg-body text-start w-100';
+        row.setAttribute('aria-label','View photo '+String(index+1)+' of '+String(photos.length)+' on map');
         const image=document.createElement('img');
         image.src=String(photo.preview_url || '');
         image.alt='Area photo preview';
@@ -176,8 +249,13 @@
           : 'GPS location unavailable';
         info.append(name,coords);
         row.append(image,info);
+        row.addEventListener('click',event=>{
+          event.preventDefault();
+          event.stopPropagation();
+          openPhotoInGroup(group,photo.id);
+        });
         list.append(row);
-      }
+      });
       box.append(list);
       return box;
     }
@@ -300,6 +378,16 @@
       image.height=72;
       image.className='rounded border object-fit-cover flex-shrink-0';
 
+      const imageButton=document.createElement('button');
+      imageButton.type='button';
+      imageButton.className='btn p-0 border-0 flex-shrink-0';
+      imageButton.title='View this photo on the map';
+      imageButton.setAttribute('aria-label','View '+String(photo.original_name || 'area photo')+' on map');
+      imageButton.append(image);
+      imageButton.addEventListener('click',()=>{
+        openPhotoInGroup(photo.documentation_group || 1,photo.id);
+      });
+
       const info=document.createElement('div');
       info.className='flex-grow-1 min-width-0';
       const name=document.createElement('div');
@@ -350,7 +438,7 @@
         actions.append(usePin,remove);
       }
       info.append(actions);
-      row.append(image,info);
+      row.append(imageButton,info);
       body.append(row);
       item.append(body);
       return item;
@@ -561,7 +649,9 @@
           photoPoint,
           {draggable:editable,title:String(photo.original_name || 'Area photo')}
         ).addTo(map);
-        marker.bindPopup(markerPopup(photo),{maxWidth:260});
+        marker.bindPopup(markerPopup(photo,group,photos),{
+          maxWidth:420,maxHeight:360
+        });
         if (editable) {
           marker.on('dragend',async ()=>{
             if (busy) {
@@ -684,6 +774,15 @@
     }
 
     loadInitialState();
+
+    // Also enable Show on Map in the submitted, read-only photo gallery.
+    root.addEventListener('click',event=>{
+      const locate=event.target.closest('[data-area-photo-locate]');
+      if (!locate) return;
+      const id=Number(locate.dataset.areaPhotoLocate || 0);
+      const photo=photosState.find(item=>Number(item.id)===id);
+      if (photo) openPhotoInGroup(photo.documentation_group || 1,id);
+    });
 
     if (!editable) {
       render();
@@ -860,20 +959,6 @@
           window.bootstrap.Modal.getOrCreateInstance(removeModalElement).show();
         } else if (window.confirm(removeModalMessage?.textContent || 'Remove this documentation?')) {
           removeDocumentationGroup(group);
-        }
-        return;
-      }
-
-      const locate=event.target.closest('[data-area-photo-locate]');
-      if (locate) {
-        const id=Number(locate.dataset.areaPhotoLocate || 0);
-        const photo=photosState.find(item=>Number(item.id)===id);
-        if (!photo) return;
-        const api=groupMaps.get(Number(photo.documentation_group || 1));
-        const marker=api?.photoMarkers?.get(id);
-        if (api?.map && marker) {
-          api.map.setView(marker.getLatLng(),Math.max(16,api.map.getZoom()));
-          marker.openPopup();
         }
         return;
       }
