@@ -201,6 +201,8 @@ function fpoms_payment_notice_red_approve(array $red,int $id,bool $signOnly=fals
     $app=fpoms_payment_notice_app($id);
     if (!$app || !permit_flow_is_new($app)) return ['FP application not found.'];
     $link=pnpki_bridge_link($id,(int)$app['revision']);
+    $pending=pnpki_pending_signed_upload($id,(int)$app['revision']);
+    if ($pending && !$link) return ['PNPKI signed PDF was saved; retry forwarding to Records instead of using E-Sign.'];
     if ($link && (string)$link['stage']!=='released_verified') {
         return ['Notice already forwarded to PNPKI_2. Use Check PNPKI Status rather than parallel signing.'];
     }
@@ -247,6 +249,8 @@ function fpoms_payment_notice_red_upload_signed(array $red,int $id,array $upload
     if (($red['status']??'')!=='active' || !has_role($red,'red')) return ['Only RED may upload a signed notice.'];
     $currentApp=fpoms_payment_notice_app($id);
     $link=$currentApp?pnpki_bridge_link($id,(int)$currentApp['revision']):null;
+    $pending=$currentApp?pnpki_pending_signed_upload($id,(int)$currentApp['revision']):null;
+    if ($pending && !$link) return ['PNPKI signed PDF was saved; retry forwarding to Records instead of uploading a different signed PDF.'];
     if ($link && (string)$link['stage']!=='released_verified') {
         return ['Notice already forwarded to PNPKI_2. Wait for Records release instead of uploading another PDF.'];
     }
