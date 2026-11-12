@@ -18,8 +18,9 @@ try {
     $post = $method === 'POST';
     $loggedIn = current_user();
 
-    if ($loggedIn && (int)$loggedIn['must_change_password'] === 1 &&
-        !in_array($page, ['change_password','logout'], true)) {
+    if ($loggedIn && (int)$loggedIn['must_change_password'] === 1
+        && !initial_password_change_deferred($loggedIn)
+        && !in_array($page, ['change_password','logout'], true)) {
         go('change_password');
     }
 
@@ -1257,6 +1258,15 @@ try {
             $user = require_user();
             if ($post) {
                 check_csrf();
+                if (($_POST['action'] ?? '') === 'defer_initial_password_change') {
+                    if ((int)($user['must_change_password'] ?? 0) !== 1) {
+                        show_error('There is no initial password change to postpone.',400);
+                    }
+                    defer_initial_password_change($user);
+                    flash('warning', 'Initial password change postponed for this login session. '
+                        . 'Please change it soon using the Password menu.');
+                    go('dashboard');
+                }
                 $new = (string)($_POST['new_password'] ?? '');
                 $errors = [];
                 if ($new !== (string)($_POST['confirm_password'] ?? '')) $errors[] = 'New password confirmation does not match.';
