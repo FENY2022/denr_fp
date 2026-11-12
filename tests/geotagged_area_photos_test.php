@@ -93,9 +93,9 @@ if (!str_contains((string)$mapJs,'navigator.geolocation')
     || !str_contains((string)$photoJs,'navigator.geolocation')) {
     throw new RuntimeException('Current-location browser geolocation support is missing.');
 }
-if (str_contains((string)$photoJs,"data.set('latitude',fmt(point.lat))")
-    && str_contains((string)$photoJs,"post('permit-area-photo-upload'")) {
-    throw new RuntimeException('Photo upload must inherit the server-saved documentation pin, not browser-posted coordinates.');
+if (!str_contains((string)$module,
+        '$point=step2_area_photo_group_point($clientId,$applicationId,$group,true)')) {
+    throw new RuntimeException('Photo upload is not bound to the server-saved documentation pin.');
 }
 if (!str_contains((string)$photoJs,"event.stopImmediatePropagation()")) {
     throw new RuntimeException('Final submission is not blocked during active area-photo work.');
