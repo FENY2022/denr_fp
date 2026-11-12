@@ -821,20 +821,77 @@ try {
             else flash('success','Template No. 2 generated and sent to the RED approval queue.');
             go('permit_application',['id'=>(int)$id]);
             break;
-        case 'payment_notice_pnpki_send':
-            if (!$post) show_error('PNPKI signing handoff requires POST.',405);
+        case 'payment_notice_pnpki_authorize':
+            if (!$post) show_error('PNPKI account authorization requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            try {
+                $target=pnpki_authorize_url($red);
+                header('Referrer-Policy: no-referrer');
+                header('Location: '.$target,true,303);
+                exit;
+            } catch(Throwable $e) {
+                flash('error','Unable to start PNPKI_2 authorization. Apply migrations and configure the connection.');
+                go('payment_notice_queue');
+            }
+            break;
+        case 'pnpki_authorized':
+            if ($post) show_error('PNPKI account callback requires GET.',405);
+            $red=require_role('red');
+            $errors=pnpki_finish_authorization($red,
+                (string)($_GET['code']??''),(string)($_GET['state']??''));
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Your PNPKI_2 RED account is authorized and connected to FP-OMS. '
+                .'You can upload a digitally signed Template No. 2 in FP-OMS.');
+            go('payment_notice_queue');
+            break;
+        case 'payment_notice_pnpki_upload':
+            if (!$post) show_error('Signed PDF upload requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='1') show_error('Confirm RED-signed PDF submission.',400);
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid payment notice reference.',400);
+            $errors=pnpki_upload_signed_pdf($red,(int)$id,$_FILES['signed_pdf']??[]);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','PNPKI-signed Template No. 2 securely forwarded to PNPKI_2 Records. '
+                .'The applicant will only be notified after verified official Records release.');
+            go('payment_notice_queue');
+            break;
+        case 'payment_notice_pnpki_retry':
+            if (!$post) show_error('PNPKI_2 resubmission requires POST.',405);
             $red=require_role('red');
             check_csrf();
             $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
                 ['options'=>['min_range'=>1]]);
-            if (!$id || ($_POST['confirmation']??'')!=='1') {
-                show_error('RED must confirm PNPKI_2 document forwarding.',400);
-            }
-            $errors=pnpki_bridge_send($red,(int)$id);
+            if (!$id) show_error('Invalid payment notice reference.',400);
+            $errors=pnpki_submit_saved_signed_pdf($red,(int)$id);
             if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
-            else flash('success','Template No. 2 forwarded securely to PNPKI_2 RED queue. '
-                .'Client payment notification remains blocked until verified Records release.');
+            else flash('success','Signed PDF forwarded to PNPKI_2 Records.');
             go('payment_notice_queue');
+            break;
+        case 'payment_notice_pnpki_open':
+            if (!$post) show_error('PNPKI_2 one-time login requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid payment notice reference.',400);
+            try {
+                $target=pnpki_authorized_sso_url($red,(int)$id);
+                header('Referrer-Policy: no-referrer');
+                header('Location: '.$target,true,303);
+                exit;
+            } catch(Throwable $e) {
+                flash('error','PNPKI_2 auto-login unavailable. Reauthorize your RED account and try again.');
+                go('payment_notice_queue');
+            }
+            break;
+        case 'payment_notice_pnpki_send':
+            // Retired initial-unsigned handoff. This endpoint must not bypass
+            // RED consent and signed PDF validation in the new workflow.
+            show_error('Use Authorize PNPKI_2 and Upload PNPKI-Signed PDF in FP-OMS.',410);
             break;
         case 'payment_notice_pnpki_check':
             if (!$post) show_error('PNPKI status synchronization requires POST.',405);
