@@ -101,8 +101,9 @@ function pnpki_upload_signed_pdf(array $red,int $id,array $upload): array
         return ['Only a pending RED Template No. 2 after RO receipt may be submitted.'];
     }
     if (pnpki_bridge_link($id,$revision)) return ['Document is already in PNPKI_2 Records.'];
-    if (pnpki_pending_signed_upload($id,$revision)) {
-        return ['A signed PDF was already saved. Use Retry Submission instead of uploading a duplicate.'];
+    $existing=pnpki_pending_signed_upload($id,$revision);
+    if ($existing && (int)$existing['uploaded_by']!==(int)$red['id']) {
+        return ['Only the original RED uploader may replace a pending signed PDF.'];
     }
     if ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
         || !is_uploaded_file((string)($upload['tmp_name']??''))) {
@@ -131,11 +132,25 @@ function pnpki_upload_signed_pdf(array $red,int $id,array $upload): array
         }
         fpoms_file_write_encrypted_bytes($raw,$absolute);
         try {
-            db()->prepare('INSERT INTO fpoms_pnpki_signed_uploads
-                (application_id,revision,uploaded_by,original_name,stored_path,sha256,file_size)
-                VALUES (?,?,?,?,?,?,?)')
-                ->execute([$id,$revision,(int)$red['id'],$name,$relative,
-                    hash('sha256',$raw),strlen($raw)]);
+            if ($existing) {
+                db()->prepare('UPDATE fpoms_pnpki_signed_uploads SET original_name=?,
+                    stored_path=?,sha256=?,file_size=?,uploaded_at=NOW()
+                    WHERE application_id=? AND revision=? AND uploaded_by=?')
+                    ->execute([$name,$relative,hash('sha256',$raw),strlen($raw),
+                        $id,$revision,(int)$red['id']]);
+                $oldRoot=realpath(PROJECT_ROOT.'/storage/fp_pnpki_pending');
+                $oldFile=realpath(PROJECT_ROOT.'/storage/'.(string)$existing['stored_path']);
+                if ($oldRoot && $oldFile
+                    && str_starts_with($oldFile,$oldRoot.DIRECTORY_SEPARATOR)) {
+                    @unlink($oldFile);
+                }
+            } else {
+                db()->prepare('INSERT INTO fpoms_pnpki_signed_uploads
+                    (application_id,revision,uploaded_by,original_name,stored_path,sha256,file_size)
+                    VALUES (?,?,?,?,?,?,?)')
+                    ->execute([$id,$revision,(int)$red['id'],$name,$relative,
+                        hash('sha256',$raw),strlen($raw)]);
+            }
         } catch(Throwable $error) {
             @unlink($absolute);
             throw $error;
