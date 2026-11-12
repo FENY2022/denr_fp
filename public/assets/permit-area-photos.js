@@ -96,13 +96,12 @@
       for (const section of root.querySelectorAll('[data-area-photo-group]')) {
         const group=Number(section.dataset.areaPhotoGroup || 1);
         if (!Number.isInteger(group) || group<1 || group>maxGroups) continue;
-        visibleGroups.add(group);
         const state=groupDataFromSection(section);
         groupState.set(group,state);
+        if (!editable || group===1) visibleGroups.add(group);
       }
       for (const photo of photosState) {
         const group=Math.max(1,Math.min(maxGroups,Number(photo.documentation_group || 1)));
-        visibleGroups.add(group);
         if (!groupState.has(group) && validPoint(photo.latitude,photo.longitude)) {
           groupState.set(group,{
             documentation_group:group,
@@ -110,8 +109,9 @@
             longitude:String(photo.longitude)
           });
         }
+        if (!editable) visibleGroups.add(group);
       }
-      if (editable && !visibleGroups.size) visibleGroups.add(1);
+      if (editable) visibleGroups.add(1);
     }
 
     function destroyMaps() {
@@ -505,19 +505,23 @@
     function render() {
       destroyMaps();
 
-      for (const photo of photosState) visibleGroups.add(photo.documentation_group);
-      for (const group of groupState.keys()) visibleGroups.add(group);
       if (!editable) {
         visibleGroups.clear();
+        for (const group of groupState.keys()) visibleGroups.add(group);
         for (const photo of photosState) visibleGroups.add(photo.documentation_group);
+      } else {
+        visibleGroups.add(1);
       }
-      if (editable && !visibleGroups.size) visibleGroups.add(1);
 
       const byGroup=new Map();
       for (const group of [...visibleGroups].sort((a,b)=>a-b)) byGroup.set(group,[]);
       for (const photo of photosState) {
-        if (!byGroup.has(photo.documentation_group)) byGroup.set(photo.documentation_group,[]);
-        byGroup.get(photo.documentation_group).push(photo);
+        const group=Number(photo.documentation_group || 1);
+        if (!byGroup.has(group)) {
+          if (editable) continue;
+          byGroup.set(group,[]);
+        }
+        byGroup.get(group).push(photo);
       }
 
       groupContainer?.replaceChildren();
@@ -545,7 +549,7 @@
       message('Finish the current documentation-pin/photo update before submitting.',true);
     },true);
 
-    addGroup?.addEventListener('click',async ()=>{
+    addGroup?.addEventListener('click',()=>{
       if (busy || visibleGroups.size>=maxGroups) return;
       let next=1;
       while (visibleGroups.has(next) && next<=maxGroups) next++;
@@ -553,24 +557,28 @@
         message('Maximum '+String(maxGroups)+' Area Photo Documentation blocks reached.',true);
         return;
       }
-      busy=true;
-      inputsDisabled(true);
-      try {
-        const payload=await saveGroup(next,'','');
-        visibleGroups.add(next);
-        applyPayload(payload);
-        render();
-        root.querySelector('[data-area-photo-group="'+String(next)+'"]')?.scrollIntoView({
-          behavior:'smooth',block:'nearest'
+
+      // Reveal the next saved group when one already exists. If it is a brand-new
+      // group, keep it client-side until the user actually pins or uploads data.
+      // This prevents a click from overwriting an existing saved pin with NULL.
+      visibleGroups.add(next);
+      if (!groupState.has(next)) {
+        groupState.set(next,{
+          documentation_group:next,
+          latitude:'',
+          longitude:''
         });
-        message('Area Photo Documentation '+String(next)
-          +' added. Set its Pinpoint Project Location before uploading photos.');
-      } catch(error) {
-        message(error.message || 'Documentation block could not be added.',true);
-      } finally {
-        busy=false;
-        inputsDisabled(false);
       }
+      render();
+      root.querySelector('[data-area-photo-group="'+String(next)+'"]')?.scrollIntoView({
+        behavior:'smooth',block:'nearest'
+      });
+      const hasSavedData=photosState.some(photo=>Number(photo.documentation_group)===next)
+        || Boolean(groupPoint(next));
+      message(hasSavedData
+        ? 'Area Photo Documentation '+String(next)+' revealed with its saved data.'
+        : 'Area Photo Documentation '+String(next)
+          +' added. Set its Pinpoint Project Location before uploading photos.');
     });
 
     root.addEventListener('change',async event=>{

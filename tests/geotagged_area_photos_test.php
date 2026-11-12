@@ -62,7 +62,8 @@ $checks=[
     [$views,'data-area-photo-group-map','every documentation block renders its own mini-map'],
     [$views,'Use My Current Location','every documentation block exposes GPS selection'],
     [$views,'Geotagged Area Photo Documentation','submitted grouped photo gallery exists'],
-    [$views,'permit-area-photos.js?v=4','combined documentation map script is loaded'],
+    [$views,'permit-area-photos.js?v=5','on-demand documentation script is loaded'],
+    [$views,"(int)$group!==1","only Documentation 1 is visibly rendered initially"],
     [$router,"case 'permit_area_photo_group_save':",'documentation group pin save route exists'],
     [$router,"case 'permit_area_photo_upload':",'area photo upload route exists'],
     [$router,"documentation_group",'upload route forwards documentation group'],
@@ -72,6 +73,9 @@ $checks=[
     [$mapJs,'fpoms:location-map-ready','project map exposes a safe integration hook'],
     [$photoJs,"post('permit-area-photo-upload'","browser uploads photos through protected endpoint"],
     [$photoJs,"data-fp-add-area-photo-documentation","browser supports adding documentation blocks"],
+    [$photoJs,"if (!editable || group===1) visibleGroups.add(group)","editable form initially reveals only Documentation 1"],
+    [$photoJs,"Reveal the next saved group when one already exists","Add Another reveals saved data without duplicating it"],
+    [$photoJs,"if (editable) continue;","saved photos in hidden groups stay hidden until explicitly revealed"],
     [$photoJs,"permit-area-photo-group-save","browser persists an empty/new documentation block and its pin"],
     [$photoJs,"data-area-photo-group-map","browser initializes independent documentation maps"],
     [$photoJs,"data-area-group-gps","each documentation map supports current-device GPS"],
@@ -115,6 +119,14 @@ if (str_contains((string)$views,'Use Main Project Pin')
 if (str_contains((string)$views,
         'array_keys($photoGroups),array_keys($locationIndex)')) {
     throw new RuntimeException('Empty additional Area Photo Documentation groups must not auto-render on reload.');
+}
+
+if (str_contains((string)$photoJs,
+        "visibleGroups.add(group);\n        const state=groupDataFromSection(section);")) {
+    throw new RuntimeException('Editable initial state must not auto-reveal saved Documentation 2+ groups.');
+}
+if (str_contains((string)$photoJs,"const payload=await saveGroup(next,'','');")) {
+    throw new RuntimeException('Add Another must not blank-save or overwrite a hidden saved documentation pin.');
 }
 
 echo "Geotagged area photo and OpenStreetMap integration checks passed.\n";

@@ -553,14 +553,14 @@ function step2_area_photo_card_html(array $photo,bool $editable,int $application
 
 function step2_area_photo_group_html(
     int $group,array $photos,array $location,bool $editable,int $applicationId,
-    int $maxBytes=0
+    int $maxBytes=0,bool $hidden=false
 ): string {
     $inputId='fp_area_photos_'.$group;
     $lat=trim((string)($location['latitude']??''));
     $lon=trim((string)($location['longitude']??''));
     $hasPin=$lat!=='' && $lon!=='';
     $html='<section class="border rounded-3 p-3 mb-3 bg-body" '
-        .'data-area-photo-group="'.$group.'">'
+        .'data-area-photo-group="'.$group.'"'.($hidden?' hidden':'').'>'
         .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">'
         .'<h4 class="h6 mb-0"><i class="bi bi-camera-fill text-success me-1" '
         .'aria-hidden="true"></i>Area Photo Documentation '.$group.'</h4>'
@@ -657,7 +657,7 @@ function step2_area_photo_editor_html(
         $items=$photoGroups[$group]??[];
         $location=step2_area_photo_group_location((int)$group,$items,$locationIndex);
         $html.=step2_area_photo_group_html(
-            (int)$group,$items,$location,true,$applicationId,$maxBytes
+            (int)$group,$items,$location,true,$applicationId,$maxBytes,(int)$group!==1
         );
     }
     $html.='</div>'
@@ -1008,7 +1008,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>'
         . ($areaPhotoFeature
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-area-photos.js?v=4" defer></script>'
+                . '<script src="assets/permit-area-photos.js?v=5" defer></script>'
             : '')
         . '<script src="assets/permit-step2-sections.js?v=6" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
