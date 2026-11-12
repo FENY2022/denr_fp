@@ -950,7 +950,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
                 . '<script src="assets/permit-location-map.js?v=3" defer></script>'
             : '')
         . ($areaPhotoFeature
-            ? '<script src="assets/permit-area-photos.js?v=1" defer></script>' : '')
+            ? '<script src="assets/permit-area-photos.js?v=2" defer></script>' : '')
         . '<script src="assets/permit-step2-sections.js?v=6" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);
 }
@@ -1234,7 +1234,7 @@ function view_step2_application(int $applicationId, array $errors = []): void
             $html .= step2_area_photo_gallery_html($areaPhotos,$applicationId)
                 . '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
                 . '<script src="assets/permit-location-map.js?v=3" defer></script>'
-                . ($areaPhotos?'<script src="assets/permit-area-photos.js?v=1" defer></script>':'');
+                . ($areaPhotos?'<script src="assets/permit-area-photos.js?v=2" defer></script>':'');
         }
     }
     if ($noticePdfPreviewModal) $html .= fpoms_notice_pdf_preview_modal_html();
