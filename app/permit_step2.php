@@ -408,6 +408,7 @@ function step2_submit(array $client, array $data, array $files, int $application
     $stored = [];
     $draftRows = [];
     $areaPhotoRows = [];
+    $areaPhotoGroups = [];
     $draftFilesToRemove = [];
     $areaPhotosAdded = 0;
     $draftScope = $applicationId;
@@ -438,6 +439,7 @@ function step2_submit(array $client, array $data, array $files, int $application
                 return $photoDraft['errors'];
             }
             $areaPhotoRows=$photoDraft['rows'];
+            $areaPhotoGroups=$photoDraft['groups'];
         }
         // Annex 1 #10 is exempt for Solar and Biomass, but required for Other.
         // Classifications from already-submitted revisions remain available for
@@ -625,10 +627,10 @@ function step2_submit(array $client, array $data, array $files, int $application
             ]);
             $draftFilesToRemove[] = $source;
         }
-        if ($areaPhotoRows) {
+        if ($areaPhotoReady) {
             $areaPhotosAdded=step2_area_photo_copy_submission(
-                $pdo,$areaPhotoRows,$clientId,$draftScope,$applicationId,$revision,
-                $stored,$draftFilesToRemove
+                $pdo,$areaPhotoRows,$areaPhotoGroups,$clientId,$draftScope,
+                $applicationId,$revision,$stored,$draftFilesToRemove
             );
         }
         if ($draftRows) {

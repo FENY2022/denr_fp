@@ -51,6 +51,32 @@ function step2_area_photo_install_schema(): bool
         db()->exec("ALTER TABLE permit_step2_area_photos
             ADD COLUMN IF NOT EXISTS documentation_group SMALLINT UNSIGNED NOT NULL DEFAULT 1
             AFTER revision");
+        db()->exec("CREATE TABLE IF NOT EXISTS permit_step2_area_photo_group_drafts (
+            client_id BIGINT UNSIGNED NOT NULL,
+            application_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            documentation_group SMALLINT UNSIGNED NOT NULL,
+            latitude DECIMAL(10,7) NULL,
+            longitude DECIMAL(11,7) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (client_id,application_id,documentation_group),
+            CONSTRAINT fk_step2_area_photo_group_draft_client FOREIGN KEY (client_id)
+                REFERENCES user_client(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        db()->exec("CREATE TABLE IF NOT EXISTS permit_step2_area_photo_groups (
+            application_id BIGINT UNSIGNED NOT NULL,
+            client_id BIGINT UNSIGNED NOT NULL,
+            revision INT UNSIGNED NOT NULL,
+            documentation_group SMALLINT UNSIGNED NOT NULL,
+            latitude DECIMAL(10,7) NOT NULL,
+            longitude DECIMAL(11,7) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (application_id,revision,documentation_group),
+            CONSTRAINT fk_step2_area_photo_group_app FOREIGN KEY (application_id)
+                REFERENCES permit_step2_applications(id) ON DELETE CASCADE,
+            CONSTRAINT fk_step2_area_photo_group_client FOREIGN KEY (client_id)
+                REFERENCES user_client(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         return true;
     } catch (Throwable $e) {
         error_log('FP-OMS area photo schema initialization failed: '.$e->getMessage());
@@ -66,6 +92,8 @@ function step2_area_photo_schema_ready(): bool
         try {
             db()->query('SELECT id,documentation_group,latitude,longitude FROM permit_step2_area_photo_drafts LIMIT 0');
             db()->query('SELECT id,revision,documentation_group,latitude,longitude FROM permit_step2_area_photos LIMIT 0');
+            db()->query('SELECT documentation_group,latitude,longitude FROM permit_step2_area_photo_group_drafts LIMIT 0');
+            db()->query('SELECT revision,documentation_group,latitude,longitude FROM permit_step2_area_photo_groups LIMIT 0');
             return true;
         } catch (Throwable $e) {
             return false;
@@ -128,6 +156,17 @@ function step2_area_photo_drafts(int $clientId,int $applicationId,bool $lock=fal
     );
 }
 
+function step2_area_photo_group_drafts(int $clientId,int $applicationId,bool $lock=false): array
+{
+    if (!step2_area_photo_schema_ready()) return [];
+    return query_all(
+        'SELECT * FROM permit_step2_area_photo_group_drafts
+         WHERE client_id=? AND application_id=?
+         ORDER BY documentation_group ASC'.($lock?' FOR UPDATE':''),
+        [$clientId,$applicationId]
+    );
+}
+
 function step2_area_photo_draft_public_list(int $clientId,int $applicationId): array
 {
     return array_map(static fn(array $row): array=>[
@@ -144,6 +183,46 @@ function step2_area_photo_draft_public_list(int $clientId,int $applicationId): a
     ],step2_area_photo_drafts($clientId,$applicationId));
 }
 
+function step2_area_photo_group_draft_public_list(int $clientId,int $applicationId): array
+{
+    $groups=[];
+    foreach (step2_area_photo_group_drafts($clientId,$applicationId) as $row) {
+        $groups[]=[
+            'documentation_group'=>(int)$row['documentation_group'],
+            'latitude'=>$row['latitude']===null?'':(string)$row['latitude'],
+            'longitude'=>$row['longitude']===null?'':(string)$row['longitude']
+        ];
+    }
+    // Backward-compatible recovery for drafts created before migration 040:
+    // infer a missing documentation pin from the first saved photo in that group.
+    $known=array_fill_keys(array_map(
+        static fn(array $row): int=>(int)$row['documentation_group'],$groups
+    ),true);
+    foreach (step2_area_photo_drafts($clientId,$applicationId) as $photo) {
+        $group=(int)($photo['documentation_group']??1);
+        if (isset($known[$group])) continue;
+        $point=step2_area_photo_coordinate_pair($photo['latitude'],$photo['longitude']);
+        if (!$point) continue;
+        $groups[]=[
+            'documentation_group'=>$group,
+            'latitude'=>$point['latitude'],
+            'longitude'=>$point['longitude']
+        ];
+        $known[$group]=true;
+    }
+    usort($groups,static fn(array $a,array $b): int=>
+        (int)$a['documentation_group']<=>(int)$b['documentation_group']);
+    return $groups;
+}
+
+function step2_area_photo_draft_state(int $clientId,int $applicationId): array
+{
+    return [
+        'photos'=>step2_area_photo_draft_public_list($clientId,$applicationId),
+        'groups'=>step2_area_photo_group_draft_public_list($clientId,$applicationId)
+    ];
+}
+
 function step2_area_photos(int $applicationId): array
 {
     if (!step2_area_photo_schema_ready()) return [];
@@ -153,16 +232,106 @@ function step2_area_photos(int $applicationId): array
     );
 }
 
-function step2_area_photo_upload(
-    array $client,int $applicationId,array $files,mixed $lat,mixed $lon,mixed $documentationGroup=1
-): array
+function step2_area_photo_groups(int $applicationId): array
 {
-    if (!step2_area_photo_schema_ready()) return ['error'=>'Area photo storage is unavailable; apply migrations 038 and 039.'];
-    if (!step2_draft_scope_allowed($client,$applicationId)) return ['error'=>'Application is not available for area-photo upload.'];
+    if (!step2_area_photo_schema_ready()) return [];
+    $rows=query_all(
+        'SELECT * FROM permit_step2_area_photo_groups WHERE application_id=?
+         ORDER BY revision ASC,documentation_group ASC',[$applicationId]
+    );
+    if ($rows) return $rows;
+
+    // Older submitted photos remain viewable even if migration 040 was applied later.
+    $fallback=[];
+    foreach (step2_area_photos($applicationId) as $photo) {
+        $key=(int)$photo['revision'].':'.(int)($photo['documentation_group']??1);
+        if (isset($fallback[$key])) continue;
+        $point=step2_area_photo_coordinate_pair($photo['latitude'],$photo['longitude']);
+        if (!$point) continue;
+        $fallback[$key]=[
+            'application_id'=>$applicationId,
+            'client_id'=>(int)$photo['client_id'],
+            'revision'=>(int)$photo['revision'],
+            'documentation_group'=>(int)($photo['documentation_group']??1),
+            'latitude'=>$point['latitude'],
+            'longitude'=>$point['longitude']
+        ];
+    }
+    return array_values($fallback);
+}
+
+function step2_area_photo_group_save(
+    array $client,int $applicationId,mixed $documentationGroup,mixed $lat='',mixed $lon=''
+): array {
+    if (!step2_area_photo_schema_ready()) {
+        return ['error'=>'Area photo location storage is unavailable; apply migrations 038–040.'];
+    }
+    if (!step2_draft_scope_allowed($client,$applicationId)) {
+        return ['error'=>'Application is not available for Area Photo Documentation editing.'];
+    }
     $group=step2_area_photo_group($documentationGroup);
     if ($group===null) return ['error'=>'Select a valid Area Photo Documentation group.'];
-    $point=step2_area_photo_coordinate_pair($lat,$lon);
-    if (!$point) return ['error'=>'Pin the project location first, then upload the area photo.'];
+
+    $latText=trim((string)$lat);
+    $lonText=trim((string)$lon);
+    $point=null;
+    if ($latText!=='' || $lonText!=='') {
+        $point=step2_area_photo_coordinate_pair($latText,$lonText);
+        if (!$point) return ['error'=>'Enter a valid documentation latitude and longitude.'];
+    }
+
+    $clientId=(int)$client['id'];
+    try {
+        db()->prepare(
+            'INSERT INTO permit_step2_area_photo_group_drafts
+             (client_id,application_id,documentation_group,latitude,longitude)
+             VALUES (?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE latitude=VALUES(latitude),longitude=VALUES(longitude)'
+        )->execute([
+            $clientId,$applicationId,$group,
+            $point['latitude']??null,$point['longitude']??null
+        ]);
+        return step2_area_photo_draft_state($clientId,$applicationId);
+    } catch (Throwable $e) {
+        error_log('FP-OMS documentation pin save failed: '.$e->getMessage());
+        return ['error'=>'Could not save the Area Photo Documentation pin.'];
+    }
+}
+
+function step2_area_photo_group_point(int $clientId,int $applicationId,int $group,bool $lock=false): ?array
+{
+    $row=query_one(
+        'SELECT * FROM permit_step2_area_photo_group_drafts
+         WHERE client_id=? AND application_id=? AND documentation_group=?'
+        .($lock?' FOR UPDATE':''),
+        [$clientId,$applicationId,$group]
+    );
+    if ($row) {
+        $point=step2_area_photo_coordinate_pair($row['latitude'],$row['longitude']);
+        if ($point) return $point;
+    }
+    // Old drafts may have photos before group-location metadata existed.
+    $photo=query_one(
+        'SELECT latitude,longitude FROM permit_step2_area_photo_drafts
+         WHERE client_id=? AND application_id=? AND documentation_group=?
+         ORDER BY id ASC LIMIT 1'.($lock?' FOR UPDATE':''),
+        [$clientId,$applicationId,$group]
+    );
+    return $photo?step2_area_photo_coordinate_pair($photo['latitude'],$photo['longitude']):null;
+}
+
+function step2_area_photo_upload(
+    array $client,int $applicationId,array $files,mixed $documentationGroup=1
+): array
+{
+    if (!step2_area_photo_schema_ready()) {
+        return ['error'=>'Area photo storage is unavailable; apply migrations 038–040.'];
+    }
+    if (!step2_draft_scope_allowed($client,$applicationId)) {
+        return ['error'=>'Application is not available for area-photo upload.'];
+    }
+    $group=step2_area_photo_group($documentationGroup);
+    if ($group===null) return ['error'=>'Select a valid Area Photo Documentation group.'];
     $info=upload_details($files['area_photo']??null,true);
     if (isset($info['error'])) return ['error'=>$info['error']];
     if (!in_array((string)($info['mime']??''),['image/jpeg','image/png'],true)) {
@@ -174,6 +343,19 @@ function step2_area_photo_upload(
     try {
         $pdo->beginTransaction();
         $pdo->prepare('SELECT id FROM user_client WHERE id=? FOR UPDATE')->execute([$clientId]);
+        $point=step2_area_photo_group_point($clientId,$applicationId,$group,true);
+        if (!$point) {
+            $pdo->rollBack();
+            return ['error'=>'Pin Area Photo Documentation '.$group.' first, then upload its photos.'];
+        }
+        // Persist inferred pre-040 group locations on first new upload.
+        $pdo->prepare(
+            'INSERT INTO permit_step2_area_photo_group_drafts
+             (client_id,application_id,documentation_group,latitude,longitude)
+             VALUES (?,?,?,?,?)
+             ON DUPLICATE KEY UPDATE latitude=COALESCE(latitude,VALUES(latitude)),
+                 longitude=COALESCE(longitude,VALUES(longitude))'
+        )->execute([$clientId,$applicationId,$group,$point['latitude'],$point['longitude']]);
         $count=query_one(
             'SELECT COUNT(*) AS n FROM permit_step2_area_photo_drafts
              WHERE client_id=? AND application_id=?',
@@ -204,7 +386,7 @@ function step2_area_photo_upload(
             (int)$info['size'],$sha,$point['latitude'],$point['longitude']
         ]);
         $pdo->commit();
-        return ['photos'=>step2_area_photo_draft_public_list($clientId,$applicationId)];
+        return step2_area_photo_draft_state($clientId,$applicationId);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         if ($stored && is_file($stored)) @unlink($stored);
@@ -232,7 +414,7 @@ function step2_area_photo_update(array $client,int $applicationId,int $id,mixed 
         'SELECT id FROM permit_step2_area_photo_drafts WHERE id=? AND client_id=? AND application_id=?',
         [$id,(int)$client['id'],$applicationId]
     )) return ['error'=>'Area photo not found.'];
-    return ['photos'=>step2_area_photo_draft_public_list((int)$client['id'],$applicationId)];
+    return step2_area_photo_draft_state((int)$client['id'],$applicationId);
 }
 
 function step2_area_photo_delete(array $client,int $applicationId,int $id): array
@@ -257,7 +439,7 @@ function step2_area_photo_delete(array $client,int $applicationId,int $id): arra
         $pdo->commit();
         $path=step2_area_photo_draft_real_path((string)$row['stored_path']);
         if ($path) @unlink($path);
-        return ['photos'=>step2_area_photo_draft_public_list((int)$client['id'],$applicationId)];
+        return step2_area_photo_draft_state((int)$client['id'],$applicationId);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         error_log('FP-OMS area photo deletion failed: '.$e->getMessage());
@@ -267,27 +449,70 @@ function step2_area_photo_delete(array $client,int $applicationId,int $id): arra
 
 function step2_area_photo_draft_submission(int $clientId,int $applicationId,bool $lock=true): array
 {
-    if (!step2_area_photo_schema_ready()) return ['rows'=>[],'errors'=>[]];
+    if (!step2_area_photo_schema_ready()) return ['rows'=>[],'groups'=>[],'errors'=>[]];
     $rows=step2_area_photo_drafts($clientId,$applicationId,$lock);
+    $groups=step2_area_photo_group_drafts($clientId,$applicationId,$lock);
     $errors=[];
     if (count($rows)>20) $errors[]='Maximum 20 area photos per application draft.';
+
+    $groupMap=[];
+    foreach ($groups as $groupRow) {
+        $point=step2_area_photo_coordinate_pair($groupRow['latitude'],$groupRow['longitude']);
+        if ($point) $groupMap[(int)$groupRow['documentation_group']]=$point;
+    }
+
     foreach ($rows as $row) {
+        $group=(int)($row['documentation_group']??1);
         $path=step2_area_photo_draft_real_path((string)$row['stored_path']);
         $point=step2_area_photo_coordinate_pair($row['latitude'],$row['longitude']);
+        if (!isset($groupMap[$group])) {
+            $fallback=$point;
+            if ($fallback) $groupMap[$group]=$fallback;
+        }
         if (!$path || !$point
             || !in_array((string)$row['mime_type'],['image/jpeg','image/png'],true)
             || fpoms_file_plaintext_size($path)!==(int)$row['file_size']
             || !hash_equals((string)$row['sha256'],fpoms_file_plaintext_sha256($path))) {
             $errors[]='A saved area photo is missing, modified, or has an invalid map location.';
         }
+        if (!isset($groupMap[$group])) {
+            $errors[]='Area Photo Documentation '.$group.' has photos but no valid pinpoint location.';
+        }
     }
-    return ['rows'=>$rows,'errors'=>$errors];
+
+    $normalizedGroups=[];
+    foreach ($groupMap as $group=>$point) {
+        $normalizedGroups[]=[
+            'documentation_group'=>$group,
+            'latitude'=>$point['latitude'],
+            'longitude'=>$point['longitude']
+        ];
+    }
+    usort($normalizedGroups,static fn(array $a,array $b): int=>
+        (int)$a['documentation_group']<=>(int)$b['documentation_group']);
+    return ['rows'=>$rows,'groups'=>$normalizedGroups,'errors'=>array_values(array_unique($errors))];
 }
 
 function step2_area_photo_copy_submission(
-    PDO $pdo,array $rows,int $clientId,int $draftScope,int $applicationId,int $revision,
-    array &$createdFiles,array &$draftFilesToRemove
+    PDO $pdo,array $rows,array $groups,int $clientId,int $draftScope,
+    int $applicationId,int $revision,array &$createdFiles,array &$draftFilesToRemove
 ): int {
+    $usedGroups=[];
+    foreach ($rows as $row) $usedGroups[(int)($row['documentation_group']??1)]=true;
+    foreach ($groups as $groupRow) {
+        $group=(int)$groupRow['documentation_group'];
+        if (!isset($usedGroups[$group])) continue;
+        $point=step2_area_photo_coordinate_pair($groupRow['latitude'],$groupRow['longitude']);
+        if (!$point) throw new RuntimeException('Area Photo Documentation '.$group.' has no valid pin.');
+        $pdo->prepare(
+            'INSERT INTO permit_step2_area_photo_groups
+             (application_id,client_id,revision,documentation_group,latitude,longitude)
+             VALUES (?,?,?,?,?,?)'
+        )->execute([
+            $applicationId,$clientId,$revision,$group,$point['latitude'],$point['longitude']
+        ]);
+    }
+
     $added=0;
     foreach ($rows as $row) {
         $source=step2_area_photo_draft_real_path((string)$row['stored_path']);
@@ -326,6 +551,9 @@ function step2_area_photo_copy_submission(
             'DELETE FROM permit_step2_area_photo_drafts WHERE client_id=? AND application_id=?'
         )->execute([$clientId,$draftScope]);
     }
+    $pdo->prepare(
+        'DELETE FROM permit_step2_area_photo_group_drafts WHERE client_id=? AND application_id=?'
+    )->execute([$clientId,$draftScope]);
     return $added;
 }
 
@@ -341,6 +569,9 @@ function step2_area_photo_clear_drafts(PDO $pdo,int $clientId,int $applicationId
         $stmt->fetchAll(PDO::FETCH_ASSOC));
     $pdo->prepare(
         'DELETE FROM permit_step2_area_photo_drafts WHERE client_id=? AND application_id=?'
+    )->execute([$clientId,$applicationId]);
+    $pdo->prepare(
+        'DELETE FROM permit_step2_area_photo_group_drafts WHERE client_id=? AND application_id=?'
     )->execute([$clientId,$applicationId]);
     return $paths;
 }
