@@ -67,7 +67,7 @@ function authenticate(string $identifier, string $password): bool
     }
     session_regenerate_id(true);
     unset($_SESSION['user_id'], $_SESSION['client_id'], $_SESSION['registration_pending_client_id'],
-        $_SESSION['user_session_version']);
+        $_SESSION['user_session_version'], $_SESSION['initial_password_change_deferred']);
     $_SESSION[$isClient ? 'client_id' : 'user_id'] = (int)$user['id'];
     if (!$isClient && array_key_exists('session_version',$user)) {
         $_SESSION['user_session_version']=(int)$user['session_version'];
@@ -124,4 +124,24 @@ function change_password(array $user, string $current, string $new): array
         audit((int)$user['id'], 'auth.password_changed', 'user', (int)$user['id']);
     }
     return [];
+}
+
+/** Temporarily allow an initial-password user to proceed for this login only. */
+function initial_password_change_deferred(array $user): bool
+{
+    return (string)($_SESSION['initial_password_change_deferred'] ?? '')
+        === principal_table($user) . ':' . (int)$user['id'];
+}
+
+function defer_initial_password_change(array $user): void
+{
+    if ((int)($user['must_change_password'] ?? 0) !== 1) return;
+    $table = principal_table($user);
+    $id = (int)$user['id'];
+    if ($table === 'user_client') {
+        audit_client($id, 'auth.initial_password_change_deferred', 'client', $id);
+    } else {
+        audit($id, 'auth.initial_password_change_deferred', 'user', $id);
+    }
+    $_SESSION['initial_password_change_deferred'] = $table . ':' . $id;
 }
