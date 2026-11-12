@@ -10,6 +10,7 @@ function step2_area_photo_install_schema(): bool
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             client_id BIGINT UNSIGNED NOT NULL,
             application_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            documentation_group SMALLINT UNSIGNED NOT NULL DEFAULT 1,
             original_name VARCHAR(220) NOT NULL,
             stored_path VARCHAR(300) NOT NULL,
             mime_type VARCHAR(100) NOT NULL,
@@ -28,6 +29,7 @@ function step2_area_photo_install_schema(): bool
             application_id BIGINT UNSIGNED NOT NULL,
             client_id BIGINT UNSIGNED NOT NULL,
             revision INT UNSIGNED NOT NULL,
+            documentation_group SMALLINT UNSIGNED NOT NULL DEFAULT 1,
             original_name VARCHAR(220) NOT NULL,
             stored_path VARCHAR(300) NOT NULL,
             mime_type VARCHAR(100) NOT NULL,
@@ -43,6 +45,12 @@ function step2_area_photo_install_schema(): bool
             CONSTRAINT fk_step2_area_photo_client FOREIGN KEY (client_id)
                 REFERENCES user_client(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        db()->exec("ALTER TABLE permit_step2_area_photo_drafts
+            ADD COLUMN IF NOT EXISTS documentation_group SMALLINT UNSIGNED NOT NULL DEFAULT 1
+            AFTER application_id");
+        db()->exec("ALTER TABLE permit_step2_area_photos
+            ADD COLUMN IF NOT EXISTS documentation_group SMALLINT UNSIGNED NOT NULL DEFAULT 1
+            AFTER revision");
         return true;
     } catch (Throwable $e) {
         error_log('FP-OMS area photo schema initialization failed: '.$e->getMessage());
@@ -56,8 +64,8 @@ function step2_area_photo_schema_ready(): bool
     if ($ready!==null) return $ready;
     $check=static function(): bool {
         try {
-            db()->query('SELECT id,latitude,longitude FROM permit_step2_area_photo_drafts LIMIT 0');
-            db()->query('SELECT id,revision,latitude,longitude FROM permit_step2_area_photos LIMIT 0');
+            db()->query('SELECT id,documentation_group,latitude,longitude FROM permit_step2_area_photo_drafts LIMIT 0');
+            db()->query('SELECT id,revision,documentation_group,latitude,longitude FROM permit_step2_area_photos LIMIT 0');
             return true;
         } catch (Throwable $e) {
             return false;
@@ -66,6 +74,14 @@ function step2_area_photo_schema_ready(): bool
     if ($check()) return $ready=true;
     if (!step2_area_photo_install_schema()) return $ready=false;
     return $ready=$check();
+}
+
+function step2_area_photo_group(mixed $value): ?int
+{
+    $group=filter_var($value,FILTER_VALIDATE_INT,[
+        'options'=>['min_range'=>1,'max_range'=>10]
+    ]);
+    return $group===false?null:(int)$group;
 }
 
 function step2_area_photo_coordinate_pair(mixed $lat,mixed $lon): ?array
@@ -106,7 +122,8 @@ function step2_area_photo_drafts(int $clientId,int $applicationId,bool $lock=fal
     if (!step2_area_photo_schema_ready()) return [];
     return query_all(
         'SELECT * FROM permit_step2_area_photo_drafts
-         WHERE client_id=? AND application_id=? ORDER BY id ASC'.($lock?' FOR UPDATE':''),
+         WHERE client_id=? AND application_id=?
+         ORDER BY documentation_group ASC,id ASC'.($lock?' FOR UPDATE':''),
         [$clientId,$applicationId]
     );
 }
@@ -115,6 +132,7 @@ function step2_area_photo_draft_public_list(int $clientId,int $applicationId): a
 {
     return array_map(static fn(array $row): array=>[
         'id'=>(int)$row['id'],
+        'documentation_group'=>(int)($row['documentation_group']??1),
         'original_name'=>(string)$row['original_name'],
         'mime_type'=>(string)$row['mime_type'],
         'size'=>(int)$row['file_size'],
@@ -131,14 +149,18 @@ function step2_area_photos(int $applicationId): array
     if (!step2_area_photo_schema_ready()) return [];
     return query_all(
         'SELECT * FROM permit_step2_area_photos WHERE application_id=?
-         ORDER BY revision ASC,id ASC',[$applicationId]
+         ORDER BY revision ASC,documentation_group ASC,id ASC',[$applicationId]
     );
 }
 
-function step2_area_photo_upload(array $client,int $applicationId,array $files,mixed $lat,mixed $lon): array
+function step2_area_photo_upload(
+    array $client,int $applicationId,array $files,mixed $lat,mixed $lon,mixed $documentationGroup=1
+): array
 {
     if (!step2_area_photo_schema_ready()) return ['error'=>'Area photo storage is unavailable; apply migration 038.'];
     if (!step2_draft_scope_allowed($client,$applicationId)) return ['error'=>'Application is not available for area-photo upload.'];
+    $group=step2_area_photo_group($documentationGroup);
+    if ($group===null) return ['error'=>'Select a valid Area Photo Documentation group.'];
     $point=step2_area_photo_coordinate_pair($lat,$lon);
     if (!$point) return ['error'=>'Pin the project location first, then upload the area photo.'];
     $info=upload_details($files['area_photo']??null,true);
@@ -175,10 +197,10 @@ function step2_area_photo_upload(array $client,int $applicationId,array $files,m
         $sha=fpoms_file_plaintext_sha256($stored);
         $pdo->prepare(
             'INSERT INTO permit_step2_area_photo_drafts
-             (client_id,application_id,original_name,stored_path,mime_type,file_size,sha256,latitude,longitude)
-             VALUES (?,?,?,?,?,?,?,?,?)'
+             (client_id,application_id,documentation_group,original_name,stored_path,mime_type,file_size,sha256,latitude,longitude)
+             VALUES (?,?,?,?,?,?,?,?,?,?)'
         )->execute([
-            $clientId,$applicationId,(string)$info['name'],$relative,(string)$info['mime'],
+            $clientId,$applicationId,$group,(string)$info['name'],$relative,(string)$info['mime'],
             (int)$info['size'],$sha,$point['latitude'],$point['longitude']
         ]);
         $pdo->commit();
@@ -288,10 +310,11 @@ function step2_area_photo_copy_submission(
         }
         $pdo->prepare(
             'INSERT INTO permit_step2_area_photos
-             (application_id,client_id,revision,original_name,stored_path,mime_type,file_size,sha256,latitude,longitude)
-             VALUES (?,?,?,?,?,?,?,?,?,?)'
+             (application_id,client_id,revision,documentation_group,original_name,stored_path,mime_type,file_size,sha256,latitude,longitude)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)'
         )->execute([
-            $applicationId,$clientId,$revision,(string)$row['original_name'],$relative,
+            $applicationId,$clientId,$revision,(int)($row['documentation_group']??1),
+            (string)$row['original_name'],$relative,
             (string)$row['mime_type'],(int)$row['file_size'],$sha,
             (string)$row['latitude'],(string)$row['longitude']
         ]);
