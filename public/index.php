@@ -821,6 +821,48 @@ try {
             else flash('success','Template No. 2 generated and sent to the RED approval queue.');
             go('permit_application',['id'=>(int)$id]);
             break;
+        case 'payment_notice_pnpki_send':
+            if (!$post) show_error('PNPKI signing handoff requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id || ($_POST['confirmation']??'')!=='1') {
+                show_error('RED must confirm PNPKI_2 document forwarding.',400);
+            }
+            $errors=pnpki_bridge_send($red,(int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','Template No. 2 forwarded securely to PNPKI_2 RED queue. '
+                .'Client payment notification remains blocked until verified Records release.');
+            go('payment_notice_queue');
+            break;
+        case 'payment_notice_pnpki_check':
+            if (!$post) show_error('PNPKI status synchronization requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid FP application reference.',400);
+            $errors=pnpki_bridge_reconcile((int)$id);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else {
+                $notice=fpoms_payment_notice_record_for_app((int)$id);
+                $link=pnpki_bridge_link((int)$id,(int)($notice['revision']??0));
+                if ($notice && (string)$notice['status']==='released') {
+                    flash('success','PNPKI_2 verified RED signature and Records release. '
+                        .'The applicant notice to pay was released in FP-OMS.');
+                } else {
+                    $stage=(string)($link['stage']??'awaiting_red');
+                    $label=match ($stage) {
+                        'awaiting_records'=>'RED forwarded the document. Awaiting Records release.',
+                        'verification_required'=>'Records action detected, but RED digital-signature or certificate validation is still required. No client notification was sent.',
+                        default=>'Awaiting RED signing and forwarding in PNPKI_2.'
+                    };
+                    flash('info',$label);
+                }
+            }
+            go('payment_notice_queue');
+            break;
         case 'payment_notice_queue':
             if ($post) show_error('RED payment notice queue is read-only.',405);
             fpoms_payment_notice_queue_view(require_role('red'));
