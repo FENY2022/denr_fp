@@ -200,6 +200,10 @@ function fpoms_payment_notice_red_approve(array $red,int $id,bool $signOnly=fals
     if (($red['status']??'')!=='active' || !has_role($red,'red')) return ['Only RED may approve this notice.'];
     $app=fpoms_payment_notice_app($id);
     if (!$app || !permit_flow_is_new($app)) return ['FP application not found.'];
+    $link=pnpki_bridge_link($id,(int)$app['revision']);
+    if ($link && (string)$link['stage']!=='released_verified') {
+        return ['Notice already forwarded to PNPKI_2. Use Check PNPKI Status rather than parallel signing.'];
+    }
     $notice=fpoms_payment_notice_record($id,(int)$app['revision']);
     if (!$notice) return ['Template No. 2 has not been prepared by RO Receiving.'];
     $signed=(string)$notice['status']==='signed';
@@ -241,6 +245,11 @@ function fpoms_payment_notice_red_approve(array $red,int $id,bool $signOnly=fals
 function fpoms_payment_notice_red_upload_signed(array $red,int $id,array $upload): array
 {
     if (($red['status']??'')!=='active' || !has_role($red,'red')) return ['Only RED may upload a signed notice.'];
+    $currentApp=fpoms_payment_notice_app($id);
+    $link=$currentApp?pnpki_bridge_link($id,(int)$currentApp['revision']):null;
+    if ($link && (string)$link['stage']!=='released_verified') {
+        return ['Notice already forwarded to PNPKI_2. Wait for Records release instead of uploading another PDF.'];
+    }
     if ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK || !is_uploaded_file((string)($upload['tmp_name']??''))) return ['Select the physically signed PDF.'];
     $size=(int)($upload['size']??0);
     if ($size<100 || $size>10485760 || strtolower(pathinfo((string)($upload['name']??''),PATHINFO_EXTENSION))!=='pdf') return ['Upload a valid PDF up to 10 MB.'];
@@ -437,6 +446,7 @@ function fpoms_payment_notice_queue_view(array $red): void
         WHERE n.status IN ('pending_red','signed') ORDER BY n.created_at ASC LIMIT 100");
     $config=fpoms_notice_config();
     $canEsign=!empty($config['signature_path'])&&!empty($config['signature_sha256']);
+    $pnpkiReady=pnpki_bridge_configured() && pnpki_bridge_schema_ready();
     $html='<div class="panel"><h2 class="h5">RED – Template No. 2 Payment Notice Approvals</h2>'
         .'<p class="text-secondary">Review the Complete Documents / Advise to Pay letter, apply the RED electronic signature '
         .'or upload a physically signed PDF, review the saved signed PDF, then Finalize &amp; Send to the applicant.</p>';
@@ -445,6 +455,8 @@ function fpoms_payment_notice_queue_view(array $red): void
     foreach($rows as $row) {
         $id=(int)$row['application_id'];
         $signed=(string)$row['status']==='signed';
+        $pnpkiLink=pnpki_bridge_link($id,(int)$row['revision']);
+        $pnpkiInProgress=(bool)$pnpkiLink && !$signed;
         $preview=$signed
             ? url('payment_notice_pdf',['id'=>$id,'embed'=>1])
             : url('payment_notice_pdf',['id'=>$id,'embed'=>1]
@@ -456,6 +468,17 @@ function fpoms_payment_notice_queue_view(array $red): void
             .($signed
                 ? '<p class="small text-warning mb-0 mt-1">RED-signed Template No. 2 saved. Final release/email is still pending.</p>'
                 : '<p class="small text-secondary mb-0 mt-1">Unsigned draft. Applicant payment notice/email is withheld until RED finalization.</p>')
+            .($pnpkiLink
+                ? '<div class="alert alert-info py-2 mt-2 mb-1 small">'
+                    .'<strong>PNPKI_2 Document #'.(int)$pnpkiLink['remote_doc_id'].'</strong> — '
+                    .e(match ((string)$pnpkiLink['stage']) {
+                        'awaiting_records'=>'RED forwarded; awaiting Records release',
+                        'verification_required'=>'Awaiting trusted RED digital-signature verification',
+                        'released_verified'=>'RED signature and Records release verified',
+                        default=>'Awaiting RED PNPKI signing'
+                    })
+                    .'</div>'
+                : '')
             .'<div class="d-flex flex-wrap gap-2 mt-2">'
             .'<a class="btn btn-outline-primary btn-sm" href="'.e($preview).'" '
             .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
@@ -467,21 +490,32 @@ function fpoms_payment_notice_queue_view(array $red): void
                 ? '<a class="btn btn-outline-secondary btn-sm" href="'.e($draft).'" target="_blank" rel="noopener">'
                     .'<i class="bi bi-printer me-1"></i>Open / Print Draft for Signing</a>'
                 : '')
-            .(($signed||$canEsign)
+            .(($signed||($canEsign&&!$pnpkiInProgress))
                 ? '<button class="btn btn-success btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#'.$modalId.'">'
                     .($signed?'Finalize & Send':'Approve E-Sign').'</button>'
                 : '')
-            // Presentation-only placeholder. No PNPKI signing action is available yet.
-            .(!$signed
-                ? '<span class="d-inline-flex align-items-center flex-wrap gap-2">'
-                    .'<button class="btn btn-outline-primary btn-sm" type="button" disabled '
-                    .'aria-disabled="true" title="PNPKI signing integration is planned; not yet available">'
-                    .'<i class="bi bi-shield-check me-1" aria-hidden="true"></i>PNPKI Sign</button>'
-                    .'<span class="badge text-bg-secondary">Coming Soon</span></span>'
+            .(!$signed && !$pnpkiLink
+                ? ($pnpkiReady
+                    ? '<form method="post" class="d-inline" action="'.e(url('payment_notice_pnpki_send',['id'=>$id])).'">'
+                        .csrf_field()
+                        .'<input type="hidden" name="confirmation" value="1">'
+                        .'<button class="btn btn-outline-primary btn-sm" type="submit">'
+                        .'<i class="bi bi-shield-check me-1" aria-hidden="true"></i>PNPKI Sign</button></form>'
+                    : '<span class="d-inline-flex align-items-center gap-2">'
+                        .'<button type="button" class="btn btn-outline-primary btn-sm" disabled '
+                        .'title="Apply migration 041 and configure the secure PNPKI_2 bridge">'
+                        .'<i class="bi bi-shield-check me-1" aria-hidden="true"></i>PNPKI Sign</button>'
+                        .'<span class="badge text-bg-secondary">Setup Required</span></span>')
+                : '')
+            .($pnpkiLink && !$signed
+                ? '<form method="post" class="d-inline" action="'.e(url('payment_notice_pnpki_check',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<button class="btn btn-outline-primary btn-sm" type="submit">'
+                    .'<i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Check PNPKI Status</button></form>'
                 : '')
             .'</div>';
 
-        if ($signed||$canEsign) {
+        if ($signed||($canEsign&&!$pnpkiInProgress)) {
             $html.='<div class="modal fade" id="'.$modalId.'" tabindex="-1" aria-hidden="true">'
                 .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
                 .'<div class="modal-header"><h5 class="modal-title">'
@@ -506,7 +540,7 @@ function fpoms_payment_notice_queue_view(array $red): void
                 .'</div></div></div>';
         }
 
-        if (!$signed) {
+        if (!$signed && !$pnpkiLink) {
             $html.='<form class="mt-3 border-top pt-3" method="post" enctype="multipart/form-data" '
                 .'action="'.e(url('payment_notice_upload_signed',['id'=>$id])).'">'
                 .csrf_field()
