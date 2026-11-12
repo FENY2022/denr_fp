@@ -36,11 +36,6 @@
     const addGroup=root.querySelector('[data-fp-add-area-photo-documentation]');
     const maxBytes=Number(root.dataset.maxBytes || 5242880);
     const maxGroups=Math.max(1,Math.min(10,Number(root.dataset.maxDocumentationGroups || 10)));
-    const projectLat=String(root.dataset.projectLatitude || '');
-    const projectLon=String(root.dataset.projectLongitude || '');
-    const projectPoint=validPoint(projectLat,projectLon)
-      ? {lat:Number(projectLat),lon:Number(projectLon)} : null;
-
     let busy=false;
     let photosState=[];
     const groupState=new Map();
@@ -66,7 +61,7 @@
         const group=Number(input.dataset.documentationGroup || 1);
         input.disabled=disabled || photosState.length>=20 || !groupPoint(group);
       });
-      root.querySelectorAll('[data-area-group-gps],[data-area-group-use-project],'
+      root.querySelectorAll('[data-area-group-gps],'
         +'[data-area-group-latitude],[data-area-group-longitude]').forEach(control=>{
         control.disabled=disabled;
       });
@@ -300,8 +295,6 @@
       pinBox.dataset.documentationGroup=String(group);
       pinBox.dataset.latitude=String(state.latitude || '');
       pinBox.dataset.longitude=String(state.longitude || '');
-      pinBox.dataset.defaultLatitude=projectPoint?fmt(projectPoint.lat):'';
-      pinBox.dataset.defaultLongitude=projectPoint?fmt(projectPoint.lon):'';
 
       const pinTop=document.createElement('div');
       pinTop.className='d-flex justify-content-between align-items-start gap-2 flex-wrap mb-2';
@@ -325,12 +318,7 @@
         gps.className='btn btn-sm btn-outline-success';
         gps.dataset.areaGroupGps='';
         gps.innerHTML='<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use My Current Location';
-        const useMain=document.createElement('button');
-        useMain.type='button';
-        useMain.className='btn btn-sm btn-outline-secondary';
-        useMain.dataset.areaGroupUseProject='';
-        useMain.innerHTML='<i class="bi bi-pin-map me-1" aria-hidden="true"></i>Use Main Project Pin';
-        controls.append(gps,useMain);
+        controls.append(gps);
         pinTop.append(controls);
       }
       pinBox.append(pinTop);
@@ -380,7 +368,7 @@
       status.textContent=point
         ? 'Pinned documentation location: '+fmt(point.lat)+', '+fmt(point.lon)
         : (editable
-          ? 'No documentation pin selected. Use GPS, the main project pin, click this map, or enter coordinates.'
+          ? 'No documentation pin selected. Use GPS, click this map, or enter coordinates.'
           : 'Documentation pin unavailable.');
       pinBox.append(status);
       section.append(pinBox);
@@ -431,12 +419,10 @@
       const mapElement=section.querySelector('[data-area-photo-group-map]');
       if (!mapElement) return;
       const point=groupPoint(group);
-      const center=point
-        ? [point.lat,point.lon]
-        : projectPoint ? [projectPoint.lat,projectPoint.lon] : [8.9500000,125.5400000];
+      const center=point ? [point.lat,point.lon] : [8.9500000,125.5400000];
       const map=leaflet.map(mapElement,{
         zoomControl:true,scrollWheelZoom:false,doubleClickZoom:true
-      }).setView(center,point?16:(projectPoint?14:8));
+      }).setView(center,point?16:8);
       leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
         attribution:'&copy; OpenStreetMap contributors',maxZoom:19
       }).addTo(map);
@@ -675,21 +661,6 @@
           inputsDisabled(false);
           message('Could not obtain your location ('+error.message+'). Pin the map manually.',true);
         },{enableHighAccuracy:true,timeout:12000,maximumAge:0});
-        return;
-      }
-
-      const useMain=event.target.closest('[data-area-group-use-project]');
-      if (useMain && !busy) {
-        const section=useMain.closest('[data-area-photo-group]');
-        const group=Number(section?.dataset.areaPhotoGroup || 1);
-        if (!projectPoint) {
-          message('Set the Main Project Pin first, then reuse it for this documentation block.',true);
-          return;
-        }
-        await persistGroupPoint(
-          group,projectPoint.lat,projectPoint.lon,
-          'Main Project Pin copied to Area Photo Documentation '+String(group)+'.'
-        );
         return;
       }
 
