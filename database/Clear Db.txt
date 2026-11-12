@@ -1,81 +1,85 @@
-USE denr_fp_oms;
 
-SET FOREIGN_KEY_CHECKS = 0;
+USE `denr_fp_oms`;
 
--- ============================================
--- FP-OMS TEST DATA RESET
--- PRESERVE USERS / ROLES / OFFICES / APPLICANTS
--- ============================================
+-- FP-OMS TEST DATA CLEANUP
+-- Keep users, clients, registrations, roles,
+-- office mappings and system configurations.
+-- Run only on your testing database.
 
--- STEP 4
-DELETE FROM permit_step4_requirement_reviews;
-DELETE FROM permit_step4_reviews;
+START TRANSACTION;
 
--- STEP 3
-DELETE FROM permit_step3_movements;
+-- Signed notices and workflow attachments
+DELETE FROM `fpoms_deficiency_notices`;
+DELETE FROM `fpoms_payment_notices`;
 
--- PAYMENT / RECORDS
-DELETE FROM permit_records_archives;
-DELETE FROM permit_payment_verifications;
+-- Step 4 evaluations
+DELETE FROM `permit_step4_requirement_reviews`;
+DELETE FROM `permit_step4_reviews`;
 
--- CURRENT PERMIT FLOW
-DELETE FROM permit_flow_artifacts;
-DELETE FROM permit_flow_events;
-DELETE FROM permit_flow_cases;
+-- Step 3, payment and records
+DELETE FROM `permit_payment_verifications`;
+DELETE FROM `permit_records_archives`;
+DELETE FROM `permit_step3_movements`;
 
--- STEP 2
-DELETE FROM permit_step2_events;
-DELETE FROM permit_step2_documents;
-DELETE FROM permit_step2_draft_documents;
-DELETE FROM permit_step2_form_drafts;
-DELETE FROM permit_step2_applications;
+-- Permit workflow
+DELETE FROM `permit_flow_events`;
+DELETE FROM `permit_flow_cases`;
+DELETE FROM `permit_flow_artifacts`;
 
--- LEGACY / OLD PERMIT TABLES
-DELETE FROM permit_records;
-DELETE FROM application_documents;
-DELETE FROM workflow_actions;
-DELETE FROM permit_applications;
+-- Step 2 application history and documents
+DELETE FROM `permit_step2_events`;
+DELETE FROM `permit_step2_documents`;
 
--- NOTIFICATIONS / LOGS
-DELETE FROM notifications;
-DELETE FROM audit_logs;
-DELETE FROM account_login_logs;
-DELETE FROM login_attempts;
+-- Area photo documentation
+DELETE FROM `permit_step2_area_photos`;
+DELETE FROM `permit_step2_area_photo_groups`;
+DELETE FROM `permit_step2_area_photo_drafts`;
+DELETE FROM `permit_step2_area_photo_group_drafts`;
 
--- TEMP PASSWORD / OTP DATA
-DELETE FROM password_reset_tokens;
-DELETE FROM shared_office_recovery_otps;
-DELETE FROM staff_password_reset_otps;
+-- Unsubmitted application drafts
+DELETE FROM `permit_step2_draft_documents`;
+DELETE FROM `permit_step2_form_drafts`;
 
--- ============================================
--- RESET AUTO_INCREMENT COUNTERS
--- ============================================
+-- Legacy permit data
+DELETE FROM `application_documents`;
+DELETE FROM `workflow_actions`;
+DELETE FROM `permit_records`;
 
-ALTER TABLE permit_step4_requirement_reviews AUTO_INCREMENT = 1;
-ALTER TABLE permit_step4_reviews AUTO_INCREMENT = 1;
+-- Parent application tables
+DELETE FROM `permit_applications`;
+DELETE FROM `permit_step2_applications`;
 
-ALTER TABLE permit_payment_verifications AUTO_INCREMENT = 1;
+-- Clear permit-related notifications
+DELETE FROM `notifications`
+WHERE `route_page` LIKE 'permit%'
+   OR `route_page` IN (
+       'payment_notice_queue',
+       'lpdd_fus_payment_queue',
+       'deficiency_notice_queue',
+       'records_archive'
+   )
+   OR `title` LIKE '%FP Application%'
+   OR `title` LIKE '%FP Payment%'
+   OR `title` LIKE 'Step 2%'
+   OR `title` LIKE '%Template No. 2%'
+   OR `title` LIKE 'Official Notice to Pay%';
 
-ALTER TABLE permit_flow_artifacts AUTO_INCREMENT = 1;
-ALTER TABLE permit_flow_events AUTO_INCREMENT = 1;
+-- Clear permit-related audit history only
+DELETE FROM `audit_logs`
+WHERE `action` LIKE 'permit.%'
+   OR `target_type` IN (
+       'permit_step2_application',
+       'permit_application'
+   );
 
-ALTER TABLE permit_step2_events AUTO_INCREMENT = 1;
-ALTER TABLE permit_step2_documents AUTO_INCREMENT = 1;
-ALTER TABLE permit_step2_draft_documents AUTO_INCREMENT = 1;
-ALTER TABLE permit_step2_applications AUTO_INCREMENT = 1;
+COMMIT;
 
-ALTER TABLE permit_records AUTO_INCREMENT = 1;
-ALTER TABLE application_documents AUTO_INCREMENT = 1;
-ALTER TABLE workflow_actions AUTO_INCREMENT = 1;
-ALTER TABLE permit_applications AUTO_INCREMENT = 1;
+-- Verify cleanup
+SELECT COUNT(*) AS remaining_fp_applications
+FROM `permit_step2_applications`;
 
-ALTER TABLE notifications AUTO_INCREMENT = 1;
-ALTER TABLE audit_logs AUTO_INCREMENT = 1;
-ALTER TABLE account_login_logs AUTO_INCREMENT = 1;
-ALTER TABLE login_attempts AUTO_INCREMENT = 1;
+SELECT COUNT(*) AS remaining_area_photos
+FROM `permit_step2_area_photos`;
 
-ALTER TABLE password_reset_tokens AUTO_INCREMENT = 1;
-ALTER TABLE shared_office_recovery_otps AUTO_INCREMENT = 1;
-ALTER TABLE staff_password_reset_otps AUTO_INCREMENT = 1;
-
-SET FOREIGN_KEY_CHECKS = 1;
+SELECT COUNT(*) AS remaining_step4_reviews
+FROM `permit_step4_reviews`;
