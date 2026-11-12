@@ -47,6 +47,7 @@ $checks=[
     [$module,'documentation_group,original_name','draft upload persists documentation group'],
     [$module,'revision,documentation_group,original_name','submitted photo preserves documentation group'],
     [$module,'step2_area_photo_group_save','documentation group pin can be persisted before photos'],
+    [$module,'step2_area_photo_group_delete','whole editable documentation group can be securely removed'],
     [$module,'step2_area_photo_group_point','photo upload resolves the server-authoritative group pin'],
     [$module,'permit_step2_area_photo_groups','submitted revision preserves group pinpoint location'],
     [$module,'step2_area_photo_send_submitted','submitted photo access endpoint exists'],
@@ -62,9 +63,12 @@ $checks=[
     [$views,'data-area-photo-group-map','every documentation block renders its own mini-map'],
     [$views,'Use My Current Location','every documentation block exposes GPS selection'],
     [$views,'Geotagged Area Photo Documentation','submitted grouped photo gallery exists'],
-    [$views,'permit-area-photos.js?v=5','on-demand documentation script is loaded'],
+    [$views,'permit-area-photos.js?v=6','map gallery/removal script is loaded'],
+    [$views,'data-area-group-remove-modal','group removal confirmation modal exists'],
+    [$views,'data-area-group-remove=','group-level Remove button exists'],
     [$views,"(int)$group!==1","only Documentation 1 is visibly rendered initially"],
     [$router,"case 'permit_area_photo_group_save':",'documentation group pin save route exists'],
+    [$router,"case 'permit_area_photo_group_delete':",'documentation group removal route exists'],
     [$router,"case 'permit_area_photo_upload':",'area photo upload route exists'],
     [$router,"documentation_group",'upload route forwards documentation group'],
     [$router,"case 'permit_area_photo_update':",'area photo coordinate update route exists'],
@@ -78,6 +82,11 @@ $checks=[
     [$photoJs,"if (editable) continue;","saved photos in hidden groups stay hidden until explicitly revealed"],
     [$photoJs,"permit-area-photo-group-save","browser persists an empty/new documentation block and its pin"],
     [$photoJs,"data-area-photo-group-map","browser initializes independent documentation maps"],
+    [$photoJs,"allPhotosPopup","map provides a gallery containing every uploaded photo in the group"],
+    [$photoJs,"View All Photos (","map exposes a View All Photos action"],
+    [$photoJs,"map.fitBounds","map auto-fits distinct documentation/photo GPS points"],
+    [$photoJs,"data.areaGroupRemove","each editable documentation block has a Remove action"],
+    [$photoJs,"permit-area-photo-group-delete","confirmed group removal uses the secure delete endpoint"],
     [$photoJs,"data-area-group-gps","each documentation map supports current-device GPS"],
     [$photoJs,"documentation_group","browser sends and preserves documentation group"],
     [$photoJs,"post('permit-area-photo-update'","dragged photo marker saves coordinates"],
@@ -127,6 +136,11 @@ if (str_contains((string)$photoJs,
 }
 if (str_contains((string)$photoJs,"const payload=await saveGroup(next,'','');")) {
     throw new RuntimeException('Add Another must not blank-save or overwrite a hidden saved documentation pin.');
+}
+
+if (!str_contains((string)$photoJs,"Yes, Clear Documentation 1")
+    || !str_contains((string)$photoJs,"Yes, Remove Documentation ")) {
+    throw new RuntimeException('Area Photo Documentation removal confirmation labels are missing.');
 }
 
 echo "Geotagged area photo and OpenStreetMap integration checks passed.\n";

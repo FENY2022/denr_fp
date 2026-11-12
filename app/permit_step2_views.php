@@ -564,8 +564,15 @@ function step2_area_photo_group_html(
         .'<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">'
         .'<h4 class="h6 mb-0"><i class="bi bi-camera-fill text-success me-1" '
         .'aria-hidden="true"></i>Area Photo Documentation '.$group.'</h4>'
+        .'<div class="d-flex align-items-center gap-1 flex-wrap">'
         .'<span class="badge text-bg-light border"><span data-area-photo-group-count>'
-        .count($photos).'</span> photo'.(count($photos)===1?'':'s').'</span></div>'
+        .count($photos).'</span> photo'.(count($photos)===1?'':'s').'</span>'
+        .($editable
+            ? '<button type="button" class="btn btn-sm btn-outline-danger" '
+                .'data-area-group-remove="'.$group.'">'
+                .'<i class="bi bi-trash3 me-1" aria-hidden="true"></i>Remove</button>'
+            : '')
+        .'</div></div>'
         .'<div class="border rounded-3 p-3 mb-3" data-area-photo-group-pin '
         .'data-documentation-group="'.$group.'" data-latitude="'.e($lat).'" '
         .'data-longitude="'.e($lon).'">'
@@ -668,7 +675,23 @@ function step2_area_photo_editor_html(
         .'<p class="small text-secondary mt-2 mb-0">Maximum 10 documentation blocks and '
         .'20 photos total per editable application draft.</p>'
         .'<p class="small text-secondary mt-2 mb-0" role="status" aria-live="polite" '
-        .'data-fp-area-photo-feedback></p></section>';
+        .'data-fp-area-photo-feedback></p></section>'
+        .'<div class="modal fade" id="fp-area-photo-group-remove-modal" tabindex="-1" '
+        .'aria-labelledby="fp-area-photo-group-remove-title" aria-hidden="true" '
+        .'data-area-group-remove-modal>'
+        .'<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+        .'<div class="modal-header"><h2 class="modal-title h5" '
+        .'id="fp-area-photo-group-remove-title" data-area-group-remove-title>'
+        .'Remove Area Photo Documentation?</h2>'
+        .'<button type="button" class="btn-close" data-bs-dismiss="modal" '
+        .'aria-label="Close"></button></div>'
+        .'<div class="modal-body"><p class="mb-0" data-area-group-remove-message></p></div>'
+        .'<div class="modal-footer">'
+        .'<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>'
+        .'<button type="button" class="btn btn-danger" data-area-group-remove-confirm>'
+        .'<i class="bi bi-trash3 me-1" aria-hidden="true"></i>'
+        .'<span data-area-group-remove-confirm-label>Yes, Remove</span></button>'
+        .'</div></div></div></div>';
     return $html;
 }
 
@@ -1008,7 +1031,7 @@ function view_step2_form(int $applicationId = 0, array $errors = []): void
         . '<script src="assets/permit-step2-drafts.js?v=14" defer></script>'
         . ($areaPhotoFeature
             ? '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>'
-                . '<script src="assets/permit-area-photos.js?v=5" defer></script>'
+                . '<script src="assets/permit-area-photos.js?v=6" defer></script>'
             : '')
         . '<script src="assets/permit-step2-sections.js?v=6" defer></script>';
     render_page($editing ? 'Resubmit FP Application' : 'New FP Application', $html);

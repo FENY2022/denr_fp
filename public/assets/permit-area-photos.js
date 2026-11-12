@@ -34,9 +34,15 @@
     const feedback=root.querySelector('[data-fp-area-photo-feedback]');
     const count=root.querySelector('[data-fp-area-photo-count]');
     const addGroup=root.querySelector('[data-fp-add-area-photo-documentation]');
+    const removeModalElement=form?.querySelector('[data-area-group-remove-modal]') || null;
+    const removeModalTitle=removeModalElement?.querySelector('[data-area-group-remove-title]') || null;
+    const removeModalMessage=removeModalElement?.querySelector('[data-area-group-remove-message]') || null;
+    const removeModalConfirm=removeModalElement?.querySelector('[data-area-group-remove-confirm]') || null;
+    const removeModalConfirmLabel=removeModalElement?.querySelector('[data-area-group-remove-confirm-label]') || null;
     const maxBytes=Number(root.dataset.maxBytes || 5242880);
     const maxGroups=Math.max(1,Math.min(10,Number(root.dataset.maxDocumentationGroups || 10)));
     let busy=false;
+    let pendingRemoveGroup=0;
     let photosState=[];
     const groupState=new Map();
     const visibleGroups=new Set();
@@ -138,6 +144,44 @@
       return box;
     }
 
+    function allPhotosPopup(group,photos) {
+      const box=document.createElement('div');
+      const heading=document.createElement('strong');
+      heading.className='d-block mb-2';
+      heading.textContent='Area Photo Documentation '+String(group)+' — '+String(photos.length)
+        +' uploaded photo'+(photos.length===1?'':'s');
+      box.append(heading);
+
+      const list=document.createElement('div');
+      list.className='d-grid gap-2';
+      for (const photo of photos) {
+        const row=document.createElement('div');
+        row.className='d-flex gap-2 align-items-start border rounded p-2';
+        const image=document.createElement('img');
+        image.src=String(photo.preview_url || '');
+        image.alt='Area photo preview';
+        image.loading='lazy';
+        image.width=110;
+        image.height=76;
+        image.className='rounded border object-fit-cover flex-shrink-0';
+        const info=document.createElement('div');
+        info.className='small text-break';
+        const name=document.createElement('strong');
+        name.className='d-block';
+        name.textContent=String(photo.original_name || 'Area photo');
+        const coords=document.createElement('span');
+        coords.className='text-secondary';
+        coords.textContent=validPoint(photo.latitude,photo.longitude)
+          ? fmt(photo.latitude)+', '+fmt(photo.longitude)
+          : 'GPS location unavailable';
+        info.append(name,coords);
+        row.append(image,info);
+        list.append(row);
+      }
+      box.append(list);
+      return box;
+    }
+
     function saveGroup(group,lat='',lon='') {
       const data=new FormData();
       data.set('csrf_token',csrf);
@@ -156,15 +200,17 @@
       if (Array.isArray(payload.groups)) {
         for (const row of payload.groups) {
           const group=Math.max(1,Math.min(maxGroups,Number(row.documentation_group || 1)));
-          visibleGroups.add(group);
           groupState.set(group,{
             documentation_group:group,
             latitude:String(row.latitude || ''),
             longitude:String(row.longitude || '')
           });
+          if (!editable) visibleGroups.add(group);
         }
       }
-      for (const photo of photosState) visibleGroups.add(photo.documentation_group);
+      if (!editable) {
+        for (const photo of photosState) visibleGroups.add(photo.documentation_group);
+      }
     }
 
     async function persistGroupPoint(group,lat,lon,successMessage) {
@@ -185,6 +231,48 @@
       } finally {
         busy=false;
         inputsDisabled(false);
+      }
+    }
+
+    async function removeDocumentationGroup(group) {
+      if (busy || group<1 || group>maxGroups) return;
+      busy=true;
+      inputsDisabled(true);
+      if (removeModalConfirm) removeModalConfirm.disabled=true;
+      try {
+        const data=new FormData();
+        data.set('csrf_token',csrf);
+        data.set('application_id',scope);
+        data.set('documentation_group',String(group));
+        const payload=await post('permit-area-photo-group-delete',data);
+
+        groupState.delete(group);
+        visibleGroups.delete(group);
+        applyPayload(payload);
+
+        if (group===1) {
+          visibleGroups.add(1);
+          groupState.set(1,{
+            documentation_group:1,
+            latitude:'',
+            longitude:''
+          });
+        }
+
+        render();
+        if (removeModalElement && window.bootstrap?.Modal) {
+          window.bootstrap.Modal.getOrCreateInstance(removeModalElement).hide();
+        }
+        pendingRemoveGroup=0;
+        message(group===1
+          ? 'Area Photo Documentation 1 cleared. The default block remains available.'
+          : 'Area Photo Documentation '+String(group)+' removed from the draft.');
+      } catch(error) {
+        message(error.message || 'Area Photo Documentation could not be removed.',true);
+      } finally {
+        busy=false;
+        inputsDisabled(false);
+        if (removeModalConfirm) removeModalConfirm.disabled=false;
       }
     }
 
@@ -283,10 +371,21 @@
       heading.className='h6 mb-0';
       heading.innerHTML='<i class="bi bi-camera-fill text-success me-1" aria-hidden="true"></i>'
         +'Area Photo Documentation '+String(group);
+      const headerActions=document.createElement('div');
+      headerActions.className='d-flex align-items-center gap-1 flex-wrap';
       const badge=document.createElement('span');
       badge.className='badge text-bg-light border';
       badge.textContent=String(photos.length)+' photo'+(photos.length===1?'':'s');
-      top.append(heading,badge);
+      headerActions.append(badge);
+      if (editable) {
+        const removeGroup=document.createElement('button');
+        removeGroup.type='button';
+        removeGroup.className='btn btn-sm btn-outline-danger';
+        removeGroup.dataset.areaGroupRemove=String(group);
+        removeGroup.innerHTML='<i class="bi bi-trash3 me-1" aria-hidden="true"></i>Remove';
+        headerActions.append(removeGroup);
+      }
+      top.append(heading,headerActions);
       section.append(top);
 
       const pinBox=document.createElement('div');
@@ -310,15 +409,26 @@
       pinText.append(pinHeading,pinHelp);
       pinTop.append(pinText);
 
-      if (editable) {
+      if (editable || photos.length) {
         const controls=document.createElement('div');
         controls.className='d-flex flex-wrap gap-1';
-        const gps=document.createElement('button');
-        gps.type='button';
-        gps.className='btn btn-sm btn-outline-success';
-        gps.dataset.areaGroupGps='';
-        gps.innerHTML='<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use My Current Location';
-        controls.append(gps);
+        if (editable) {
+          const gps=document.createElement('button');
+          gps.type='button';
+          gps.className='btn btn-sm btn-outline-success';
+          gps.dataset.areaGroupGps='';
+          gps.innerHTML='<i class="bi bi-crosshair me-1" aria-hidden="true"></i>Use My Current Location';
+          controls.append(gps);
+        }
+        if (photos.length) {
+          const viewAll=document.createElement('button');
+          viewAll.type='button';
+          viewAll.className='btn btn-sm btn-outline-primary';
+          viewAll.dataset.areaGroupViewAll=String(group);
+          viewAll.innerHTML='<i class="bi bi-images me-1" aria-hidden="true"></i>View All Photos ('
+            +String(photos.length)+')';
+          controls.append(viewAll);
+        }
         pinTop.append(controls);
       }
       pinBox.append(pinTop);
@@ -440,10 +550,15 @@
       }
 
       const photoMarkers=new Map();
+      const boundPoints=[];
+      if (point) boundPoints.push([point.lat,point.lon]);
+
       for (const photo of photos) {
         if (!validPoint(photo.latitude,photo.longitude)) continue;
+        const photoPoint=[Number(photo.latitude),Number(photo.longitude)];
+        boundPoints.push(photoPoint);
         const marker=leaflet.marker(
-          [Number(photo.latitude),Number(photo.longitude)],
+          photoPoint,
           {draggable:editable,title:String(photo.original_name || 'Area photo')}
         ).addTo(map);
         marker.bindPopup(markerPopup(photo),{maxWidth:260});
@@ -481,6 +596,19 @@
         photoMarkers.set(Number(photo.id),marker);
       }
 
+      let galleryPopup=null;
+      if (photos.length) {
+        const galleryPoint=point
+          ? [point.lat,point.lon]
+          : boundPoints.length ? boundPoints[0] : center;
+        galleryPopup=leaflet.popup({maxWidth:420,maxHeight:360})
+          .setLatLng(galleryPoint)
+          .setContent(allPhotosPopup(group,photos));
+        if (pin) {
+          pin.bindPopup(allPhotosPopup(group,photos),{maxWidth:420,maxHeight:360});
+        }
+      }
+
       if (editable) {
         map.on('click',event=>{
           persistGroupPoint(
@@ -498,8 +626,28 @@
           });
         }
       }
-      groupMaps.set(group,{map,pin,photoMarkers});
-      requestAnimationFrame(()=>map.invalidateSize());
+
+      const uniquePoints=[];
+      const seenPoints=new Set();
+      for (const item of boundPoints) {
+        const key=Number(item[0]).toFixed(7)+','+Number(item[1]).toFixed(7);
+        if (seenPoints.has(key)) continue;
+        seenPoints.add(key);
+        uniquePoints.push(item);
+      }
+
+      groupMaps.set(group,{map,pin,photoMarkers,galleryPopup,uniquePoints});
+      requestAnimationFrame(()=>{
+        map.invalidateSize();
+        if (uniquePoints.length>1) {
+          map.fitBounds(leaflet.latLngBounds(uniquePoints),{
+            padding:[35,35],
+            maxZoom:16
+          });
+        } else if (uniquePoints.length===1) {
+          map.setView(uniquePoints[0],16);
+        }
+      });
     }
 
     function render() {
@@ -672,6 +820,50 @@
         return;
       }
 
+      const viewAll=event.target.closest('[data-area-group-view-all]');
+      if (viewAll) {
+        const group=Number(viewAll.dataset.areaGroupViewAll || 0);
+        const api=groupMaps.get(group);
+        if (api?.map) {
+          if (Array.isArray(api.uniquePoints) && api.uniquePoints.length>1) {
+            api.map.fitBounds(leaflet.latLngBounds(api.uniquePoints),{
+              padding:[35,35],
+              maxZoom:16
+            });
+          }
+          if (api.pin) api.pin.openPopup();
+          else if (api.galleryPopup) api.galleryPopup.openOn(api.map);
+        }
+        return;
+      }
+
+      const removeGroup=event.target.closest('[data-area-group-remove]');
+      if (removeGroup && !busy) {
+        const group=Number(removeGroup.dataset.areaGroupRemove || 0);
+        if (group<1 || group>maxGroups) return;
+        pendingRemoveGroup=group;
+        if (removeModalTitle) {
+          removeModalTitle.textContent='Remove Area Photo Documentation '+String(group)+'?';
+        }
+        if (removeModalMessage) {
+          removeModalMessage.textContent=group===1
+            ? 'This will remove the pinpoint location and all unsubmitted photos in Area Photo Documentation 1. Documentation 1 will remain as the default block.'
+            : 'This will remove Area Photo Documentation '+String(group)
+              +', its pinpoint location, and all unsubmitted photos. This cannot be undone.';
+        }
+        if (removeModalConfirmLabel) {
+          removeModalConfirmLabel.textContent=group===1
+            ? 'Yes, Clear Documentation 1'
+            : 'Yes, Remove Documentation '+String(group);
+        }
+        if (removeModalElement && window.bootstrap?.Modal) {
+          window.bootstrap.Modal.getOrCreateInstance(removeModalElement).show();
+        } else if (window.confirm(removeModalMessage?.textContent || 'Remove this documentation?')) {
+          removeDocumentationGroup(group);
+        }
+        return;
+      }
+
       const locate=event.target.closest('[data-area-photo-locate]');
       if (locate) {
         const id=Number(locate.dataset.areaPhotoLocate || 0);
@@ -738,6 +930,13 @@
         busy=false;
         inputsDisabled(false);
       }
+    });
+
+    removeModalConfirm?.addEventListener('click',()=>{
+      if (pendingRemoveGroup>0) removeDocumentationGroup(pendingRemoveGroup);
+    });
+    removeModalElement?.addEventListener('hidden.bs.modal',()=>{
+      pendingRemoveGroup=0;
     });
 
     render();

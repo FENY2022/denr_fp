@@ -628,6 +628,7 @@ try {
             }
             step2_persistent_send_pdf($client,(int)$scope,(int)$draftId);
         case 'permit_area_photo_group_save':
+        case 'permit_area_photo_group_delete':
         case 'permit_area_photo_upload':
         case 'permit_area_photo_update':
         case 'permit_area_photo_delete':
@@ -645,6 +646,10 @@ try {
                 $result=step2_area_photo_group_save(
                     $client,(int)$scope,$_POST['documentation_group']??1,
                     $_POST['latitude']??'',$_POST['longitude']??''
+                );
+            } elseif ($page==='permit_area_photo_group_delete') {
+                $result=step2_area_photo_group_delete(
+                    $client,(int)$scope,$_POST['documentation_group']??1
                 );
             } elseif ($page==='permit_area_photo_upload') {
                 $result=step2_area_photo_upload(
