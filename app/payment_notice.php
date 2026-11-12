@@ -597,7 +597,19 @@ function fpoms_payment_notice_queue_view(array $red): void
                     .'<p class="small text-secondary">The signed PDF is already encrypted in FP-OMS. '
                     .'Retry forwarding to Records without uploading another file.</p>'
                     .'<button type="submit" class="btn btn-primary btn-sm">'
-                    .'<i class="bi bi-arrow-clockwise me-1"></i>Retry PNPKI_2 Submission</button></form>';
+                    .'<i class="bi bi-arrow-clockwise me-1"></i>Retry PNPKI_2 Submission</button></form>'
+                    .'<form class="mt-2" method="post" enctype="multipart/form-data" action="'
+                    .e(url('payment_notice_pnpki_upload',['id'=>$id])).'">'
+                    .csrf_field()
+                    .'<input type="hidden" name="confirmation" value="1">'
+                    .'<label class="form-label small fw-semibold">Replace Pending Signed PDF</label>'
+                    .'<input class="form-control form-control-sm mb-2" type="file" '
+                    .'name="signed_pdf" accept=".pdf,application/pdf" required>'
+                    .'<button class="btn btn-outline-secondary btn-sm" type="submit">'
+                    .'<i class="bi bi-arrow-repeat me-1"></i>Replace &amp; Resubmit Signed PDF</button>'
+                    .'<p class="small text-secondary mb-0 mt-1">Use this only when '
+                    .'PNPKI_2 rejected the saved PDF and no Records document exists.</p>'
+                    .'</form>';
             } else {
                 $html.='<form id="pnpki-upload-'.$id.'" class="mt-3 border rounded p-3" '
                     .'method="post" enctype="multipart/form-data" action="'
