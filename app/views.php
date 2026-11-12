@@ -124,7 +124,7 @@ function render_page(string $title, string $content): void
         . ((str_contains($content, 'data-fp-location-map=')
                 || str_contains($content, 'data-area-photo-group-map'))
             ? '<link href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">'
-                . '<link href="assets/permit-location-map.css?v=1" rel="stylesheet">'
+                . '<link href="assets/permit-location-map.css?v=2" rel="stylesheet">'
             : '')
         . '<script src="assets/app-shell.js?v=22" defer></script>'
         . '<script src="assets/action-feedback.js?v=1" defer></script>'
