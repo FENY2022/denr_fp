@@ -627,7 +627,7 @@ function step2_submit(array $client, array $data, array $files, int $application
             ]);
             $draftFilesToRemove[] = $source;
         }
-        if ($areaPhotoRows) {
+        if ($areaPhotoReady) {
             $areaPhotosAdded=step2_area_photo_copy_submission(
                 $pdo,$areaPhotoRows,$areaPhotoGroups,$clientId,$draftScope,
                 $applicationId,$revision,$stored,$draftFilesToRemove
