@@ -43,6 +43,18 @@ function permit_payment_record(int $applicationId): ?array
     );
 }
 
+/** Check the authoritative Cashier OR verification status; an upload alone is insufficient. */
+function permit_payment_is_verified(int $applicationId): bool
+{
+    if ($applicationId<1 || !permit_payment_schema_ready()) return false;
+    $payment=query_one(
+        "SELECT status,verified_at FROM permit_payment_verifications
+         WHERE application_id=? LIMIT 1",[$applicationId]
+    );
+    return $payment && (string)$payment['status']==='verified'
+        && !empty($payment['verified_at']);
+}
+
 function permit_payment_available_for_application(array $app): bool
 {
     // Legacy cases retain their established post-Step-4 payment flow.
@@ -131,7 +143,7 @@ function permit_payment_verify(array $lpddFus,int $applicationId,array $input,ar
         );
         if (!$app || !permit_payment_available_for_application($app)) {
             $pdo->rollBack();
-            return ['Payment may be verified only after the official RED-signed advice-to-pay notice has been released.'];
+            return ['Payment verification requires the released RED-signed advice-to-pay notice and formal Records forwarding to LPDD-FUS.'];
         }
 
         // Serialize repeated submissions and reject duplicate verification.
@@ -205,8 +217,21 @@ function permit_payment_verify(array $lpddFus,int $applicationId,array $input,ar
     try {
         create_client_notification((int)$app['client_id'],'Payment Verified by LPDD-FUS',
             $message,'receipt','success','permit_application',['id'=>$applicationId]);
-        notify_role('lpdd_fus','FP Payment Verified by LPDD-FUS',
-            $message,'cash-coin','success','permit_application',['id'=>$applicationId]);
+        $case=permit_flow_is_new($app) ? permit_flow_case($applicationId) : null;
+        if ($case && (int)$case['current_step']===4 && empty($case['completed_at'])) {
+            // This is the first prompt to schedule field validation, only AFTER
+            // a genuine OR verification has been committed and audited.
+            notify_role(
+                'lpdd_fus',
+                'FP Application #'.$applicationId.' – Provide & Communicate Field Validation Schedule',
+                'Cashier payment (OR No. '.$or.') is verified. LPDD-FUS may now provide '
+                    .'and communicate the field validation/assessment schedule.',
+                'calendar-event','info','permit_flow',['id'=>$applicationId]
+            );
+        } else {
+            notify_role('lpdd_fus','FP Payment Verified by LPDD-FUS',
+                $message,'cash-coin','success','permit_application',['id'=>$applicationId]);
+        }
     } catch (Throwable $e) {
         error_log('FP-OMS payment notification failed: '.$e->getMessage());
     }
