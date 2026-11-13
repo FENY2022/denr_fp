@@ -465,6 +465,15 @@ function fpoms_payment_notice_queue_view(array $red): void
                 ? '<div class="alert alert-success py-2"><i class="bi bi-shield-check me-1"></i>'
                     .'PNPKI_2 RED account authorized (Account #'.(int)$pnpkiAuth['remote_user_id'].'). '
                     .'Upload your PNPKI-signed PDF below.</div>'
+                    .'<form method="post" action="'.e(url('payment_notice_pnpki_revoke')).'" '
+                    .'class="border rounded p-3 mb-3" '
+                    .'onsubmit="return confirm(\'Unauthorize this RED PNPKI_2 account? Pending codes and unused auto-login tickets will be invalidated. Existing documents remain intact.\');">'
+                    .csrf_field()
+                    .'<input type="hidden" name="confirmation" value="REVOKE">'
+                    .'<strong>Account Access</strong>'
+                    .'<p class="small text-secondary mb-2">Disconnect this RED account. Existing signed documents and Records release history are preserved.</p>'
+                    .'<button type="submit" class="btn btn-outline-danger btn-sm">'
+                    .'<i class="bi bi-shield-x me-1"></i>Unauthorize / Revoke FP-OMS Access</button></form>'
                 : '<form method="post" action="'.e(url('payment_notice_pnpki_authorize')).'" '
                     .'class="border rounded p-3 mb-3">'
                     .csrf_field()
