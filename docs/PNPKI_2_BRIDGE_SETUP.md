@@ -147,10 +147,13 @@ of first-time user consent.
 PNPKI_2 Admin → FP-OMS Integration Setup → **Digital Signature Verification** has an
 ON/OFF switch. **ON** (default) requires Poppler `pdfsig`, a trusted RED PNPKI
 certificate chain, and an exact RED certificate Common Name match.
-**OFF** is a secure maintenance pause, not a verification bypass: new
-FP-OMS signed-PDF imports and verified Records release/status sync are blocked.
-Previously stored documents and audit history are not deleted. Re-enable
-verification and complete the verifier setup before retrying pending submissions.
+**OFF** allows authorized RED uploads to reach PNPKI_2 Records solely as
+**UNVERIFIED / PENDING VERIFICATION**. Records receives an in-system notification
+and can preview the original integrity-checked PDF. No official release, verified
+status callback, or applicant payment notification is permitted while verification
+is OFF; turning it ON still requires successful trusted certificate and signer
+checks before official release. The older unsigned-document bridge remains paused.
+Previously stored documents and audit history are not deleted.
 No SQL migration is required for this switch.
 
 ### Troubleshooting
