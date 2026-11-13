@@ -474,7 +474,9 @@ function fpoms_payment_notice_queue_view(array $red): void
                     .'<button type="submit" class="btn btn-primary btn-sm">'
                     .'<i class="bi bi-link-45deg me-1"></i>Authorize PNPKI_2 Account</button></form>')
             : '<div class="alert alert-warning small">'
-                .'PNPKI_2 integration requires migrations 041/042 and server-side configuration. '
+                .'PNPKI_2 is not yet configured. Ask the FP-OMS Super Administrator to open '
+                .'<strong>Configuration &rarr; PNPKI_2 Integration</strong>, install/verify '
+                .'tables 041/042, save the secure connection, and test PNPKI_2. '
                 .'Other signed-PDF options remain available.</div>');
     if (!$rows) $html.='<div class="alert alert-success">No Template No. 2 notices awaiting RED action.</div>';
 
