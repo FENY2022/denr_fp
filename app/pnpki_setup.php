@@ -107,6 +107,11 @@ function fpoms_pnpki_install_tables(array $admin): array
 {
     if (!has_role($admin,'super_admin')) return ['Super Administrator required.'];
     try {
+        // The PNPKI link table depends on the already-defined Template No. 2
+        // notice table. Create or verify it using the app's existing installer.
+        if (!fpoms_payment_notice_schema_ready()) {
+            throw new RuntimeException('Template No. 2 database storage must be installed first.');
+        }
         foreach ([
             PROJECT_ROOT.'/database/041_pnpki_2_bridge.sql',
             PROJECT_ROOT.'/database/042_pnpki_authorized_upload.sql'
