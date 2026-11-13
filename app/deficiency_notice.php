@@ -1000,6 +1000,8 @@ function fpoms_notice_pdf_preview_modal_html(): string
         .'<iframe class="notice-pdf-preview-frame" data-notice-preview-frame '
         .'title="Generated deficiency notice PDF"></iframe></div>'
         .'<div class="modal-footer">'
+        .'<a class="btn btn-primary d-none" href="#" target="_blank" rel="noopener" download data-notice-preview-download>'
+        .'<i class="bi bi-download me-1" aria-hidden="true"></i>Download PDF</a>'
         .'<a class="btn btn-outline-primary" href="#" target="_blank" rel="noopener" '
         .'data-notice-preview-open><i class="bi bi-box-arrow-up-right me-1" aria-hidden="true"></i>'
         .'Open / Print PDF</a>'

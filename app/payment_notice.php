@@ -433,7 +433,7 @@ function fpoms_payment_notice_send_pdf(array $viewer,int $id): never
         header("Content-Security-Policy: default-src 'none'; frame-ancestors 'self'");
     }
     header('Content-Type: application/pdf'); header('Cache-Control: private, no-store');
-    header('Content-Disposition: inline; filename="'
+    header('Content-Disposition: '.($printForSigning && (string)($_GET['download']??'')==='1'?'attachment':'inline').'; filename="'
         .($printForSigning?'Template_No_2_Print_For_Signing_FP'.$id.'.pdf':'Template_No_2_FP'.$id.'.pdf').'"');
     echo $raw; exit;
 }
@@ -499,7 +499,8 @@ function fpoms_payment_notice_queue_view(array $red): void
             ? url('payment_notice_pdf',['id'=>$id,'embed'=>1])
             : url('payment_notice_pdf',['id'=>$id,'embed'=>1]
                 +($canEsign&&!$pnpkiInProgress?['signed_preview'=>1]:[]));
-        $draft=url('payment_notice_pdf',['id'=>$id,'print_for_signing'=>1]);
+        $draft=url('payment_notice_pdf',['id'=>$id,'print_for_signing'=>1,'embed'=>1]);
+        $draftDownload=url('payment_notice_pdf',['id'=>$id,'print_for_signing'=>1,'download'=>1]);
         $modalId='paymentNoticeConfirm'.$id;
         $html.='<div class="border rounded p-3 mb-3"><strong>FP #'.$id.' · '.e((string)$row['project_title']).'</strong>'
             .'<div class="small text-secondary">'.e((string)$row['applicant_name']).' · Revision '.(int)$row['revision'].'</div>'
@@ -530,7 +531,11 @@ function fpoms_payment_notice_queue_view(array $red): void
             .'<i class="bi bi-file-earmark-pdf me-1"></i>'
             .($signed?'View Signed PDF':($canEsign&&!$pnpkiInProgress?'Preview with RED e-Signature':'Preview Unsigned Draft')).'</a>'
             .(!$signed
-                ? '<a class="btn btn-outline-secondary btn-sm" href="'.e($draft).'" target="_blank" rel="noopener">'
+                ? '<a class="btn btn-outline-secondary btn-sm" href="'.e($draft).'" '
+                    .'data-bs-toggle="modal" data-bs-target="#notice-pdf-preview-modal" '
+                    .'data-notice-preview-url="'.e($draft).'" '
+                    .'data-notice-preview-download="'.e($draftDownload).'" '
+                    .'data-notice-preview-title="'.e('FP #'.$id.' - Draft for Signing').'">'
                     .'<i class="bi bi-printer me-1"></i>Open / Print Draft for Signing</a>'
                 : '')
             .(($signed||($canEsign&&!$pnpkiInProgress))

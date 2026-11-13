@@ -38,7 +38,7 @@ notice_modal_assert(str_contains($controller,"header('X-Frame-Options: SAMEORIGI
     && str_contains($controller,"frame-ancestors 'self'"),
     'embedded draft PDF remains restricted to the same origin');
 notice_modal_assert(str_contains($views,'assets/deficiency-notice-queue.css?v=1')
-    && str_contains($views,'assets/deficiency-notice-queue.js?v=3'),
+    && str_contains($views,'assets/deficiency-notice-queue.js?v=4'),
     'queue modal assets load only when the modal is present');
 notice_modal_assert(str_contains($script,"show.bs.modal")
     && str_contains($script,'url.origin!==location.origin')

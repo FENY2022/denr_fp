@@ -5,11 +5,16 @@
   const title=modal?.querySelector('#notice-pdf-preview-title');
   const loading=modal?.querySelector('[data-notice-preview-loading]');
   const open=modal?.querySelector('[data-notice-preview-open]');
+  const download=modal?.querySelector('[data-notice-preview-download]');
   if(!modal||!frame||!title||!loading||!open)return;
 
   const reset=()=>{
     frame.removeAttribute('src');
     open.setAttribute('href','#');
+    if(download){
+      download.setAttribute('href','#');
+      download.classList.add('d-none');
+    }
     loading.classList.remove('is-hidden');
   };
 
@@ -21,6 +26,13 @@
     if(url.origin!==location.origin)return;
     title.textContent=trigger.dataset.noticePreviewTitle||'Generated PDF Preview';
     open.href=url.href;
+    if(download&&trigger.dataset.noticePreviewDownload){
+      const downloadUrl=new URL(trigger.dataset.noticePreviewDownload,location.href);
+      if(downloadUrl.origin===location.origin){
+        download.href=downloadUrl.href;
+        download.classList.remove('d-none');
+      }
+    }
     loading.classList.remove('is-hidden');
     frame.src=url.href;
   });

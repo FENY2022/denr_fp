@@ -203,7 +203,7 @@ function render_page(string $title, string $content): void
         . (str_contains($content, 'data-payment-review-modal')
             ? '<script src="assets/payment-verification-review.js?v=1" defer></script>' : '')
         . (str_contains($content, 'id="notice-pdf-preview-modal"')
-            ? '<script src="assets/deficiency-notice-queue.js?v=3" defer></script>' : '')
+            ? '<script src="assets/deficiency-notice-queue.js?v=4" defer></script>' : '')
         . '</body></html>';
 }
 
