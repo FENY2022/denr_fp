@@ -47,6 +47,7 @@ $step2=updated_flow_text('app/permit_step2_views.php');
 $evaluation=updated_flow_text('app/permit_step4.php');
 $step3=updated_flow_text('app/permit_step3.php');
 $flow=updated_flow_text('app/permit_flow.php');
+$payments=updated_flow_text('app/permit_payment.php');
 $views=updated_flow_text('app/permit_flow_views.php');
 $router=updated_flow_text('public/index.php');
 $nav=updated_flow_text('app/views.php');
@@ -77,6 +78,14 @@ updated_flow_assert(str_contains($step3,'INSERT INTO permit_flow_cases')
     && str_contains($step3,'current_step')
     && str_contains($step3,'permit_flow_is_new'),
     'RO Step 3 forwards updated applications to Step 4 action case');
+updated_flow_assert(str_contains($payments,'function permit_payment_is_verified')
+    && str_contains($payments,'Provide & Communicate Field Validation Schedule')
+    && substr_count($flow,'permit_payment_is_verified($id)')>=4
+    && str_contains($views,'$paymentNoticeReleased && $paymentVerified && permit_flow_staff_can_act($user,4)')
+    && str_contains($views,'$paymentMissing=$step===4')
+    && str_contains($step3,'Cashier OR Verification Required')
+    && !str_contains($flow,'FP Cashier Payment Awaiting Verification'),
+    'field schedule notifications and Step 4 hand-off are gated on verified Cashier OR, after Records forwarding');
 updated_flow_assert(str_contains($flow,'permit_flow_communicate_schedule')
     && str_contains($flow,'field_schedule_communicated_at')
     && str_contains($flow,"status='step4_complete'")
