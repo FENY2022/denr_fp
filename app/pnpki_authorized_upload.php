@@ -32,7 +32,7 @@ function pnpki_authorize_url(array $red): string
     $_SESSION['pnpki_authorize_pending']=[
         'state'=>$state,'red_id'=>(int)$red['id'],'issued_at'=>time()
     ];
-    $base=env_value('PNPKI_BRIDGE_URL','');
+    $base=(string)fpoms_pnpki_effective_config()['url'];
     $at=strrpos($base,'/');
     if ($at===false) throw new RuntimeException('Invalid PNPKI_2 bridge endpoint.');
     return substr($base,0,$at+1).'fpoms_authorize.php?'.http_build_query([
@@ -244,6 +244,6 @@ function pnpki_authorized_sso_url(array $red,int $id): string
     if (!preg_match('/^[a-f0-9]{64}$/D',$ticket)) {
         throw new RuntimeException('PNPKI_2 did not return a valid one-time access ticket.');
     }
-    $base=env_value('PNPKI_BRIDGE_URL','');
+    $base=(string)fpoms_pnpki_effective_config()['url'];
     return substr($base,0,strrpos($base,'/')+1).'fpoms_sso.php?ticket='.$ticket;
 }
