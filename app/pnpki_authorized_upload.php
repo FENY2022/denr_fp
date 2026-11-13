@@ -78,6 +78,38 @@ function pnpki_finish_authorization(array $red,string $code,string $state): arra
         return ['Unable to authorize PNPKI_2. Confirm account roles, secret and migrations.'];
     }
 }
+/** RED self-service disconnect. Revoke remotely first; never delete documents. */
+function pnpki_revoke_authorization(array $red): array
+{
+    if (!pnpki_authorized_red($red) || !pnpki_authorized_upload_ready()) {
+        return ['Only an active RED account can revoke its PNPKI_2 connection.'];
+    }
+    $userId=(int)$red['id'];
+    $link=pnpki_authorization_for($userId);
+    if (!$link) return ['No PNPKI_2 account is currently connected.'];
+    try {
+        $response=pnpki_bridge_request([
+            'action'=>'revoke_authorization',
+            'fpoms_user_id'=>$userId,
+            'remote_user_id'=>(int)$link['remote_user_id']
+        ]);
+        if (($response['revoked']??false)!==true) {
+            return ['PNPKI_2 could not confirm access revocation.'];
+        }
+        db()->prepare('DELETE FROM fpoms_pnpki_authorizations
+            WHERE fpoms_user_id=? AND remote_user_id=?')
+            ->execute([$userId,(int)$link['remote_user_id']]);
+        unset($_SESSION['pnpki_authorize_pending']);
+        audit($userId,'permit.pnpki.account_revoked','user',$userId,[
+            'remote_user_id'=>(int)$link['remote_user_id']
+        ]);
+        return [];
+    } catch(Throwable $e) {
+        error_log('FP-OMS PNPKI revocation: '.$e->getMessage());
+        return ['Unable to complete PNPKI_2 revocation. No existing documents were deleted. Retry or contact RICTU.'];
+    }
+}
+
 function pnpki_pending_signed_upload(int $id,int $revision): ?array
 {
     if (!pnpki_authorized_upload_ready()) return null;
