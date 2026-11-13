@@ -58,6 +58,27 @@ function pnpki_bridge_signature(string $body,string $timestamp,string $nonce): s
         (string)fpoms_pnpki_effective_config()['secret']);
 }
 
+/** Safe, user-facing bridge errors; never echo remote server text or SQL. */
+function pnpki_bridge_error_message(string $code): string
+{
+    return match($code) {
+        'VERIFICATION_PAUSED'=>'PNPKI_2 PDF verification is OFF in Admin Settings. Turn it ON before retrying signed-PDF forwarding.',
+        'PDFSIG_UNAVAILABLE'=>'PNPKI_2 cannot execute Poppler pdfsig.exe. Admin: install/configure the verifier and run Test PDF Signature Verification.',
+        'RED_CERTIFICATE_NOT_CONFIGURED'=>'PNPKI_2 RED certificate Common Name is missing. Admin: save the exact certificate Common Name.',
+        'SIGNATURE_INVALID'=>'The RED PDF cryptographic signature is invalid or could not be verified. Test this signed PDF in PNPKI_2 Admin.',
+        'CERTIFICATE_UNTRUSTED'=>'The RED digital certificate chain is not trusted by PNPKI_2. Admin: verify the trusted PNPKI certificate chain.',
+        'RED_IDENTITY_MISMATCH'=>'The PDF signer certificate Common Name does not match the configured RED certificate identity.',
+        'RED_AUTHORIZATION_FAILED'=>'RED PNPKI_2 authorization is invalid or expired. Reauthorize the configured RED account in FP-OMS.',
+        'SCHEMA_NOT_READY'=>'PNPKI_2 integration database setup is incomplete. Admin: verify migrations 001 and 002.',
+        'DOCUMENT_CONFLICT'=>'PNPKI_2 already has a different signed document for this application. Contact RICTU before retrying.',
+        'PDF_VERIFICATION_FAILED'=>'PNPKI_2 could not validate this signed PDF. Run the signed-PDF test in PNPKI_2 Admin.',
+        'PNPKI_SERVER_ERROR'=>'PNPKI_2 encountered an internal server/database error. Ask RICTU to inspect the PNPKI_2 server logs.',
+        'AUTHENTICATION_FAILED'=>'PNPKI_2 rejected the connection credentials. Admin: verify the same shared secret and server time in both systems.',
+        'CONNECTION_FAILED'=>'Cannot reach the PNPKI_2 server. Check PNPKI_2 service status and configured integration URL.',
+        default=>'PNPKI_2 rejected the request. Ask RICTU to inspect the PNPKI_2 integration logs.'
+    };
+}
+
 function pnpki_bridge_request(array $payload): array
 {
     if (!pnpki_bridge_configured()) {
@@ -89,10 +110,22 @@ function pnpki_bridge_request(array $payload): array
     $failure=curl_error($handle);
     curl_close($handle);
     if (!is_string($body) || $http!==200) {
-        error_log('FP-OMS PNPKI_2 request failed: HTTP '.$http.' '.$failure);
-        throw new RuntimeException($http===401
-            ? 'PNPKI_2 rejected the authentication signature; check matching shared secrets and server clocks.'
-            : 'Unable to contact PNPKI_2 or complete the request. Check its endpoint, migrations and configuration.');
+        $received=is_string($body)?json_decode($body,true):null;
+        $code=is_array($received)?(string)($received['error_code']??''):'';
+        $known=['VERIFICATION_PAUSED','PDFSIG_UNAVAILABLE',
+            'RED_CERTIFICATE_NOT_CONFIGURED','SIGNATURE_INVALID',
+            'CERTIFICATE_UNTRUSTED','RED_IDENTITY_MISMATCH',
+            'RED_AUTHORIZATION_FAILED','SCHEMA_NOT_READY',
+            'DOCUMENT_CONFLICT','PDF_VERIFICATION_FAILED','PNPKI_SERVER_ERROR'];
+        if (!in_array($code,$known,true)) {
+            $code=$http===401?'AUTHENTICATION_FAILED'
+                :($http===0?'CONNECTION_FAILED':'PNPKI_SERVER_ERROR');
+        }
+        // Server log contains only the HTTP status/code and transport failure,
+        // never the remote response body, secrets, or applicant PDF.
+        error_log('FP-OMS PNPKI_2 HTTP '.$http.' code='.$code
+            .' transport='.substr($failure,0,120));
+        throw new RuntimeException(pnpki_bridge_error_message($code));
     }
     $value=json_decode($body,true,16,JSON_THROW_ON_ERROR);
     if (!is_array($value) || ($value['ok']??false)!==true) {
