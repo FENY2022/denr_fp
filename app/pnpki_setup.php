@@ -106,6 +106,7 @@ function fpoms_pnpki_valid_url(string $url,bool $allowLocal): bool
 function fpoms_pnpki_install_tables(array $admin): array
 {
     if (!has_role($admin,'super_admin')) return ['Super Administrator required.'];
+    if (fpoms_pnpki_setup_tables_ready()) return [];
     try {
         // The PNPKI link table depends on the already-defined Template No. 2
         // notice table. Create or verify it using the app's existing installer.
