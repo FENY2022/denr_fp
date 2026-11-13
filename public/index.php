@@ -897,8 +897,9 @@ try {
             if (!$id) show_error('Invalid payment notice reference.',400);
             $errors=pnpki_upload_signed_pdf($red,(int)$id,$_FILES['signed_pdf']??[]);
             if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
-            else flash('success','PNPKI-signed Template No. 2 securely forwarded to PNPKI_2 Records. '
-                .'The applicant will only be notified after verified official Records release.');
+            else flash('success','Template No. 2 received by PNPKI_2 Records for review. '
+                .'If signature verification is OFF, it remains UNVERIFIED / PENDING VERIFICATION. '
+                .'No official release or applicant payment notice until verified Records release.');
             go('payment_notice_queue');
             break;
         case 'payment_notice_pnpki_retry':
@@ -910,7 +911,8 @@ try {
             if (!$id) show_error('Invalid payment notice reference.',400);
             $errors=pnpki_submit_saved_signed_pdf($red,(int)$id);
             if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
-            else flash('success','Signed PDF forwarded to PNPKI_2 Records.');
+            else flash('success','PDF received by PNPKI_2 Records. If automated verification is OFF, '
+                .'status remains UNVERIFIED / PENDING VERIFICATION and release is blocked.');
             go('payment_notice_queue');
             break;
         case 'payment_notice_pnpki_open':
