@@ -142,6 +142,17 @@ the saved account link before creating a new RED session and opening
 the linked document. It is NOT a permanent shared session or a bypass
 of first-time user consent.
 
+### Admin pause switch (PNPKI_2)
+
+PNPKI_2 Admin → FP-OMS Integration Setup → **Digital Signature Verification** has an
+ON/OFF switch. **ON** (default) requires Poppler `pdfsig`, a trusted RED PNPKI
+certificate chain, and an exact RED certificate Common Name match.
+**OFF** is a secure maintenance pause, not a verification bypass: new
+FP-OMS signed-PDF imports and verified Records release/status sync are blocked.
+Previously stored documents and audit history are not deleted. Re-enable
+verification and complete the verifier setup before retrying pending submissions.
+No SQL migration is required for this switch.
+
 ### Troubleshooting
 - **Setup Required**: apply 041 and 042 and configure the shared secret.
 - **Authorize** still visible: complete the PNPKI_2 consent and return.
