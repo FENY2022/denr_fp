@@ -55,6 +55,11 @@ function permit_payment_panel_html(array $app,array $viewer,array $errors=[]): s
         return $html.'</section>';
     }
 
+    $html.='<div class="alert alert-warning small mb-3">'
+        .'<i class="bi bi-exclamation-triangle me-1"></i>'
+        .'<strong>OR Verification Required:</strong> Records has forwarded this application to LPDD-FUS. '
+        .'Payment is still pending until authorized LPDD-FUS personnel check the original Cashier-issued OR, '
+        .'upload its scanned copy, and confirm the transaction. Forwarding is not proof of payment.</div>';
     $html.='<p class="small mb-2"><strong>Payment Instructions for Applicant:</strong></p>'
         .'<p class="small">'.e(permit_payment_instructions($id)).'</p>'
         .'<div class="border rounded-3 p-3 mb-3 bg-body">'
@@ -176,7 +181,10 @@ function view_lpdd_fus_payment_queue(): void
          LEFT JOIN permit_payment_verifications p ON p.application_id=a.id
          LEFT JOIN fpoms_payment_notices pn
            ON pn.application_id=a.id AND pn.revision=a.revision AND pn.status='released'
-         WHERE (a.status='step4_complete' OR (a.flow_version=2 AND pn.id IS NOT NULL))
+         LEFT JOIN permit_step3_movements m
+           ON m.application_id=a.id AND m.revision=a.revision
+         WHERE ((COALESCE(a.flow_version,1)<>2 AND a.status='step4_complete')
+                OR (a.flow_version=2 AND pn.id IS NOT NULL AND m.forwarded_at IS NOT NULL))
            AND COALESCE(p.status,'awaiting_payment')=?
          ORDER BY COALESCE(p.verified_at,a.last_submitted_at) DESC,a.id DESC LIMIT 300",
         [$tab==='verified'?'verified':'awaiting_payment']
