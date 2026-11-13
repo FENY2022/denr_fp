@@ -165,11 +165,14 @@ function step3_record_action(array $staff,int $applicationId,string $action,stri
                 }
                 if ($action==='forward') notify_role('lpdd_fus',
                     permit_flow_is_new($app)
-                        ? 'FP Application – Step 4 Notice & CENRO Instructions'
+                        ? 'FP Application – Cashier OR Verification Required'
                         : 'FP Application for Documentary Evaluation',
-                    'FP application #'.$applicationId.' forwarded by RO Receiving; open the appropriate Step 4 queue.',
-                    'file-earmark-check','info',
-                    permit_flow_is_new($app)?'permit_flow_queue':'permit_step4_queue');
+                    permit_flow_is_new($app)
+                        ? 'FP application #'.$applicationId.' forwarded by Records. Verify the client Cashier OR first. Field validation scheduling remains locked until Payment Verified.'
+                        : 'FP application #'.$applicationId.' forwarded by RO Receiving; open the Step 4 documentary evaluation queue.',
+                    'receipt','info',
+                    permit_flow_is_new($app)?'lpdd_fus_payment_queue':'permit_step4_queue',
+                    permit_flow_is_new($app)?['tab'=>'awaiting']:[]);
             } catch (Throwable $e) {
                 error_log('FP-OMS Step 3 notification failed: '.$e->getMessage());
             }
@@ -187,7 +190,7 @@ function step3_send_email_alerts(array $app,int $id,string $action): void
 {
     $forward=$action==='forward';
     $message=$forward ? (permit_flow_is_new($app)
-        ? 'Forwarded to LPDD-FUS for Step 4 Payment Notice / CENRO Instruction'
+        ? 'Forwarded to LPDD-FUS for Cashier OR Verification Before Field Scheduling'
         : 'Forwarded to LPDD-FUS for Step 4 Documentary Evaluation')
         : 'Received by RO Receiving';
     $email=(string)($app['applicant_email'] ?? '');
@@ -207,10 +210,10 @@ function step3_send_email_alerts(array $app,int $id,string $action): void
     if (!$forward) return;
     $base=step2_email_base_url();
     $link=$base !== null ? $base.'?next='
-        .(permit_flow_is_new($app)?'permit-flow-queue':'permit-step4-queue') : null;
+        .(permit_flow_is_new($app)?'lpdd-fus-payment-queue':'permit-step4-queue') : null;
     $body='<p>FP application <strong>#'.$id.'</strong> has been forwarded by RO Receiving '
         .'for Annex A Step 4 '.(permit_flow_is_new($app)
-            ? 'payment notice, field schedule and CENRO memo instructions.'
+            ? 'Cashier OR verification. Only after LPDD-FUS verifies payment will the field validation schedule form and notification be available.'
             : 'documentary evaluation.').'</p>'
         .($link!==null ? '<p><a href="'.e($link).'">Open incoming queue</a></p>':'');
     foreach (step2_staff_recipients('lpdd_fus') as $address) {
