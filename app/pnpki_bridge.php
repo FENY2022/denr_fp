@@ -29,8 +29,9 @@ function pnpki_bridge_link(int $appId,int $revision): ?array
 
 function pnpki_bridge_configured(): bool
 {
-    $secret=env_value('PNPKI_BRIDGE_SECRET','');
-    $url=env_value('PNPKI_BRIDGE_URL','');
+    $config=fpoms_pnpki_effective_config();
+    $secret=(string)$config['secret'];
+    $url=(string)$config['url'];
     if (strlen($secret)<32 || $url==='' || !function_exists('curl_init')) return false;
     $parts=parse_url($url);
     if (!is_array($parts) || empty($parts['host'])
@@ -38,14 +39,14 @@ function pnpki_bridge_configured(): bool
     if (strtolower((string)($parts['scheme']??''))==='https') return true;
     $local=in_array(strtolower((string)$parts['host']),['localhost','127.0.0.1','::1'],true);
     return strtolower((string)($parts['scheme']??''))==='http'
-        && $local && env_value('PNPKI_BRIDGE_ALLOW_LOCAL_HTTP','false')==='true';
+        && $local && !empty($config['allow_local_http']);
 }
 
 /** Open the linked PNPKI_2 document in the user's authenticated PNPKI_2 session. */
 function pnpki_bridge_document_url(int $docId): string
 {
     if ($docId<1 || !pnpki_bridge_configured()) return '';
-    $base=env_value('PNPKI_BRIDGE_URL','');
+    $base=(string)fpoms_pnpki_effective_config()['url'];
     $slash=strrpos($base,'/');
     if ($slash===false) return '';
     return substr($base,0,$slash+1).'view_document.php?id='.$docId;
@@ -54,7 +55,7 @@ function pnpki_bridge_document_url(int $docId): string
 function pnpki_bridge_signature(string $body,string $timestamp,string $nonce): string
 {
     return hash_hmac('sha256',$timestamp."\n".$nonce."\n".hash('sha256',$body),
-        env_value('PNPKI_BRIDGE_SECRET',''));
+        (string)fpoms_pnpki_effective_config()['secret']);
 }
 
 function pnpki_bridge_request(array $payload): array
@@ -71,7 +72,7 @@ function pnpki_bridge_request(array $payload): array
         'X-FPOMS-Nonce: '.$nonce,
         'X-FPOMS-Signature: '.pnpki_bridge_signature($json,$time,$nonce),
     ];
-    $handle=curl_init(env_value('PNPKI_BRIDGE_URL',''));
+    $handle=curl_init((string)fpoms_pnpki_effective_config()['url']);
     curl_setopt_array($handle,[
         CURLOPT_POST=>true,
         CURLOPT_HTTPHEADER=>$headers,
