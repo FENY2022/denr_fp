@@ -57,11 +57,20 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
     $available=array_column($all,'category');
     if ($step===4) {
         $paymentNoticeReleased=fpoms_payment_notice_is_released($id,(int)$app['revision']);
-        $html.='<div class="alert '.($paymentNoticeReleased?'alert-info':'alert-warning').' small">'
-            .($paymentNoticeReleased
-                ? 'The official RED-signed Template No. 2 advice-to-pay notice has been released. LPDD-FUS may now record the field validation schedule and prepare the field-office instruction. Cashier payment is verified separately from the Official Receipt.'
-                : 'Step 4 cannot be completed yet. RED must sign, review and Finalize & Send Template No. 2 to the applicant first.')
-            .'</div>'
+        $paymentVerified=permit_payment_is_verified($id);
+        $html.='<div class="alert '.($paymentVerified?'alert-success':'alert-warning').' small">'
+            .(!$paymentNoticeReleased
+                ? 'Step 4 cannot be completed yet. RED must sign, review and Finalize & Send Template No. 2 to the applicant first.'
+                : ($paymentVerified
+                    ? 'Cashier payment and the Official Receipt have been verified by LPDD-FUS. You may now provide and communicate the field validation schedule.'
+                    : 'Payment verification is required first. Before LPDD-FUS may provide or communicate the field validation schedule, verify the Cashier Official Receipt and upload the scanned OR. No field schedule notification will be sent until payment is verified.'))
+            .'</div>';
+        if ($paymentNoticeReleased && !$paymentVerified && permit_flow_staff_can_act($user,4)) {
+            $html.='<p class="mb-3"><a class="btn btn-outline-primary" href="'
+                .e(url('permit_application',['id'=>$id])).'#fp-payment-verification">'
+                .'<i class="bi bi-receipt me-1"></i>Verify Payment &amp; Upload OR First</a></p>';
+        }
+        $html.=
             .($concernedPenro!==''
                 ? '<div class="border rounded-3 p-3 mb-3 small"><strong>Detected DENR Jurisdiction</strong><br>'
                     .'PENRO: '.e($concernedPenro).'<br>'
@@ -73,7 +82,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                 .'record and communicate the field validation schedule.</div>';
         } else {
             $html.=permit_flow_schedule_summary_html($app,$user,true);
-            if ($paymentNoticeReleased && permit_flow_staff_can_act($user,4)) {
+            if ($paymentNoticeReleased && $paymentVerified && permit_flow_staff_can_act($user,4)) {
                 $existingTimestamp=strtotime((string)($case['field_validation_schedule']??''));
                 $scheduleValue=$existingTimestamp!==false && $existingTimestamp>time()
                     ? date('Y-m-d\TH:i',$existingTimestamp) : '';
@@ -225,9 +234,13 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
         && !fpoms_payment_notice_is_released($id,(int)$app['revision']);
     if ($paymentNoticeMissing) $html.='<div class="alert alert-warning small">'
         .'Official RED-signed Template No. 2 release is required before this step can be completed.</div>';
+    $paymentMissing=$step===4 && !permit_payment_is_verified($id);
+    if ($paymentMissing) $html.='<div class="alert alert-warning small">'
+        .'Step 4 is locked: LPDD-FUS must verify the Cashier Official Receipt first. '
+        .'Field validation scheduling and communication cannot proceed until Payment Verified.</div>';
     $scheduleMissing=$step===4 && (!permit_flow_schedule_schema_ready()
         || !permit_flow_schedule_communicated($id));
-    if ($scheduleMissing) $html.='<div class="alert alert-warning small">'
+    if ($scheduleMissing && !$paymentMissing) $html.='<div class="alert alert-warning small">'
         .'Provide and communicate the field validation/assessment schedule before completing Step 4.</div>';
     $milestoneMissing=($step===5 && (
         !permit_flow_event_exists($id,5,'hardcopy_notice_sent')
@@ -237,7 +250,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             || !permit_flow_event_exists($id,6,'rrdc_deliberated')));
     if ($milestoneMissing) $html.='<div class="alert alert-warning small">'
         .'Required CENRO/RRDC action checkpoints must be recorded before forwarding.</div>';
-    if (permit_flow_staff_can_act($user,$step)) {
+    if (permit_flow_staff_can_act($user,$step) && !$paymentMissing) {
         $html.='<form method="post" action="'.e(url('permit_flow_advance',['id'=>$id,'step'=>$step])).'">'
             .csrf_field();
         if ($step===4) {
@@ -256,9 +269,12 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             .'I confirm the required actions and uploaded documents have been checked. '
             .'This records an authorized hand-off, not an automatic or fabricated signature.</label></div>'
             .'<button class="btn btn-success w-100" name="confirmation" value="1" type="submit"'
-            .($missing || $milestoneMissing || $paymentNoticeMissing || $scheduleMissing?' disabled':'').'>'
+            .($missing || $milestoneMissing || $paymentNoticeMissing || $paymentMissing || $scheduleMissing?' disabled':'').'>'
             .e($step===11?'Confirm Release & Issue Feasibility Permit':'Complete Step '.$step.' & Forward')
             .'</button></form>';
+    } elseif ($paymentMissing && permit_flow_staff_can_act($user,$step)) {
+        $html.='<p class="small text-secondary">Complete LPDD-FUS Official Receipt verification '
+            .'before the field schedule and the Step 4 hand-off become available.</p>';
     } else {
         $html.='<p class="small text-secondary">Only the authorized office for this stage can complete its actions.</p>';
     }
