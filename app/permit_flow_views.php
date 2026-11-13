@@ -70,8 +70,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                 .e(url('permit_application',['id'=>$id])).'#fp-payment-verification">'
                 .'<i class="bi bi-receipt me-1"></i>Verify Payment &amp; Upload OR First</a></p>';
         }
-        $html.=
-            .($concernedPenro!==''
+        $html.=($concernedPenro!==''
                 ? '<div class="border rounded-3 p-3 mb-3 small"><strong>Detected DENR Jurisdiction</strong><br>'
                     .'PENRO: '.e($concernedPenro).'<br>'
                     .'CENRO: '.e($concernedCenro!==''?$concernedCenro:'Direct PENRO jurisdiction')
