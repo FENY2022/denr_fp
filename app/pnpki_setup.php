@@ -115,9 +115,11 @@ function fpoms_pnpki_install_tables(array $admin): array
             if (!is_string($sql) || $sql==='') {
                 throw new RuntimeException('Missing database migration file.');
             }
-            // Fixed bundled SQL, not user input. These migrations contain
-            // only CREATE TABLE statements terminated by semicolons.
-            foreach (preg_split('/;\\s*(?:\\r?\\n|$)/',$sql) ?: [] as $statement) {
+            // Fixed bundled SQL, never user input. Remove SQL line comments
+            // before splitting on semicolons; DDL remains idempotent.
+            $sql=preg_replace('/^[ \\t]*--[^\\r\\n]*$/m','',$sql);
+            if (!is_string($sql)) throw new RuntimeException('Cannot parse the migration file.');
+            foreach (explode(';',$sql) as $statement) {
                 if (trim($statement)!=='') db()->exec($statement);
             }
         }
