@@ -326,6 +326,9 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
     if (!permit_flow_staff_can_act($staff,4)) {
         return ['Only authorized LPDD-FUS personnel may communicate the field schedule.'];
     }
+    if (!permit_payment_is_verified($id)) {
+        return ['LPDD-FUS must first verify the Cashier Official Receipt and upload the OR before communicating the field validation schedule.'];
+    }
     if (($input['confirmation']??'')!=='communicate_schedule') {
         return ['Confirm that the field validation schedule is ready to communicate.'];
     }
@@ -364,6 +367,10 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
         if (!fpoms_payment_notice_is_released($id,(int)$app['revision'])) {
             $pdo->rollBack();
             return ['The RED-signed Template No. 2 must be finalized and released before communicating the schedule.'];
+        }
+        if (!permit_payment_is_verified($id)) {
+            $pdo->rollBack();
+            return ['Cashier payment is not verified. LPDD-FUS must verify and upload the OR before communicating any schedule.'];
         }
         $wasCommunicated=!empty($case['field_schedule_communicated_at']);
         $pdo->prepare('UPDATE permit_flow_cases
@@ -437,6 +444,10 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
     $instructions='';
     if ($step===4) {
         $instructions=trim((string)($input['cenro_instructions']??''));
+        if (!permit_payment_schema_ready()) return ['Apply migration 028 for Cashier payment tracking.'];
+        if (!permit_payment_is_verified($id)) {
+            return ['LPDD-FUS must verify the Cashier Official Receipt and upload the OR before communicating a field schedule or forwarding Step 4.'];
+        }
         if (!permit_flow_schedule_schema_ready()) return ['Apply database migration 039 first.'];
         if (!permit_flow_schedule_communicated($id)) {
             return ['Save and communicate the field validation/assessment schedule first.'];
@@ -444,7 +455,6 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
         if (strlen($instructions)<10 || strlen($instructions)>3000) {
             return ['Provide CENRO memo instructions (10–3,000 characters).'];
         }
-        if (!permit_payment_schema_ready()) return ['Apply migration 028 for Cashier payment tracking.'];
         $paymentNoticeApp=step2_application($id);
         if (!$paymentNoticeApp
             || !fpoms_payment_notice_is_released($id,(int)$paymentNoticeApp['revision'])) {
@@ -481,6 +491,10 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             $pdo->rollBack();
             return ['Official RED-signed Template No. 2 has not yet been finalized/released.'];
         }
+        if ($step===4 && !permit_payment_is_verified($id)) {
+            $pdo->rollBack();
+            return ['Cashier OR verification is required before completing Step 4.'];
+        }
         if ($step===4 && (empty($case['field_validation_schedule'])
             || empty($case['field_schedule_communicated_at']))) {
             $pdo->rollBack();
@@ -503,10 +517,6 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
                 ->execute([$instructions,$id]);
             $pdo->prepare("UPDATE permit_step2_applications SET status='step4_complete' WHERE id=?")
                 ->execute([$id]);
-            $pdo->prepare("INSERT INTO permit_payment_verifications
-                (application_id,status,notified_at) VALUES (?,'awaiting_payment',NOW())
-                ON DUPLICATE KEY UPDATE notified_at=COALESCE(notified_at,VALUES(notified_at))")
-                ->execute([$id]);
         }
         $next=$step===11?12:$step+1;
         $pdo->prepare('UPDATE permit_flow_cases
@@ -528,13 +538,7 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
         if ($nextRole) notify_role($nextRole,'FP Application #'.$id.' – Step '.($step+1).' Action Required',
             'Updated Annex A application #'.$id.' is ready for '.permit_flow_step_label($step+1).'.',
             'file-earmark-check','info','permit_flow',['id'=>$id]);
-        if ($step===4) {
-            // Schedule communication is a separate audited action. Completion
-            // now only hands the prepared field-office instruction to Step 5.
-            notify_role('lpdd_fus','FP Cashier Payment Awaiting Verification',
-                'FP application #'.$id.' requires Cashier payment and LPDD-FUS receipt verification.',
-                'receipt','info','lpdd_fus_payment_queue',['tab'=>'awaiting']);
-        } elseif ($step===11) {
+        if ($step===11) {
             $message='Your FP application #'.$id.' has been approved and released. '
                 .'See the authorized FP/TOR documents and records release instructions in FP-OMS.';
             create_client_notification((int)$app['client_id'],'Feasibility Permit Issued',
