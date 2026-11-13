@@ -7,6 +7,42 @@ PNPKI_2 then receives the signed document directly in the linked Records
 Office account; Records does not need to upload or sign a second PDF.
 The applicant is NOT told to pay until the PNPKI_2 Records release is verified.
 
+## Preferred setup: Admin UI (no routine manual SQL or .env editing)
+
+1. **Back up both databases** in phpMyAdmin before installation.
+2. In **PNPKI_2**, log in as an active **Admin**. On the dashboard,
+   select **Admin Tools → FP-OMS Integration Setup**.
+   - Click **Install / Verify PNPKI_2 Tables 001 & 002**.
+   - Select the active RED, Records Office and Initiator/Service accounts.
+   - Set the full FP-OMS callback and authorization-return URLs.
+   - Set Poppler `pdfsig.exe` and the exact RED signer certificate Common Name.
+   - For one-machine XAMPP testing only, enable localhost HTTP.
+   - Click **Save Private PNPKI_2 Settings**. If first set up without a
+     secret, a 64-character random secret is generated and shown **once**.
+     Copy it securely; the config is saved in a restricted folder outside
+     the document root rather than in GitHub.
+3. In **FP-OMS**, log in as **Super Administrator** and select
+   **Configuration → PNPKI_2 Integration**.
+   - Click **Install / Verify FP-OMS Tables 041 & 042**.
+   - Enter the PNPKI_2 API URL (for example,
+     `http://localhost/PNPKI_2/fpoms_bridge.php`).
+   - Paste the **same** PNPKI_2 shared secret and enable localhost HTTP
+     only for single-machine testing.
+   - Click **Save Secure Connection** and **Test PNPKI_2 Connection**.
+     FP-OMS encrypts the shared secret at rest using its existing private
+     master encryption key.
+4. Confirm the connection test shows database, account and signature verifier
+   readiness. Then the RED can use the regular
+   `/payment-notice-queue` authorization and signed upload actions.
+
+**Prerequisites:** both projects must be updated/pulled from GitHub.
+The web database accounts must have one-time CREATE TABLE/ALTER TABLE
+permissions for the admin install buttons; otherwise use the manual SQL
+steps below. Neither wizard accesses your local server from ChatGPT, and
+neither uploads a PNPKI private key or certificate PIN.
+
+### Manual fallback (only if Admin setup cannot run)
+
 ## Install database migrations (after separate database backups)
 - FP-OMS database `denr_fp_oms`:
   1. `database/041_pnpki_2_bridge.sql` if not installed
