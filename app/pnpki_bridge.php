@@ -212,6 +212,8 @@ function pnpki_bridge_reconcile(int $id): array
             return ['PNPKI_2 document reference mismatch.'];
         }
         $stage=(string)($result['status']??'');
+        $verificationMode=(string)($result['verification_mode']??'automated_pdfsig');
+        $manualRecords=$verificationMode==='records_manual_attestation';
         if (!in_array($stage,['awaiting_red','awaiting_records','verification_required','released_verified'],true)) {
             return ['Unexpected PNPKI_2 document status.'];
         }
@@ -259,9 +261,12 @@ function pnpki_bridge_reconcile(int $id): array
                 $pdo->prepare("UPDATE fpoms_payment_notices SET status='signed',
                     artifact_id=?,approved_by=?,approved_at=NOW() WHERE id=?")
                     ->execute([$artifactId,(int)$red['id'],(int)$locked['id']]);
-                permit_flow_record_event($pdo,$id,3,$red,'payment_notice_pnpki_verified',
+                permit_flow_record_event($pdo,$id,3,$red,
+                    $manualRecords?'payment_notice_records_released':'payment_notice_pnpki_verified',
                     'PNPKI_2 document #'.(int)$link['remote_doc_id']
-                    .' digitally signed by RED, verified and released by Records.');
+                    .($manualRecords
+                        ? ' final signed PDF uploaded and manually attested/released by Records; automated pdfsig verification was disabled.'
+                        : ' digitally signed by RED, cryptographically verified and released by Records.'));
                 $importedNow=true;
             } elseif ((string)$bridge['stage']!=='released_verified') {
                 throw new RuntimeException('This notice was signed outside the active PNPKI_2 handoff.');
@@ -276,9 +281,11 @@ function pnpki_bridge_reconcile(int $id): array
         }
         if ($importedNow) {
             try {
-                notify_role('red','PNPKI_2 Signed and Released – FP #'.$id,
+                notify_role('red','PNPKI_2 Released – FP #'.$id,
                     'PNPKI_2 document #'.(int)$link['remote_doc_id']
-                    .' has been digitally signed by RED, verified and officially released by Records. '
+                    .($manualRecords
+                        ? ' has a Records-uploaded final signed PDF and was officially released by Records using manual attestation. '
+                        : ' has been digitally signed by RED, cryptographically verified and officially released by Records. ')
                     .'FP-OMS is processing the applicant notice to pay.',
                     'shield-check','success','payment_notice_queue');
             } catch (Throwable $notifyError) {
