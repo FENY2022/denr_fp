@@ -469,7 +469,8 @@ try {
                     $errors=fpoms_pnpki_test_connection($admin);
                     if ($errors) fpoms_pnpki_setup_view($errors);
                     else {
-                        flash('success','PNPKI_2 authenticated connection, database, accounts and certificate verifier are ready.');
+                        flash('success','PNPKI_2 authenticated connection and basic setup checks passed. '
+                            .'Test a real RED PNPKI-signed PDF and Records release before production.');
                         go('pnpki_settings');
                     }
                 } else show_error('Invalid PNPKI configuration operation.',400);
