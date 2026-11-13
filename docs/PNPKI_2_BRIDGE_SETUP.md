@@ -13,7 +13,7 @@ The applicant is NOT told to pay until the PNPKI_2 Records release is verified.
 2. In **PNPKI_2**, log in as an active **Admin**. On the dashboard,
    select **Admin Tools → FP-OMS Integration Setup**.
    - Click **Install / Verify PNPKI_2 Tables 001 & 002**.
-   - Select the active RED, Records Office and Initiator/Service accounts.
+   - Select the active RED and Records Office accounts. Initiator/Service is optional for the new RED signed-PDF upload workflow; select an active Initiator only if the legacy unsigned handoff is still used.
    - Set the full FP-OMS callback and authorization-return URLs.
    - Set Poppler `pdfsig.exe` and the exact RED signer certificate Common Name.
    - For one-machine XAMPP testing only, enable localhost HTTP.
