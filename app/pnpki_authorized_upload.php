@@ -250,8 +250,30 @@ function pnpki_submit_saved_signed_pdf(array $red,int $id): array
         return [];
     } catch(Throwable $e) {
         error_log('FP-OMS PNPKI signed import: '.$e->getMessage());
-        return ['Unable to forward signed PDF to PNPKI_2 Records. Verify the trusted '
-            .'PNPKI signature, account authorization and server connection; retry safely.'];
+        // Only show the curated, safe diagnostics emitted by the bridge adapter.
+        // Never reveal raw database exceptions or internal server file paths.
+        if ($e instanceof RuntimeException) {
+            $known=[
+                'PNPKI_2 PDF verification is OFF',
+                'PNPKI_2 cannot execute Poppler pdfsig.exe',
+                'PNPKI_2 RED certificate Common Name is missing',
+                'The RED PDF cryptographic signature is invalid',
+                'The RED digital certificate chain is not trusted',
+                'The PDF signer certificate Common Name does not match',
+                'RED PNPKI_2 authorization is invalid',
+                'PNPKI_2 integration database setup is incomplete',
+                'PNPKI_2 already has a different signed document',
+                'PNPKI_2 could not validate this signed PDF',
+                'PNPKI_2 encountered an internal server/database error',
+                'PNPKI_2 rejected the connection credentials',
+                'Cannot reach the PNPKI_2 server',
+                'PNPKI_2 rejected the request.'
+            ];
+            foreach ($known as $prefix) {
+                if (str_starts_with($e->getMessage(),$prefix)) return [$e->getMessage()];
+            }
+        }
+        return ['Unable to forward the saved signed PDF. Check PNPKI_2 integration diagnostics or ask RICTU to inspect the server logs. Your uploaded document is still saved; retry safely.'];
     }
 }
 
