@@ -156,6 +156,23 @@ checks before official release. The older unsigned-document bridge remains pause
 Previously stored documents and audit history are not deleted.
 No SQL migration is required for this switch.
 
+### Records final PDF: download → upload → official release
+
+After an authorized FP-OMS RED PDF is received, PNPKI_2 Records gets an
+in-system notification. On **View Document**, Records can click **Download RED
+Document**, complete the applicable PNPKI document-signing workflow, and
+**Upload Final Signed PDF**. The upload creates a new file version and an
+audit-history entry without releasing the document.
+
+When automatic verification is OFF, Records can receive, download and upload
+a PDF for review, but **official release remains disabled**. When verification
+is ON, the release action accepts only a staged Records final PDF whose RED
+PNPKI signature, signer identity and certificate chain pass the trusted
+verifier. After release, the final Records-uploaded PDF (not the initial upload)
+is returned to FP-OMS via the verified status/callback workflow and applicant
+notification. No SQL migration is required. Ensure `uploads/.htaccess` is
+honored by the web server; new Records PDFs must not be publicly served.
+
 ### Troubleshooting
 - **Setup Required**: apply 041 and 042 and configure the shared secret.
 - **Authorize** still visible: complete the PNPKI_2 consent and return.
