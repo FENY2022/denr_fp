@@ -865,6 +865,18 @@ try {
                 go('payment_notice_queue');
             }
             break;
+        case 'payment_notice_pnpki_revoke':
+            if (!$post) show_error('PNPKI authorization revocation requires POST.',405);
+            $red=require_role('red');
+            check_csrf();
+            if (($_POST['confirmation']??'')!=='REVOKE') {
+                show_error('Confirm RED PNPKI_2 account disconnection.',400);
+            }
+            $errors=pnpki_revoke_authorization($red);
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success','PNPKI_2 access revoked. Existing documents and Records release history remain intact. You may authorize again when needed.');
+            go('payment_notice_queue');
+            break;
         case 'pnpki_authorized':
             if ($post) show_error('PNPKI account callback requires GET.',405);
             $red=require_role('red');
