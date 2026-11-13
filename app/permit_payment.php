@@ -45,9 +45,21 @@ function permit_payment_record(int $applicationId): ?array
 
 function permit_payment_available_for_application(array $app): bool
 {
-    if ((string)($app['status']??'')==='step4_complete') return true;
-    return permit_flow_is_new($app)
-        && fpoms_payment_notice_is_released((int)$app['id'],(int)$app['revision']);
+    // Legacy cases retain their established post-Step-4 payment flow.
+    if (!permit_flow_is_new($app)) {
+        return (string)($app['status']??'')==='step4_complete';
+    }
+
+    // Modern cases: the RED-signed notice alone is insufficient. Records must
+    // formally forward the application to LPDD-FUS before OR verification.
+    if (!fpoms_payment_notice_is_released((int)$app['id'],(int)$app['revision'])) {
+        return false;
+    }
+    $movement=query_one(
+        'SELECT forwarded_at FROM permit_step3_movements WHERE application_id=? AND revision=?',
+        [(int)$app['id'],(int)$app['revision']]
+    );
+    return $movement && !empty($movement['forwarded_at']);
 }
 
 function permit_payment_instructions(int $applicationId): string
