@@ -197,12 +197,14 @@ function fpoms_pnpki_test_connection(array $admin): array
         $response=pnpki_bridge_request(['action'=>'health']);
         $schema=(bool)($response['schema_ready']??false);
         $identities=(bool)($response['accounts_ready']??false);
+        $releaseMode=(string)($response['release_mode']??'automated_pdfsig');
         $verifier=(bool)($response['signature_verifier_ready']??false);
-        if (!$schema || !$identities || !$verifier) {
+        $releaseReady=$verifier || $releaseMode==='records_manual_attestation';
+        if (!$schema || !$identities || !$releaseReady) {
             return ['Connected to PNPKI_2 but its setup is incomplete: '
                 .(!$schema?'database migrations; ':'')
-                .(!$identities?'RED / Records / Initiator user accounts; ':'')
-                .(!$verifier?'pdfsig and RED certificate settings; ':'')];
+                .(!$identities?'RED / Records user accounts; ':'')
+                .(!$releaseReady?'release verification / Records attestation mode; ':'')];
         }
         return [];
     } catch(Throwable $e) {
@@ -259,7 +261,7 @@ function fpoms_pnpki_setup_view(array $messages=[]): void
         .'<h3 class="h6">3. Test &amp; Complete PNPKI_2 Setup</h3>'
         .'<p>Open <strong>PNPKI_2 Admin → FP-OMS Integration Setup</strong>. Install '
         .'PNPKI migrations 001/002, choose the real RED and Records accounts, '
-        .'configure pdfsig/certificate trust, then copy the generated secret above.</p>'
+        .'choose either automated pdfsig verification or manual Records attestation, then copy the generated secret above.</p>'
         .'<form method="post" action="'.e(url('pnpki_settings')).'">'
         .csrf_field().'<input type="hidden" name="operation" value="test">'
         .'<button class="btn btn-outline-success" type="submit"'
