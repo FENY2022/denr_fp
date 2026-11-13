@@ -446,6 +446,35 @@ try {
         case 'profile_photo':
             send_current_profile_photo(require_user());
             break;
+        case 'pnpki_settings':
+            $admin=require_role('super_admin');
+            if ($post) {
+                check_csrf();
+                $operation=safe_post('operation',20);
+                if ($operation==='install') {
+                    $errors=fpoms_pnpki_install_tables($admin);
+                    if ($errors) fpoms_pnpki_setup_view($errors);
+                    else {
+                        flash('success','FP-OMS PNPKI integration database tables installed/verified.');
+                        go('pnpki_settings');
+                    }
+                } elseif ($operation==='save') {
+                    $errors=fpoms_pnpki_save_settings($admin,$_POST);
+                    if ($errors) fpoms_pnpki_setup_view($errors);
+                    else {
+                        flash('success','PNPKI_2 connection saved encrypted. Use Test Connection to verify the remote server.');
+                        go('pnpki_settings');
+                    }
+                } elseif ($operation==='test') {
+                    $errors=fpoms_pnpki_test_connection($admin);
+                    if ($errors) fpoms_pnpki_setup_view($errors);
+                    else {
+                        flash('success','PNPKI_2 authenticated connection, database, accounts and certificate verifier are ready.');
+                        go('pnpki_settings');
+                    }
+                } else show_error('Invalid PNPKI configuration operation.',400);
+            } else fpoms_pnpki_setup_view();
+            break;
         case 'realtime_settings':
             $admin = require_role('super_admin');
             if ($post) {
