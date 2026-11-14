@@ -80,8 +80,9 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'</div>'
                 : '');
         if (!permit_flow_schedule_schema_ready()) {
-            $html.='<div class="alert alert-warning small">Apply database migration 039 to '
-                .'record and communicate the field validation schedule.</div>';
+            $html.='<div class="alert alert-warning small">Apply database migrations 039 and 043 '
+                .'to enable From/To dates for field validation. Existing schedules and applications '
+                .'are retained.</div>';
         } else {
             $html.=permit_flow_schedule_summary_html($app,$user,true);
             if ($paymentNoticeReleased && $paymentVerified && permit_flow_staff_can_act($user,4)) {
