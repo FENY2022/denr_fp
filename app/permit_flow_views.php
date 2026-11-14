@@ -17,8 +17,11 @@ function permit_flow_schedule_summary_html(array $app,array $viewer,bool $compac
         .'<i class="bi bi-calendar-event-fill text-warning fs-5" aria-hidden="true"></i>'
         .'<h3 class="h6 mb-0">Field Validation / Assessment Schedule</h3></div>'
         .'<dl class="row small mb-0">'
-        .'<dt class="col-sm-4">Date and Time</dt><dd class="col-sm-8 fw-semibold">'
-        .e(fpoms_display_datetime((string)$schedule['field_validation_schedule'])).'</dd>'
+        .'<dt class="col-sm-4">From – To</dt><dd class="col-sm-8 fw-semibold">'
+        .e(fpoms_display_datetime((string)$schedule['field_validation_schedule']))
+        .(!empty($schedule['field_validation_schedule_end'])
+            ? ' – '.e(fpoms_display_datetime((string)$schedule['field_validation_schedule_end'])) : '')
+        .'</dd>'
         .'<dt class="col-sm-4">Venue / Location</dt><dd class="col-sm-8">'
         .e((string)$schedule['field_validation_location']).'</dd>'
         .($office!==''?'<dt class="col-sm-4">Concerned Field Office</dt><dd class="col-sm-8">'
@@ -84,7 +87,10 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             if ($paymentNoticeReleased && $paymentVerified && permit_flow_staff_can_act($user,4)) {
                 $existingTimestamp=strtotime((string)($case['field_validation_schedule']??''));
                 $scheduleValue=$existingTimestamp!==false && $existingTimestamp>time()
-                    ? date('Y-m-d\TH:i',$existingTimestamp) : '';
+                    ? date('Y-m-d H:i',$existingTimestamp) : '';
+                $endTimestamp=strtotime((string)($case['field_validation_schedule_end']??''));
+                $endValue=$endTimestamp!==false && $endTimestamp>$existingTimestamp
+                    ? date('Y-m-d H:i',$endTimestamp) : '';
                 $location=trim((string)($case['field_validation_location']??''));
                 if ($location==='') $location=trim((string)($app['project_location']??''));
                 $scheduleNotes=(string)($case['field_schedule_notes']??'');
@@ -97,12 +103,30 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'to the applicant. It does not complete Step 4 or generate Template No. 3.</p>'
                     .'<form method="post" action="'.e(url('permit_flow_schedule',['id'=>$id])).'">'
                     .csrf_field()
-                    .'<div class="row g-3"><div class="col-md-6">'
-                    .'<label class="form-label" for="field-validation-schedule-'.$id.'">Date and Time *</label>'
-                    .'<input type="datetime-local" class="form-control" '
-                    .'id="field-validation-schedule-'.$id.'" name="field_validation_schedule" '
-                    .'min="'.e(date('Y-m-d\TH:i')).'" required value="'.e($scheduleValue).'"></div>'
-                    .'<div class="col-md-6"><label class="form-label" '
+                    .'<div class="fp-flight-range border rounded-3 p-3 mt-3" data-fp-flight-calendar>'
+                    .'<div class="d-flex justify-content-between align-items-center gap-2 mb-3">'
+                    .'<strong><i class="bi bi-calendar-range me-1"></i>Choose Field Validation Dates</strong>'
+                    .'<button class="btn btn-outline-primary btn-sm" type="button" data-fp-flight-open>'
+                    .'Select Date Range</button></div>'
+                    .'<div class="row g-3"><div class="col-sm-6">'
+                    .'<label class="form-label">From Date *</label>'
+                    .'<input type="date" class="form-control" name="field_validation_from_date" '
+                    .'data-fp-flight-from min="'.e(date('Y-m-d')).'" '
+                    .'value="'.e($scheduleValue!==''?substr($scheduleValue,0,10):'').'" required></div>'
+                    .'<div class="col-sm-6"><label class="form-label">To Date *</label>'
+                    .'<input type="date" class="form-control" name="field_validation_to_date" '
+                    .'data-fp-flight-to min="'.e(date('Y-m-d')).'" '
+                    .'value="'.e($endValue!==''?substr($endValue,0,10):'').'" required></div>'
+                    .'<div class="col-sm-6"><label class="form-label">From Time *</label>'
+                    .'<input type="time" class="form-control" name="field_validation_from_time" '
+                    .'value="'.e($scheduleValue!==''?substr($scheduleValue,11,5):'08:00').'" required></div>'
+                    .'<div class="col-sm-6"><label class="form-label">To Time *</label>'
+                    .'<input type="time" class="form-control" name="field_validation_to_time" '
+                    .'value="'.e($endValue!==''?substr($endValue,11,5):'17:00').'" required></div></div>'
+                    .'<div class="fp-flight-popover mt-3" data-fp-flight-popover hidden></div>'
+                    .'<div class="small text-secondary mt-2">Choose a start and end date like an airline booking. '
+                    .'For same-day visits, To Time must be later than From Time.</div></div>'
+                    .'<div class="row g-3 mt-1"><div class="col-md-12"><label class="form-label" '
                     .'for="field-validation-location-'.$id.'">Venue / Location *</label>'
                     .'<input class="form-control" id="field-validation-location-'.$id.'" '
                     .'name="field_validation_location" minlength="5" maxlength="300" required '
@@ -120,7 +144,9 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'<button class="btn btn-warning" type="submit" name="confirmation" '
                     .'value="communicate_schedule"><i class="bi bi-send me-1"></i>'
                     .($alreadyCommunicated?'Update &amp; Re-communicate Schedule':'Save &amp; Communicate Schedule')
-                    .'</button></form></div>';
+                    .'</button></form></div>'
+                    .'<link rel="stylesheet" href="assets/field-validation-range.css?v=1">'
+                    .'<script src="assets/field-validation-range.js?v=1" defer></script>';;
             }
         }
     } elseif ($step===5) {
