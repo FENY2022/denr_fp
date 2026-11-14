@@ -219,6 +219,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                 .'Record Completed RRDC Deliberation</button></form>';
         }
     }
+    if ($step===4) $html.=cenro_memo_panel_html($app,$user);
     if ($categories) {
         $html.='<div class="table-responsive"><table class="table table-hover align-middle">'
             .'<thead><tr><th>Required Documents</th><th>Status</th><th>Upload / View</th></tr></thead><tbody>';
@@ -255,6 +256,10 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
     $missing=permit_flow_missing_artifacts($id,$step);
     if ($missing) $html.='<div class="alert alert-warning small">Before completing this step, upload: '
         .e(implode('; ',$missing)).'</div>';
+    $cenroMemoPending=$step===4 && cenro_memo_release_required($id,(int)$app['revision'])
+        && !cenro_memo_is_released($id,(int)$app['revision']);
+    if ($cenroMemoPending) $html.='<div class="alert alert-warning small">'
+        .'RED PNPKI signing and PNPKI_2 Records release are required before Step 4 can be completed.</div>';
     $paymentNoticeMissing=$step===4
         && !fpoms_payment_notice_is_released($id,(int)$app['revision']);
     if ($paymentNoticeMissing) $html.='<div class="alert alert-warning small">'
@@ -294,7 +299,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             .'I confirm the required actions and uploaded documents have been checked. '
             .'This records an authorized hand-off, not an automatic or fabricated signature.</label></div>'
             .'<button class="btn btn-success w-100" name="confirmation" value="1" type="submit"'
-            .($missing || $milestoneMissing || $paymentNoticeMissing || $paymentMissing || $scheduleMissing?' disabled':'').'>'
+            .($missing || $milestoneMissing || $paymentNoticeMissing || $paymentMissing || $scheduleMissing || $cenroMemoPending?' disabled':'').'>'
             .e($step===11?'Confirm Release & Issue Feasibility Permit':'Complete Step '.$step.' & Forward')
             .'</button></form>';
     } elseif ($paymentMissing && permit_flow_staff_can_act($user,$step)) {
