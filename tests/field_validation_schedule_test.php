@@ -25,8 +25,16 @@ schedule_assert(str_contains($rangeMigration,'field_validation_schedule_end')
     && str_contains($flow,"\$end=step4_parse_schedule")
     && str_contains($flow,'later than From date and time')
     && str_contains($picker,'fp-flight-months')
-    && str_contains($views,'data-fp-flight-calendar'),
-    'From/To range is persisted, validated and selected with two-month date picker');
+    && str_contains($picker,'to.value=date;choosingEnd=true')
+    && str_contains($picker,'to.value=date;choosingEnd=false')
+    && str_contains($picker,"' • 1 Day'")
+    && str_contains($picker,"+' Days'")
+    && str_contains($views,'data-fp-flight-calendar')
+    && !str_contains($views,'data-fp-flight-open')
+    && str_contains($views,'data-fp-flight-popover></div>')
+    && str_contains($views,'type="hidden" name="field_validation_from_date"')
+    && str_contains($views,'type="hidden" name="field_validation_to_date"'),
+    'From/To calendar is always visible and displays inclusive days');
 
 schedule_assert(str_contains($migration,'field_validation_location')
     && str_contains($migration,'field_schedule_notes')

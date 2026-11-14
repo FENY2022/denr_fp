@@ -105,28 +105,21 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'<form method="post" action="'.e(url('permit_flow_schedule',['id'=>$id])).'">'
                     .csrf_field()
                     .'<div class="fp-flight-range border rounded-3 p-3 mt-3" data-fp-flight-calendar>'
-                    .'<div class="d-flex justify-content-between align-items-center gap-2 mb-3">'
-                    .'<strong><i class="bi bi-calendar-range me-1"></i>Choose Field Validation Dates</strong>'
-                    .'<button class="btn btn-outline-primary btn-sm" type="button" data-fp-flight-open>'
-                    .'Select Date Range</button></div>'
-                    .'<div class="row g-3"><div class="col-sm-6">'
-                    .'<label class="form-label">From Date *</label>'
-                    .'<input type="date" class="form-control" name="field_validation_from_date" '
-                    .'data-fp-flight-from min="'.e(date('Y-m-d')).'" '
-                    .'value="'.e($scheduleValue!==''?substr($scheduleValue,0,10):'').'" required></div>'
-                    .'<div class="col-sm-6"><label class="form-label">To Date *</label>'
-                    .'<input type="date" class="form-control" name="field_validation_to_date" '
-                    .'data-fp-flight-to min="'.e(date('Y-m-d')).'" '
-                    .'value="'.e($endValue!==''?substr($endValue,0,10):'').'" required></div>'
-                    .'<div class="col-sm-6"><label class="form-label">From Time *</label>'
+                    .'<div class="mb-3"><strong><i class="bi bi-calendar-range me-1"></i>'
+                    .'Choose Field Validation Dates</strong></div>'
+                    .'<input type="hidden" name="field_validation_from_date" data-fp-flight-from '
+                    .'value="'.e($scheduleValue!==''?substr($scheduleValue,0,10):'').'">'
+                    .'<input type="hidden" name="field_validation_to_date" data-fp-flight-to '
+                    .'value="'.e($endValue!==''?substr($endValue,0,10):'').'">'
+                    .'<div class="fp-flight-popover mb-3" data-fp-flight-popover></div>'
+                    .'<div class="row g-3"><div class="col-sm-6"><label class="form-label">From Time *</label>'
                     .'<input type="time" class="form-control" name="field_validation_from_time" '
                     .'value="'.e($scheduleValue!==''?substr($scheduleValue,11,5):'08:00').'" required></div>'
                     .'<div class="col-sm-6"><label class="form-label">To Time *</label>'
                     .'<input type="time" class="form-control" name="field_validation_to_time" '
                     .'value="'.e($endValue!==''?substr($endValue,11,5):'17:00').'" required></div></div>'
-                    .'<div class="fp-flight-popover mt-3" data-fp-flight-popover hidden></div>'
-                    .'<div class="small text-secondary mt-2">Choose a start and end date like an airline booking. '
-                    .'For same-day visits, To Time must be later than From Time.</div></div>'
+                    .'<div class="small text-secondary mt-2">Select one date for a 1-day visit, or select a second '
+                    .'date to extend the range. For same-day visits, To Time must be later than From Time.</div></div>'
                     .'<div class="row g-3 mt-1"><div class="col-md-12"><label class="form-label" '
                     .'for="field-validation-location-'.$id.'">Venue / Location *</label>'
                     .'<input class="form-control" id="field-validation-location-'.$id.'" '
@@ -147,7 +140,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .($alreadyCommunicated?'Update &amp; Re-communicate Schedule':'Save &amp; Communicate Schedule')
                     .'</button></form></div>'
                     .'<link rel="stylesheet" href="assets/field-validation-range.css?v=1">'
-                    .'<script src="assets/field-validation-range.js?v=1" defer></script>';;
+                    .'<script src="assets/field-validation-range.js?v=6" defer></script>';;
             }
         }
     } elseif ($step===5) {

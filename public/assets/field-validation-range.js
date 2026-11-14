@@ -3,9 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-fp-flight-calendar]').forEach(root => {
     const from = root.querySelector('[data-fp-flight-from]');
     const to = root.querySelector('[data-fp-flight-to]');
-    const button = root.querySelector('[data-fp-flight-open]');
     const popover = root.querySelector('[data-fp-flight-popover]');
-    if (!from || !to || !button || !popover) return;
+    if (!from || !to || !popover) return;
     const fromTime=root.querySelector('input[name="field_validation_from_time"]');
     const toTime=root.querySelector('input[name="field_validation_to_time"]');
     const status=document.createElement('div');
@@ -32,6 +31,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let choosingEnd = false;
     const iso = d => [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
     const today = iso(new Date());
+    const displayDate = value => new Date(value+'T00:00:00').toLocaleDateString('en-PH', {
+      month:'short', day:'numeric', year:'numeric'
+    });
+    const displayWeekday = value => new Date(value+'T00:00:00').toLocaleDateString('en-PH', {
+      weekday:'long'
+    });
+    const dayNumber = value => {
+      const [year,monthNumber,day]=value.split('-').map(Number);
+      return Date.UTC(year,monthNumber-1,day);
+    };
+    const durationDays = () => from.value && to.value
+      ? Math.round((dayNumber(to.value)-dayNumber(from.value))/86400000)+1 : 0;
+    function selectionText() {
+      const days=durationDays();
+      if(!days) return 'Select a From date and a To date';
+      if(days===1) return displayDate(from.value)+' • '+displayWeekday(from.value)+' • 1 Day';
+      return displayDate(from.value)+' - '+displayDate(to.value)+' • '+days+' Days';
+    }
     function sync() {
       to.min = from.value || today;
       if (from.value && to.value && to.value < from.value) to.value = '';
@@ -51,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const guidance=document.createElement('span');
       guidance.className='small text-secondary';
-      guidance.textContent=choosingEnd?'Choose To date':'Choose From date';
+      guidance.textContent=choosingEnd?'Choose To date':(from.value&&to.value?'Dates selected':'Choose From date');
       navigation.insertBefore(guidance,navigation.lastChild);
       popover.append(navigation);
       const months=document.createElement('div');months.className='fp-flight-months';
@@ -76,8 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
           if(date===from.value||date===to.value)cell.classList.add('selected');
           else if(from.value&&to.value&&date>from.value&&date<to.value)cell.classList.add('between');
           cell.addEventListener('click',()=>{
-            if(!choosingEnd||!from.value||date<from.value){from.value=date;to.value='';choosingEnd=true}
-            else{to.value=date;choosingEnd=false;popover.hidden=true}
+            const selectedEnd=choosingEnd&&!!from.value&&date>=from.value;
+            if(!selectedEnd){from.value=date;to.value=date;choosingEnd=true}
+            else{to.value=date;choosingEnd=false}
             sync();from.dispatchEvent(new Event('change',{bubbles:true}));
             to.dispatchEvent(new Event('change',{bubbles:true}));draw();
           });
@@ -86,12 +104,15 @@ document.addEventListener('DOMContentLoaded', () => {
         section.append(days);months.append(section);
       }
       popover.append(months);
+      const footer=document.createElement('div');
+      footer.className='mt-3 pt-3 border-top';
+      const summary=document.createElement('strong');
+      summary.className='small';summary.textContent=selectionText();footer.append(summary);
+      popover.append(footer);
     }
-    button.addEventListener('click',()=>{popover.hidden=!popover.hidden;if(!popover.hidden)draw()});
-    from.addEventListener('change',()=>{sync();choosingEnd=!!from.value&&!to.value;if(!popover.hidden)draw()});
-    to.addEventListener('change',()=>{sync();if(!popover.hidden)draw()});
+    from.addEventListener('change',()=>{sync();draw()});
+    to.addEventListener('change',()=>{sync();draw()});
     [fromTime,toTime].filter(Boolean).forEach(input=>input.addEventListener('change',validate));
-    document.addEventListener('click',event=>{if(!root.contains(event.target))popover.hidden=true});
     sync();draw();
   });
 });
