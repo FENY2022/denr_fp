@@ -18,6 +18,15 @@ $views=schedule_source('app/permit_flow_views.php');
 $application=schedule_source('app/permit_step2_views.php');
 $router=schedule_source('public/index.php');
 $migration=schedule_source('database/039_field_validation_schedule_communication.sql');
+$rangeMigration=schedule_source('database/043_field_validation_schedule_range.sql');
+$picker=schedule_source('public/assets/field-validation-range.js');
+schedule_assert(str_contains($rangeMigration,'field_validation_schedule_end')
+    && str_contains($flow,'field_validation_schedule_end')
+    && str_contains($flow,"\$end=step4_parse_schedule")
+    && str_contains($flow,'later than From date and time')
+    && str_contains($picker,'fp-flight-months')
+    && str_contains($views,'data-fp-flight-calendar'),
+    'From/To range is persisted, validated and selected with two-month date picker');
 
 schedule_assert(str_contains($migration,'field_validation_location')
     && str_contains($migration,'field_schedule_notes')
@@ -43,7 +52,10 @@ schedule_assert(str_contains($flow,"'field_schedule_recommunicated':'field_sched
     && str_contains($flow,'permit_flow_email('),
     'initial and updated schedules are audited and communicated to all parties');
 schedule_assert(str_contains($views,'Provide &amp; Communicate')
-    && str_contains($views,'name="field_validation_schedule"')
+    && str_contains($views,'name="field_validation_from_date"')
+    && str_contains($views,'name="field_validation_to_date"')
+    && str_contains($views,'name="field_validation_from_time"')
+    && str_contains($views,'name="field_validation_to_time"')
     && str_contains($views,'name="field_validation_location"')
     && str_contains($views,'name="field_schedule_notes"')
     && str_contains($views,'name="schedule_reviewed"')
