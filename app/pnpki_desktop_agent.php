@@ -263,6 +263,11 @@ function pnpki_agent_api(string $method,string $action): never
     if (is_resource($stream)) fclose($stream);
     if (!is_string($signed) || !pnpki_agent_signed_pdf_matches($draft,$signed))
         pnpki_agent_json(['error'=>'Signed PDF must preserve the exact unsigned document and contain a PDF digital signature.'],422);
+    // Re-check the kill switch after potentially slow PDF transfer.
+    if (!pnpki_agent_enabled() || !pnpki_agent_current_job($red,(int)$job['id'])
+        || !pnpki_agent_red_from_bearer()) {
+        pnpki_agent_json(['error'=>'Workstation authorization or pending job was revoked before submission.'],409);
+    }
     if ($job['document_kind']==='cenro_memo') {
         $errors=cenro_memo_upload($red,(int)$job['application_id'],
             [],(string)$job['draft_sha256'],$signed);
