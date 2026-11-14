@@ -285,11 +285,19 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
         $html.='<form method="post" action="'.e(url('permit_flow_advance',['id'=>$id,'step'=>$step])).'">'
             .csrf_field();
         if ($step===4) {
-            $html.='<label class="form-label" for="annex-cenro-instructions">Memo Instruction to '
-                .e($concernedFieldOffice!==''?$concernedFieldOffice:'Concerned CENRO').' *</label>'
-                .'<textarea class="form-control mb-3" id="annex-cenro-instructions" '
-                .'name="cenro_instructions" rows="4" minlength="10" maxlength="3000" required '
-                .'placeholder="'.e($concernedFieldOffice!==''?'Instructions for '.$concernedFieldOffice:'Enter CENRO field validation instructions').'"></textarea>';
+            if (cenro_memo_release_required($id,(int)$app['revision'])) {
+                $html.='<div class="alert alert-info small mb-3">'
+                    .'<strong>Memo Instruction to CENRO:</strong> '
+                    .'The official Template No. 3 signed by RED and released by PNPKI_2 Records '
+                    .'is the controlling memorandum. No additional unsigned memo instructions '
+                    .'can override its contents.</div>';
+            } else {
+                $html.='<label class="form-label" for="annex-cenro-instructions">Memo Instruction to '
+                    .e($concernedFieldOffice!==''?$concernedFieldOffice:'Concerned CENRO').' *</label>'
+                    .'<textarea class="form-control mb-3" id="annex-cenro-instructions" '
+                    .'name="cenro_instructions" rows="4" minlength="10" maxlength="3000" required '
+                    .'placeholder="'.e($concernedFieldOffice!==''?'Instructions for '.$concernedFieldOffice:'Enter CENRO field validation instructions').'"></textarea>';
+            }
         }
         $html.='<label class="form-label" for="annex-handoff-remarks">Remarks (Optional)</label>'
             .'<textarea class="form-control mb-2" id="annex-handoff-remarks" '
