@@ -13,15 +13,24 @@ function permit_flow_schedule_summary_html(array $app,array $viewer,bool $compac
     if (!$mine && !$staff) return '';
     $office=trim((string)($app['concerned_cenro']??''));
     if ($office==='') $office=trim((string)($app['concerned_penro']??''));
+    $daily=json_decode((string)($schedule['field_validation_daily_times']??''),true);
+    $dailyHtml='';
+    if (is_array($daily) && $daily) {
+        foreach ($daily as $date=>$times) {
+            $dailyHtml.='<div>'.e(date('F j, Y',strtotime((string)$date))).' &mdash; '
+                .e(date('g:i A',strtotime((string)$times['start']))).' – '
+                .e(date('g:i A',strtotime((string)$times['end']))).'</div>';
+        }
+    } else {
+        $dailyHtml=e(fpoms_display_datetime((string)$schedule['field_validation_schedule']))
+            .(!empty($schedule['field_validation_schedule_end']) ? ' – '.e(fpoms_display_datetime((string)$schedule['field_validation_schedule_end'])) : '');
+    }
     $body='<div class="d-flex align-items-center gap-2 mb-2">'
         .'<i class="bi bi-calendar-event-fill text-warning fs-5" aria-hidden="true"></i>'
         .'<h3 class="h6 mb-0">Field Validation / Assessment Schedule</h3></div>'
         .'<dl class="row small mb-0">'
-        .'<dt class="col-sm-4">From – To</dt><dd class="col-sm-8 fw-semibold">'
-        .e(fpoms_display_datetime((string)$schedule['field_validation_schedule']))
-        .(!empty($schedule['field_validation_schedule_end'])
-            ? ' – '.e(fpoms_display_datetime((string)$schedule['field_validation_schedule_end'])) : '')
-        .'</dd>'
+        .'<dt class="col-sm-4">Daily Schedule</dt><dd class="col-sm-8 fw-semibold">'
+        .$dailyHtml.'</dd>'
         .'<dt class="col-sm-4">Venue / Location</dt><dd class="col-sm-8">'
         .e((string)$schedule['field_validation_location']).'</dd>'
         .($office!==''?'<dt class="col-sm-4">Concerned Field Office</dt><dd class="col-sm-8">'
@@ -80,7 +89,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'</div>'
                 : '');
         if (!permit_flow_schedule_schema_ready()) {
-            $html.='<div class="alert alert-warning small">Apply database migrations 039 and 043 '
+            $html.='<div class="alert alert-warning small">Apply database migrations 039, 043 and 045 '
                 .'to enable From/To dates for field validation. Existing schedules and applications '
                 .'are retained.</div>';
         } else {
@@ -113,14 +122,8 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'<input type="hidden" name="field_validation_to_date" data-fp-flight-to '
                     .'value="'.e($endValue!==''?substr($endValue,0,10):'').'">'
                     .'<div class="fp-flight-popover mb-3" data-fp-flight-popover></div>'
-                    .'<div class="row g-3"><div class="col-sm-6"><label class="form-label">From Time *</label>'
-                    .'<input type="time" class="form-control" name="field_validation_from_time" '
-                    .'value="'.e($scheduleValue!==''?substr($scheduleValue,11,5):'08:00').'" required></div>'
-                    .'<div class="col-sm-6"><label class="form-label">To Time *</label>'
-                    .'<input type="time" class="form-control" name="field_validation_to_time" '
-                    .'value="'.e($endValue!==''?substr($endValue,11,5):'17:00').'" required></div></div>'
-                    .'<div class="small text-secondary mt-2">Select one date for a 1-day visit, or select a second '
-                    .'date to extend the range. For same-day visits, To Time must be later than From Time.</div></div>'
+                    .'<div data-field-daily-times data-existing-times="'.e((string)($case['field_validation_daily_times']??'')).'"></div>'
+                    .'<div class="small text-secondary mt-2">Set a start and end time for each selected day.</div></div>'
                     .'<div class="row g-3 mt-1"><div class="col-md-12"><label class="form-label" '
                     .'for="field-validation-location-'.$id.'">Venue / Location *</label>'
                     .'<input class="form-control" id="field-validation-location-'.$id.'" '
@@ -141,7 +144,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .($alreadyCommunicated?'Update &amp; Re-communicate Schedule':'Save &amp; Communicate Schedule')
                     .'</button></form></div>'
                     .'<link rel="stylesheet" href="assets/field-validation-range.css?v=2">'
-                    .'<script src="assets/field-validation-range.js?v=7" defer></script>';;
+                    .'<script src="assets/field-validation-range.js?v=8" defer></script>';;
             }
         }
     } elseif ($step===5) {

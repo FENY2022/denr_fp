@@ -65,7 +65,7 @@ function permit_flow_schedule_schema_ready(): bool
     try {
         db()->query('SELECT field_validation_location,field_schedule_notes,
             field_schedule_communicated_at,field_schedule_communicated_by,
-            field_validation_schedule_end
+            field_validation_schedule_end,field_validation_daily_times
             FROM permit_flow_cases LIMIT 0');
         return $ready=true;
     } catch (Throwable $e) {
@@ -75,7 +75,7 @@ function permit_flow_schedule_schema_ready(): bool
 function permit_flow_schedule_details(int $id): ?array
 {
     if ($id<1 || !permit_flow_schedule_schema_ready()) return null;
-    return query_one('SELECT c.field_validation_schedule,c.field_validation_schedule_end,c.field_validation_location,
+    return query_one('SELECT c.field_validation_schedule,c.field_validation_schedule_end,c.field_validation_daily_times,c.field_validation_location,
             c.field_schedule_notes,c.field_schedule_communicated_at,
             c.field_schedule_communicated_by,u.name AS communicator_name
         FROM permit_flow_cases c
@@ -339,20 +339,37 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
         return ['Review and confirm the schedule before communicating it.'];
     }
     $fromDate=trim((string)($input['field_validation_from_date']??''));
-    $fromTime=trim((string)($input['field_validation_from_time']??''));
     $toDate=trim((string)($input['field_validation_to_date']??''));
-    $toTime=trim((string)($input['field_validation_to_time']??''));
-    $schedule=step4_parse_schedule($fromDate.'T'.$fromTime);
-    $end=step4_parse_schedule($toDate.'T'.$toTime);
+    $times=$input['field_validation_days']??[];
     $location=trim((string)($input['field_validation_location']??''));
     $notes=trim((string)($input['field_schedule_notes']??''));
-    if (!$schedule || !$end) return ['Set valid From and To dates and times.'];
+    $from=DateTimeImmutable::createFromFormat('!Y-m-d',$fromDate);
+    $to=DateTimeImmutable::createFromFormat('!Y-m-d',$toDate);
+    if (!$from || !$to || $from->format('Y-m-d')!==$fromDate || $to->format('Y-m-d')!==$toDate
+        || $to<$from || $from->diff($to)->days>365 || !is_array($times)) {
+        return ['Select a valid date range of up to 366 days.'];
+    }
+    $daily=[];
+    for ($day=$from; $day<=$to; $day=$day->modify('+1 day')) {
+        $date=$day->format('Y-m-d');
+        $row=$times[$date]??null;
+        if (!is_array($row)) return ['Provide start and end times for every selected date.'];
+        $start=step4_parse_schedule($date.'T'.(string)($row['start']??''));
+        $finish=step4_parse_schedule($date.'T'.(string)($row['end']??''));
+        if (!$start || !$finish || $finish<=$start) return ['Each day must have valid times, with the end time later than the start time.'];
+        $daily[$date]=['start'=>substr($start,11,5),'end'=>substr($finish,11,5)];
+    }
+    $schedule=$fromDate.' '.$daily[$fromDate]['start'].':00';
+    $end=$toDate.' '.$daily[$toDate]['end'].':00';
     if ((new DateTimeImmutable($schedule))->getTimestamp()<=time()) {
         return ['Field validation/assessment must start in the future.'];
     }
-    if ((new DateTimeImmutable($end))->getTimestamp()<=(new DateTimeImmutable($schedule))->getTimestamp()) {
-        return ['To date and time must be later than From date and time.'];
+    $dailyDisplay=[];
+    foreach ($daily as $date=>$row) {
+        $dailyDisplay[]=date('F j, Y',strtotime($date)).' '.date('g:i A',strtotime($row['start']))
+            .' – '.date('g:i A',strtotime($row['end']));
     }
+    $display=implode('; ',$dailyDisplay);
     if (mb_strlen($location)<5 || mb_strlen($location)>300) {
         return ['Provide the field validation venue/location (5–300 characters).'];
     }
@@ -363,6 +380,8 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
     $pdo=db();
     $app=null;
     $wasCommunicated=false;
+    $newMemoPath=null;
+    $memoRefreshed=false;
     try {
         $pdo->beginTransaction();
         $app=query_one('SELECT a.*,c.name AS applicant_name,c.email AS applicant_email
@@ -383,15 +402,35 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
             $pdo->rollBack();
             return ['Cashier payment is not verified. LPDD-FUS must verify and upload the OR before communicating any schedule.'];
         }
+        $memo=cenro_memo_schema_ready() ? query_one(
+            'SELECT * FROM fpoms_cenro_memo_signings WHERE application_id=? AND revision=? FOR UPDATE',
+            [$id,(int)$app['revision']]) : null;
+        if ($memo && ($memo['stage']!=='pending_red' || !empty($memo['remote_doc_id'])
+            || !empty($memo['signed_path']))) {
+            $pdo->rollBack();
+            return ['The Template No. 3 has already been signed or forwarded to Records. The schedule cannot be changed while that memorandum is in the signing workflow.'];
+        }
         $wasCommunicated=!empty($case['field_schedule_communicated_at']);
         $pdo->prepare('UPDATE permit_flow_cases
-            SET field_validation_schedule=?,field_validation_schedule_end=?,field_validation_location=?,field_schedule_notes=?,
+            SET field_validation_schedule=?,field_validation_schedule_end=?,field_validation_daily_times=?,field_validation_location=?,field_schedule_notes=?,
                 field_schedule_communicated_at=NOW(),field_schedule_communicated_by=?
             WHERE application_id=?')
-            ->execute([$schedule,$end,$location,$notes,(int)$staff['id'],$id]);
+            ->execute([$schedule,$end,json_encode($daily,JSON_THROW_ON_ERROR),$location,$notes,(int)$staff['id'],$id]);
+        if ($memo) {
+            $memoApp=fpoms_payment_notice_app($id);
+            if (!$memoApp) throw new RuntimeException('Memorandum application details unavailable.');
+            $pdf=FpomsCenroMemoPdf::render(cenro_memo_with_schedule($memoApp),fpoms_payment_notice_config(),date('F d, Y'),true);
+            if (strlen($pdf)<100 || strlen($pdf)>10485760) throw new RuntimeException('Invalid regenerated memorandum.');
+            [$relative,$newMemoPath]=cenro_memo_path($id);
+            fpoms_file_write_encrypted_bytes($pdf,$newMemoPath);
+            $pdo->prepare('UPDATE fpoms_cenro_memo_signings SET draft_path=?,draft_sha256=?,source_key=? WHERE application_id=? AND revision=?')
+                ->execute([$relative,hash('sha256',$pdf),hash('sha256',random_bytes(32)),$id,(int)$app['revision']]);
+            $memoRefreshed=true;
+        }
+
         $office=trim((string)($app['concerned_cenro']??''));
         if ($office==='') $office=trim((string)($app['concerned_penro']??''));
-        $remarks='Field validation/assessment scheduled from '.$schedule.' to '.$end
+        $remarks='Field validation/assessment scheduled: '.$display
             .' at '.$location.'. Concerned office: '.($office!==''?$office:'Field office')
             .'. Coordination details: '.$notes;
         permit_flow_record_event(
@@ -402,16 +441,19 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($newMemoPath && is_file($newMemoPath)) @unlink($newMemoPath);
         error_log('FP-OMS field schedule communication failed: '.$e->getMessage());
-        return ['Field schedule could not be saved. Check migration 039 and try again.'];
+        return ['Field schedule and Template No. 3 could not be saved. Check the schedule length and try again.'];
     }
 
-    $display=fpoms_display_datetime($schedule).' to '.fpoms_display_datetime($end);
     $office=trim((string)($app['concerned_cenro']??''));
     if ($office==='') $office=trim((string)($app['concerned_penro']??''));
-    $message='FP application #'.$id.' field validation/assessment is scheduled from '
+    $message='FP application #'.$id.' field validation/assessment is scheduled: '
         .$display.' at '.$location.'. '.$notes;
     try {
+        if ($memoRefreshed) notify_role('red','Updated Template No. 3 – FP #'.$id,
+            'The field validation schedule changed. Download the updated memorandum before signing.',
+            'file-signature','warning','permit_flow',['id'=>$id]);
         create_client_notification(
             (int)$app['client_id'],
             ($wasCommunicated?'Updated ':'').'Field Validation Schedule – FP #'.$id,

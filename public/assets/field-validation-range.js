@@ -5,27 +5,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const to = root.querySelector('[data-fp-flight-to]');
     const popover = root.querySelector('[data-fp-flight-popover]');
     if (!from || !to || !popover) return;
-    const fromTime=root.querySelector('input[name="field_validation_from_time"]');
-    const toTime=root.querySelector('input[name="field_validation_to_time"]');
-    const status=document.createElement('div');
-    status.className='small mt-2';
-    status.setAttribute('role','status');
-    status.setAttribute('aria-live','polite');
-    root.append(status);
-    function validate() {
-      if (!fromTime || !toTime) return;
-      let message='';
-      const start=from.value && fromTime.value ? from.value+'T'+fromTime.value : '';
-      const finish=to.value && toTime.value ? to.value+'T'+toTime.value : '';
-      const now=new Date();
-      if(start && new Date(start).getTime()<=now.getTime()){
-        message='From date and time must be in the future.';
-      } else if(start && finish && finish<=start) {
-        message='To date and time must be later than From date and time.';
+    const dailyRoot=root.querySelector('[data-field-daily-times]');
+    let saved={};
+    try { saved=JSON.parse(dailyRoot?.dataset.existingTimes || '{}') || {}; } catch (_) {}
+    function renderDaily() {
+      if (!dailyRoot) return;
+      dailyRoot.querySelectorAll('input').forEach(input => {
+        const date=input.dataset.date, field=input.dataset.field;
+        saved[date] ||= {}; saved[date][field]=input.value;
+      });
+      dailyRoot.replaceChildren();
+      if (!from.value || !to.value) return;
+      const start=new Date(from.value+'T00:00:00');
+      const end=new Date(to.value+'T00:00:00');
+      if (end<start || (end-start)/86400000>365) {
+        dailyRoot.textContent='Select a date range of up to 366 days.'; return;
       }
-      toTime.setCustomValidity(message);
-      status.textContent=message;
-      status.classList.toggle('text-danger',!!message);
+      for (let day=new Date(start); day<=end; day.setDate(day.getDate()+1)) {
+        const date=iso(day);
+        const row=document.createElement('div'); row.className='row g-2 align-items-end mt-2';
+        const heading=document.createElement('div'); heading.className='col-md-4 fw-semibold';
+        heading.textContent=day.toLocaleDateString('en-PH',{month:'long',day:'numeric',year:'numeric'});
+        row.append(heading);
+        for (const [field,label,defaultValue] of [['start','From Time','08:00'],['end','To Time','17:00']]) {
+          const column=document.createElement('div'); column.className='col-md-4';
+          const caption=document.createElement('label'); caption.className='form-label';
+          caption.textContent=label+' — '+date;
+          const input=document.createElement('input'); input.type='time'; input.required=true;
+          input.className='form-control'; input.name='field_validation_days['+date+']['+field+']';
+          input.dataset.date=date; input.dataset.field=field;
+          input.value=saved[date]?.[field] || defaultValue;
+          caption.append(input); column.append(caption); row.append(column);
+        }
+        dailyRoot.append(row);
+      }
     }
     let month = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let choosingEnd = false;
@@ -52,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function sync() {
       to.min = from.value || today;
       if (from.value && to.value && to.value < from.value) to.value = '';
-      validate();
+      renderDaily();
     }
     function draw() {
       popover.replaceChildren();
@@ -112,7 +125,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     from.addEventListener('change',()=>{sync();draw()});
     to.addEventListener('change',()=>{sync();draw()});
-    [fromTime,toTime].filter(Boolean).forEach(input=>input.addEventListener('change',validate));
     sync();draw();
   });
 

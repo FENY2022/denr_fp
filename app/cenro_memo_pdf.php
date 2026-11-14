@@ -190,6 +190,10 @@ final class FpomsCenroMemoPdf
             'Kindly coordinate with the proponent accordingly.',
             'For information and strict compliance.'
         ];
+        if (!empty($app['_field_schedule'])) {
+            array_splice($paragraphs,4,0,['The field validation schedule is '.$app['_field_schedule']
+                .(!empty($app['_field_venue']) ? '. Venue: '.$app['_field_venue'] : '').'.']);
+        }
         foreach($paragraphs as $index=>$text){
             $pdf->justifiedLines(72,$y,$text,self::W-144,9.75,11.2);
             $y+=($index>=3?15:10);

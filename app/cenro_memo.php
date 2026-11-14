@@ -60,6 +60,28 @@ function cenro_memo_active_case(int $id): bool
     return $app && permit_flow_is_new($app) && $case && (int)$case['current_step']===4
         && $case['completed_at']===null && (string)$app['status']==='forwarded_to_lpdd';
 }
+/** Attach the latest communicated schedule to generated memorandum copies. */
+function cenro_memo_with_schedule(array $app): array
+{
+    $schedule=permit_flow_schedule_details((int)$app['id']);
+    if (!$schedule) return $app;
+    $daily=json_decode((string)($schedule['field_validation_daily_times']??''),true);
+    $lines=[];
+    if (is_array($daily) && $daily) {
+        foreach ($daily as $date=>$times) {
+            $lines[]=date('F j, Y',strtotime((string)$date)).' '
+                .date('g:i A',strtotime((string)$times['start'])).' to '
+                .date('g:i A',strtotime((string)$times['end']));
+        }
+    } else {
+        $lines[]=fpoms_display_datetime((string)$schedule['field_validation_schedule'])
+            .(!empty($schedule['field_validation_schedule_end'])
+                ? ' to '.fpoms_display_datetime((string)$schedule['field_validation_schedule_end']) : '');
+    }
+    $app['_field_schedule']=implode('; ',$lines);
+    $app['_field_venue']=(string)$schedule['field_validation_location'];
+    return $app;
+}
 function cenro_memo_start(array $staff,int $id): array
 {
     if (!permit_flow_staff_can_act($staff,4)) return ['LPDD-FUS authorization required.'];
@@ -80,7 +102,7 @@ function cenro_memo_start(array $staff,int $id): array
     $relative=null;$absolute=null;
     try {
         // Immutable clean PDF: RED signs this exact PDF, not the on-screen DRAFT.
-        $pdf=FpomsCenroMemoPdf::render($app,fpoms_payment_notice_config(),date('F d, Y'),true);
+        $pdf=FpomsCenroMemoPdf::render(cenro_memo_with_schedule($app),fpoms_payment_notice_config(),date('F d, Y'),true);
         if (strlen($pdf)<100 || strlen($pdf)>10485760) return ['Generated Template No. 3 PDF is invalid.'];
         [$relative,$absolute]=cenro_memo_path($id);
         fpoms_file_write_encrypted_bytes($pdf,$absolute);
@@ -114,7 +136,7 @@ function cenro_memo_preview(array $viewer,int $id,bool $clean=false): never
     }
     $raw=$clean
         ? cenro_memo_safe_pdf((string)$memo['draft_path'],(string)$memo['draft_sha256'])
-        : FpomsCenroMemoPdf::render($app,fpoms_payment_notice_config());
+        : FpomsCenroMemoPdf::render(cenro_memo_with_schedule($app),fpoms_payment_notice_config());
     if (!is_string($raw)) show_error('Memorandum is unavailable.',404);
     $embedded=!$clean && (string)($_GET['embed']??'')==='1';
     if ($embedded) {
@@ -130,7 +152,7 @@ function cenro_memo_preview(array $viewer,int $id,bool $clean=false): never
     header('Content-Length: '.strlen($raw));
     echo $raw;exit;
 }
-function cenro_memo_upload(array $red,int $id,array $upload): array
+function cenro_memo_upload(array $red,int $id,array $upload,string $draftHash): array
 {
     if (!pnpki_authorized_red($red) || !pnpki_authorization_for((int)$red['id'])) {
         return ['Authorize your RED PNPKI_2 account first.'];
@@ -140,6 +162,9 @@ function cenro_memo_upload(array $red,int $id,array $upload): array
     $memo=$app?cenro_memo_record($id,(int)$app['revision']):null;
     if (!$memo || $memo['stage']!=='pending_red' || (int)($memo['remote_doc_id']??0)>0) {
         return ['Template No. 3 must be pending RED signing; Records document already linked.'];
+    }
+    if (!hash_equals((string)$memo['draft_sha256'],$draftHash)) {
+        return ['The memorandum changed. Refresh and download the latest copy before signing.'];
     }
     if ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
         || !is_uploaded_file((string)($upload['tmp_name']??''))) {
@@ -162,9 +187,9 @@ function cenro_memo_upload(array $red,int $id,array $upload): array
         fpoms_file_write_encrypted_bytes($raw,$absolute);
         db()->prepare("UPDATE fpoms_cenro_memo_signings SET
             signed_path=?,signed_sha256=?,signed_size=?,signed_by=?
-            WHERE application_id=? AND revision=? AND stage='pending_red' AND remote_doc_id IS NULL")
+            WHERE application_id=? AND revision=? AND stage='pending_red' AND remote_doc_id IS NULL AND draft_sha256=?")
             ->execute([$relative,hash('sha256',$raw),strlen($raw),(int)$red['id'],
-                $id,(int)$app['revision']]);
+                $id,(int)$app['revision'],$draftHash]);
         if ((int)db()->query('SELECT ROW_COUNT()')->fetchColumn()!==1) {
             @unlink($absolute);return ['Memo state changed; refresh before retrying.'];
         }
@@ -413,6 +438,8 @@ function cenro_memo_panel_html(array $app,array $user): string
             $html.='<form method="post" enctype="multipart/form-data" class="mb-3" '
                 .'action="'.e(url('permit_cenro_memo',['id'=>$id])).'">'
                 .csrf_field().'<input type="hidden" name="action" value="upload">'
+                .'<input type="hidden" name="draft_sha256" value="'.e((string)$memo['draft_sha256']).'">'
+                .'<p class="small text-warning">Always download and sign the latest copy after a schedule update.</p>'
                 .'<label class="form-label fw-semibold">PNPKI Sign – Upload RED-Signed Template No. 3 PDF</label>'
                 .'<input class="form-control mb-2" type="file" name="signed_pdf" accept=".pdf,application/pdf" required>'
                 .'<button class="btn btn-success btn-sm" type="submit">Upload &amp; Forward to PNPKI_2 Records</button>'

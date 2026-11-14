@@ -1204,7 +1204,7 @@ try {
                 $errors=cenro_memo_start($staff,(int)$id);
                 $notice='Template No. 3 prepared and sent to the RED PNPKI signing queue.';
             } elseif ($action==='upload') {
-                $errors=cenro_memo_upload($staff,(int)$id,$_FILES['signed_pdf']??[]);
+                $errors=cenro_memo_upload($staff,(int)$id,$_FILES['signed_pdf']??[],safe_post('draft_sha256',64));
                 $notice='RED-signed Template No. 3 uploaded and forwarded to PNPKI_2 Records.';
             } elseif ($action==='retry') {
                 $errors=cenro_memo_submit($staff,(int)$id);

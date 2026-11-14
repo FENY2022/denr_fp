@@ -63,4 +63,12 @@ memo_assert(str_starts_with($pdf,'%PDF-')
     && str_contains($pdf,'%%EOF')
     && str_contains($pdf,'/MediaBox [0 0 612 936]')
     && str_contains($pdf,'Template No.3'), 'Template No. 3 generates an 8.5 x 13 inch signable memorandum PDF');
+$sample['_field_schedule']='November 25, 2026 8:00 AM to 5:00 PM; November 26, 2026 9:00 AM to 4:00 PM';
+$sample['_field_venue']='Agusan del Norte';
+$scheduledPdf=FpomsCenroMemoPdf::render($sample,[], 'November 14, 2026', true);
+memo_assert(str_contains($scheduledPdf,'November 25, 2026')
+    && str_contains($scheduledPdf,'November 26, 2026')
+    && str_contains($scheduledPdf,'9:00 AM to 4:00 PM'), 'signing PDF includes each day and its own hours');
+memo_assert(str_contains($flow,'cenro_memo_with_schedule($memoApp)')
+    && str_contains($flow,"!empty(\$memo['signed_path'])"), 'schedule regeneration protects signed copies');
 echo "PASS: Template No. 3 PDF and PNPKI_2 Records release contracts.\n";
