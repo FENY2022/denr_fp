@@ -6,6 +6,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const button = root.querySelector('[data-fp-flight-open]');
     const popover = root.querySelector('[data-fp-flight-popover]');
     if (!from || !to || !button || !popover) return;
+    const fromTime=root.querySelector('input[name="field_validation_from_time"]');
+    const toTime=root.querySelector('input[name="field_validation_to_time"]');
+    const status=document.createElement('div');
+    status.className='small mt-2';
+    status.setAttribute('role','status');
+    status.setAttribute('aria-live','polite');
+    root.append(status);
+    function validate() {
+      if (!fromTime || !toTime) return;
+      let message='';
+      const start=from.value && fromTime.value ? from.value+'T'+fromTime.value : '';
+      const finish=to.value && toTime.value ? to.value+'T'+toTime.value : '';
+      const now=new Date();
+      if(start && new Date(start).getTime()<=now.getTime()){
+        message='From date and time must be in the future.';
+      } else if(start && finish && finish<=start) {
+        message='To date and time must be later than From date and time.';
+      }
+      toTime.setCustomValidity(message);
+      status.textContent=message;
+      status.classList.toggle('text-danger',!!message);
+    }
     let month = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     let choosingEnd = false;
     const iso = d => [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
@@ -13,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function sync() {
       to.min = from.value || today;
       if (from.value && to.value && to.value < from.value) to.value = '';
+      validate();
     }
     function draw() {
       popover.replaceChildren();
@@ -67,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click',()=>{popover.hidden=!popover.hidden;if(!popover.hidden)draw()});
     from.addEventListener('change',()=>{sync();choosingEnd=!!from.value&&!to.value;if(!popover.hidden)draw()});
     to.addEventListener('change',()=>{sync();if(!popover.hidden)draw()});
+    [fromTime,toTime].filter(Boolean).forEach(input=>input.addEventListener('change',validate));
     document.addEventListener('click',event=>{if(!root.contains(event.target))popover.hidden=true});
     sync();draw();
   });
