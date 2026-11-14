@@ -191,8 +191,11 @@ final class FpomsCenroMemoPdf
             'For information and strict compliance.'
         ];
         if (!empty($app['_field_schedule'])) {
-            array_splice($paragraphs,4,0,['The field validation schedule is '.$app['_field_schedule']
-                .(!empty($app['_field_venue']) ? '. Venue: '.$app['_field_venue'] : '').'.']);
+            $fieldParagraph='The field validation is scheduled for '.$app['_field_schedule'];
+            if (!empty($app['_field_venue'])) {
+                $fieldParagraph.=', at '.trim((string)$app['_field_venue']);
+            }
+            array_splice($paragraphs,4,0,[$fieldParagraph.'.']);
         }
         foreach($paragraphs as $index=>$text){
             $pdf->justifiedLines(72,$y,$text,self::W-144,9.75,11.2);
