@@ -34,6 +34,16 @@ memo_assert(str_contains($router,"case 'permit_cenro_memo_pdf':")
     && str_contains($router,"case 'permit_cenro_memo':")
     && str_contains($router,'check_csrf();')
     && str_contains($callback,'cenro_memo_reconcile('), 'secured routes and webhook routing');
+memo_assert(str_contains($memo,'data-bs-toggle="modal" data-bs-target="#')
+    && str_contains($memo,"'embed'=>1")
+    && str_contains($memo,"header('X-Frame-Options: SAMEORIGIN')")
+    && str_contains($memo,'Official Template No. 3 PDF preview')
+    && !str_contains($memo,'target="_blank" rel="noopener" href="')
+    && str_contains($memo,'The request action will recheck these requirements')
+    && str_contains($memo,'toast show border-warning')
+    && str_contains($memo,'data-bs-dismiss="toast"')
+    && str_contains($memo,'Request RED PNPKI Signature</button></form>'),
+    'official preview stays in a modal and actionable PNPKI prerequisites appear as a toast');
 $sample=[
     'company_name'=>'LNM LUMBER',
     'project_title'=>'Sample Renewable Energy Project',

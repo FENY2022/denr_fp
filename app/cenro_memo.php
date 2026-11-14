@@ -116,6 +116,13 @@ function cenro_memo_preview(array $viewer,int $id,bool $clean=false): never
         ? cenro_memo_safe_pdf((string)$memo['draft_path'],(string)$memo['draft_sha256'])
         : FpomsCenroMemoPdf::render($app,fpoms_payment_notice_config());
     if (!is_string($raw)) show_error('Memorandum is unavailable.',404);
+    $embedded=!$clean && (string)($_GET['embed']??'')==='1';
+    if ($embedded) {
+        header_remove('X-Frame-Options');
+        header_remove('Content-Security-Policy');
+        header('X-Frame-Options: SAMEORIGIN');
+        header("Content-Security-Policy: default-src 'none'; frame-ancestors 'self'");
+    }
     header('Content-Type: application/pdf');
     header('Content-Disposition: '.($clean?'attachment':'inline').'; filename="FPOMS_Template_No_3_FP_'.$id.'.pdf"');
     header('Cache-Control: private,no-store,max-age=0');
@@ -315,23 +322,62 @@ function cenro_memo_panel_html(array $app,array $user): string
     $memo=cenro_memo_record($id,$rev);
     $canAct=permit_flow_staff_can_act($user,4);
     $isRed=pnpki_authorized_red($user);
+    $previewModalId='cenro-memo-preview-'.$id;
+    $previewTitleId=$previewModalId.'-title';
+    $previewUrl=url('permit_cenro_memo_pdf',['id'=>$id,'embed'=>1]);
     $html='<section class="border rounded-3 p-3 mb-3">'
         .'<h4 class="h6"><i class="bi bi-file-earmark-text me-1"></i>Template No. 3 – Memo Instruction to CENRO</h4>'
         .'<p class="small text-secondary">Official DENR Caraga memorandum to PENRO (Attention: CENRO). '
         .'PNPKI signing is optional, but once requested, only the Records-released final PDF can complete Step 4.</p>'
-        .'<a class="btn btn-outline-secondary btn-sm mb-3" target="_blank" rel="noopener" href="'
-        .e(url('permit_cenro_memo_pdf',['id'=>$id])).'">Preview Official Template No. 3</a> ';
+        .'<button class="btn btn-outline-secondary btn-sm mb-3" type="button" '
+        .'data-bs-toggle="modal" data-bs-target="#'.e($previewModalId).'">'
+        .'<i class="bi bi-eye me-1"></i>Preview Official Template No. 3</button>'
+        .'<div class="modal fade" id="'.e($previewModalId).'" tabindex="-1" '
+        .'aria-labelledby="'.e($previewTitleId).'" aria-hidden="true">'
+        .'<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">'
+        .'<div class="modal-content"><div class="modal-header">'
+        .'<h5 class="modal-title" id="'.e($previewTitleId).'">Official Template No. 3 Preview</h5>'
+        .'<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close preview"></button>'
+        .'</div><div class="modal-body p-0"><div class="ratio ratio-4x3 bg-body-secondary">'
+        .'<iframe class="border-0" src="'.e($previewUrl).'" loading="lazy" '
+        .'title="Official Template No. 3 PDF preview"></iframe></div></div>'
+        .'<div class="modal-footer"><button type="button" class="btn btn-secondary" '
+        .'data-bs-dismiss="modal">Close</button></div></div></div></div>';
     if (!cenro_memo_schema_ready()) {
         return $html.'<div class="alert alert-warning">Apply database migration 044 to enable RED PNPKI for this memo.</div></section>';
     }
     if (!$memo) {
         if ($canAct) {
+            $requestIssues=[];
+            if (!pnpki_bridge_configured() || !pnpki_authorized_upload_ready()) {
+                $requestIssues[]='PNPKI_2 integration must be configured and available';
+            }
+            if (!fpoms_payment_notice_is_released($id,$rev)) {
+                $requestIssues[]='Template No. 2 must be officially released';
+            }
+            if (!permit_payment_is_verified($id)) {
+                $requestIssues[]='Cashier Official Receipt must be verified';
+            }
+            if (!permit_flow_schedule_communicated($id)) {
+                $requestIssues[]='field-validation schedule must be saved and communicated';
+            }
+            if ($requestIssues) {
+                $html.='<div class="toast-container position-fixed top-0 end-0 p-3 mt-5">'
+                    .'<div class="toast show border-warning" role="alert" aria-live="assertive" '
+                    .'aria-atomic="true" data-bs-autohide="false">'
+                    .'<div class="toast-header text-bg-warning">'
+                    .'<i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>'
+                    .'<strong class="me-auto">RED PNPKI prerequisite</strong>'
+                    .'<button type="button" class="btn-close" data-bs-dismiss="toast" '
+                    .'aria-label="Close notification"></button></div>'
+                    .'<div class="toast-body"><strong>Before requesting RED PNPKI:</strong> '
+                    .e(implode('; ',$requestIssues)).'. The request action will recheck these requirements.'
+                    .'</div></div></div>';
+            }
             $html.='<form method="post" action="'.e(url('permit_cenro_memo',['id'=>$id])).'">'
                 .csrf_field().'<input type="hidden" name="action" value="request">'
-                .'<button type="submit" class="btn btn-primary btn-sm"'
-                .(!pnpki_bridge_configured() || !pnpki_authorized_upload_ready()
-                    || !permit_payment_is_verified($id) || !permit_flow_schedule_communicated($id)
-                    ? ' disabled' : '').'>Request RED PNPKI Signature</button></form>';
+                .'<button type="submit" class="btn btn-primary btn-sm">'
+                .'Request RED PNPKI Signature</button></form>';
         }
         return $html.'<div class="small text-secondary mt-2">Or use the existing manual memorandum PDF upload below.</div></section>';
     }
