@@ -91,6 +91,7 @@ require_once __DIR__ . '/pnpki_setup.php';
 require_once __DIR__ . '/pnpki_bridge.php';
 require_once __DIR__ . '/pnpki_authorized_upload.php';
 require_once __DIR__ . '/cenro_memo.php';
+require_once __DIR__ . '/pnpki_desktop_agent.php';
 require_once __DIR__ . '/records_archive.php';
 require_once __DIR__ . '/permit_tracking.php';
 require_once __DIR__ . '/permit_step2_revert.php';
