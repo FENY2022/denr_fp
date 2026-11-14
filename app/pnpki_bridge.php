@@ -338,8 +338,19 @@ function pnpki_bridge_callback(): never
         $link=query_one('SELECT application_id FROM fpoms_pnpki_links
             WHERE source_key=? AND remote_doc_id=?',
             [(string)$payload['source_key'],(int)$payload['doc_id']]);
-        if (!$link) {http_response_code(404);echo '{"error":"Link not found"}';exit;}
-        $errors=pnpki_bridge_reconcile((int)$link['application_id']);
+        if ($link) {
+            $errors=pnpki_bridge_reconcile((int)$link['application_id']);
+        } else {
+            // Separate Template No. 3 signed memorandum references. Never handle
+            // one document type as a Template No. 2 applicant payment notice.
+            $memo=cenro_memo_schema_ready()
+                ? query_one('SELECT application_id FROM fpoms_cenro_memo_signings
+                    WHERE source_key=? AND remote_doc_id=?',
+                    [(string)$payload['source_key'],(int)$payload['doc_id']])
+                : null;
+            if (!$memo) {http_response_code(404);echo '{"error":"Link not found"}';exit;}
+            $errors=cenro_memo_reconcile((int)$memo['application_id']);
+        }
         if ($errors) {
             http_response_code(409);
             echo json_encode(['error'=>'Release pending verification or synchronization'],JSON_THROW_ON_ERROR);
