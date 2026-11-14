@@ -230,7 +230,7 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
             foreach ($matching as $doc) {
                 $html.='<a class="d-block small mb-1" href="'
                     .e(url('permit_flow_file',['id'=>$id,'file'=>(int)$doc['id']]))
-                    .'">'.e((string)$doc['original_name']).' ('
+                    .'" download>'.e((string)$doc['original_name']).' ('
                     .e((string)($doc['uploader']??'DENR Personnel')).')</a>';
             }
             if (permit_flow_upload_allowed($user,$app,$step,$key)) {

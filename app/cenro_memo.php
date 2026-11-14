@@ -401,7 +401,7 @@ function cenro_memo_panel_html(array $app,array $user): string
     if ($isRed && $memo['stage']==='pending_red') {
         $html.='<a class="btn btn-outline-primary btn-sm mb-3" href="'
             .e(url('permit_cenro_memo_pdf',['id'=>$id,'print_for_signing'=>1]))
-            .'"><i class="bi bi-download me-1"></i>Download Clean Template No. 3 for PNPKI Signing</a>';
+            .'" download><i class="bi bi-download me-1"></i>Download Clean Template No. 3 for PNPKI Signing</a>';
         if (!pnpki_authorization_for((int)$user['id'])) {
             $html.='<div class="alert alert-warning small">Connect your RED PNPKI_2 account '
                 .'to sign this memorandum. Your PNPKI password and private key remain outside FP-OMS.</div>'
