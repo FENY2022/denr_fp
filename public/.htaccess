@@ -7,6 +7,9 @@ DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # Preserve Authorization for the RED workstation Bearer token on XAMPP/Apache.
+  RewriteCond %{HTTP:Authorization} ^(.+)$
+  RewriteRule ^ - [E=HTTP_AUTHORIZATION:%1]
 
   # Leave physical public assets and the front controller untouched.
   RewriteCond %{REQUEST_FILENAME} -f

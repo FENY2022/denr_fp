@@ -44,6 +44,8 @@ jobs:
           php tests/field_validation_schedule_test.php
           php tests/field_validation_schedule_compact_test.php
           php tests/cenro_memo_pnpki_test.php
+          php tests/pnpki_desktop_agent_test.php
+          python3 -m py_compile desktop_agent/agent.py
           node --check public/assets/field-validation-range.js
           php tests/lpdd_fus_payment_verification_test.php
           node --check public/assets/permit-step4-review.js

@@ -146,7 +146,7 @@ function cenro_memo_preview(array $viewer,int $id,bool $clean=false): never
     header('Content-Length: '.strlen($raw));
     echo $raw;exit;
 }
-function cenro_memo_upload(array $red,int $id,array $upload,string $draftHash): array
+function cenro_memo_upload(array $red,int $id,array $upload,string $draftHash,?string $agentBytes=null): array
 {
     if (!pnpki_authorized_red($red) || !pnpki_authorization_for((int)$red['id'])) {
         return ['Authorize your RED PNPKI_2 account first.'];
@@ -160,16 +160,16 @@ function cenro_memo_upload(array $red,int $id,array $upload,string $draftHash): 
     if (!hash_equals((string)$memo['draft_sha256'],$draftHash)) {
         return ['The memorandum changed. Refresh and download the latest copy before signing.'];
     }
-    if ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
-        || !is_uploaded_file((string)($upload['tmp_name']??''))) {
+    if ($agentBytes===null && ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
+        || !is_uploaded_file((string)($upload['tmp_name']??'')))) {
         return ['Select the RED PNPKI-signed Template No. 3 PDF.'];
     }
-    $size=(int)($upload['size']??0);
-    $name=(string)($upload['name']??'');
+    $size=$agentBytes!==null?strlen($agentBytes):(int)($upload['size']??0);
+    $name=$agentBytes!==null?'PNPKI_Desktop_Signed_Template_No_3.pdf':(string)($upload['name']??'');
     if ($size<100 || $size>10485760 || strtolower(pathinfo($name,PATHINFO_EXTENSION))!=='pdf') {
         return ['PDF only, maximum 10 MB.'];
     }
-    $raw=file_get_contents((string)$upload['tmp_name']);
+    $raw=$agentBytes??file_get_contents((string)$upload['tmp_name']);
     $mime=is_string($raw)?(new finfo(FILEINFO_MIME_TYPE))->buffer($raw):'';
     if (!is_string($raw) || strlen($raw)!==$size || $mime!=='application/pdf'
         || !str_starts_with($raw,'%PDF-') || !preg_match('/%%EOF\s*$/D',substr($raw,-2048))) {
@@ -418,6 +418,7 @@ function cenro_memo_panel_html(array $app,array $user): string
             .'LPDD-FUS may now complete Step 4 when the other requirements are satisfied.</p></section>';
     }
     if ($isRed && $memo['stage']==='pending_red') {
+        $html.=pnpki_agent_controls_html($user,$id,'cenro_memo');
         $html.='<a class="btn btn-outline-primary btn-sm mb-3" href="'
             .e(url('permit_cenro_memo_pdf',['id'=>$id,'print_for_signing'=>1]))
             .'" download><i class="bi bi-download me-1"></i>Download Clean Template No. 3 for PNPKI Signing</a>';
