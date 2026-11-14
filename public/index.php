@@ -25,6 +25,48 @@ try {
     }
 
     switch ($page) {
+        case 'pnpki_desktop_agent_api':
+            pnpki_agent_api($method,substr(trim((string)($_GET['action']??'')),0,24));
+            break;
+        case 'pnpki_desktop_agent':
+            $viewer=require_user();
+            if ($post) {
+                check_csrf();
+                $action=safe_post('action',24);
+                $errors=[];
+                if ($action==='setting') {
+                    $errors=pnpki_agent_update_enabled($viewer,($_POST['enabled']??'')==='1');
+                } elseif ($action==='pair') {
+                    $response=pnpki_agent_issue_token($viewer);
+                    if (isset($response['error'])) $errors=[(string)$response['error']];
+                    else $_SESSION['fpoms_agent_token_once']=(string)$response['token'];
+                } elseif ($action==='revoke') {
+                    if (!pnpki_agent_schema_ready()) $errors=['Migration 046 required.'];
+                    elseif (!pnpki_authorized_red($viewer)) $errors=['RED authorization required.'];
+                    else pnpki_agent_revoke_token($viewer);
+                } elseif ($action==='queue' || $action==='cancel') {
+                    $id=filter_var($_POST['id']??null,FILTER_VALIDATE_INT,
+                        ['options'=>['min_range'=>1]]);
+                    $kind=safe_post('kind',32);
+                    if (!$id || !in_array($kind,['cenro_memo','payment_notice'],true)) {
+                        show_error('Invalid RED signing job.',400);
+                    }
+                    $errors=$action==='queue'
+                        ? pnpki_agent_queue($viewer,$kind,(int)$id)
+                        : pnpki_agent_cancel($viewer,(int)$id,$kind);
+                    if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+                    else flash('success',$action==='queue'
+                        ? 'Document queued for personal RED approval on the paired workstation. No signature was applied yet.'
+                        : 'Pending workstation signing request cancelled.');
+                    if ($kind==='cenro_memo') go('permit_flow',['id'=>(int)$id]);
+                    go('payment_notice_queue');
+                } else show_error('Invalid desktop agent operation.',400);
+                if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+                else flash('success','Desktop PNPKI Agent setting updated.');
+                go('pnpki_desktop_agent');
+            }
+            pnpki_agent_settings_view($viewer);
+            break;
         case 'pnpki_callback':
             pnpki_bridge_callback();
             break;
