@@ -486,7 +486,7 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
         $office=trim((string)($app['concerned_cenro']??''));
         if ($office==='') $office=trim((string)($app['concerned_penro']??''));
         $remarks='Field validation/assessment scheduled for '.$display
-            .'. Venue: '.$location.'. Concerned office: .($office!==''?$office:'Field office')
+            .'. Venue: '.$location.'. Concerned office: '.($office!==''?$office:'Field office')
             .'. Coordination details: '.$notes;
         permit_flow_record_event(
             $pdo,$id,4,$staff,

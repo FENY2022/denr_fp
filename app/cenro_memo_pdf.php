@@ -152,7 +152,11 @@ final class FpomsCenroMemoPdf
         $pdf->line(153,75,'Department of Environment and Natural Resources',12,true);
         $pdf->line(184,91,'Kagawaran ng Kapaligiran at Likas Yaman',10.5);
         $pdf->line(265,107,'Caraga Region',11);
-        if (!$printForSigning) $pdf->line(349,126,'DRAFT - NOT SIGNED / NOT FOR RELEASE',7.0,true);
+        if (!$printForSigning) {
+            $pdf->stream.="q 0.8 0 0 rg\n";
+            $pdf->line(349,126,'DRAFT - NOT SIGNED / NOT FOR RELEASE',7.0,true);
+            $pdf->stream.="Q\n";
+        }
         $pdf->line(72,148,'MEMORANDUM',12,true);
         $penro=trim((string)($app['concerned_penro']??''));
         $cenro=trim((string)($app['concerned_cenro']??''));
