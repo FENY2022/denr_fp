@@ -887,7 +887,9 @@ try {
                 (string)($_GET['code']??''),(string)($_GET['state']??''));
             if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
             else flash('success','Your PNPKI_2 RED account is authorized and connected to FP-OMS. '
-                .'You can upload a digitally signed Template No. 2 in FP-OMS.');
+                .($returnMemoId>0
+                    ? 'You can now upload the RED-signed Template No. 3 in FP-OMS.'
+                    : 'You can upload a digitally signed Template No. 2 in FP-OMS.'));
             if ($returnMemoId>0 && cenro_memo_active_case($returnMemoId)
                 && cenro_memo_record($returnMemoId,(int)(step2_application($returnMemoId)['revision']??0))) {
                 go('permit_flow',['id'=>$returnMemoId]);
