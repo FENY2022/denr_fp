@@ -14,22 +14,17 @@ function permit_flow_schedule_summary_html(array $app,array $viewer,bool $compac
     $office=trim((string)($app['concerned_cenro']??''));
     if ($office==='') $office=trim((string)($app['concerned_penro']??''));
     $daily=json_decode((string)($schedule['field_validation_daily_times']??''),true);
-    $dailyHtml='';
-    if (is_array($daily) && $daily) {
-        foreach ($daily as $date=>$times) {
-            $dailyHtml.='<div>'.e(date('F j, Y',strtotime((string)$date))).' &mdash; '
-                .e(date('g:i A',strtotime((string)$times['start']))).' – '
-                .e(date('g:i A',strtotime((string)$times['end']))).'</div>';
-        }
-    } else {
-        $dailyHtml=e(fpoms_display_datetime((string)$schedule['field_validation_schedule']))
-            .(!empty($schedule['field_validation_schedule_end']) ? ' – '.e(fpoms_display_datetime((string)$schedule['field_validation_schedule_end'])) : '');
-    }
+    $dailySummary=is_array($daily)?permit_flow_daily_schedule_summary($daily):'';
+    $dailyHtml=$dailySummary!==''
+        ? e($dailySummary)
+        : e(fpoms_display_datetime((string)$schedule['field_validation_schedule']))
+            .(!empty($schedule['field_validation_schedule_end'])
+                ? ' – '.e(fpoms_display_datetime((string)$schedule['field_validation_schedule_end'])) : '');
     $body='<div class="d-flex align-items-center gap-2 mb-2">'
         .'<i class="bi bi-calendar-event-fill text-warning fs-5" aria-hidden="true"></i>'
         .'<h3 class="h6 mb-0">Field Validation / Assessment Schedule</h3></div>'
         .'<dl class="row small mb-0">'
-        .'<dt class="col-sm-4">Daily Schedule</dt><dd class="col-sm-8 fw-semibold">'
+        .'<dt class="col-sm-4">Date / Time</dt><dd class="col-sm-8 fw-semibold">'
         .$dailyHtml.'</dd>'
         .'<dt class="col-sm-4">Venue / Location</dt><dd class="col-sm-8">'
         .e((string)$schedule['field_validation_location']).'</dd>'
