@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 final class FpomsCenroMemoPdf
 {
-    private const W=595.28;
-    private const H=841.89;
+    private const W=612.0;
+    private const H=936.0;
     private string $stream='';
     private array $images=[];
     private string $footer='';
@@ -145,13 +145,15 @@ final class FpomsCenroMemoPdf
             ??'DENR-XIII, Ambago, Butuan City, Philippines | Hotline No. 0981-017-3551 E-Mail: r13@denr.gov.ph');
         $pdf->loadImages(is_array($config['letterhead_images']??null)?$config['letterhead_images']:[],null);
         $pdf->stream="0 G 0 g 0.5 w\n";
-        $pdf->image('denr',65,28,72,72);
-        $pdf->image('bagong',458,28,78,82);
-        $pdf->line(153,60,'Department of Environment and Natural Resources',12,true);
-        $pdf->line(181,76,'Kagawaran ng Kapaligiran at Likas Yaman',10.5);
-        $pdf->line(263,92,'Caraga Region',11);
-        if (!$printForSigning) $pdf->line(330,116,'DRAFT - NOT SIGNED / NOT FOR RELEASE',7.2,true);
-        $pdf->line(254,136,'MEMORANDUM',13,true);
+        $pdf->stream.=sprintf("0.5 w 400 %.2F 116 29 re S\n",self::H-34-29);
+        $pdf->line(415,52,'Template No.3',9);
+        $pdf->image('denr',67,35,77,75);
+        $pdf->image('bagong',458,35,76,77);
+        $pdf->line(153,75,'Department of Environment and Natural Resources',12,true);
+        $pdf->line(184,91,'Kagawaran ng Kapaligiran at Likas Yaman',10.5);
+        $pdf->line(265,107,'Caraga Region',11);
+        if (!$printForSigning) $pdf->line(349,126,'DRAFT - NOT SIGNED / NOT FOR RELEASE',7.0,true);
+        $pdf->line(72,148,'MEMORANDUM',12,true);
         $penro=trim((string)($app['concerned_penro']??''));
         $cenro=trim((string)($app['concerned_cenro']??''));
         $company=trim((string)($app['company_name']??'COMPANY NAME'));
@@ -160,22 +162,24 @@ final class FpomsCenroMemoPdf
         $location=trim((string)($app['project_location']??'PROJECT LOCATION'));
         $penroLabel=$penro!==''?$penro:'________________';
         $cenroLabel=$cenro!==''?$cenro:'________________';
-        $pdf->line(68,167,'TO',10.6,true);
-        $pdf->line(155,167,': THE OIC, PENR OFFICER',10.3,true);
-        $pdf->line(162,182,'DENR PENRO - '.$penroLabel,10.3);
-        $pdf->line(68,209,"ATT'N",10.6,true);
-        $pdf->line(155,209,': CENRO - '.$cenroLabel,10.3);
-        $pdf->line(68,233,'FROM',10.6,true);
-        $pdf->line(155,233,': THE OIC, REGIONAL EXECUTIVE DIRECTOR',10.3,true);
-        $pdf->line(68,257,'SUBJECT',10.6,true);
+        $pdf->line(72,181,'TO',10.6,true);
+        $pdf->line(157,181,': THE OIC, PENR OFFICER',10.3,true);
+        $pdf->line(164,197,'DENR PENRO - '.$penroLabel,10.3);
+        $pdf->line(72,238,"ATT'N",10.6,true);
+        $pdf->line(157,238,': CENRO - '.$cenroLabel,10.3);
+        $pdf->line(72,267,'FROM',10.6,true);
+        $pdf->line(157,267,': THE OIC, REGIONAL EXECUTIVE DIRECTOR',10.3,true);
+        $pdf->line(72,296,'SUBJECT',10.6,true);
         $subject=': APPLICATION FOR FEASIBILITY PERMIT OF '.mb_strtoupper($company)
             .' FOR ITS '.mb_strtoupper($project);
-        $y=257.0;
-        $pdf->lines(155,$y,$subject,64,10.0,13,true);
-        $y=max(294,$y+8);
-        $pdf->line(68,$y,'DATE',10.6,true);
-        $pdf->line(155,$y,': '.($date?:date('F d, Y')),10.3);
-        $y+=30;
+        $y=296.0;
+        $pdf->lines(157,$y,$subject,60,10.0,14,true);
+        $y=max(341,$y+8);
+        $pdf->line(72,$y,'DATE',10.6,true);
+        $pdf->line(157,$y,': '.($date?:date('F d, Y')),10.3);
+        $y+=24;
+        $pdf->stream.=sprintf("0.6 w 72 %.2F m 540 %.2F l S\n",self::H-$y,self::H-$y);
+        $y+=28;
         $paragraphs=[
             'This pertains to the application for the Feasibility Permit (FP) of '.$company
                 .' for its '.$project.', with an area of approximately '.$area
@@ -190,13 +194,14 @@ final class FpomsCenroMemoPdf
             $pdf->justifiedLines(72,$y,$text,self::W-144,9.75,11.2);
             $y+=($index>=3?15:10);
         }
-        if ($y>700) throw new RuntimeException('Template No. 3 content exceeds printable A4 body. Check long project information.');
-        $pdf->line(350,max($y+14,701),'MA. THERESA J. ALLEN',10.8,true);
-        $pdf->line(350,max($y+27,715),'OIC, Regional Executive Director',9.7);
+        if ($y>792) throw new RuntimeException('Template No. 3 content exceeds printable 8.5 x 13 inch body. Check long project information.');
+        $signatureY=max($y+25,754);
+        $pdf->line(356,$signatureY,(string)($config['signatory_name']??'MA. THERESA J. ALLEN'),10.8,true);
+        $pdf->line(356,$signatureY+14,(string)($config['signatory_title']??'OIC, Regional Executive Director'),9.7);
         $parts=array_values(array_filter(array_map('trim',explode('|',$pdf->footer))));
-        $pdf->line(165,798,(string)($parts[0]??''),7.8);
-        if(count($parts)>1)$pdf->line(155,810,implode(' ',array_slice($parts,1)),7.4);
-        $pdf->image('socotec',458,765,64,40);
+        $pdf->line(220,888,(string)($parts[0]??''),7.7);
+        if(count($parts)>1)$pdf->line(201,901,implode(' ',array_slice($parts,1)),7.2);
+        $pdf->image('socotec',470,855,69,48);
         return $pdf->finish();
     }
     private function finish(): string
@@ -226,7 +231,7 @@ final class FpomsCenroMemoPdf
             $resources.=' >>';
         }
         $resources.=' >>';
-        $objects[$pageId]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources '.$resources.' /Contents '.$contentId.' 0 R >>';
+        $objects[$pageId]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '.self::W.' '.self::H.'] /Resources '.$resources.' /Contents '.$contentId.' 0 R >>';
         $objects[2]='<< /Type /Pages /Count 1 /Kids ['.$pageId.' 0 R] >>';
         ksort($objects);
         $out="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n"; $offsets=[0];
