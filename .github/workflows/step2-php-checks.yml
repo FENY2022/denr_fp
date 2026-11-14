@@ -91,6 +91,8 @@ jobs:
         run: |
           php tests/annex_a_updated_workflow_test.php
           php tests/field_validation_schedule_compact_test.php
+          php tests/pnpki_desktop_agent_test.php
+          python3 -m py_compile desktop_agent/agent.py
       - name: Step 4 documentary evaluation and compliance loop
         run: |
           php tests/step4_documentary_evaluation_test.php
