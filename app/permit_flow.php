@@ -322,6 +322,65 @@ function permit_flow_missing_artifacts(int $id,int $step): array
     return $missing;
 }
 
+/**
+ * Format the exact stored daily visits into maximal consecutive date blocks.
+ * Only adjacent days with identical hours are collapsed; distinct hours and
+ * date gaps remain explicit. This is presentation-only: the saved daily JSON
+ * and timestamps retain every date/time and the audit history is unchanged.
+ */
+function permit_flow_daily_schedule_summary(array $daily): string
+{
+    if (!$daily) return '';
+    $visits=[];
+    foreach ($daily as $date=>$times) {
+        if (!is_string($date) || !is_array($times)) return '';
+        $day=DateTimeImmutable::createFromFormat('!Y-m-d',$date);
+        $startRaw=(string)($times['start']??'');
+        $endRaw=(string)($times['end']??'');
+        $start=DateTimeImmutable::createFromFormat('!H:i',$startRaw);
+        $end=DateTimeImmutable::createFromFormat('!H:i',$endRaw);
+        if (!$day || $day->format('Y-m-d')!==$date
+            || !$start || $start->format('H:i')!==$startRaw
+            || !$end || $end->format('H:i')!==$endRaw || $end<=$start) return '';
+        $visits[$date]=['day'=>$day,'start'=>$start,'end'=>$end];
+    }
+    ksort($visits,SORT_STRING);
+    $groups=[];
+    foreach ($visits as $date=>$visit) {
+        $last=count($groups)-1;
+        if ($last>=0
+            && $groups[$last]['last']->modify('+1 day')->format('Y-m-d')===$date
+            && $groups[$last]['start']->format('H:i')===$visit['start']->format('H:i')
+            && $groups[$last]['end']->format('H:i')===$visit['end']->format('H:i')) {
+            $groups[$last]['last']=$visit['day'];
+            $groups[$last]['days']++;
+        } else {
+            $groups[]=[
+                'first'=>$visit['day'],'last'=>$visit['day'],
+                'start'=>$visit['start'],'end'=>$visit['end'],'days'=>1
+            ];
+        }
+    }
+    $result=[];
+    foreach ($groups as $group) {
+        $first=$group['first'];
+        $last=$group['last'];
+        if ($group['days']===1) {
+            $dates=$first->format('F j, Y');
+        } elseif ($first->format('Y-m')===$last->format('Y-m')) {
+            $dates=$first->format('F j').'–'.$last->format('j, Y');
+        } elseif ($first->format('Y')===$last->format('Y')) {
+            $dates=$first->format('F j').'–'.$last->format('F j, Y');
+        } else {
+            $dates=$first->format('F j, Y').'–'.$last->format('F j, Y');
+        }
+        $result[]=$dates.', from '.$group['start']->format('g:i A')
+            .' to '.$group['end']->format('g:i A')
+            .($group['days']>1?' daily':'');
+    }
+    return implode('; ',$result);
+}
+
 /** LPDD-FUS records and immediately communicates the Step 4 field schedule. */
 function permit_flow_communicate_schedule(array $staff,int $id,array $input): array
 {
@@ -364,12 +423,8 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
     if ((new DateTimeImmutable($schedule))->getTimestamp()<=time()) {
         return ['Field validation/assessment must start in the future.'];
     }
-    $dailyDisplay=[];
-    foreach ($daily as $date=>$row) {
-        $dailyDisplay[]=date('F j, Y',strtotime($date)).' '.date('g:i A',strtotime($row['start']))
-            .' – '.date('g:i A',strtotime($row['end']));
-    }
-    $display=implode('; ',$dailyDisplay);
+    $display=permit_flow_daily_schedule_summary($daily);
+    if ($display==='') return ['Unable to format the selected field validation dates and times.'];
     if (mb_strlen($location)<5 || mb_strlen($location)>300) {
         return ['Provide the field validation venue/location (5–300 characters).'];
     }
@@ -430,8 +485,8 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
 
         $office=trim((string)($app['concerned_cenro']??''));
         if ($office==='') $office=trim((string)($app['concerned_penro']??''));
-        $remarks='Field validation/assessment scheduled: '.$display
-            .' at '.$location.'. Concerned office: '.($office!==''?$office:'Field office')
+        $remarks='Field validation/assessment scheduled for '.$display
+            .'. Venue: '.$location.'. Concerned office: .($office!==''?$office:'Field office')
             .'. Coordination details: '.$notes;
         permit_flow_record_event(
             $pdo,$id,4,$staff,
@@ -448,8 +503,8 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
 
     $office=trim((string)($app['concerned_cenro']??''));
     if ($office==='') $office=trim((string)($app['concerned_penro']??''));
-    $message='FP application #'.$id.' field validation/assessment is scheduled: '
-        .$display.' at '.$location.'. '.$notes;
+    $message='FP application #'.$id.' field validation/assessment is scheduled for '
+        .$display.'. Venue: '.$location.'. '.$notes;
     try {
         if ($memoRefreshed) notify_role('red','Updated Template No. 3 – FP #'.$id,
             'The field validation schedule changed. Download the updated memorandum before signing.',
