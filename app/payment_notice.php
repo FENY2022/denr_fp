@@ -605,6 +605,7 @@ function fpoms_payment_notice_queue_view(array $red): void
                 .'</form>';
         }
         if (!$signed && !$pnpkiLink && $pnpkiReady && $pnpkiAuth) {
+            if (!$pnpkiPending) $html.=pnpki_agent_controls_html($red,$id,'payment_notice');
             if ($pnpkiPending) {
                 $html.='<form class="mt-3 border-top pt-3" method="post" action="'
                     .e(url('payment_notice_pnpki_retry',['id'=>$id])).'">'
