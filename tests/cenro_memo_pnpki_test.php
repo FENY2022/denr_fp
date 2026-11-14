@@ -48,5 +48,7 @@ memo_assert(str_starts_with($pdf,'%PDF-')
     && str_contains($pdf,'MA. THERESA J. ALLEN')
     && str_contains($pdf,'LNM LUMBER')
     && str_contains($pdf,'CENRO')
-    && str_contains($pdf,'%%EOF'), 'Template No. 3 generates an A4 signable PDF');
+    && str_contains($pdf,'%%EOF')
+    && str_contains($pdf,'/MediaBox [0 0 612 936]')
+    && str_contains($pdf,'Template No.3'), 'Template No. 3 generates an 8.5 x 13 inch signable memorandum PDF');
 echo "PASS: Template No. 3 PDF and PNPKI_2 Records release contracts.\n";
