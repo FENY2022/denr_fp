@@ -16,7 +16,7 @@ LPDD-FUS verifies Cashier Official Receipt and awaits official RED-signed Templa
 
 ## Memo signing
 
-LPDD-FUS selects Request RED PNPKI Signature instead of existing manual upload. An immutable clean Template No. 3 PDF is created from application details. RED reviews, downloads a clean copy, signs locally with the RED PNPKI certificate, and uploads the signed PDF in FP-OMS. Existing RED PNPKI_2 account authorization is reused.
+LPDD-FUS selects Request RED PNPKI Signature instead of existing manual upload. An immutable clean 8.5 x 13 inch Template No. 3 PDF is created from application details and follows the official one-page memorandum header, TO, ATT'N, FROM, SUBJECT, DATE, instructions and signatory. RED can authorize PNPKI_2 directly from the memorandum card and is returned to the same application after authorization. RED reviews, downloads a clean copy, signs locally with the RED PNPKI certificate, and uploads the signed PDF in FP-OMS. Existing RED PNPKI_2 account authorization is reused.
 
 FP-OMS securely submits the PDF to PNPKI_2 Records. Records uploads its final signed-for-release PDF and performs official release. Only then does FP-OMS retrieve that PDF, store it encrypted under the cenro_memo document category, and notify LPDD-FUS/PENRO/CENRO. Complete Step 4 & Forward is blocked until release; manual upload cannot bypass a pending RED signing request. Existing manual upload remains available when no PNPKI request exists.
 
