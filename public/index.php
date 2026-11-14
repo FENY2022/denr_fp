@@ -855,6 +855,7 @@ try {
             if (!$post) show_error('PNPKI account authorization requires POST.',405);
             $red=require_role('red');
             check_csrf();
+            unset($_SESSION['pnpki_authorize_return_memo_id']);
             try {
                 $target=pnpki_authorize_url($red);
                 header('Referrer-Policy: no-referrer');
@@ -880,11 +881,17 @@ try {
         case 'pnpki_authorized':
             if ($post) show_error('PNPKI account callback requires GET.',405);
             $red=require_role('red');
+            $returnMemoId=(int)($_SESSION['pnpki_authorize_return_memo_id']??0);
+            unset($_SESSION['pnpki_authorize_return_memo_id']);
             $errors=pnpki_finish_authorization($red,
                 (string)($_GET['code']??''),(string)($_GET['state']??''));
             if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
             else flash('success','Your PNPKI_2 RED account is authorized and connected to FP-OMS. '
                 .'You can upload a digitally signed Template No. 2 in FP-OMS.');
+            if ($returnMemoId>0 && cenro_memo_active_case($returnMemoId)
+                && cenro_memo_record($returnMemoId,(int)(step2_application($returnMemoId)['revision']??0))) {
+                go('permit_flow',['id'=>$returnMemoId]);
+            }
             go('payment_notice_queue');
             break;
         case 'payment_notice_pnpki_upload':
@@ -1175,7 +1182,23 @@ try {
                 ['options'=>['min_range'=>1]]);
             if (!$id || !permit_flow_staff_can_view($staff)) show_error('Unauthorized memorandum request.',403);
             $action=safe_post('action',20);
-            if ($action==='request') {
+            if ($action==='authorize') {
+                if (!pnpki_authorized_red($staff)) show_error('RED account required.',403);
+                $app=step2_application((int)$id);
+                if (!$app || !cenro_memo_record((int)$id,(int)$app['revision'])) {
+                    show_error('Request the CENRO memorandum before authorization.',400);
+                }
+                try {
+                    $target=pnpki_authorize_url($staff);
+                    $_SESSION['pnpki_authorize_return_memo_id']=(int)$id;
+                    header('Referrer-Policy: no-referrer');
+                    header('Location: '.$target,true,303);
+                    exit;
+                } catch(Throwable $e) {
+                    $errors=['Unable to authorize PNPKI_2. Confirm RED account and integration setup.'];
+                }
+                $notice='';
+            } elseif ($action==='request') {
                 $errors=cenro_memo_start($staff,(int)$id);
                 $notice='Template No. 3 prepared and sent to the RED PNPKI signing queue.';
             } elseif ($action==='upload') {
