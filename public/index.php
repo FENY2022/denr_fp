@@ -1159,6 +1159,55 @@ try {
                 go('permit_step4_queue',['tab'=>$decision==='complete'?'complete':'returned']);
             }
             break;
+        case 'permit_cenro_memo_pdf':
+            if ($post) show_error('Template No. 3 PDF view requires GET.',405);
+            $staff=require_user();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id) show_error('Invalid memorandum reference.',400);
+            cenro_memo_preview($staff,(int)$id,(string)($_GET['print_for_signing']??'')==='1');
+            break;
+        case 'permit_cenro_memo':
+            if (!$post) show_error('Template No. 3 signing actions require POST.',405);
+            $staff=require_user();
+            check_csrf();
+            $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+                ['options'=>['min_range'=>1]]);
+            if (!$id || !permit_flow_staff_can_view($staff)) show_error('Unauthorized memorandum request.',403);
+            $action=safe_post('action',20);
+            if ($action==='request') {
+                $errors=cenro_memo_start($staff,(int)$id);
+                $notice='Template No. 3 prepared and sent to the RED PNPKI signing queue.';
+            } elseif ($action==='upload') {
+                $errors=cenro_memo_upload($staff,(int)$id,$_FILES['signed_pdf']??[]);
+                $notice='RED-signed Template No. 3 uploaded and forwarded to PNPKI_2 Records.';
+            } elseif ($action==='retry') {
+                $errors=cenro_memo_submit($staff,(int)$id);
+                $notice='Saved signed memorandum submitted to PNPKI_2 Records.';
+            } elseif ($action==='check') {
+                $errors=cenro_memo_reconcile((int)$id);
+                $current=step2_application((int)$id);
+                $ready=$current && cenro_memo_is_released((int)$id,(int)$current['revision']);
+                $notice=$ready
+                    ? 'RED-signed Template No. 3 was officially released by PNPKI_2 Records and is now available.'
+                    : 'PNPKI_2 status synchronized. Records release is still pending.';
+            } elseif ($action==='open') {
+                try {
+                    $target=cenro_memo_sso_url($staff,(int)$id);
+                    header('Referrer-Policy: no-referrer');
+                    header('Location: '.$target,true,303);
+                    exit;
+                } catch(Throwable $e) {
+                    $errors=['PNPKI_2 auto-login unavailable. Reauthorize the RED account and retry.'];
+                }
+                $notice='';
+            } else {
+                show_error('Invalid Template No. 3 action.',400);
+            }
+            if ($errors) flash('error',implode(' ',array_map('strval',$errors)));
+            else flash('success',$notice);
+            go('permit_flow',['id'=>(int)$id]);
+            break;
         case 'permit_flow':
             if ($post) show_error('Workflow view requires GET.',405);
             $id=filter_var($_GET['id'] ?? null,FILTER_VALIDATE_INT,
