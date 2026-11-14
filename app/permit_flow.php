@@ -64,7 +64,8 @@ function permit_flow_schedule_schema_ready(): bool
     if ($ready!==null) return $ready;
     try {
         db()->query('SELECT field_validation_location,field_schedule_notes,
-            field_schedule_communicated_at,field_schedule_communicated_by
+            field_schedule_communicated_at,field_schedule_communicated_by,
+            field_validation_schedule_end
             FROM permit_flow_cases LIMIT 0');
         return $ready=true;
     } catch (Throwable $e) {
@@ -74,7 +75,7 @@ function permit_flow_schedule_schema_ready(): bool
 function permit_flow_schedule_details(int $id): ?array
 {
     if ($id<1 || !permit_flow_schedule_schema_ready()) return null;
-    return query_one('SELECT c.field_validation_schedule,c.field_validation_location,
+    return query_one('SELECT c.field_validation_schedule,c.field_validation_schedule_end,c.field_validation_location,
             c.field_schedule_notes,c.field_schedule_communicated_at,
             c.field_schedule_communicated_by,u.name AS communicator_name
         FROM permit_flow_cases c
@@ -335,12 +336,20 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
     if (($input['schedule_reviewed']??'')!=='yes') {
         return ['Review and confirm the schedule before communicating it.'];
     }
-    $schedule=step4_parse_schedule(trim((string)($input['field_validation_schedule']??'')));
+    $fromDate=trim((string)($input['field_validation_from_date']??''));
+    $fromTime=trim((string)($input['field_validation_from_time']??''));
+    $toDate=trim((string)($input['field_validation_to_date']??''));
+    $toTime=trim((string)($input['field_validation_to_time']??''));
+    $schedule=step4_parse_schedule($fromDate.'T'.$fromTime);
+    $end=step4_parse_schedule($toDate.'T'.$toTime);
     $location=trim((string)($input['field_validation_location']??''));
     $notes=trim((string)($input['field_schedule_notes']??''));
-    if (!$schedule) return ['Set a valid field validation/assessment date and time.'];
+    if (!$schedule || !$end) return ['Set valid From and To dates and times.'];
     if ((new DateTimeImmutable($schedule))->getTimestamp()<=time()) {
-        return ['Field validation/assessment must be scheduled for a future date and time.'];
+        return ['Field validation/assessment must start in the future.'];
+    }
+    if ((new DateTimeImmutable($end))->getTimestamp()<=(new DateTimeImmutable($schedule))->getTimestamp()) {
+        return ['To date and time must be later than From date and time.'];
     }
     if (mb_strlen($location)<5 || mb_strlen($location)>300) {
         return ['Provide the field validation venue/location (5–300 characters).'];
@@ -374,13 +383,13 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
         }
         $wasCommunicated=!empty($case['field_schedule_communicated_at']);
         $pdo->prepare('UPDATE permit_flow_cases
-            SET field_validation_schedule=?,field_validation_location=?,field_schedule_notes=?,
+            SET field_validation_schedule=?,field_validation_schedule_end=?,field_validation_location=?,field_schedule_notes=?,
                 field_schedule_communicated_at=NOW(),field_schedule_communicated_by=?
             WHERE application_id=?')
-            ->execute([$schedule,$location,$notes,(int)$staff['id'],$id]);
+            ->execute([$schedule,$end,$location,$notes,(int)$staff['id'],$id]);
         $office=trim((string)($app['concerned_cenro']??''));
         if ($office==='') $office=trim((string)($app['concerned_penro']??''));
-        $remarks='Field validation/assessment scheduled for '.$schedule
+        $remarks='Field validation/assessment scheduled from '.$schedule.' to '.$end
             .' at '.$location.'. Concerned office: '.($office!==''?$office:'Field office')
             .'. Coordination details: '.$notes;
         permit_flow_record_event(
@@ -395,10 +404,10 @@ function permit_flow_communicate_schedule(array $staff,int $id,array $input): ar
         return ['Field schedule could not be saved. Check migration 039 and try again.'];
     }
 
-    $display=fpoms_display_datetime($schedule);
+    $display=fpoms_display_datetime($schedule).' to '.fpoms_display_datetime($end);
     $office=trim((string)($app['concerned_cenro']??''));
     if ($office==='') $office=trim((string)($app['concerned_penro']??''));
-    $message='FP application #'.$id.' field validation/assessment is scheduled on '
+    $message='FP application #'.$id.' field validation/assessment is scheduled from '
         .$display.' at '.$location.'. '.$notes;
     try {
         create_client_notification(
