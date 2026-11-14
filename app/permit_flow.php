@@ -468,6 +468,13 @@ function permit_flow_advance(array $staff,int $id,int $step,array $input): array
             && !cenro_memo_is_released($id,(int)$current['revision'])) {
             return ['RED must PNPKI-sign Template No. 3 and Records must release it before forwarding to CENRO.'];
         }
+        // The actual RED-signed Template No. 3 is authoritative when PNPKI was chosen.
+        // Do not require a second editable memorandum text that could contradict it.
+        if (cenro_memo_is_released($id,(int)($current['revision']??0))) {
+            $instructions='Conduct field validation and assessment and submit the assessment report, '
+                .'indicative map, technical description and shapefile in accordance with the '
+                .'RED-signed Template No. 3 memorandum released by Records.';
+        }
         if (strlen($instructions)<10 || strlen($instructions)>3000) {
             return ['Provide CENRO memo instructions (10–3,000 characters).'];
         }
