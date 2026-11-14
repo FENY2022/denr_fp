@@ -116,7 +116,7 @@ function pnpki_pending_signed_upload(int $id,int $revision): ?array
     return query_one('SELECT * FROM fpoms_pnpki_signed_uploads
         WHERE application_id=? AND revision=?',[$id,$revision]);
 }
-function pnpki_upload_signed_pdf(array $red,int $id,array $upload): array
+function pnpki_upload_signed_pdf(array $red,int $id,array $upload,?string $agentBytes=null): array
 {
     if (!pnpki_authorized_red($red)) return ['RED authorization required.'];
     if (!pnpki_authorized_upload_ready()) return ['Apply database migrations 041 and 042 first.'];
@@ -137,17 +137,17 @@ function pnpki_upload_signed_pdf(array $red,int $id,array $upload): array
     if ($existing && (int)$existing['uploaded_by']!==(int)$red['id']) {
         return ['Only the original RED uploader may replace a pending signed PDF.'];
     }
-    if ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
-        || !is_uploaded_file((string)($upload['tmp_name']??''))) {
+    if ($agentBytes===null && ((int)($upload['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK
+        || !is_uploaded_file((string)($upload['tmp_name']??'')))) {
         return ['Select the PNPKI-digitally-signed PDF first.'];
     }
-    $size=(int)($upload['size']??0);
-    $name=(string)($upload['name']??'');
+    $size=$agentBytes!==null?strlen($agentBytes):(int)($upload['size']??0);
+    $name=$agentBytes!==null?'PNPKI_Desktop_Signed_Template_No_2.pdf':(string)($upload['name']??'');
     if ($size<100 || $size>10485760 || strlen($name)>220
         || strtolower(pathinfo($name,PATHINFO_EXTENSION))!=='pdf') {
         return ['Valid PDF only, up to 10 MB.'];
     }
-    $raw=file_get_contents((string)$upload['tmp_name']);
+    $raw=$agentBytes??file_get_contents((string)$upload['tmp_name']);
     $mime=is_string($raw)?(new finfo(FILEINFO_MIME_TYPE))->buffer($raw):'';
     if (!is_string($raw) || strlen($raw)!==$size
         || !str_starts_with($raw,'%PDF-')
