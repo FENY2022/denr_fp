@@ -96,7 +96,8 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                 if ($location==='') $location=trim((string)($app['project_location']??''));
                 $scheduleNotes=(string)($case['field_schedule_notes']??'');
                 $alreadyCommunicated=!empty($case['field_schedule_communicated_at']);
-                $html.='<div class="border rounded-3 p-3 mb-3 bg-body">'
+                $html.='<div class="border rounded-3 p-3 mb-3 bg-body" '
+                    .'id="field-validation-schedule-form" data-field-validation-schedule-form>'
                     .'<h4 class="h6">'.($alreadyCommunicated?'Update &amp; Re-communicate':'Provide &amp; Communicate')
                     .' Field Validation Schedule</h4>'
                     .'<p class="small text-secondary">This immediately records the schedule and sends '
@@ -139,8 +140,8 @@ function permit_flow_stage_form_html(array $app,array $user,array $case,array $e
                     .'value="communicate_schedule"><i class="bi bi-send me-1"></i>'
                     .($alreadyCommunicated?'Update &amp; Re-communicate Schedule':'Save &amp; Communicate Schedule')
                     .'</button></form></div>'
-                    .'<link rel="stylesheet" href="assets/field-validation-range.css?v=1">'
-                    .'<script src="assets/field-validation-range.js?v=6" defer></script>';;
+                    .'<link rel="stylesheet" href="assets/field-validation-range.css?v=2">'
+                    .'<script src="assets/field-validation-range.js?v=7" defer></script>';;
             }
         }
     } elseif ($step===5) {

@@ -42,6 +42,8 @@ memo_assert(str_contains($memo,'data-bs-toggle="modal" data-bs-target="#')
     && str_contains($memo,'The request action will recheck these requirements')
     && str_contains($memo,'toast show border-warning')
     && str_contains($memo,'data-bs-dismiss="toast"')
+    && str_contains($memo,'data-scroll-target="field-validation-schedule-form"')
+    && str_contains($memo,'data-scroll-to-prerequisite')
     && str_contains($memo,'Request RED PNPKI Signature</button></form>'),
     'official preview stays in a modal and actionable PNPKI prerequisites appear as a toast');
 $sample=[

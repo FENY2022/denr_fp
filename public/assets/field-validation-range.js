@@ -115,4 +115,22 @@ document.addEventListener('DOMContentLoaded', () => {
     [fromTime,toTime].filter(Boolean).forEach(input=>input.addEventListener('change',validate));
     sync();draw();
   });
+
+  const prerequisite=document.querySelector(
+    '[data-cenro-memo-prerequisite][data-scroll-target]'
+  );
+  const targetId=prerequisite?.dataset.scrollTarget||'';
+  const target=targetId?document.getElementById(targetId):null;
+  if(prerequisite&&target){
+    const scrollToTarget=()=>{
+      target.classList.add('fp-schedule-prerequisite-highlight');
+      target.scrollIntoView({
+        behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',
+        block:'center'
+      });
+    };
+    prerequisite.querySelector('[data-scroll-to-prerequisite]')
+      ?.addEventListener('click',scrollToTarget);
+    window.setTimeout(scrollToTarget,180);
+  }
 });

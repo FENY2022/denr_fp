@@ -349,6 +349,7 @@ function cenro_memo_panel_html(array $app,array $user): string
     if (!$memo) {
         if ($canAct) {
             $requestIssues=[];
+            $scheduleMissing=!permit_flow_schedule_communicated($id);
             if (!pnpki_bridge_configured() || !pnpki_authorized_upload_ready()) {
                 $requestIssues[]='PNPKI_2 integration must be configured and available';
             }
@@ -358,13 +359,14 @@ function cenro_memo_panel_html(array $app,array $user): string
             if (!permit_payment_is_verified($id)) {
                 $requestIssues[]='Cashier Official Receipt must be verified';
             }
-            if (!permit_flow_schedule_communicated($id)) {
+            if ($scheduleMissing) {
                 $requestIssues[]='field-validation schedule must be saved and communicated';
             }
             if ($requestIssues) {
                 $html.='<div class="toast-container position-fixed top-0 end-0 p-3 mt-5">'
                     .'<div class="toast show border-warning" role="alert" aria-live="assertive" '
-                    .'aria-atomic="true" data-bs-autohide="false">'
+                    .'aria-atomic="true" data-bs-autohide="false" data-cenro-memo-prerequisite'
+                    .($scheduleMissing?' data-scroll-target="field-validation-schedule-form"':'').'>'
                     .'<div class="toast-header text-bg-warning">'
                     .'<i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>'
                     .'<strong class="me-auto">RED PNPKI prerequisite</strong>'
@@ -372,6 +374,9 @@ function cenro_memo_panel_html(array $app,array $user): string
                     .'aria-label="Close notification"></button></div>'
                     .'<div class="toast-body"><strong>Before requesting RED PNPKI:</strong> '
                     .e(implode('; ',$requestIssues)).'. The request action will recheck these requirements.'
+                    .($scheduleMissing?'<div><button type="button" class="btn btn-warning btn-sm mt-2" '
+                        .'data-scroll-to-prerequisite><i class="bi bi-arrow-down-circle me-1" aria-hidden="true"></i>'
+                        .'Go to Schedule Form</button></div>':'')
                     .'</div></div></div>';
             }
             $html.='<form method="post" action="'.e(url('permit_cenro_memo',['id'=>$id])).'">'

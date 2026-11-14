@@ -20,6 +20,7 @@ $router=schedule_source('public/index.php');
 $migration=schedule_source('database/039_field_validation_schedule_communication.sql');
 $rangeMigration=schedule_source('database/043_field_validation_schedule_range.sql');
 $picker=schedule_source('public/assets/field-validation-range.js');
+$pickerCss=schedule_source('public/assets/field-validation-range.css');
 schedule_assert(str_contains($rangeMigration,'field_validation_schedule_end')
     && str_contains($flow,'field_validation_schedule_end')
     && str_contains($flow,"\$end=step4_parse_schedule")
@@ -32,9 +33,14 @@ schedule_assert(str_contains($rangeMigration,'field_validation_schedule_end')
     && str_contains($views,'data-fp-flight-calendar')
     && !str_contains($views,'data-fp-flight-open')
     && str_contains($views,'data-fp-flight-popover></div>')
+    && str_contains($views,'id="field-validation-schedule-form"')
     && str_contains($views,'type="hidden" name="field_validation_from_date"')
     && str_contains($views,'type="hidden" name="field_validation_to_date"'),
     'From/To calendar is always visible and displays inclusive days');
+schedule_assert(str_contains($picker,'scrollIntoView({')
+    && str_contains($picker,"target.classList.add('fp-schedule-prerequisite-highlight')")
+    && str_contains($pickerCss,'.fp-schedule-prerequisite-highlight{'),
+    'missing PNPKI schedule prerequisite scrolls to and highlights the schedule form');
 
 schedule_assert(str_contains($migration,'field_validation_location')
     && str_contains($migration,'field_schedule_notes')
