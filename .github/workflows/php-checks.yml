@@ -42,6 +42,7 @@ jobs:
           php tests/annex1_project_types_test.php
           php tests/annex_a_updated_workflow_test.php
           php tests/field_validation_schedule_test.php
+          php tests/field_validation_schedule_compact_test.php
           php tests/cenro_memo_pnpki_test.php
           node --check public/assets/field-validation-range.js
           php tests/lpdd_fus_payment_verification_test.php
