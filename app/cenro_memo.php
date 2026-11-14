@@ -418,6 +418,7 @@ function cenro_memo_panel_html(array $app,array $user): string
             .'LPDD-FUS may now complete Step 4 when the other requirements are satisfied.</p></section>';
     }
     if ($isRed && $memo['stage']==='pending_red') {
+        $html.=pnpki_agent_controls_html($user,$id,'cenro_memo');
         $html.='<a class="btn btn-outline-primary btn-sm mb-3" href="'
             .e(url('permit_cenro_memo_pdf',['id'=>$id,'print_for_signing'=>1]))
             .'" download><i class="bi bi-download me-1"></i>Download Clean Template No. 3 for PNPKI Signing</a>';
