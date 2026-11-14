@@ -352,9 +352,12 @@ function cenro_memo_panel_html(array $app,array $user): string
             .e(url('permit_cenro_memo_pdf',['id'=>$id,'print_for_signing'=>1]))
             .'"><i class="bi bi-download me-1"></i>Download Clean Template No. 3 for PNPKI Signing</a>';
         if (!pnpki_authorization_for((int)$user['id'])) {
-            $html.='<div class="alert alert-warning small">Authorize your RED account first under '
-                .'<a href="'.e(url('payment_notice_queue')).'">PNPKI_2 RED Template No. 2 queue</a>.'
-                .' The same authorization works for Template No. 3.</div>';
+            $html.='<div class="alert alert-warning small">Connect your RED PNPKI_2 account '
+                .'to sign this memorandum. Your PNPKI password and private key remain outside FP-OMS.</div>'
+                .'<form method="post" action="'.e(url('permit_cenro_memo',['id'=>$id])).'">'
+                .csrf_field().'<input type="hidden" name="action" value="authorize">'
+                .'<button class="btn btn-outline-primary btn-sm" type="submit">'
+                .'Authorize PNPKI_2 RED Account</button></form>';
         } else {
             $html.='<form method="post" enctype="multipart/form-data" class="mb-3" '
                 .'action="'.e(url('permit_cenro_memo',['id'=>$id])).'">'
