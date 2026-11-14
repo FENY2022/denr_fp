@@ -66,19 +66,13 @@ function cenro_memo_with_schedule(array $app): array
     $schedule=permit_flow_schedule_details((int)$app['id']);
     if (!$schedule) return $app;
     $daily=json_decode((string)($schedule['field_validation_daily_times']??''),true);
-    $lines=[];
-    if (is_array($daily) && $daily) {
-        foreach ($daily as $date=>$times) {
-            $lines[]=date('F j, Y',strtotime((string)$date)).' '
-                .date('g:i A',strtotime((string)$times['start'])).' to '
-                .date('g:i A',strtotime((string)$times['end']));
-        }
-    } else {
-        $lines[]=fpoms_display_datetime((string)$schedule['field_validation_schedule'])
+    $summary=is_array($daily)?permit_flow_daily_schedule_summary($daily):'';
+    if ($summary==='') {
+        $summary=fpoms_display_datetime((string)$schedule['field_validation_schedule'])
             .(!empty($schedule['field_validation_schedule_end'])
                 ? ' to '.fpoms_display_datetime((string)$schedule['field_validation_schedule_end']) : '');
     }
-    $app['_field_schedule']=implode('; ',$lines);
+    $app['_field_schedule']=$summary;
     $app['_field_venue']=(string)$schedule['field_validation_location'];
     return $app;
 }
